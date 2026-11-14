@@ -769,7 +769,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.66.2";
+var VERSION="4.67.0";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   var val=JSON.stringify(v);
@@ -10968,6 +10968,128 @@ function errShow(msg){
 }
 window.onerror=function(msg,src,line){ errShow(msg+" @"+line); return false; };
 window.addEventListener("unhandledrejection",function(ev){ errShow("promesa: "+(ev.reason&&ev.reason.message||ev.reason)); });
+/* ================= TELEMETRÍA (4.67.0) =================
+   Envía el progreso de quien juega a TU servidor (PocketBase, POST /tele). Nada de esto toca la lógica del juego:
+   envuelve funciones existentes (guardar, irSec, modal, elegirOpcion, finTemporada, empezarCarrera) y, si algo falla, calla.
+   · TELE_URL vacío (o localStorage «lap1-tele-off»=1) → desactivada: no se hace NINGUNA petición de red y no se guarda cola.
+   · Identidad: un id aleatorio por navegador (lap1-tele-id). Sin email, sin IP guardada, sin cookies.
+   · Cola persistente en localStorage (se reintenta si no hay red); un 4xx tira el lote, un 5xx/red lo conserva con espera creciente.
+   · Qué manda: contexto (versión, navegador, pantalla, idioma, zona horaria), resumen de carrera, eventos (carrera, partido, decisión,
+     pantalla, modal, traspaso, ascenso/descenso, lesión, nivel, fin de temporada, errores) y la partida completa (cada ≥3 min si cambió). */
+var TELE_URL="";   /* p. ej. "https://pb.midominio.com" */
+var TELE_KEY="";   /* la misma que TELE_KEY del servidor */
+var TELE=(function(){
+  var KQ=NS+"tele-q", KID=NS+"tele-id", T0=Date.now(), LOAD=Math.round(performance.now()), q=[], act=0, lastAct=Date.now(), snapAt=0, snapDirty=false,
+      busy=false, dead=false, fails=0, nextTry=0, lastSend=0, errN=0, seenErr={}, prevRef=null, prev=null, nSent=0;
+  function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+  function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+  function url(){ if(lsGet(NS+"tele-off")==="1") return ""; return String(lsGet(NS+"tele-url")||TELE_URL||"").replace(/\/+$/,""); }
+  function llave(){ return lsGet(NS+"tele-key")||TELE_KEY; }
+  function rid(n){ var a="abcdefghijklmnopqrstuvwxyz0123456789", s="", u, i; try{ u=new Uint8Array(n); crypto.getRandomValues(u); for(i=0;i<n;i++) s+=a[u[i]%36]; }catch(e){ for(i=0;i<n;i++) s+=a[Math.floor(Math.random()*36)]; } return s; }
+  var install=lsGet(KID); if(!install){ install="i"+rid(15); lsSet(KID,install); }
+  var sid="s"+rid(11);
+  try{ var g=JSON.parse(lsGet(KQ)||"[]"); if(Array.isArray(g)) q=g.slice(-400); }catch(e){}
+  function guardaCola(){ if(!url()) return; lsSet(KQ, JSON.stringify(q.slice(-400))); }
+  function num(v,d){ v=Number(v); return isFinite(v)? Math.round(v*(d||1))/(d||1) : null; }
+  function resumen(){
+    if(typeof S==="undefined" || !S) return null;
+    var y=S.yo||{}, r={};
+    try{ r={ nombre:S.nombre, pos:S.pos, rol:S.rol, edad:S.edad, club:S.equipo, club_n:(EQ[S.equipo]&&EQ[S.equipo].c)||null, division:S.division, temporada:S.temporada, jornada:S.jornada,
+      nivel:S.nivel, xp:S.xp, fama:S.fama, dinero:S.dinero, potencial:S.potencial, mister:S.mister, moral:S.moral, lesion:S.lesion, sancion:S.sancion,
+      pj:y.pj, min:y.min, g:y.g, a:y.a, ta:y.ta, tr:y.tr, nota:(y.notaN? num(y.notaSum/y.notaN,100):null), car:S.car }; }catch(e){}
+    return r;
+  }
+  function ctx(){
+    var c={ ver:VERSION, start_t:T0, active_s:act, ua:String(navigator.userAgent||"").slice(0,200), scr:(screen.width+"x"+screen.height+"@"+(window.devicePixelRatio||1)),
+      vp:innerWidth+"x"+innerHeight, lang:navigator.language||"", backend:ST_BACKEND, online:navigator.onLine, load_ms:LOAD };
+    try{ c.tz=Intl.DateTimeFormat().resolvedOptions().timeZone||""; }catch(e){}
+    try{ if(performance.memory) c.mem=Math.round(performance.memory.usedJSHeapSize/1048576); }catch(e){}
+    try{ if(S) c.saveKB=Math.round(JSON.stringify(S).length/1024); c.estado=resumen(); }catch(e){}
+    return c;
+  }
+  function ev(tipo,d){
+    if(!url()) return;
+    try{ q.push({t:Date.now(), tipo:String(tipo).slice(0,40), d:d||{}}); if(q.length>400) q.splice(0,q.length-400); guardaCola(); }catch(e){}
+  }
+  function flush(fin){
+    var u=url(); if(!u || dead || busy) return;
+    var ahora=Date.now(); if(ahora<nextTry) return;
+    if(!q.length && !fin && ahora-lastSend<55000) return;
+    var n=Math.min(q.length,150), tocaSnap = snapDirty && S && (fin || ahora-snapAt>180000);
+    var body, b={ k:llave(), install:install, sid:sid, ctx:ctx(), events:q.slice(0,n) };
+    if(tocaSnap){ b.snap=S; }
+    try{ body=JSON.stringify(b); }catch(e){ return; }
+    if(tocaSnap && body.length>4800000){ delete b.snap; tocaSnap=false; body=JSON.stringify(b); }
+    busy=true; lastSend=ahora;
+    var fin2=function(ok,status){
+      busy=false;
+      if(ok){ fails=0; q.splice(0,n); nSent+=n; if(tocaSnap){ snapDirty=false; snapAt=Date.now(); } guardaCola(); return; }
+      if(status>=400 && status<500){ if(status===403) dead=true; q.splice(0,n); guardaCola(); return; }   /* clave mala o petición inválida: reintentar no arregla nada */
+      fails++; nextTry=Date.now()+Math.min(300000, 15000*Math.pow(2,Math.min(fails,5)));
+    };
+    try{
+      fetch(u+"/tele",{method:"POST", headers:{"Content-Type":"application/json"}, body:body, keepalive: body.length<60000})
+        .then(function(r){ fin2(r.ok, r.status); }, function(){ fin2(false,0); });
+    }catch(e){ fin2(false,0); }
+  }
+  function err(msg,src,line,col,e){
+    var k=String(msg).slice(0,80)+"@"+line; if(seenErr[k] || errN>=25) return; seenErr[k]=1; errN++;
+    ev("error",{ msg:String(msg).slice(0,300), src:String(src||"").split("/").pop().slice(0,60), line:line, col:col, stack:String((e&&e.stack)||"").slice(0,700) });
+    flush(true);
+  }
+  /* —— cambios del estado, vistos en cada guardado (sin tocar ninguna función del juego) —— */
+  function proj(){
+    var y=S.yo||{};
+    return { temporada:S.temporada, jornada:S.jornada, equipo:S.equipo, division:S.division, nivel:S.nivel||0, lesion:S.lesion||0, sancion:S.sancion||0, edad:S.edad,
+      pj:y.pj||0, min:y.min||0, g:y.g||0, a:y.a||0, ta:y.ta||0, tr:y.tr||0, ns:y.notaSum||0, nn:y.notaN||0, hist:(S.hist||[]).length };
+  }
+  function alGuardar(){
+    if(!url() || typeof S==="undefined" || !S) return;
+    snapDirty=true;
+    var c=proj();
+    if(S!==prevRef){ ev("carrera",{motivo: prevRef? "cambio":"sesion", r:resumen()}); prevRef=S; prev=c; return; }
+    var p=prev; prev=c; if(!p) return;
+    if(c.temporada!==p.temporada){ ev("temporada_nueva",{de:p.temporada, a:c.temporada, pj:p.pj, g:p.g, asist:p.a, nota:(p.nn? num(p.ns/p.nn,100):null), div:c.division}); }
+    else if(c.jornada>p.jornada){
+      var h=(S.hist||[])[S.hist.length-1]||{}, dn=c.nn-p.nn;
+      ev("partido",{ t:c.temporada, j:c.jornada, rival:h.rival, casa:h.casa, sc:h.sc, sin:h.sinTi||null, div:c.division,
+        min:c.min-p.min, g:c.g-p.g, a:c.a-p.a, ta:c.ta-p.ta, tr:c.tr-p.tr, nota:(dn>0? num((c.ns-p.ns)/dn,100):null) });
+    }
+    if(c.equipo!==p.equipo) ev("club",{de:p.equipo, a:c.equipo, div:c.division, t:c.temporada});
+    if(c.division!==p.division) ev("division",{de:p.division, a:c.division, t:c.temporada});
+    if(c.lesion>0 && p.lesion===0) ev("lesion",{jornadas:c.lesion, t:c.temporada, j:c.jornada});
+    if(c.sancion>0 && p.sancion===0) ev("sancion",{jornadas:c.sancion, t:c.temporada, j:c.jornada});
+    if(c.nivel>p.nivel) ev("nivel",{de:p.nivel, a:c.nivel, edad:c.edad, t:c.temporada});
+  }
+  /* —— actividad y latido: solo cuenta tiempo con la pestaña visible y alguien tocando —— */
+  ["pointerdown","keydown","touchstart","wheel"].forEach(function(n){ try{ window.addEventListener(n,function(){ lastAct=Date.now(); },{passive:true}); }catch(e){} });
+  setInterval(function(){ try{ if(document.visibilityState==="visible" && Date.now()-lastAct<60000) act+=15; flush(false); }catch(e){} },15000);
+  document.addEventListener("visibilitychange",function(){ try{ if(document.visibilityState==="hidden") flush(true); }catch(e){} });
+  window.addEventListener("pagehide",function(){ try{ flush(true); }catch(e){} });
+  ev("sesion",{ref:(function(){ try{ return document.referrer? new URL(document.referrer).host : ""; }catch(e){ return ""; } })()});
+  setTimeout(function(){ try{ flush(false); }catch(e){} },2500);
+  return { ev:ev, flush:flush, alGuardar:alGuardar, err:err, resumen:resumen, install:install, sid:sid, cola:function(){ return q.length; }, enviados:function(){ return nSent; }, vivo:function(){ return !dead && !!url(); } };
+})();
+(function enganchar(){
+  function envolver(nombre,antes,despues){
+    var f=window[nombre]; if(typeof f!=="function") return;
+    window[nombre]=function(){ var a=arguments, ctx; try{ ctx=antes&&antes.apply(this,a); }catch(e){}
+      var r=f.apply(this,a); try{ if(despues) despues.call(this,ctx,a,r); }catch(e){} return r; };
+  }
+  envolver("guardar",null,function(){ TELE.alGuardar(); });
+  envolver("irSec",function(a){ return null; },function(c,a){ TELE.ev("pantalla",{k:a[0]}); });
+  envolver("modal",null,function(c,a){ var o=a[0]||{}; TELE.ev("modal",{t:String(o.t||"").slice(0,60)}); });
+  envolver("elegirOpcion",function(i){ if(!M||!M.sitAct||!M.sitAct.o||!M.sitAct.o[i]) return null; var s=M.sitAct, o=s.o[i];
+      return {s:s.id||null, i:i, l:String(o.l||"").slice(0,60), m:M.min, f:M.faseAct||null, sc:[M.sc[0],M.sc[1]]}; },
+    function(c){ if(c) TELE.ev("decision",c); });
+  envolver("finTemporada",function(){ var cl=clasificacion(); return {pos:miPosicion(), div:S.division, t:S.temporada, club:S.equipo, pts:(cl&&cl[0]&&cl[0].pts)||null}; },
+    function(c){ if(c) TELE.ev("fin_temporada",c); });
+  envolver("empezarCarrera",function(){ if(!PICK||!PICK.pos||!PICK.eq) return null; return {traspaso:!!PICK.traspaso, pos:PICK.pos, eq:PICK.eq}; },
+    function(c){ if(c) TELE.ev(c.traspaso? "traspaso_ui":"carrera_inicio",{pos:c.pos, eq:c.eq, r:TELE.resumen()}); });
+  var oe=window.onerror;
+  window.onerror=function(msg,src,line,col,e){ try{ TELE.err(msg,src,line,col,e); }catch(x){} return oe? oe.apply(this,arguments):false; };
+  window.addEventListener("unhandledrejection",function(ev){ try{ var r=ev.reason; TELE.err("promesa: "+((r&&r.message)||r),"",0,0,r); }catch(x){} });
+})();
 setTimeout(function(){
   try{
     var t=document.getElementById("scr-title");
