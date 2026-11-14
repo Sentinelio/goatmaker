@@ -1,6 +1,6 @@
 /// <reference path="../pb_data/types.d.ts" />
 // Goatmaker · telemetría, canje de códigos y reportes — POST /tele
-// Una sola puerta pública. Sin «op» es telemetría; op:"canje" canjea un código; op:"reporte" guarda un reporte del jugador.
+// Una sola puerta pública. Sin «op» es telemetría; op:"canje" canjea un código; op:"reporte" guarda un reporte del jugador; op:"contenido" entrega el paquete de contenido editable.
 // Un solo punto de entrada para los jugadores. Valida la clave, recorta tamaños y escribe en las colecciones tl_* (cerradas al público).
 // La clave: variable de entorno TELE_KEY o, si no existe, la primera línea del archivo pb_hooks/tele.key (cómodo en Windows).
 // Sin clave configurada, la ruta rechaza todo (503): no hay clave por defecto.
@@ -14,6 +14,22 @@ routerAdd("POST", "/tele", (e) => {
   if (String(b.k || "") !== KEY) return e.json(403, { ok: false, err: "clave" });
   const install = String(b.install || "").slice(0, 64), sid = String(b.sid || "").slice(0, 64);
   const op = String(b.op || "");
+  if (op === "contenido") {
+    // el juego pregunta qué contenido editable le toca. modo vivo = el borrador al momento (n = 1000000 + rev); modo publicado = la última versión (n = su número).
+    // have = lo que ya tiene; si coincide, same. Sin nada publicado devuelve n:0 y pack:null (el juego vuelve a su contenido de fábrica).
+    if (!/^[A-Za-z0-9_-]{8,64}$/.test(install)) return e.json(400, { ok: false, err: "id" });
+    try {
+      let modo = "publicado";
+      try { const c = $app.findFirstRecordByFilter("tl_cfg", "key = 'modo'"); const j = JSON.parse(c.getString("val")); if (j && j.m === "vivo") modo = "vivo"; } catch (_) {}
+      let rec = null, n = 0;
+      if (modo === "vivo") { try { rec = $app.findFirstRecordByFilter("tl_content", "kind = 'draft'"); n = 1000000 + (Number(rec.get("n")) || 0); } catch (_) { rec = null; } }
+      else { const l = $app.findRecordsByFilter("tl_content", "kind = 'ver'", "-n", 1, 0); if (l.length) { rec = l[0]; n = Number(rec.get("n")) || 0; } }
+      if (!rec) return e.json(200, { ok: true, n: 0, pack: null, modo: modo });
+      if (Number(b.have) === n) return e.json(200, { ok: true, n: n, same: true, modo: modo });
+      let pack = null; try { pack = JSON.parse(rec.getString("pack")); } catch (_) { pack = null; }
+      return e.json(200, { ok: true, n: n, pack: pack, modo: modo });
+    } catch (err) { return e.json(500, { ok: false, err: String(err).slice(0, 120) }); }
+  }
   if (op === "canje" || op === "reporte") {
     if (!/^[A-Za-z0-9_-]{8,64}$/.test(install)) return e.json(400, { ok: false, err: "id" });
     const ahora = Date.now();

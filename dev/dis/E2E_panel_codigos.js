@@ -106,7 +106,7 @@ const SEED = `(function(){var a=3*2654435761>>>0;Math.random=function(){a|=0;a=a
   ok(/dinero sale negativo/.test(t) && /elegir dorsal/.test(t) && /con partida/.test(t) && /Nuevo \(2\)/.test(t), 'R1 los dos reportes salen, uno con partida, y el filtro «Nuevo (2)"');
   await a.click('[data-ra=copiar] >> nth=0'); await a.waitForTimeout(700);
   const cp = await a.evaluate(() => navigator.clipboard.readText());
-  ok(/^\[Goatmaker · (idea|fallo) · versión 4\.68\.0\]/.test(cp) && /Jugador: .*Oviedo/.test(cp) && /Fecha:/.test(cp) && /elegir dorsal|dinero sale negativo/.test(cp), 'R2 «Copiar para Claude» deja un texto con tipo, versión, jugador, club, fecha y texto:\n' + cp);
+  ok(/^\[Goatmaker · (idea|fallo) · versión 4\.\d+\.\d+\]/.test(cp) && /Jugador: .*Oviedo/.test(cp) && /Fecha:/.test(cp) && /elegir dorsal|dinero sale negativo/.test(cp), 'R2 «Copiar para Claude» deja un texto con tipo, versión, jugador, club, fecha y texto:\n' + cp);
   t = await a.innerText('#main'); ok(/Nuevo \(1\)/.test(t) && /Visto \(1\)/.test(t), 'R3 al copiar, ese reporte pasa a «Visto» (' + (t.match(/(Nuevo|Visto) \(\d\)/g) || []).join(',') + ')');
   await a.click('[data-rf=estado][data-v=""]'); await a.waitForTimeout(250);
   const selId = await a.$eval('select[data-re] >> nth=0', s => s.dataset.re); await a.selectOption('select[data-re] >> nth=0', 'hecho'); await a.waitForTimeout(900);

@@ -1,6 +1,6 @@
 # LA PRIMERA · Mapa de sistemas
 
-**Versión 4.68.0** (Goatmaker; antes La Primera) · archivo único `la-primera.html` · ~10.200 líneas de JS · 585 funciones
+**Versión 4.69.0** (Goatmaker; antes La Primera) · archivo único `la-primera.html` · ~10.200 líneas de JS · 585 funciones
 *Este documento se mantiene actualizado en cada entrega.*
 
 ## Taller · pirámide y edades (`piramide.html`) — diseño en curso, el juego sigue en 4.67.0
@@ -37,6 +37,14 @@
 
 ## 4.52.1 — Motor de partido honesto (Tanda 1 del playtest)
 Once real (`elegirOnce`/`onceVivo`): goles y asistencias solo de titulares vivos; `goleadorDe` de TU equipo pondera el once, no la plantilla. Tarjetas al jugador por juego (`M.pTA`, 2ª amarilla = roja con `finAnticipado` nativo, sanción 2) y lesión propia en partido (`M.pLES`, Médica + baja). Las rojas por decisión ahora también sancionan. Flag `_castJor`: los castigos nacidos en el partido no se descuentan esa misma semana (bug "expulsados juegan el siguiente"). Minuto monotónico ≤90. Al entrar de suplente se nombra quién sale. Ofertas de mercado esperan al pitido final (`ofertaPend`) y hay un traspaso por temporada (`movClub`). Arnés determinista (PTA_H/PLES_H) en post.js.
+
+## 4.69.0 — contenido editable desde el panel · reloj de decisiones configurable
+**Petición de Manu**: poder cambiar desde el admin la cuenta atrás de las respuestas y editar el contenido del juego (talentos, objetos, entrenamientos, árbol de situaciones con respuestas y consecuencias), con una página que decida si se publica por versiones o en vivo.
+**Juego** (`CONT`, `RELOJ`, `msReloj`, `CONT_R`, `contAplicar`, `contSync`): `RELOJ` = {base 3800, letra 38, min 5000, max 13000, fuera 1,35, factor 1, porSit}; `msReloj` reproduce la fórmula antigua byte a byte con los valores de fábrica (prueba: 0 diferencias en 2×100 longitudes). El contenido de fábrica se copia al arrancar (`CONT_ORIG`) y un **paquete** `{v:1, reloj, entrenos, talentos, tienda, sits, nuevas}` se aplica encima (`contRestaurar` + `contAplicar`), nunca al revés: cambiar o retirar un paquete devuelve el juego a fábrica sin residuos. Validación estricta con el vocabulario y los rangos del propio motor (`CONT_R`, el panel los lee tal cual): claves desconocidas, números fuera de rango, ids repetidos, requisitos de talento inexistentes o en círculo, más de 3 por fila, `modelos` que cambian el número de niveles, posiciones inválidas… se **descartan y se anotan en `CONT.rech`**; el resto se aplica (una rama de talentos con un fallo se descarta entera). «Fuera de catálogo» (`off`) sustituye al borrado: entrenos filtrados en `entrenosDisp`, talentos sin poder subirse (el que ya lo tiene conserva el efecto), situaciones con `cond` falsa. Situaciones nuevas `ct-…` (1–4 opciones, efectos solo del vocabulario, sin condiciones propias). Arranque: copia local `lap1-cont` aplicada de forma síncrona + `contSync(1800)` antes de cargar la partida (`TELE.post({op:"contenido",have})`; si llega tarde se guarda para la siguiente sesión; con `lap1-tele-off=1` no pide nada).
+**Servidor**: migración `1763000002_contenido.js` (`tl_content` borrador/versiones, `tl_cfg` modo) y `op:"contenido"` en la misma puerta `/tele`: modo publicado → última versión (`n`); modo en vivo → el borrador (`n = 1000000 + revisión`); `have == n` → `same`.
+**Panel**: pestaña Contenido (Publicación · Reloj · Entrenamientos · Talentos · Tienda · Situaciones). Guarda solo diferencias respecto a la base de fábrica embebida (`BASE` = `contExportarBase()` del juego; el test comprueba que son idénticas). Lista de cambios, versiones con nota, cargar versión en el borrador, exportar/importar paquete, «dejar todo de fábrica».
+**Pruebas**: `E2E_contenido.js` (30), `E2E_panel_contenido.js` (46, contra PocketBase real y dos navegadores), `mutar_contenido.py` (mutantes del validador/sincronización).
+**Pendiente de la misma petición**: editores de nombres, ligas, competiciones y premios (no estaban en las categorías elegidas; hay que explorar la forma de esos datos).
 
 ## 4.68.0 — Goatmaker (sin «Pro») · códigos canjeables · reportes de jugadores
 **Petición de Manu**: quitar «Pro» y el subtítulo de temporada de la portada; los cheats pasan al panel admin como **códigos** que se pueden regenerar y que caducan por usos y por tiempo; en Ajustes la pestaña Cheats se sustituye por un cuadro de texto donde el jugador escribe el código (regalar dinero, XP, etc. a un amigo); y una pestaña para **reportar** fallos, ideas u otras cosas, que el admin lee, clasifica y copia al portapapeles para pegárselo a Claude.

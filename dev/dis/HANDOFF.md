@@ -1,6 +1,6 @@
-# Goatmaker · traspaso de contexto (14 nov 2026, actualizado con la 4.68.0)
+# Goatmaker · traspaso de contexto (14 nov 2026, actualizado con la 4.69.0)
 
-Lee esto primero en una sesión nueva. Resume todo lo hecho hasta v4.68.0. Detalle técnico por versión: `dis/sistemas.md`. Diseño de pirámide/edades: doc del proyecto `claude/piramide-y-edades.md` y `piramide.html`.
+Lee esto primero en una sesión nueva. Resume todo lo hecho hasta v4.69.0. Detalle técnico por versión: `dis/sistemas.md`. Diseño de pirámide/edades: doc del proyecto `claude/piramide-y-edades.md` y `piramide.html`.
 
 ## 1. Qué es y reglas del dueño (Manu)
 - Simulador de carrera de fútbol en **un solo HTML**, en español. Antes «La Primera», ahora **Goatmaker** (4.66.2 lo llamó «Goatmaker Pro»; la 4.68.0 quitó el «Pro» y el subtítulo «Temporada 2026 · 27» de la portada). Archivo de trabajo: `/mnt/user-data/outputs/la-primera.html`; el repo público lo tiene como `index.html`.
@@ -16,7 +16,8 @@ Lee esto primero en una sesión nueva. Resume todo lo hecho hasta v4.68.0. Detal
 | 4.66.2 | renombrado a Goatmaker Pro | `fb020496b2889b1461012c35d91ed467` |
 | 4.67.0 | telemetría apagada por defecto (constantes vacías) | `7c0cbe32894da6cb0397cfbb68d2eca0` |
 | 4.67.1 | telemetría activa (solo URL+clave+versión) | `4d6145017f0aaf47e79ae8a13a1c8ffd` |
-| **4.68.0** | **Goatmaker · códigos canjeables · reportes** | `805cb15cd621717aaf6feb45b37a5b04` |
+| 4.68.0 | Goatmaker · códigos canjeables · reportes | `805cb15cd621717aaf6feb45b37a5b04` |
+| **4.69.0** | **contenido editable desde el panel · reloj de decisiones** | `69a14479d52ecf78f8385bd2162cb405` |
 
 Repo: `github.com/Sentinelio/goatmaker`, rama main, GitHub Pages en `https://sentinelio.github.io/goatmaker/` (misma origin que otra app de Manu, otra ruta). Commit 4.67.1: `b828c51`. Guardado del jugador: `localStorage` con prefijo `lap1-` (clave `lap1-save`), por navegador: cada amigo juega su partida sin ver la de otro.
 
@@ -35,8 +36,12 @@ Repo: `github.com/Sentinelio/goatmaker`, rama main, GitHub Pages en `https://sen
 - **Servidor**: misma puerta `/tele`, con `op:"canje"` y `op:"reporte"`; migración `1763000001_codigos_reportes.js` (colecciones `tl_codes`, `tl_canjes`, `tl_reports`, `tl_intentos`). Hay que **desplegarlo en el PC de Manu** (copiar migración, hook y `pb_public`, reiniciar el servicio; pasos en `telemetria/LEEME.md`). Producción corre PocketBase 0.40.5; las pruebas, 0.23.12: probar un canje real tras desplegar.
 - Pruebas: `E2E_codigos.js` (69), `E2E_panel_codigos.js` (38), `mutar_codigos.py` (28/28). Para las E2E de telemetría y mutaciones del cliente hay que usar una copia del juego con `TELE_URL=""` (`GAME=`), para no hablar con el servidor real.
 
-## 3c. Petición nueva, SIN empezar (14 nov, 22:06)
-Manu pide en el panel admin: (1) poder cambiar la **cuenta atrás de las respuestas** de las decisiones del partido («a veces son muy rápidas»); (2) un **editor de cualquier contenido del juego**: añadir, quitar, editar talentos, objetos, entrenamientos, nombres, ligas, competiciones, premios, etc. Es un proyecto grande: antes de construirlo hay que acordar el diseño (dónde viven los datos, cómo llegan al juego, qué se puede editar y con qué validación).
+## 3c. Contenido editable y reloj de decisiones (4.69.0)
+Petición de Manu: cuenta atrás de las decisiones configurable y editor de contenido en el admin con página de publicación (por versiones o en vivo). Hecho para: reloj, entrenamientos, talentos, objetos/categorías de la tienda y árbol de situaciones (respuestas y consecuencias). **Falta** (próxima tanda): nombres, ligas, competiciones, premios.
+- Juego: módulo `CONT`/`RELOJ` (ver `sistemas.md` 4.69.0). Un **paquete** de diferencias se aplica sobre el contenido de fábrica; todo se valida con los rangos del motor (`CONT_R`); lo inválido se descarta (`CONT.rech`). `off` en lugar de borrar.
+- Servidor: migración `1763000002_contenido.js` + `op:"contenido"` en `/tele`. Modo `publicado` (versiones con nota) o `vivo` (el borrador al momento). **Hay que desplegarlo** en el PC de Manu (pasos en `telemetria/LEEME.md`, sección «Contenido editable»). Sin desplegar, el juego sigue igual (la petición falla en silencio).
+- Panel: pestaña Contenido. La base de fábrica embebida (`BASE`) se genera con `contExportarBase()` del juego: **si cambia el contenido del juego hay que regenerar el panel** (el test `E2E_panel_contenido.js` P1 lo detecta).
+- Pruebas: `E2E_contenido.js` (30), `E2E_panel_contenido.js` (46), `mutar_contenido.py`.
 
 ## 4. Diseño en curso: pirámide y edades (nada implementado en el juego)
 Resumen (todo en `claude/piramide-y-edades.md`): empezar a los 14 años; puerta de entrada por la media visible tras el ojeo (<50, 50–79, ≥80); cinco rangos de edad (Cantera 14–17, Promesa 18–21, Plenitud 22–27, Madurez 28–33, Veterano 34–38); diez bolsas de equipos con ventana de edad; **entorno** de cinco niveles con dos canales (ritmo y formación = «multiplicador de potencial» que viaja con el jugador); plasticidad por rango; **giros** puntuales; regla «sin callejones, sin garantías»; término de edad de la media «Suave» para que Modrić/Kane sean posibles. Herramienta: `piramide.html`, fuentes en `dis/piramide/`, pruebas `dis/F87_piramide.js` (25.726 comprobaciones) y `dis/E2E_piramide.js` (303), 14+12 mutaciones.

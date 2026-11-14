@@ -768,7 +768,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.68.0";
+var VERSION="4.69.0";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   var val=JSON.stringify(v);
@@ -1389,7 +1389,7 @@ var ENTRENOS=[
 ];
 function entrenosDisp(){
   var p=S?S.pos:(PICK&&PICK.pos)||"DC";
-  return ENTRENOS.filter(function(e){ return !e.pos || e.pos.indexOf(p)>=0; });
+  return ENTRENOS.filter(function(e){ return !e.off && (!e.pos || e.pos.indexOf(p)>=0); });
 }
 function esGeneral(e){ return !e.pos; }
 function reps(id){ return (S && S.reps && S.reps[id])||0; }
@@ -1654,7 +1654,7 @@ function talentoReqMet(rama,node){
   /* si depende de varios, hacen falta TODOS con al menos 1 punto — no basta con uno solo */
   return ids.every(function(id){ return talentoRango(rama,id)>0; });
 }
-function talentoDesbloqueado(rama,node){ return (S.nivel||1) >= node.lvl && talentoReqMet(rama,node); }
+function talentoDesbloqueado(rama,node){ return !node.off && (S.nivel||1) >= node.lvl && talentoReqMet(rama,node); }
 function puntosTalentoGastados(){
   if(!S || !S.talentos) return 0;
   var t=0; TALENTO_ORDEN.forEach(function(r){ var b=S.talentos[r]||{}; for(var k in b) t+=b[k]; });
@@ -6042,8 +6042,7 @@ function renderMatch(sit, tras){
       pie+='<button class="opt'+(o.skill?' opt-sk':'')+'" onclick="elegirOpcion('+i+')">'+marca+esc(typeof o.l==="function"?o.l():o.l)+iconoDbg+'</button>';
     });
     var texto=(typeof sit.x==="function"?sit.x(M):sit.x)||"";
-    var ms=Math.round(clamp(3800+texto.length*38, 5000, 13000));
-    if(M.faseAct!=="juego") ms=Math.round(ms*1.35);
+    var ms=msReloj(sit,texto);
     pie+='<div class="reloj" id="relojwrap"><i id="relojbar" style="width:100%"></i><span class="pausatip">⏸ leyendo — suelta para seguir</span></div>';
     pintarMatch('<div class="sit-hold" ontouchstart="holdP(event)" ontouchend="holdR()" ontouchcancel="holdR()" onmousedown="holdP(event)" onmouseup="holdR()" onmouseleave="holdR()">'+cuerpo+'</div>', pie);
     if(!dbgOn()) arrancarReloj(ms);
@@ -7680,6 +7679,7 @@ function secTalentos(){
     H+='<div class="card"><div class="eyebrow">'+esc(tree.name)+' · '+gastadoRama+' pts</div>';
     tree.nodes.forEach(function(node){
       var r=talentoRango(rama,node.id);
+      if(node.off && r<=0) return;
       var ok=talentoDesbloqueado(rama,node);
       var puedeSubir = ok && r<node.rank && gastadoTotal<presu;
       var faltaTxt="";
@@ -11219,7 +11219,216 @@ setTimeout(function(){
   }catch(e){}
 }, 2000);
 (function(){ var v=$("ver-portada"); if(v) v.textContent="v"+VERSION; })();
-(async function init(){ try{ await conTimeout(cargar(),2000); }catch(e){ errShow("carga: "+(e&&e.message||e)); } try{ await conTimeout(cargarAjustes(),2000); }catch(e){} stBadge(); })();
+/* ===== CONTENIDO EDITABLE: el paquete que publica el panel admin =====
+   El panel guarda un PAQUETE (JSON) en el servidor; el juego lo baja al abrirse (con 1,8 s de margen; si no hay red usa la copia guardada en el dispositivo)
+   y lo aplica SOBRE el contenido de fábrica, que se conserva intacto (CONT_ORIG) para poder deshacer, revertir una versión o cambiar de paquete.
+   Todo lo que entra se valida contra el propio motor: solo claves que el motor ya entiende y dentro de rangos con sentido (CONT_R, que el panel lee tal cual).
+   Lo que no pasa se descarta y se anota en CONT.rech; el resto se aplica. Un paquete NUNCA puede romper el juego: en el peor caso no cambia nada.
+   Formato del paquete (v:1):  { v:1, reloj:{base,letra,min,max,fuera,factor,porSit:{idSit:seg}},
+     entrenos:{id:{off,n,d,pos,sube:{attr:n|null},forma}} (id nuevo = entreno nuevo),
+     talentos:{rama:{id:{off,n,d,row,rank,lvl,req,cap,fx:{},fxForma:{},fxEntreno:{}}}} (id nuevo = talento nuevo),
+     tienda:{fijos:{id:{n,d,precio}}, cats:{id:{n,base,ic,fx:{},modelos:[[nombres por nivel]]}}},
+     sits:{id:{off,t,x,pos,o:{"0":{l,fx:{},ok,mid,ko}}}}, nuevas:[{id:"ct-…",pos,t,x,banquillo,o:[{l,fx,ok,mid,ko}]}] } */
+var RELOJ={base:3800, letra:38, min:5000, max:13000, fuera:1.35, factor:1, porSit:{}};
+function msReloj(sit,texto){
+  var fijo=RELOJ.porSit && sit && RELOJ.porSit[sit.id];
+  var ms=Math.round(fijo? fijo*1000 : clamp(RELOJ.base+texto.length*RELOJ.letra, RELOJ.min, RELOJ.max));
+  if(M.faseAct!=="juego") ms=Math.round(ms*RELOJ.fuera);
+  return Math.round(ms*RELOJ.factor);
+}
+var CONT={n:0, pack:null, rech:[], aplicado:false};
+var CONT_R={
+  sitfx:{nota:[-6,6],opp:[0.5,2],own:[0.5,2],ta:[0,2],roja:[0,2],mis:[-25,25],disc:[-20,20],ego:[-15,15],afin:[-15,15],lesion:[0,1],comp:[-6,6],lid:[-6,6],entra:[-20,99]},
+  inst:{gol:[0,1.5],golR:[0,1.5],asis:[0,1.5],parada:[0,1.5]},
+  tfx:{golR:[0.5,2],ta:[0.5,2],gol:[0.5,2],asis:[0.5,2],lider:[0.5,2],resil:[0.5,2]},
+  tforma:{recupera:[0.5,2],desgaste:[0.5,2],riesgo:[0.5,2]},
+  tent:{TEC:[1,2],FIS:[1,2],TAC:[1,2],MEN:[1,2],DEF:[1,2],POR:[1,2]},
+  sube:{TEC:[0,2],FIS:[0,2],TAC:[0,2],MEN:[0,2],POR:[0,2],DEF:[0,2]},
+  forma:[-30,30],
+  nodo:{row:[1,8],rank:[1,5],lvl:[1,99]},
+  cfx:{regen:[0,2],modLes:[-0.5,0],conf:[0,2],ego:[0,5],seg:[0,500],robo:[0,5],vicio:[0,1],seguro:[0,1],confYa:[-20,20],formaYa:[-20,20],segYa:[0,500],misterYa:[-20,20],afinYa:[-20,20],egoYa:[-10,10],misterSem:[0,3],amortMister:[0,1],vicioMod:[-3,0]},
+  cmult:[0,0.2], base:[10,5000000], precio:[1000,100000000],
+  reloj:{base:[1000,60000],letra:[0,300],min:[1000,60000],max:[1000,120000],fuera:[0.5,5],factor:[0.25,5],seg:[2,120]},
+  pos:["POR","DFC","LAT","MCD","MC","MCO","EXT","DC"],
+  txt:{n:60,d:200,x:600,ok:400,l:80,t:80}
+};
+function contClon(v){ if(typeof v==="function") return v; if(Array.isArray(v)) return v.map(contClon); if(v && typeof v==="object"){ var o={}; Object.keys(v).forEach(function(k){ o[k]=contClon(v[k]); }); return o; } return v; }
+function contPlano(v){ if(typeof v==="function") return {"$fn":1}; if(Array.isArray(v)) return v.map(contPlano); if(v && typeof v==="object"){ var o={}; Object.keys(v).forEach(function(k){ o[k]=contPlano(v[k]); }); return o; } return v; }
+var CONT_ORIG={entrenos:contClon(ENTRENOS), talentos:contClon(TALENTOS), tienda:contClon(TIENDA), cats:contClon(TIENDA_CATS), sits:contClon(SITS), banq:contClon(SITS_BANQUILLO), reloj:contClon(RELOJ)};
+function contRestaurar(){
+  var arr=function(dst,src){ dst.length=0; contClon(src).forEach(function(x){ dst.push(x); }); };
+  var obj=function(dst,src){ Object.keys(dst).forEach(function(k){ delete dst[k]; }); var c=contClon(src); Object.keys(c).forEach(function(k){ dst[k]=c[k]; }); };
+  arr(ENTRENOS,CONT_ORIG.entrenos); obj(TALENTOS,CONT_ORIG.talentos); obj(TIENDA,CONT_ORIG.tienda); arr(TIENDA_CATS,CONT_ORIG.cats);
+  arr(SITS,CONT_ORIG.sits); arr(SITS_BANQUILLO,CONT_ORIG.banq); obj(RELOJ,CONT_ORIG.reloj);
+  tiendaItems._c=null; _SIT_MAPA=null; CONT.rech=[]; CONT.aplicado=false;
+}
+function contExportarBase(){
+  return {v:1, ver:VERSION, entrenos:contPlano(CONT_ORIG.entrenos), talentos:contPlano(CONT_ORIG.talentos), tienda:contPlano(CONT_ORIG.tienda), cats:contPlano(CONT_ORIG.cats),
+    sits:contPlano(CONT_ORIG.sits), banq:contPlano(CONT_ORIG.banq), reloj:contClon(CONT_ORIG.reloj), orden:TALENTO_ORDEN.slice(), rangos:CONT_R};
+}
+function contAplicar(P){
+  contRestaurar();
+  var rech=CONT.rech;
+  if(!P || typeof P!=="object" || P.v!==1){ if(P) rech.push("paquete: formato no reconocido"); return rech; }
+  var R=CONT_R, esObj=function(x){ return x && typeof x==="object" && !Array.isArray(x); };
+  function num(v,r,ruta){ if(typeof v!=="number" || !isFinite(v)){ rech.push(ruta+": no es un número"); return null; } if(v<r[0] || v>r[1]){ rech.push(ruta+": "+v+" fuera de ["+r[0]+", "+r[1]+"]"); return null; } return v; }
+  function txt(v,max,ruta,vacioOk){ if(typeof v!=="string"){ rech.push(ruta+": no es texto"); return null; } v=v.trim(); if((!v && !vacioOk) || v.length>max){ rech.push(ruta+": texto vacío o de más de "+max+" caracteres"); return null; } return v; }
+  function mapa(src,tabla,dst,ruta){ if(!esObj(src)){ rech.push(ruta+": no es un objeto"); return; }
+    Object.keys(src).forEach(function(k){ if(!tabla.hasOwnProperty(k)){ rech.push(ruta+"."+k+": clave que el motor no conoce"); return; }
+      if(src[k]===null){ delete dst[k]; return; } var v=num(src[k],tabla[k],ruta+"."+k); if(v!==null) dst[k]=v; }); }
+  function posOk(v,ruta){ if(v===null) return null; if(!Array.isArray(v) || !v.length || v.some(function(p){ return R.pos.indexOf(p)<0; })){ rech.push(ruta+": posiciones no válidas"); return undefined; } return v.slice(); }
+  function idOk(id){ return /^[a-z0-9][a-z0-9_-]{1,29}$/.test(id); }
+  function fxOpcion(src,dst,ruta){
+    if(!esObj(src)){ rech.push(ruta+": no es un objeto"); return; }
+    Object.keys(src).forEach(function(k){
+      if(k==="inst"){ dst.inst=dst.inst||{}; mapa(src.inst,R.inst,dst.inst,ruta+".inst"); return; }
+      if(!R.sitfx.hasOwnProperty(k)){ rech.push(ruta+"."+k+": clave que el motor no conoce"); return; }
+      if(src[k]===null){ delete dst[k]; return; } var v=num(src[k],R.sitfx[k],ruta+"."+k); if(v!==null) dst[k]=v; });
+  }
+  /* —— reloj de las decisiones —— */
+  if(P.reloj!==undefined){
+    if(!esObj(P.reloj)) rech.push("reloj: no es un objeto");
+    else { var nr=contClon(RELOJ), mal=false;
+      ["base","letra","min","max","fuera","factor"].forEach(function(k){ if(P.reloj[k]===undefined) return; var v=num(P.reloj[k],R.reloj[k],"reloj."+k); if(v===null) mal=true; else nr[k]=v; });
+      if(P.reloj.porSit!==undefined){ if(!esObj(P.reloj.porSit)){ rech.push("reloj.porSit: no es un objeto"); mal=true; } else { nr.porSit={}; Object.keys(P.reloj.porSit).forEach(function(id){ var v=num(P.reloj.porSit[id],R.reloj.seg,"reloj.porSit."+id); if(v!==null) nr.porSit[id]=v; }); } }
+      if(nr.max<nr.min){ rech.push("reloj: el máximo no puede ser menor que el mínimo"); mal=true; }
+      if(!mal) Object.keys(nr).forEach(function(k){ RELOJ[k]=nr[k]; }); }
+  }
+  /* —— entrenamientos —— */
+  if(esObj(P.entrenos)) Object.keys(P.entrenos).forEach(function(id){
+    var p=P.entrenos[id], e=ENTRENOS.filter(function(x){ return x.id===id; })[0], ruta="entrenos."+id;
+    if(!esObj(p)){ rech.push(ruta+": no es un objeto"); return; }
+    if(!e){ if(!idOk(id)){ rech.push(ruta+": identificador no válido"); return; }
+      if(p.n===undefined || p.forma===undefined || !esObj(p.sube)){ rech.push(ruta+": un entreno nuevo necesita n, forma y sube"); return; }
+      e={id:id, n:"", d:"", pos:null, sube:{}, forma:0}; var nuevo=true; }
+    var c=contClon(e);
+    if(p.off===true) c.off=true; if(p.off===false) delete c.off;
+    if(p.n!==undefined){ var n=txt(p.n,R.txt.n,ruta+".n"); if(n!==null) c.n=n; }
+    if(p.d!==undefined){ var d=txt(p.d,R.txt.d,ruta+".d",true); if(d!==null) c.d=d; }
+    if(p.pos!==undefined){ var ps=posOk(p.pos,ruta+".pos"); if(ps!==undefined) c.pos=ps; }
+    if(p.sube!==undefined) mapa(p.sube,R.sube,c.sube,ruta+".sube");
+    if(p.forma!==undefined){ var f=num(p.forma,R.forma,ruta+".forma"); if(f!==null) c.forma=f; }
+    if(nuevo){ if(!c.n){ rech.push(ruta+": entreno nuevo sin nombre válido"); return; } ENTRENOS.push(c); }
+    else { var i=ENTRENOS.indexOf(e); ENTRENOS[i]=c; }
+  });
+  /* —— talentos: se aplica sobre una copia de la rama y solo se confirma si la rama entera sigue siendo coherente —— */
+  if(esObj(P.talentos)) Object.keys(P.talentos).forEach(function(rama){
+    var T=TALENTOS[rama], pr=P.talentos[rama], ruta="talentos."+rama;
+    if(!T){ rech.push(ruta+": rama que no existe"); return; } if(!esObj(pr)){ rech.push(ruta+": no es un objeto"); return; }
+    var cand=contClon(T.nodes), avisos0=rech.length;
+    Object.keys(pr).forEach(function(id){
+      var p=pr[id], r2=ruta+"."+id, nd=cand.filter(function(x){ return x.id===id; })[0];
+      if(!esObj(p)){ rech.push(r2+": no es un objeto"); return; }
+      var nuevo=false;
+      if(!nd){ if(!idOk(id)){ rech.push(r2+": identificador no válido"); return; }
+        if(["n","d","row","rank","lvl"].some(function(k){ return p[k]===undefined; }) || !(esObj(p.fx)||esObj(p.fxForma)||esObj(p.fxEntreno))){ rech.push(r2+": un talento nuevo necesita n, d, row, rank, lvl y algún efecto"); return; }
+        nd={id:id, row:1, rank:1, lvl:8, req:null, n:"", d:"", fx:{}}; nuevo=true; }
+      if(p.off===true) nd.off=true; if(p.off===false) delete nd.off;
+      if(p.n!==undefined){ var n=txt(p.n,R.txt.n,r2+".n"); if(n!==null) nd.n=n; }
+      if(p.d!==undefined){ var d=txt(p.d,R.txt.d,r2+".d"); if(d!==null) nd.d=d; }
+      ["row","rank","lvl"].forEach(function(k){ if(p[k]===undefined) return; var v=num(p[k],R.nodo[k],r2+"."+k); if(v!==null){ if(Math.floor(v)!==v) rech.push(r2+"."+k+": tiene que ser entero"); else nd[k]=v; } });
+      if(p.req!==undefined){ if(p.req===null) nd.req=null; else if(typeof p.req==="string" || (Array.isArray(p.req) && p.req.length && p.req.every(function(q){ return typeof q==="string"; }))) nd.req=p.req; else rech.push(r2+".req: no válido"); }
+      if(p.cap!==undefined){ if(p.cap===true) nd.cap=true; else delete nd.cap; }
+      [["fx","tfx"],["fxForma","tforma"],["fxEntreno","tent"]].forEach(function(par){ if(p[par[0]]===undefined) return; nd[par[0]]=nd[par[0]]||{}; mapa(p[par[0]],R[par[1]],nd[par[0]],r2+"."+par[0]); if(!Object.keys(nd[par[0]]).length) delete nd[par[0]]; });
+      if(nuevo) cand.push(nd);
+    });
+    /* coherencia de la rama: ids únicos, requisitos que existen, sin ciclos y como mucho 3 por fila */
+    var ids={}, bien=true, filas={};
+    cand.forEach(function(x){ if(ids[x.id]){ bien=false; rech.push(ruta+": id repetido "+x.id); } ids[x.id]=x; filas[x.row]=(filas[x.row]||0)+1; });
+    Object.keys(filas).forEach(function(f){ if(filas[f]>3){ bien=false; rech.push(ruta+": la fila "+f+" tendría "+filas[f]+" talentos (máximo 3)"); } });
+    cand.forEach(function(x){ var rq=x.req? (Array.isArray(x.req)? x.req : [x.req]) : [];
+      rq.forEach(function(q){ if(!ids[q] || q===x.id){ bien=false; rech.push(ruta+"."+x.id+": requisito «"+q+"» no válido"); } }); });
+    if(bien){ var vis={}, enPila={};
+      var dfs=function(id){ if(!bien || vis[id]) return; if(enPila[id]){ bien=false; rech.push(ruta+": requisitos en círculo"); return; } enPila[id]=1; var x=ids[id], rq=x.req? (Array.isArray(x.req)? x.req : [x.req]) : []; rq.forEach(dfs); enPila[id]=0; vis[id]=1; };
+      Object.keys(ids).forEach(dfs); }
+    if(bien) T.nodes.length=0, cand.forEach(function(x){ T.nodes.push(x); });
+    else rech.push(ruta+": cambios de la rama descartados");
+  });
+  /* —— tienda —— */
+  if(esObj(P.tienda)){
+    if(esObj(P.tienda.fijos)) Object.keys(P.tienda.fijos).forEach(function(id){
+      var p=P.tienda.fijos[id], t=TIENDA[id], ruta="tienda.fijos."+id;
+      if(!t){ rech.push(ruta+": objeto que no existe"); return; } if(!esObj(p)){ rech.push(ruta+": no es un objeto"); return; }
+      if(p.n!==undefined){ var n=txt(p.n,R.txt.n,ruta+".n"); if(n!==null) t.n=n; }
+      if(p.d!==undefined){ var d=txt(p.d,R.txt.d,ruta+".d"); if(d!==null) t.d=d; }
+      if(p.precio!==undefined){ if(t.precio===undefined) rech.push(ruta+".precio: este objeto no tiene precio fijo"); else { var pr2=num(p.precio,R.precio,ruta+".precio"); if(pr2!==null) t.precio=Math.round(pr2); } }
+    });
+    if(esObj(P.tienda.cats)) Object.keys(P.tienda.cats).forEach(function(id){
+      var p=P.tienda.cats[id], c=TIENDA_CATS.filter(function(x){ return x.id===id; })[0], ruta="tienda.cats."+id;
+      if(!c){ rech.push(ruta+": categoría que no existe"); return; } if(!esObj(p)){ rech.push(ruta+": no es un objeto"); return; }
+      if(p.n!==undefined){ var n=txt(p.n,30,ruta+".n"); if(n!==null) c.n=n; }
+      if(p.ic!==undefined){ var ic=txt(p.ic,8,ruta+".ic"); if(ic!==null) c.ic=ic; }
+      if(p.base!==undefined){ var b=num(p.base,R.base,ruta+".base"); if(b!==null) c.base=Math.round(b); }
+      if(p.fx!==undefined){ if(!esObj(p.fx)) rech.push(ruta+".fx: no es un objeto"); else { c.fx=c.fx||{}; Object.keys(p.fx).forEach(function(k){
+        if(k==="mult"){ c.fx.mult=c.fx.mult||{}; if(esObj(p.fx.mult)) Object.keys(p.fx.mult).forEach(function(a){ if(!R.sube.hasOwnProperty(a)){ rech.push(ruta+".fx.mult."+a+": atributo que el motor no conoce"); return; } if(p.fx.mult[a]===null){ delete c.fx.mult[a]; return; } var v=num(p.fx.mult[a],R.cmult,ruta+".fx.mult."+a); if(v!==null) c.fx.mult[a]=v; }); return; }
+        if(!R.cfx.hasOwnProperty(k)){ rech.push(ruta+".fx."+k+": clave que el motor no conoce"); return; }
+        if(p.fx[k]===null){ delete c.fx[k]; return; } var v=num(p.fx[k],R.cfx[k],ruta+".fx."+k); if(v!==null) c.fx[k]=v; }); } }
+      if(p.modelos!==undefined){
+        var m=p.modelos, base=CONT_ORIG.cats.filter(function(x){ return x.id===id; })[0].modelos, bien=Array.isArray(m) && m.length===base.length;
+        if(bien) m.forEach(function(fila,t){ if(!Array.isArray(fila) || fila.length<base[t].length || fila.length>base[t].length+6 || fila.some(function(s){ return typeof s!=="string" || !s.trim() || s.length>40; })) bien=false; });
+        if(bien) c.modelos=m.map(function(fila){ return fila.map(function(s){ return s.trim(); }); });
+        else rech.push(ruta+".modelos: tiene que conservar los niveles y los modelos que ya hay (se pueden renombrar y añadir al final)");
+      }
+    });
+  }
+  /* —— situaciones —— */
+  var TODAS=SITS.concat(SITS_BANQUILLO);
+  if(esObj(P.sits)) Object.keys(P.sits).forEach(function(id){
+    var p=P.sits[id], s=TODAS.filter(function(x){ return x.id===id; })[0], ruta="sits."+id;
+    if(!s){ rech.push(ruta+": situación que no existe"); return; } if(!esObj(p)){ rech.push(ruta+": no es un objeto"); return; }
+    if(p.off===true){ s.off=true; s.cond=function(){ return false; }; }
+    if(p.t!==undefined){ if(typeof s.t!=="string") rech.push(ruta+".t: el título de esta situación lo calcula el juego"); else { var t=txt(p.t,R.txt.t,ruta+".t"); if(t!==null) s.t=t; } }
+    if(p.x!==undefined){ if(typeof s.x!=="string") rech.push(ruta+".x: el texto de esta situación lo calcula el juego"); else { var x=txt(p.x,R.txt.x,ruta+".x"); if(x!==null) s.x=x; } }
+    if(p.pos!==undefined){ var ps=posOk(p.pos,ruta+".pos"); if(ps!==undefined) s.pos=ps; }
+    if(p.o!==undefined){ if(!esObj(p.o)) rech.push(ruta+".o: no es un objeto"); else Object.keys(p.o).forEach(function(i){
+      var op=s.o[+i], po=p.o[i], r3=ruta+".o."+i;
+      if(!op){ rech.push(r3+": esa opción no existe"); return; } if(!esObj(po)){ rech.push(r3+": no es un objeto"); return; }
+      if(po.l!==undefined){ if(typeof op.l!=="string") rech.push(r3+".l: el botón de esta opción lo calcula el juego"); else { var l=txt(po.l,R.txt.l,r3+".l"); if(l!==null) op.l=l; } }
+      ["ok","mid","ko"].forEach(function(k){ if(po[k]===undefined) return; if(typeof op[k]!=="string" && op[k]!==undefined) rech.push(r3+"."+k+": este desenlace lo calcula el juego"); else if(po[k]==="") op[k]=""; else { var v=txt(po[k],R.txt.ok,r3+"."+k); if(v!==null) op[k]=v; } });
+      if(po.fx!==undefined){ op.fx=op.fx||{inst:{}}; fxOpcion(po.fx,op.fx,r3+".fx"); } }); }
+  });
+  if(Array.isArray(P.nuevas)) P.nuevas.forEach(function(p,k){
+    var ruta="nuevas."+k; if(!esObj(p)){ rech.push(ruta+": no es un objeto"); return; }
+    if(typeof p.id!=="string" || !/^ct-[a-z0-9][a-z0-9_-]{0,26}$/.test(p.id) || SITS.concat(SITS_BANQUILLO).some(function(x){ return x.id===p.id; })){ rech.push(ruta+": id no válido o repetido (debe empezar por ct-)"); return; }
+    var t=txt(p.t,R.txt.t,ruta+".t"), x=txt(p.x,R.txt.x,ruta+".x"), ps=p.pos===undefined? null : posOk(p.pos,ruta+".pos");
+    if(t===null || x===null || ps===undefined) return;
+    if(!Array.isArray(p.o) || p.o.length<1 || p.o.length>4){ rech.push(ruta+".o: entre 1 y 4 opciones"); return; }
+    var os=[], bien=true;
+    p.o.forEach(function(po,i){ var r3=ruta+".o."+i; if(!esObj(po)){ bien=false; rech.push(r3+": no es un objeto"); return; }
+      var l=txt(po.l,R.txt.l,r3+".l"); if(l===null){ bien=false; return; }
+      var op={l:l, fx:{inst:{}}, ok:"", mid:"", ko:""};
+      ["ok","mid","ko"].forEach(function(q){ if(po[q]===undefined || po[q]==="") return; var v=txt(po[q],R.txt.ok,r3+"."+q); if(v!==null) op[q]=v; });
+      if(po.fx!==undefined) fxOpcion(po.fx,op.fx,r3+".fx"); os.push(op); });
+    if(!bien) return;
+    (p.banquillo===true? SITS_BANQUILLO : SITS).push({id:p.id, pos:ps, t:t, x:x, o:os, cond:function(){ return true; }, ct:true});
+  });
+  CONT.aplicado=true; tiendaItems._c=null; _SIT_MAPA=null;
+  return rech;
+}
+/* copia guardada en el dispositivo + sincronización con el servidor */
+function contLeerCache(){ try{ var c=JSON.parse(localStorage.getItem(NS+"cont")||"null"); return (c && typeof c.n==="number" && c.pack)? c : null; }catch(e){ return null; } }
+function contGuardarCache(n,pack){ try{ if(pack) localStorage.setItem(NS+"cont",JSON.stringify({n:n,pack:pack})); else localStorage.removeItem(NS+"cont"); }catch(e){} }
+function contAplicarCache(){ var c=contLeerCache(); if(!c) return; try{ contAplicar(c.pack); CONT.n=c.n; CONT.pack=c.pack; }catch(e){ contRestaurar(); CONT.n=0; CONT.pack=null; errShow("contenido: "+(e&&e.message||e)); } }
+function contSync(msMax){
+  return new Promise(function(res){
+    try{ if(localStorage.getItem(NS+"tele-off")==="1"){ res(); return; } }catch(e){}
+    var tarde=false; setTimeout(function(){ tarde=true; res(); },msMax);
+    try{
+      TELE.post({op:"contenido", have:CONT.n}).then(function(r){
+        try{
+          if(r && r.ok && r.j && r.j.ok && !r.j.same && typeof r.j.n==="number"){
+            if(!r.j.pack){ contGuardarCache(0,null); if(!tarde && CONT.n){ contRestaurar(); CONT.n=0; CONT.pack=null; } }
+            else { contGuardarCache(r.j.n,r.j.pack); if(!tarde){ contAplicar(r.j.pack); CONT.n=r.j.n; CONT.pack=r.j.pack; } }
+          }
+        }catch(e){ contRestaurar(); CONT.n=0; CONT.pack=null; }
+        res();
+      },function(){ res(); });
+    }catch(e){ res(); }
+  });
+}
+contAplicarCache();
+
+(async function init(){ try{ await contSync(1800); }catch(e){} try{ await conTimeout(cargar(),2000); }catch(e){ errShow("carga: "+(e&&e.message||e)); } try{ await conTimeout(cargarAjustes(),2000); }catch(e){} stBadge(); })();
 </script>
 </body>
 </html>

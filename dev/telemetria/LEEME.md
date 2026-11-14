@@ -5,6 +5,7 @@ Qué hay en esta carpeta
 | Archivo | Para qué |
 |---|---|
 | `pb_migrations/1763000000_tele.js` | Crea las 4 colecciones `tl_players`, `tl_sessions`, `tl_events`, `tl_snapshots`. Todas cerradas al público. |
+| `pb_migrations/1763000002_contenido.js` | Crea `tl_content` (borrador y versiones publicadas) y `tl_cfg` (modo en vivo / publicado). Cerradas al público. |
 | `pb_migrations/1763000001_codigos_reportes.js` | Crea `tl_codes`, `tl_canjes`, `tl_reports`, `tl_intentos` (códigos canjeables y reportes). Cerradas al público. |
 | `pb_hooks/tele.pb.js` | Ruta `POST /tele`: único punto de entrada de los jugadores. Valida la clave y reparte: telemetría (sin `op`), `op:"canje"` (códigos) y `op:"reporte"`. |
 | `goatmaker-admin.html` | Tu panel. Se abre con doble clic (o desde `pb_public/`). Entras con tu superusuario de PocketBase. |
@@ -109,3 +110,19 @@ En el juego: **Ajustes → Reportar** (fallo, idea u otro; con casilla para adju
 3. **En PowerShell (administrador):** reinicia el servicio de PocketBase (`Restart-Service PocketBase-Goatmaker`, o el nombre que tenga). La migración crea las colecciones nuevas al arrancar.
 4. **Comprueba** (PowerShell): `curl.exe -s -X POST https://TU-SERVIDOR.ts.net/tele -H "Content-Type: application/json" -d "{\"k\":\"LA-CLAVE\",\"op\":\"canje\",\"install\":\"prueba12345\",\"code\":\"NOEXISTE1\"}"` debe devolver `{"err":"no_existe","ok":false}`.
 5. La puerta pública (Funnel) no cambia: sigue siendo solo `/tele`.
+
+## Contenido editable del juego · v4.69.0
+
+Panel → pestaña **Contenido**: reloj de las decisiones, entrenamientos, talentos, tienda y árbol de situaciones (con respuestas y consecuencias). Trabaja sobre un **paquete de cambios** encima del juego de fábrica (solo guarda las diferencias; volver al valor de fábrica borra el cambio).
+
+- **Modo publicado** (por defecto): guardas un borrador, ves la lista de cambios y **publicas una versión** con nota; los jugadores solo reciben lo publicado. Historial con «cargar en el borrador» (volver atrás = volver a publicar esa versión) y «dejar todo de fábrica».
+- **Modo en vivo**: lo que guardas en el borrador llega a los jugadores al momento. Cómodo para probar, sin red de seguridad.
+- El juego lo pide al abrirse (espera 1,8 s como máximo; sin red usa la última copia que tenía) y valida todo con las reglas del motor: lo que no encaja se descarta y el resto se aplica. Con la telemetría apagada en ese navegador no pide nada (usa su copia).
+- Qué NO se puede: borrar (se usa «fuera de catálogo»: no se ofrece, pero quien ya lo tenía lo conserva), ni cambiar la estructura del motor; lo que el juego calcula (textos o botones dinámicos) se ve como «calculado por el juego».
+- Aún no hay editor de nombres, ligas, competiciones ni premios (próxima tanda).
+
+### Actualizar el servidor (4.68.x → 4.69.0)
+1. **Explorador de archivos:** copia `pb_migrations\1763000002_contenido.js` a `pb_migrations\`, el nuevo `pb_hooks\tele.pb.js` a `pb_hooks\` (conserva tus retoques propios, por ejemplo `GET /tele` → 404) y `pb_public\index.html` a `pb_public\`.
+2. **PowerShell (administrador):** `Restart-Service PocketBase-Goatmaker`.
+3. **Comprueba** (PowerShell): `curl.exe -s -X POST https://TU-SERVIDOR.ts.net/tele -H "Content-Type: application/json" -d "{\"k\":\"LA-CLAVE\",\"op\":\"contenido\",\"install\":\"prueba12345\",\"have\":0}"` debe devolver `{"modo":"publicado","n":0,"ok":true,"pack":null}`.
+4. La puerta pública (Funnel) no cambia: sigue siendo solo `/tele`.

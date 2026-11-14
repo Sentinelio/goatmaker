@@ -129,7 +129,7 @@ let n = 0; const inst = () => 'inst' + (++n) + 'abcdefgh' + Math.random().toStri
   await pg.evaluate(() => { irSec('ajustes'); irSub('ajustes', 'codigo'); }); t = await cuerpo(pg);
   ok(/Canjear/.test(t) && /sin carrera|Primero tiene que haber una carrera/.test(t), 'N1 sin carrera: la caja existe y avisa de que hace falta una');
   t = await canjea(pg, 'GMAAAABBBBCCCC'); ok(/carrera en marcha/.test(t), 'N2 sin carrera el canje no se intenta (' + t.slice(-90).replace(/\n/g, ' ') + ')');
-  ok(N.posts.length === 0, 'N2b …y no sale ninguna petición');
+  ok(N.posts.filter(r => !/"op":"contenido"/.test(r.postData() || '')).length === 0, 'N2b …y no sale ninguna petición');
   await monta(pg);
 
   /* canje real: cambia el motor */
