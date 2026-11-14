@@ -769,7 +769,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.67.0";
+var VERSION="4.67.1";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   var val=JSON.stringify(v);
@@ -10976,8 +10976,8 @@ window.addEventListener("unhandledrejection",function(ev){ errShow("promesa: "+(
    · Cola persistente en localStorage (se reintenta si no hay red); un 4xx tira el lote, un 5xx/red lo conserva con espera creciente.
    · Qué manda: contexto (versión, navegador, pantalla, idioma, zona horaria), resumen de carrera, eventos (carrera, partido, decisión,
      pantalla, modal, traspaso, ascenso/descenso, lesión, nivel, fin de temporada, errores) y la partida completa (cada ≥3 min si cambió). */
-var TELE_URL="";   /* p. ej. "https://pb.midominio.com" */
-var TELE_KEY="";   /* la misma que TELE_KEY del servidor */
+var TELE_URL="https://server-pc.tail3b4002.ts.net";   /* telemetría ACTIVA: PocketBase propio de Goatmaker (solo /tele es público) */
+var TELE_KEY="qE2GcC4VMSQq1RvBTO2tam8AZEzlPXuHwttFGqZsJY-3LVRZuHEnkmyjsK3ydswp";   /* la misma que pb_hooks/tele.key; va en el HTML público: solo frena a curiosos */
 var TELE=(function(){
   var KQ=NS+"tele-q", KID=NS+"tele-id", T0=Date.now(), LOAD=Math.round(performance.now()), q=[], act=0, lastAct=Date.now(), snapAt=0, snapDirty=false,
       busy=false, dead=false, fails=0, nextTry=0, lastSend=0, errN=0, seenErr={}, prevRef=null, prev=null, nSent=0;
