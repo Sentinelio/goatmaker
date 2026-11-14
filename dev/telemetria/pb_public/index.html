@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Goatmaker Pro · Admin</title>
+<title>Goatmaker · Admin</title>
 <style>
 :root{--bg:#070810;--card:#0f111c;--card2:#141726;--line:#1f2336;--tx:#e8eaf3;--mut:#8a90a8;--gold:#FFC24B;--ok:#4ade80;--bad:#f87171;--blue:#60a5fa;--vio:#a78bfa}
 *{box-sizing:border-box}
@@ -45,12 +45,22 @@ details summary{cursor:pointer;color:var(--blue)}
 pre{white-space:pre-wrap;word-break:break-word;background:var(--bg);padding:8px;border-radius:8px;font-size:12px;margin:6px 0}
 svg text{fill:var(--mut);font-size:10px}
 .err{color:var(--bad)}
+input.f,select.f,textarea.f{background:var(--bg);border:1px solid var(--line);color:var(--tx);font:inherit;border-radius:8px;padding:7px 9px}
+textarea.f{width:100%;min-height:54px;resize:vertical}
+input.f:focus,select.f:focus,textarea.f:focus{outline:0;border-color:#34395a}
+.fx{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px}
+.fx label{display:flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:7px 9px;cursor:pointer}
+.fx label.on{border-color:var(--gold)}.fx input[type=number]{width:96px;margin-left:auto}
+.cod{font-family:ui-monospace,Consolas,monospace;font-weight:700;letter-spacing:.04em;color:var(--gold)}
+.rep{border-bottom:1px solid var(--line);padding:12px 0}.rep:last-child{border-bottom:0}
+.rep .tx{white-space:pre-wrap;word-break:break-word;margin:6px 0 8px}
+.frow{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}.frow>label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--mut)}
 @media(max-width:700px){.g2{grid-template-columns:1fr}.tl .t{width:84px}}
 </style>
 </head>
 <body>
 <div id="login" class="login card">
-  <div class="brand" style="font-size:22px">Goatmaker <b>Pro</b> · Admin</div>
+  <div class="brand" style="font-size:22px">Goatmaker · <b>Admin</b></div>
   <p class="mut small">Entra con tu usuario superusuario de PocketBase. La sesión vive solo en esta pestaña.</p>
   <label class="small mut">URL de PocketBase</label><input id="l-url" placeholder="https://pb.midominio.com">
   <label class="small mut">Email</label><input id="l-mail" type="email" autocomplete="username">
@@ -61,7 +71,7 @@ svg text{fill:var(--mut);font-size:10px}
 
 <div id="app" class="hide">
 <header><div class="hd">
-  <div class="brand">Goatmaker <b>Pro</b> · Admin</div>
+  <div class="brand">Goatmaker · <b>Admin</b></div>
   <nav id="nav"></nav><div class="sp"></div>
   <span class="small mut" id="upd"></span>
   <button class="b" id="refresh">↻ Actualizar</button>
@@ -76,8 +86,8 @@ var CLUBES={"BAR":"Barcelona","RMA":"R. Madrid","ATM":"Atlético","VIL":"Villarr
 var $=function(i){return document.getElementById(i)};
 function h(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]})}
 function club(id){return CLUBES[id]||id||"—"}
-var ST={url:"",tok:"",players:[],sessions:[],events:[],snaps:[],tab:"resumen",sel:null,sort:{k:"last_t",d:-1},fEv:{},at:0};
-var TABS=[["resumen","Resumen"],["jugadores","Jugadores"],["errores","Errores"],["balance","Balance"]];
+var ST={url:"",tok:"",players:[],sessions:[],events:[],snaps:[],codes:[],canjes:[],reports:[],tab:"resumen",sel:null,sort:{k:"last_t",d:-1},fEv:{},at:0};
+var TABS=[["resumen","Resumen"],["jugadores","Jugadores"],["codigos","Códigos"],["reportes","Reportes"],["errores","Errores"],["balance","Balance"]];
 
 /* ---------- utilidades ---------- */
 function ago(t){if(!t)return"—";var s=Math.max(0,(Date.now()-t)/1000);if(s<90)return"ahora";if(s<3600)return Math.round(s/60)+" min";if(s<86400)return Math.round(s/3600)+" h";return Math.round(s/86400)+" d"}
@@ -109,6 +119,8 @@ async function load(){
     ST.players=await all("tl_players","sort=-last_t");
     ST.sessions=await all("tl_sessions","sort=-start_t&filter="+encodeURIComponent("start_t>"+since));
     ST.snaps=await all("tl_snapshots","sort=-t&fields=id,install,sid,t,bytes,ver");
+    ST.codes=await all("tl_codes","sort=-created");ST.canjes=await all("tl_canjes","sort=-t");
+    ST.reports=await all("tl_reports","sort=-t&fields="+encodeURIComponent("id,install,t,tipo,texto,ctx,estado,nota_admin"));
     ST.events=await all("tl_events","sort=-t&filter="+encodeURIComponent("t>"+since),function(n,tot){var p=$("prog");if(p)p.textContent="Eventos "+n+" / "+tot+"…"});
     ST.at=Date.now();index();render()
   }catch(e){$("main").innerHTML='<p class="err">Error cargando: '+h(e.message)+'</p>'}
@@ -123,10 +135,11 @@ function nom(p){return p.label||(p.estado&&p.estado.nombre)||p.install.slice(0,8
 
 /* ---------- vistas ---------- */
 function render(){
-  $("nav").innerHTML=TABS.map(function(t){return'<button data-t="'+t[0]+'" class="'+((ST.tab===t[0]&&!ST.sel)?"on":"")+'">'+t[1]+'</button>'}).join("");
+  var nNuevos=ST.reports.filter(function(r){return r.estado==="nuevo"}).length;
+  $("nav").innerHTML=TABS.map(function(t){return'<button data-t="'+t[0]+'" class="'+((ST.tab===t[0]&&!ST.sel)?"on":"")+'">'+t[1]+(t[0]==="reportes"&&nNuevos?' <span class="tag gold">'+nNuevos+'</span>':'')+'</button>'}).join("");
   $("upd").textContent="Actualizado "+new Date(ST.at).toLocaleTimeString("es-ES");
   if(ST.sel)return detalle(ST.sel);
-  ({resumen:vResumen,jugadores:vJugadores,errores:vErrores,balance:vBalance})[ST.tab]()
+  ({resumen:vResumen,jugadores:vJugadores,codigos:vCodigos,reportes:vReportes,errores:vErrores,balance:vBalance})[ST.tab]()
 }
 function kpi(v,t,s){return'<div class="card kpi"><h3>'+t+'</h3><div class="v">'+v+'</div><div class="s">'+(s||"&nbsp;")+'</div></div>'}
 function vResumen(){
@@ -203,9 +216,115 @@ function vBalance(){
   +'<div class="card"><h3>Decisiones más frecuentes</h3>'+(DL.length?DL.map(function(x){var o=by(x[1],function(e){return e.d.l}),OL=Object.keys(o).map(function(k){return[k,o[k].length]}).sort(function(a,b){return b[1]-a[1]});return"<details><summary>"+h(x[0])+" · "+x[1].length+"</summary>"+bars(OL)+"</details>"}).join(""):'<span class="mut small">Sin decisiones aún</span>')+"</div></div>"
 }
 
+
+/* ---------- CÓDIGOS ---------- */
+/* Catálogo de efectos: tiene que coincidir con EFECTOS del juego (clave, unidad, topes). El juego manda sus claves al canjear
+   y el servidor rechaza —sin gastar el código— uno cuyo efecto esa versión no conoce. */
+var CAT=[
+  {k:"dinero",n:"Dinero",u:"€",def:50000,min:1,max:1000000000,fmt:function(v){return"+"+Number(v).toLocaleString("es-ES")+" €"}},
+  {k:"xp",n:"Experiencia",u:"XP",def:500,min:1,max:1000000,fmt:function(v){return"+"+Number(v).toLocaleString("es-ES")+" XP"}},
+  {k:"niveles",n:"Subir de nivel",u:"niveles",def:1,min:1,max:20,fmt:function(v){return"+"+v+" nivel(es)"}},
+  {k:"atributos",n:"Atributos (todos)",u:"puntos",def:3,min:1,max:15,fmt:function(v){return"atributos +"+v}},
+  {k:"ejes",n:"Los seis ejes de carácter",u:"puntos",def:5,min:1,max:20,fmt:function(v){return"ejes +"+v}},
+  {k:"vestuario",n:"Cariño del vestuario",u:"puntos",def:10,min:1,max:30,fmt:function(v){return"vestuario +"+v}},
+  {k:"fama",n:"Fama (+20, +5k seguidores, grada +15)",fmt:function(){return"fama +20"}},
+  {k:"vital",n:"Forma 100 · Conf 90 · Míster 90 · Ánimo 90",fmt:function(){return"forma y ánimo al máximo"}},
+  {k:"curar",n:"Curar lesión y sanción",fmt:function(){return"curar"}},
+  {k:"taller",n:"Abrir el taller de pruebas (para ti)",fmt:function(){return"taller de pruebas"}}
+];
+function catDe(k){return CAT.find(function(c){return c.k===k})}
+function fxTxt(ef){return(ef||[]).map(function(x){var c=catDe(x.k);return c?c.fmt(x.v):"⚠ "+h(x.k)}).join(" · ")||"—"}
+function codBonito(c){return/^GM[A-Z0-9]{12}$/.test(c)?"GM-"+c.slice(2,6)+"-"+c.slice(6,10)+"-"+c.slice(10):c}
+function codNuevo(){var a="ABCDEFGHJKMNPQRSTUVWXYZ23456789",s="GM",u=new Uint8Array(32),i;/* 31 símbolos sin 0 1 O I L; se descartan los bytes ≥ 248 para que no haya sesgo */while(s.length<14){crypto.getRandomValues(u);for(i=0;i<32&&s.length<14;i++)if(u[i]<248)s+=a[u[i]%31]}return s}
+function estadoCod(c){var n=Date.now();if(!c.activo)return["Desactivado","bad"];if(c.hasta&&n>c.hasta)return["Caducado","bad"];if(c.desde&&n<c.desde)return["Aún no","blue"];if(c.max_usos&&c.usos>=c.max_usos)return["Agotado","bad"];return["Activo","ok"]}
+function copiar(t){return(navigator.clipboard&&window.isSecureContext?navigator.clipboard.writeText(t):Promise.reject()).catch(function(){var a=document.createElement("textarea");a.value=t;a.style.position="fixed";a.style.opacity="0";document.body.appendChild(a);a.select();try{document.execCommand("copy")}catch(e){}a.remove()})}
+function toast(t){var d=document.createElement("div");d.textContent=t;d.style.cssText="position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--card2);border:1px solid var(--gold);color:var(--tx);padding:8px 14px;border-radius:10px;z-index:99";document.body.appendChild(d);setTimeout(function(){d.remove()},1400)}
+function dtLocal(t){if(!t)return"";var d=new Date(t),p=function(n){return String(n).padStart(2,"0")};return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes())}
+function vCodigos(){
+  var CN=by(ST.canjes,function(c){return c.code});
+  var form='<div class="card" style="margin-top:16px"><h3>Crear un código</h3><div class="fx" id="cf-fx">'+CAT.map(function(c){return'<label data-k="'+c.k+'"><input type="checkbox" data-fk="'+c.k+'"><span>'+h(c.n)+'</span>'+(c.u?'<input class="f" type="number" data-fv="'+c.k+'" value="'+c.def+'" min="'+c.min+'" max="'+c.max+'" title="'+c.u+'">':'')+'</label>'}).join("")+'</div>'
+   +'<div class="frow" style="margin-top:12px">'
+   +'<label>Para quién / nota<input class="f" id="cf-nota" placeholder="p. ej. regalo para Pablo" style="width:220px"></label>'
+   +'<label>Código (vacío = generar)<input class="f" id="cf-code" placeholder="GM-XXXX-XXXX-XXXX" style="width:190px;text-transform:uppercase"></label>'
+   +'<label>Usos máximos (0 = sin límite)<input class="f" id="cf-max" type="number" min="0" value="1" style="width:130px"></label>'
+   +'<label>Caduca<select class="f" id="cf-cad"><option value="0">Nunca</option><option value="1">En 1 día</option><option value="7" selected>En 7 días</option><option value="30">En 30 días</option><option value="x">Fecha concreta…</option></select></label>'
+   +'<label class="hide" id="cf-fecha-l">Hasta<input class="f" id="cf-fecha" type="datetime-local"></label>'
+   +'<label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="cf-uno" checked> Una vez por jugador</label>'
+   +'<button class="b gold" id="cf-go">Crear código</button></div><p class="small mut" id="cf-msg" style="margin:8px 0 0"></p></div>';
+  var rows=ST.codes.map(function(c){var e=estadoCod(c),cj=CN[c.code]||[];
+    return'<tr data-c="'+c.id+'"><td><span class="cod">'+h(codBonito(c.code))+'</span><br><span class="small mut">'+h(c.nota||"")+'</span></td><td class="small" style="white-space:normal;min-width:180px">'+fxTxt(c.efectos)+'</td>'
+     +'<td class="mono r">'+c.usos+" / "+(c.max_usos?c.max_usos:"∞")+'</td><td class="small">'+(c.una_por_jugador?"1 por jugador":"sin tope por jugador")+'<br>'+(c.hasta?(Date.now()>c.hasta?"caducó ":"caduca ")+fdt(c.hasta):"sin caducidad")+'</td>'
+     +'<td><span class="tag '+e[1]+'">'+e[0]+'</span></td>'
+     +'<td style="white-space:normal"><button class="b" data-a="copiar" data-id="'+c.id+'">Copiar</button> <button class="b" data-a="regen" data-id="'+c.id+'">Regenerar</button> <button class="b" data-a="toggle" data-id="'+c.id+'">'+(c.activo?"Desactivar":"Activar")+'</button> <button class="b red" data-a="borrar" data-id="'+c.id+'">Borrar</button></td></tr>'
+     +(cj.length?'<tr><td colspan="6" class="small mut" style="padding-top:0;white-space:normal">Canjes: '+cj.slice(0,12).map(function(x){var p=IDX.pl[x.install];return h(p?nom(p):x.install.slice(0,8))+" · "+fdt(x.t)}).join(" · ")+(cj.length>12?" · +"+(cj.length-12)+" más":"")+'</td></tr>':'')}).join("");
+  var huer=ST.canjes.filter(function(c){return!ST.codes.some(function(k){return k.code===c.code})});
+  $("main").innerHTML=form+'<div class="card scroll" style="margin-top:14px"><h3>Códigos ('+ST.codes.length+')</h3>'+(ST.codes.length?'<table><thead><tr><th>Código</th><th>Efectos</th><th class="r">Usos</th><th>Límites</th><th>Estado</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>':'<p class="mut">Todavía no hay ningún código. Crea el primero arriba.</p>')+'</div>'
+   +'<p class="small mut">«Regenerar» cambia la cadena del código (la vieja deja de valer), pone los usos a cero y lo reactiva con los mismos efectos: sirve cuando se ha agotado o caducado, o si se ha filtrado. El historial de canjes se conserva.'+(huer.length?" Canjes de códigos ya borrados o regenerados: "+huer.length+".":"")+'</p>'
+}
+async function crearCodigo(){
+  var m=$("cf-msg"),ef=[];m.className="small mut";
+  CAT.forEach(function(c){var cb=document.querySelector('[data-fk="'+c.k+'"]');if(cb&&cb.checked){var o={k:c.k};if(c.u){var v=Math.round(Number(document.querySelector('[data-fv="'+c.k+'"]').value));if(!(v>=c.min&&v<=c.max)){ef=null;m.className="small err";m.textContent="«"+c.n+"»: el valor tiene que estar entre "+c.min+" y "+c.max+".";return}o.v=v}if(ef)ef.push(o)}});
+  if(ef===null)return;if(!ef.length){m.className="small err";m.textContent="Marca al menos un efecto.";return}
+  var cad=$("cf-cad").value,hasta=0;if(cad==="x"){hasta=$("cf-fecha").value?new Date($("cf-fecha").value).getTime():0;if(!hasta){m.className="small err";m.textContent="Elige la fecha de caducidad.";return}}else if(+cad)hasta=Date.now()+(+cad)*86400000;
+  var code=($("cf-code").value||"").toUpperCase().replace(/[^A-Z0-9]/g,""),manual=!!code;if(manual&&(code.length<4||code.length>24)){m.className="small err";m.textContent="El código a mano tiene que tener entre 4 y 24 letras o cifras.";return}
+  var body={nota:$("cf-nota").value.trim().slice(0,200),efectos:ef,max_usos:Math.max(0,Math.round(+$("cf-max").value||0)),usos:0,una_por_jugador:$("cf-uno").checked,desde:0,hasta:hasta,activo:true};
+  for(var i=0;i<4;i++){body.code=manual?code:codNuevo();
+    try{await api("/api/collections/tl_codes/records",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      await copiar(codBonito(body.code));ST.codes=await all("tl_codes","sort=-created");render();toast("Creado y copiado: "+codBonito(body.code));return}
+    catch(e){if(manual||i===3){m.className="small err";m.textContent="No se pudo crear: "+e.message+(manual?" (¿ya existe ese código?)":"");return}}}
+}
+async function accionCodigo(a,id){
+  var c=ST.codes.find(function(x){return x.id===id});if(!c)return;
+  try{
+    if(a==="copiar"){await copiar(codBonito(c.code));return toast("Copiado: "+codBonito(c.code))}
+    if(a==="toggle"){await api("/api/collections/tl_codes/records/"+id,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({activo:!c.activo})})}
+    if(a==="borrar"){if(!confirm("¿Borrar el código "+codBonito(c.code)+"? Se conserva el historial de canjes."))return;await api("/api/collections/tl_codes/records/"+id,{method:"DELETE"})}
+    if(a==="regen"){var d=prompt("Regenerar "+codBonito(c.code)+" con la cadena nueva, usos a 0 y reactivado.\n\n¿Días de validez desde ahora? (0 = sin caducidad · vacío = dejar el límite como está)","");if(d===null)return;
+      var patch={usos:0,activo:true};if(String(d).trim()!==""){var n=Math.max(0,Math.round(+d||0));patch.hasta=n?Date.now()+n*86400000:0}else if(c.hasta&&Date.now()>c.hasta){alert("El código estaba caducado: indica cuántos días de validez nuevos (0 = sin caducidad).");return}
+      var ok2=false;for(var i=0;i<4&&!ok2;i++){patch.code=codNuevo();try{await api("/api/collections/tl_codes/records/"+id,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(patch)});ok2=true}catch(e){if(i===3)throw e}}
+      await copiar(codBonito(patch.code));toast("Nuevo código copiado: "+codBonito(patch.code))}
+    ST.codes=await all("tl_codes","sort=-created");render()
+  }catch(e){alert("No se pudo: "+e.message)}
+}
+
+/* ---------- REPORTES ---------- */
+var RTIPO={bug:["🐞","Fallo"],idea:["💡","Idea"],otro:["💬","Otro"]},RESTADOS=[["nuevo","Nuevo"],["visto","Visto"],["hecho","Hecho"],["descartado","Descartado"]];
+ST.rf={estado:"nuevo",tipo:""};
+function repTexto(r){
+  var p=IDX.pl[r.install],e=(r.ctx&&r.ctx.estado)||(p&&p.estado)||{},d=dev((r.ctx&&r.ctx.ua)||(p&&p.ua)||"");
+  return"[Goatmaker · "+(RTIPO[r.tipo]||RTIPO.otro)[1].toLowerCase()+" · versión "+((r.ctx&&r.ctx.ver)||"?")+"]\nJugador: "+(p?nom(p):r.install.slice(0,8))+(e.club_n?" · "+e.club_n+" ("+(e.division==="2"?"Segunda":"Primera")+", T"+e.temporada+" J"+e.jornada+", nivel "+e.nivel+")":"")+" · "+d.tipo+" "+d.nav+((r.ctx&&r.ctx.vp)?" "+r.ctx.vp:"")
+    +"\nFecha: "+fdt(r.t)+"\n\n"+r.texto+((r.ctx&&r.ctx.adjunta)?"\n\n(tiene la partida adjunta en el panel)":"")+(r.nota_admin?"\n\nNota mía: "+r.nota_admin:"")}
+function vReportes(){
+  var f=ST.rf,L=ST.reports.filter(function(r){return(!f.estado||r.estado===f.estado)&&(!f.tipo||r.tipo===f.tipo)});
+  var cnt=function(k,v){return ST.reports.filter(function(r){return r[k]===v}).length};
+  var chips=[["","Todos ("+ST.reports.length+")"]].concat(RESTADOS.map(function(e){return[e[0],e[1]+" ("+cnt("estado",e[0])+")"]}));
+  $("main").innerHTML='<div class="card" style="margin-top:16px"><div class="frow"><div>'+chips.map(function(c){return'<span class="chip '+(f.estado===c[0]?"on":"")+'" data-rf="estado" data-v="'+c[0]+'">'+c[1]+'</span>'}).join("")+'</div>'
+    +'<div>'+[["","Todo tipo"]].concat(Object.keys(RTIPO).map(function(k){return[k,RTIPO[k][0]+" "+RTIPO[k][1]]})).map(function(c){return'<span class="chip '+(f.tipo===c[0]?"on":"")+'" data-rf="tipo" data-v="'+c[0]+'">'+c[1]+'</span>'}).join("")+'</div><div class="sp"></div>'
+    +'<button class="b" id="rp-copiar-todos"'+(L.length?'':' disabled')+'>📋 Copiar los '+L.length+' visibles</button></div></div>'
+    +'<div class="card" style="margin-top:14px">'+(L.length?L.map(function(r){var p=IDX.pl[r.install],T=RTIPO[r.tipo]||RTIPO.otro;
+      return'<div class="rep" data-r="'+r.id+'"><div class="small mut"><b style="color:var(--tx)">'+T[0]+" "+T[1]+'</b> · '+h(p?nom(p):r.install.slice(0,8))+((r.ctx&&r.ctx.estado&&r.ctx.estado.club_n)?" · "+h(r.ctx.estado.club_n)+" T"+r.ctx.estado.temporada+" J"+r.ctx.estado.jornada:"")+' · v'+h((r.ctx&&r.ctx.ver)||"?")+' · '+fdt(r.t)+(r.ctx&&r.ctx.adjunta?' · <span class="tag vio">con partida</span>':"")+'</div>'
+      +'<div class="tx">'+h(r.texto)+'</div><div class="frow"><select class="f" data-re="'+r.id+'">'+RESTADOS.map(function(e){return'<option value="'+e[0]+'"'+(r.estado===e[0]?" selected":"")+'>'+e[1]+'</option>'}).join("")+'</select>'
+      +'<button class="b" data-ra="copiar" data-id="'+r.id+'">📋 Copiar para Claude</button>'+(r.ctx&&r.ctx.adjunta?'<button class="b" data-ra="partida" data-id="'+r.id+'">Descargar partida</button>':'')
+      +'<button class="b red" data-ra="borrar" data-id="'+r.id+'">Borrar</button></div>'
+      +'<textarea class="f" data-rn="'+r.id+'" placeholder="Tu nota (qué decides hacer)…" style="margin-top:8px">'+h(r.nota_admin||"")+'</textarea></div>'}).join(""):'<p class="mut" style="margin:6px 0">No hay reportes con este filtro.</p>')+'</div>'
+}
+async function accionReporte(a,id){
+  var r=ST.reports.find(function(x){return x.id===id});if(!r)return;
+  try{
+    if(a==="copiar"){await copiar(repTexto(r));if(r.estado==="nuevo"){await api("/api/collections/tl_reports/records/"+id,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({estado:"visto"})});r.estado="visto";render()}return toast("Copiado: pégaselo a Claude")}
+    if(a==="partida"){var x=await api("/api/collections/tl_reports/records/"+id),s=x.save;if(!s||!Object.keys(s).length)return alert("Este reporte no trae partida.");var b=new Blob([JSON.stringify(s)],{type:"application/json"}),el=document.createElement("a");el.href=URL.createObjectURL(b);el.download="goatmaker-reporte-"+id+"-t"+s.temporada+"-j"+(s.jornada+1)+".json";el.click();return}
+    if(a==="borrar"){if(!confirm("¿Borrar este reporte?"))return;await api("/api/collections/tl_reports/records/"+id,{method:"DELETE"});ST.reports=ST.reports.filter(function(x){return x.id!==id});render()}
+  }catch(e){alert("No se pudo: "+e.message)}
+}
+
 /* ---------- eventos de la interfaz ---------- */
 document.addEventListener("click",async function(ev){
   var t=ev.target,n=t.closest&&t.closest("[data-t]");if(n&&n.parentNode.id==="nav"){ST.tab=n.dataset.t;ST.sel=null;return render()}
+  var rfc=t.closest&&t.closest("[data-rf]");if(rfc){ST.rf[rfc.dataset.rf]=rfc.dataset.v;return render()}
+  var ba=t.closest&&t.closest("[data-a]");if(ba)return accionCodigo(ba.dataset.a,ba.dataset.id);
+  var bra=t.closest&&t.closest("[data-ra]");if(bra)return accionReporte(bra.dataset.ra,bra.dataset.id);
+  if(t.id==="cf-go")return crearCodigo();
+  if(t.id==="rp-copiar-todos"){var f=ST.rf,L=ST.reports.filter(function(r){return(!f.estado||r.estado===f.estado)&&(!f.tipo||r.tipo===f.tipo)});await copiar(L.map(repTexto).join("\n\n————————\n\n"));return toast(L.length+" reporte(s) copiados")}
   if(t.id==="refresh")return load();if(t.id==="logout")return logout();if(t.id==="back"){ST.sel=null;ST.fEv={};return render()}
   var th=t.closest&&t.closest("th[data-s]");if(th){var k=th.dataset.s;ST.sort=ST.sort.k===k?{k:k,d:-ST.sort.d}:{k:k,d:(k==="nombre"||k==="club"||k==="ver")?1:-1};return render()}
   if(t.classList&&t.classList.contains("lab"))return;
@@ -215,9 +334,13 @@ document.addEventListener("click",async function(ev){
   if(t.id==="del"){var p2=IDX.pl[ST.sel];if(!confirm("¿Borrar TODOS los datos de «"+nom(p2)+"» (jugador, sesiones, eventos y partidas)?"))return;if(!confirm("Segunda confirmación: no se puede deshacer."))return;
     try{for(var c of["tl_events","tl_sessions","tl_snapshots","tl_players"]){var rs=await all(c,"fields=id&filter="+encodeURIComponent("install='"+p2.install+"'"));for(var x of rs)await api("/api/collections/"+c+"/records/"+x.id,{method:"DELETE"})}ST.sel=null;await load()}catch(e){alert("Error borrando: "+e.message)}}
 });
-document.addEventListener("change",async function(ev){var t=ev.target;if(t.classList&&t.classList.contains("lab")){try{await api("/api/collections/tl_players/records/"+t.dataset.l,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({label:t.value.trim().slice(0,80)})});var p=ST.players.find(function(x){return x.id===t.dataset.l});if(p)p.label=t.value.trim();t.style.borderColor="var(--ok)";setTimeout(function(){t.style.borderColor=""},800)}catch(e){alert("No se pudo guardar: "+e.message)}}});
+document.addEventListener("change",async function(ev){var t=ev.target;
+  if(t.id==="cf-cad"){$("cf-fecha-l").classList.toggle("hide",t.value!=="x");return}
+  if(t.dataset&&t.dataset.fk){t.closest("label").classList.toggle("on",t.checked);return}
+  if(t.dataset&&(t.dataset.re||t.dataset.rn)){var id=t.dataset.re||t.dataset.rn,patch=t.dataset.re?{estado:t.value}:{nota_admin:t.value.trim().slice(0,2000)};try{await api("/api/collections/tl_reports/records/"+id,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(patch)});var r=ST.reports.find(function(x){return x.id===id});if(r)Object.assign(r,patch);t.style.borderColor="var(--ok)";setTimeout(function(){t.style.borderColor=""},800);if(t.dataset.re)setTimeout(render,250)}catch(e){alert("No se pudo guardar: "+e.message)}return}
+if(t.classList&&t.classList.contains("lab")){try{await api("/api/collections/tl_players/records/"+t.dataset.l,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({label:t.value.trim().slice(0,80)})});var p=ST.players.find(function(x){return x.id===t.dataset.l});if(p)p.label=t.value.trim();t.style.borderColor="var(--ok)";setTimeout(function(){t.style.borderColor=""},800)}catch(e){alert("No se pudo guardar: "+e.message)}}});
 $("l-go").onclick=login;$("l-pass").addEventListener("keydown",function(e){if(e.key==="Enter")login()});
-setInterval(function(){if(ST.tok&&!document.hidden&&Date.now()-ST.at>60000&&!ST.sel&&document.activeElement.tagName!=="INPUT")load()},30000);
+setInterval(function(){if(ST.tok&&!document.hidden&&Date.now()-ST.at>60000&&!ST.sel&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))load()},30000);
 (function init(){try{$("l-url").value=/^https?:$/.test(location.protocol)?location.origin:(localStorage.getItem("gm-adm-url")||"");var s=JSON.parse(sessionStorage.getItem("gm-adm")||"null");if(s&&s.t){ST.url=s.u;ST.tok=s.t;$("login").classList.add("hide");$("app").classList.remove("hide");load()}}catch(e){}})();
 </script>
 </body>

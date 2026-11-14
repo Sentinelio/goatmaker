@@ -1,7 +1,7 @@
 /* ===== F86 · Ajustes que funcionan sin partida + taller de pruebas APAGADO por defecto (v4.66.0) =====
    Uso:  cd <carpeta de trabajo>; TAIL=30 bash /mnt/user-data/outputs/dis/correr.sh F86.js 1
    Fija tres reglas del usuario:
-     · los cheats y atajos NACEN apagados y solo se encienden desde Ajustes › Cheats (y se recuerdan en el dispositivo);
+     · los cheats y atajos NACEN apagados y solo se encienden con un código (Ajustes › Código) (y se recuerdan en el dispositivo);
      · ninguna pestaña de Ajustes puede dar por hecho que hay una carrera en marcha;
      · una situación propia sobrevive al guardado/recarga/importación (el JSON pierde su función cond).      */
 renderHub=function(){};
@@ -64,22 +64,22 @@ function cfgGuardado(){ try{ return JSON.parse(__LS["lap1-cfg"]); }catch(e){ ret
 
   /* ---------- B · el interruptor ---------- */
   S=null; PICK=null; M=null; PARTIDA_ABIERTA=false;
-  SUB.ajustes="cheats"; irSec("ajustes");
+  SUB.ajustes="codigo"; irSec("ajustes");
   var b=cuerpo();
-  ok(/toggleCheats\(\)/.test(b) && /APAGADO/.test(b), "B1 Cheats apagado: ofrece el interruptor y dice APAGADO");
-  ok(!/onclick="ch[A-Z]/.test(b) && !/verCatCheat/.test(b) && !/genOfertaPatro/.test(b), "B2 Cheats apagado: ningún truco a la vista");
-  ok(b.indexOf("●")<0, "B3 apagado: el chip «Cheats» no lleva marca");
+  ok(/canjearCodigo\(\)/.test(b) && !/toggleCheats\(\)/.test(b) && !/APAGADO|ENCENDIDO/.test(b), "B1 Código apagado: caja para canjear, sin interruptor del taller");
+  ok(!/onclick="ch[A-Z]/.test(b) && !/verCatCheat/.test(b) && !/genOfertaPatro/.test(b), "B2 Código apagado: ningún truco a la vista");
+  ok(b.indexOf("●")<0, "B3 apagado: el chip «Código» no lleva marca");
 
-  toggleCheats(); await tick();
-  ok(CHEATS_ON===true, "B4 el interruptor enciende el taller");
+  aplicarEfectos([{k:"taller"}]); irSec("ajustes"); await tick();
+  ok(CHEATS_ON===true, "B4 el efecto «taller» enciende el taller");
   ok(!$("btn-chsaltar").classList.contains("hidden"), "B5 encendido: el botón «Saltar la prueba» se muestra");
   var cfg=cfgGuardado();
   ok(cfg && cfg.cheats===true, "B6 el encendido se guarda en el dispositivo");
   b=cuerpo();
-  ok(/ENCENDIDO/.test(b) && b.indexOf("●")>=0, "B7 encendido: lo dice y el chip «Cheats» lleva la marca ●");
+  ok(/ENCENDIDO/.test(b) && b.indexOf("●")>=0, "B7 encendido: lo dice y el chip «Código» lleva la marca ●");
   ok(/Necesita una partida/.test(b), "B8 encendido sin partida ni prueba: lo explica en vez de dejar la pestaña vacía");
 
-  nuevoS(); PARTIDA_ABIERTA=true; irSub("ajustes","cheats"); b=cuerpo();
+  nuevoS(); PARTIDA_ABIERTA=true; irSub("ajustes","codigo"); b=cuerpo();
   ok((b.match(/verCatCheat\(/g)||[]).length>=5, "B9 encendido con partida: aparecen las categorías de trucos");
   var d0=S.dinero||0; chDinero(1000);
   ok(S.dinero===d0+1000, "B10 encendido: un truco funciona (chDinero +1.000)");
@@ -101,15 +101,15 @@ function cfgGuardado(){ try{ return JSON.parse(__LS["lap1-cfg"]); }catch(e){ ret
 
   /* apagarlo */
   S=null; PICK=null; PARTIDA_ABIERTA=false;
-  irSub("ajustes","cheats"); toggleCheats(); await tick();
+  irSub("ajustes","codigo"); toggleCheats(); await tick();
   ok(CHEATS_ON===false && $("btn-chsaltar").classList.contains("hidden"), "B17 apagar: vuelve a ocultarse todo");
   ok((cfgGuardado()||{}).cheats===false, "B18 apagar: también se guarda");
   CHEATS_ON=true; await cargarAjustes();
   ok(CHEATS_ON===false, "B19 tras reabrir el juego sigue apagado");
   nuevoS(); fotoS=JSON.stringify(S); chDinero(5); chSimular(3,true);
   ok(JSON.stringify(S)===fotoS, "B20 apagado otra vez: los trucos vuelven a ser inertes");
-  PARTIDA_ABIERTA=true; irSub("ajustes","cheats"); b=cuerpo();
-  ok(!/onclick="ch[A-Z]/.test(b) && !/verCatCheat/.test(b) && !/genOfertaPatro/.test(b) && /toggleCheats\(\)/.test(b), "B20b Cheats apagado CON partida en marcha: solo el interruptor, ningún truco");
+  PARTIDA_ABIERTA=true; irSub("ajustes","codigo"); b=cuerpo();
+  ok(!/onclick="ch[A-Z]/.test(b) && !/verCatCheat/.test(b) && !/genOfertaPatro/.test(b) && !/toggleCheats\(\)/.test(b) && /canjearCodigo\(\)/.test(b), "B20b Código apagado CON partida en marcha: solo la caja de canje, ningún truco");
 
   /* un archivo de ajustes roto o raro nunca enciende nada */
   var INVALIDOS=[["{{{","JSON roto"],[JSON.stringify({v:1,cheats:"yes"}),"cheats:'yes'"],[JSON.stringify({v:1,cheats:1}),"cheats:1"],[JSON.stringify({v:1}),"sin clave"],["null","null"]];

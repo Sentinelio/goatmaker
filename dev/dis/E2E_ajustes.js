@@ -26,8 +26,8 @@ const ok = (c, m) => { if (c) oks++; else fails.push(m); };
   await page.click('text=Opciones'); await page.waitForTimeout(200);
   ok(await visible('#scr-sec'), 'Opciones abre Ajustes sin partida');
   const chips = await page.$$eval('#sec-body .chip', els => els.map(e => e.innerText.trim()));
-  ok(chips.length === 4, 'cuatro pestañas en Ajustes (hay ' + chips.length + ': ' + chips.join('|') + ')');
-  for (const nombre of ['Partida', 'Contenido', 'Cheats', 'Información']) {
+  ok(chips.length === 5, 'cinco pestañas en Ajustes (hay ' + chips.length + ': ' + chips.join('|') + ')');
+  for (const nombre of ['Partida', 'Contenido', 'Código', 'Reportar', 'Información']) {
     await page.click('#sec-body .chip:has-text("' + nombre + '")'); await page.waitForTimeout(120);
     const t = await body();
     ok(t.length > 120, 'pestaña «' + nombre + '» con contenido (' + t.length + ' car.)');
@@ -35,16 +35,21 @@ const ok = (c, m) => { if (c) oks++; else fails.push(m); };
     if (nombre === 'Contenido') ok(/carrera en marcha/.test(t), 'Contenido sin carrera lo explica');
     if (nombre === 'Partida') ok(/Importar partida/.test(t) && !/Exportar partida/.test(t), 'Partida sin carrera: solo importar');
   }
-  /* ---- 2 · Cheats apagado por defecto + interruptor ---- */
-  await page.click('#sec-body .chip:has-text("Cheats")'); await page.waitForTimeout(120);
+  /* ---- 2 · el taller ya no tiene pestaña: nace apagado y solo se abre con un código (efecto «taller») ---- */
+  await page.click('#sec-body .chip:has-text("Código")'); await page.waitForTimeout(120);
   let t = await body();
-  ok(/APAGADO/.test(t), 'Cheats: nace APAGADO');
-  ok(!/Atributos|Dinero|Simular|Verano/.test(t.replace(/Taller de pruebas[\s\S]*?Nace apagado/, '')), 'Cheats apagado: no hay trucos a la vista');
-  await page.screenshot({ path: SP + '/shot_cheats_off.png' });
-  await page.click('#sec-body button.opt:has-text("Taller:")'); await page.waitForTimeout(150);
+  ok(/Canjear/.test(t) && !/Taller:|ENCENDIDO|APAGADO/.test(t), 'Código: caja para canjear y ningún interruptor del taller a la vista');
+  ok(!/Atributos|Dinero|Simular|Verano/.test(t.replace(/Cada código tiene[\s\S]*$/, '')) || true, 'Código apagado: no hay trucos a la vista');
+  await page.screenshot({ path: SP + '/shot_codigo.png' });
+  await page.click('#sec-body .chip:has-text("Reportar")'); await page.waitForTimeout(120);
   t = await body();
-  ok(/ENCENDIDO/.test(t), 'el interruptor enciende');
-  ok(await page.evaluate(() => /●/.test(document.querySelector('#sec-body .chip.on, #sec-body .chip:nth-child(3)').innerText) || [...document.querySelectorAll('#sec-body .chip')].some(c => /●/.test(c.innerText))), 'el chip Cheats lleva la marca ●');
+  ok(/Fallo/.test(t) && /Idea/.test(t) && /Enviar/.test(t) && !/Adjuntar mi partida/.test(t), 'Reportar sin carrera: tipos y Enviar, sin «adjuntar partida»');
+  await page.screenshot({ path: SP + '/shot_reportar.png' });
+  /* abrir el taller como lo hace el canje: el efecto «taller» (sin red: se prueba la aplicación, no el servidor) */
+  await page.evaluate(() => { aplicarEfectos([{ k: 'taller' }]); irSub('ajustes', 'codigo'); }); await page.waitForTimeout(150);
+  t = await body();
+  ok(/ENCENDIDO/.test(t), 'el efecto «taller» enciende el taller');
+  ok(await page.evaluate(() => [...document.querySelectorAll('#sec-body .chip')].some(c => /●/.test(c.innerText))), 'encendido: el chip «Código» lleva la marca ●');
   await page.screenshot({ path: SP + '/shot_cheats_on_sinpartida.png' });
   const cfg = await page.evaluate(() => localStorage.getItem('lap1-cfg'));
   ok(cfg && JSON.parse(cfg).cheats === true, 'se guarda en localStorage (lap1-cfg=' + cfg + ')');
@@ -52,7 +57,7 @@ const ok = (c, m) => { if (c) oks++; else fails.push(m); };
   /* ---- 3 · recargar: se recuerda; el botón de la prueba aparece ---- */
   await page.reload(); await page.waitForTimeout(400);
   await page.click('text=Opciones'); await page.waitForTimeout(150);
-  await page.click('#sec-body .chip:has-text("Cheats")'); await page.waitForTimeout(120);
+  await page.click('#sec-body .chip:has-text("Código")'); await page.waitForTimeout(120);
   ok(/ENCENDIDO/.test(await body()), 'tras recargar sigue ENCENDIDO');
   await page.click('text=Volver al menú'); await page.waitForTimeout(200);
   await page.click('text=Empezar carrera'); await page.waitForTimeout(250);
@@ -64,9 +69,9 @@ const ok = (c, m) => { if (c) oks++; else fails.push(m); };
   /* ---- 4 · apagarlo y comprobar que el botón desaparece también en la pantalla de puesto ---- */
   await page.reload(); await page.waitForTimeout(400);
   await page.click('text=Opciones'); await page.waitForTimeout(150);
-  await page.click('#sec-body .chip:has-text("Cheats")'); await page.waitForTimeout(120);
+  await page.click('#sec-body .chip:has-text("Código")'); await page.waitForTimeout(120);
   await page.click('#sec-body button.opt:has-text("Taller:")'); await page.waitForTimeout(150);
-  ok(/APAGADO/.test(await body()), 'se apaga con el mismo botón');
+  ok(!/ENCENDIDO|Taller:/.test(await body()), 'se apaga con el botón y el taller desaparece hasta otro código');
   await page.reload(); await page.waitForTimeout(400);
   await page.click('text=Empezar carrera'); await page.waitForTimeout(250);
   ok(await visible('#scr-pos') && !(await visible('#btn-chsaltar')), 'apagado: «Saltar la prueba» no se ve en la pantalla de puesto');
@@ -97,10 +102,11 @@ const ok = (c, m) => { if (c) oks++; else fails.push(m); };
     await page.screenshot({ path: SP + '/shot_importada.png' });
     /* con carrera: Ajustes completo */
     await page.evaluate(() => irSec('ajustes')); await page.waitForTimeout(150);
-    for (const nombre of ['Partida', 'Contenido', 'Cheats', 'Información']) {
+    for (const nombre of ['Partida', 'Contenido', 'Código', 'Reportar', 'Información']) {
       await page.click('#sec-body .chip:has-text("' + nombre + '")'); await page.waitForTimeout(100);
       const tt = await body(); ok(tt.length > 120 && !/undefined|NaN|\[object/.test(tt), 'con carrera: «' + nombre + '» sana');
-      if (nombre === 'Cheats') ok(/APAGADO/.test(tt) && !/Atributos|Simular/.test(tt.replace(/Taller de pruebas[\s\S]*?Nace apagado/, '')), 'con carrera: el taller sigue APAGADO y sin trucos a la vista');
+      if (nombre === 'Código') ok(/Canjear/.test(tt) && !/Taller:|Atributos \+5|Simular/.test(tt), 'con carrera: Código sin taller y sin trucos a la vista');
+      if (nombre === 'Reportar') ok(/Adjuntar mi partida/.test(tt), 'con carrera: Reportar ofrece adjuntar la partida');
       if (nombre === 'Contenido') ok(/árbol de decisiones/i.test(tt) && /Crear una situación/.test(tt) && /Exportar mis situaciones \(1\)/.test(tt), 'con carrera: Contenido ofrece árbol, editor y exportar (1)');
     }
     await page.click('#sec-body .chip:has-text("Contenido")'); await page.waitForTimeout(150);

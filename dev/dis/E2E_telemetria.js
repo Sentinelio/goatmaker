@@ -14,6 +14,7 @@ const fs = require('fs'), os = require('os'), path = require('path');
 const GAME = process.env.GAME || '/mnt/user-data/outputs/la-primera.html';
 const PB = process.env.PB || '/tmp/pbtest/pocketbase';
 const TEL = '/mnt/user-data/outputs/telemetria';
+const VER_JUEGO = (fs.readFileSync(GAME, 'utf8').match(/VERSION="([^"]+)"/) || [])[1];   /* la versión del propio juego, no un número fijo */
 const PORT = 18091, BASE = 'http://127.0.0.1:' + PORT, KEY = 'k-test';
 let fails = [], oks = 0;
 const ok = (c, m) => { if (c) oks++; else fails.push(m); };
@@ -84,7 +85,7 @@ async function api(p, o = {}) { const r = await fetch(BASE + p, o); let j = null
   let P = (await col('tl_players')).filter(x => x.install === ids.install), SE = (await col('tl_sessions')).filter(x => x.sid === ids.sid);
   const EV = (await col('tl_events')).filter(x => x.install === ids.install), tipos = {}; EV.forEach(e => tipos[e.tipo] = (tipos[e.tipo] || 0) + 1);
   ok(P.length === 1, 'B: debe haber 1 jugador y hay ' + P.length);
-  if (P.length) { const p = P[0]; ok(p.ver === '4.67.0' && /Mozilla|HeadlessChrome/.test(p.ua) && /^\d+x\d+@/.test(p.scr), 'B: ficha del jugador incompleta ' + JSON.stringify({ v: p.ver, ua: p.ua.slice(0, 20), scr: p.scr })); ok(p.estado && p.estado.club_n === 'Huesca' && p.estado.nombre === 'Manu', 'B: el resumen de carrera no refleja el último estado ' + JSON.stringify(p.estado).slice(0, 120)); ok(p.sessions === 1, 'B: sesiones=' + p.sessions); ok(p.active_s >= 15, 'B: el tiempo activo no se cuenta (active_s=' + p.active_s + ')'); }
+  if (P.length) { const p = P[0]; ok(p.ver === VER_JUEGO && /Mozilla|HeadlessChrome/.test(p.ua) && /^\d+x\d+@/.test(p.scr), 'B: ficha del jugador incompleta ' + JSON.stringify({ v: p.ver, ua: p.ua.slice(0, 20), scr: p.scr })); ok(p.estado && p.estado.club_n === 'Huesca' && p.estado.nombre === 'Manu', 'B: el resumen de carrera no refleja el último estado ' + JSON.stringify(p.estado).slice(0, 120)); ok(p.sessions === 1, 'B: sesiones=' + p.sessions); ok(p.active_s >= 15, 'B: el tiempo activo no se cuenta (active_s=' + p.active_s + ')'); }
   ok(SE.length === 1, 'B: debe haber 1 sesión y hay ' + SE.length);
   for (const t of ['sesion', 'carrera', 'pantalla', 'modal', 'decision', 'partido', 'club', 'division', 'lesion', 'nivel', 'temporada_nueva', 'error']) ok(tipos[t] >= 1, 'B: falta el evento «' + t + '» (hay: ' + JSON.stringify(tipos) + ')');
   ok((tipos.partido || 0) === 2, 'B: partidos esperados 2, enviados ' + tipos.partido);
@@ -116,16 +117,20 @@ async function api(p, o = {}) { const r = await fetch(BASE + p, o); let j = null
   const DEAD = 'http://127.0.0.1:18999';
   const ctxC = await browser.newContext({ viewport: { width: 390, height: 844 } }); const pc = await ctxC.newPage(); pc.on('pageerror', e => errs.push('C pageerror: ' + e.message));
   await pc.addInitScript(SEED); await pc.addInitScript(`if(!localStorage.getItem('lap1-tele-url')) { ${CFG(DEAD, KEY)} }`);
-  await pc.goto('file://' + GAME); await pc.waitForTimeout(300); await monta(pc); await jugar(pc);
+  /* el juego se sirve por http (no file://): en Chromium sin cabeza el localStorage de file:// a veces se pierde entero al recargar (pasa también con la 4.67.0), y aquí se prueba que la COLA sobrevive a recargar */
+  const httpSrv = require('http').createServer((q, r) => { r.setHeader('Content-Type', 'text/html; charset=utf-8'); r.end(fs.readFileSync(GAME)); }); await new Promise(r => httpSrv.listen(0, '127.0.0.1', r));
+  await pc.goto('http://127.0.0.1:' + httpSrv.address().port + '/'); await pc.waitForTimeout(300); await monta(pc); await jugar(pc);
   await pc.evaluate(() => TELE.flush(true)); await pc.waitForTimeout(600);
   const c1 = await pc.evaluate(() => ({ cola: TELE.cola(), ls: JSON.parse(localStorage.getItem('lap1-tele-q') || '[]').length, vivo: TELE.vivo(), install: TELE.install }));
   ok(c1.cola >= 3 && c1.ls === c1.cola && c1.vivo, 'C: con el servidor caído la cola no se conserva ' + JSON.stringify(c1));
-  await pc.evaluate(u => localStorage.setItem('lap1-tele-url', u), BASE); await pc.reload(); await pc.waitForTimeout(3600);   /* arranca y manda a los 2,5 s */
-  const c2 = await pc.evaluate(() => ({ cola: TELE.cola(), enviados: TELE.enviados() }));
+  await pc.evaluate(u => localStorage.setItem('lap1-tele-url', u), BASE); await pc.waitForTimeout(800);   /* Chromium vuelca localStorage a disco con retraso: sin esta espera, recargar enseguida a veces lo pierde TODO (pasa con cualquier página file://, no es del juego) */
+  await pc.reload();
+  for (let i = 0; i < 40; i++) { await pc.waitForTimeout(500); if (await pc.evaluate(() => TELE.cola() === 0 && TELE.enviados() > 0)) break; }   /* arranca y manda a los 2,5 s; se espera hasta 20 s a que el servidor conteste (un PocketBase recién arrancado a veces tarda) */
+  const c2 = await pc.evaluate(() => ({ cola: TELE.cola(), enviados: TELE.enviados(), ls: JSON.parse(localStorage.getItem('lap1-tele-q') || '[]').length, vivo: TELE.vivo(), url: localStorage.getItem('lap1-tele-url') }));
   const evC = await col('tl_events', "&filter=install='" + c1.install + "'");
-  ok(c2.cola === 0 && evC.length >= c1.cola, 'C: la cola no se entregó al volver el servidor (cola ' + c2.cola + ', enviados ' + c2.enviados + ', en servidor ' + evC.length + ' de ' + c1.cola + ')');
+  ok(c2.cola === 0 && evC.length >= c1.cola, 'C: la cola no se entregó al volver el servidor ' + JSON.stringify(c2) + ' (cola ' + c2.cola + ', enviados ' + c2.enviados + ', en servidor ' + evC.length + ' de ' + c1.cola + ')');
   ok(evC.filter(e => e.tipo === 'partido').length === 1, 'C: el partido jugado sin servidor se perdió o se duplicó');
-  await ctxC.close();
+  await ctxC.close(); httpSrv.close();
 
   /* ---------- D. 5xx conserva · 403 tira y calla ---------- */
   const D = await nueva(CFG(BASE, KEY)); await monta(D.page);

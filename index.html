@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GOATMAKER PRO · 2026-27</title>
+<title>GOATMAKER</title>
 <!--
-  GOATMAKER PRO (antes LA PRIMERA) · v1.5.0 — jugador · narración FM · modo debug — jugador + narrador + pantallas de momento
+  GOATMAKER (antes LA PRIMERA) · v1.5.0 — jugador · narración FM · modo debug — jugador + narrador + pantallas de momento
   Juego de partidos de la Primera División española, temporada 2026-27.
   Un archivo, sin dependencias, offline.
   - 20 equipos reales 2026-27 con Elo real (fuente: elofootball.com, ago 2026;
@@ -674,8 +674,7 @@ body.conmenu{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
 <div class="wrap">
   <!-- TÍTULO -->
   <div id="scr-title">
-    <div class="disp big">Goatmaker Pro</div>
-    <div class="disp sub">Temporada 2026 · 27</div>
+    <div class="disp big">Goatmaker</div>
     <div class="note" id="ver-portada" style="margin-top:8px;font-size:11px;letter-spacing:3px;color:var(--gold);font-weight:700">—</div>
     <p class="note" style="margin:22px 0 14px">Eliges puesto y perfil; los clubes eligen si te quieren. Treinta y ocho jornadas sobre el césped, decididas en un puñado de momentos.</p>
     <button class="gold-btn" onclick="irElegir()">Empezar carrera</button>
@@ -769,7 +768,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.67.1";
+var VERSION="4.68.0";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   var val=JSON.stringify(v);
@@ -6341,13 +6340,13 @@ var SUBS={
   equipo:[["tabla","Clasificación"],["plantilla","Vestuario"],["mister","El míster"],["entreno","Entreno"],["jornada","Resultados"]],
   cuentas:[["dinero","Dinero"],["tienda","Tienda"]],
   mercado:[["hilos","Mover los hilos"],["agente","Agente"],["patros","Patrocinios"],["rumores","Rumores"],["fichajes","Fichajes"],["prensa","Prensa"]],
-  ajustes:[["partida","Partida"],["contenido","Contenido"],["cheats","Cheats"],["info","Información"]]
+  ajustes:[["partida","Partida"],["contenido","Contenido"],["codigo","Código"],["reportar","Reportar"],["info","Información"]]
 };
 function irSub(sec,k){ SUB[sec]=k; irSec(sec); }
 function subTabs(sec){
   var n=SUBS[sec].length, cols=n>5? Math.ceil(n/2):n;
   return '<div class="chips full" style="grid-template-columns:repeat('+cols+',1fr)">'+SUBS[sec].map(function(t){
-    return '<button class="chip'+(SUB[sec]===t[0]?' on':'')+'" onclick="irSub(\''+sec+'\',\''+t[0]+'\')">'+esc(t[1])+((sec==="ajustes" && t[0]==="cheats" && CHEATS_ON)? ' <span style="opacity:.75">●</span>' : '')+'</button>';
+    return '<button class="chip'+(SUB[sec]===t[0]?' on':'')+'" onclick="irSub(\''+sec+'\',\''+t[0]+'\')">'+esc(t[1])+((sec==="ajustes" && t[0]==="codigo" && CHEATS_ON)? ' <span style="opacity:.75">●</span>' : '')+'</button>';
   }).join("")+'</div>';
 }
 function irSec(k){
@@ -9584,7 +9583,7 @@ async function nuevaPartida(){
 var ARBOL_FILTRO="todas";
 function todasSits(){ return SITS.concat((S&&S.custom)||[]); }
 /* ===== AJUSTES DEL DISPOSITIVO (viven fuera de la partida: existen aunque no haya carrera) ===== */
-/* El taller de pruebas NACE APAGADO. Se enciende solo desde Ajustes › Cheats y se recuerda en este dispositivo;
+/* El taller de pruebas NACE APAGADO. Se enciende solo con un código (efecto «taller», Ajustes › Código) y se recuerda en este dispositivo;
    no viaja en el JSON de la partida ni se borra al empezar de cero. */
 var CHEATS_ON=false;
 function aplicarCheats(){ var b=$("btn-chsaltar"); if(b) b.classList.toggle("hidden", !CHEATS_ON); }
@@ -9593,10 +9592,11 @@ async function cargarAjustes(){
   try{ var c=await sGet("cfg"); CHEATS_ON=!!(c && c.cheats===true); }catch(e){ CHEATS_ON=false; }
   aplicarCheats();
 }
-function toggleCheats(){ CHEATS_ON=!CHEATS_ON; aplicarCheats(); guardarAjustes(); irSub("ajustes","cheats"); }
+function toggleCheats(){ CHEATS_ON=!CHEATS_ON; aplicarCheats(); guardarAjustes(); irSub("ajustes","codigo"); }
 /* ===== CHEATS: el taller de pruebas (todo pasa por el motor real) ===== */
 function chAviso(t){ if(S) S.avisoMercado=t; }
-function chRefresca(){ if(S) guardar(); irSub("ajustes","cheats"); }
+var CH_MUDO=false;   /* true mientras un código aplica sus efectos: nada se re-pinta hasta el final */
+function chRefresca(){ if(S) guardar(); if(!CH_MUDO) irSub("ajustes","codigo"); }
 function chAttrs(d){ if(!CHEATS_ON||!S) return; ATTR_ORDEN.concat(S.pos==="POR"?["POR"]:[]).forEach(function(a){ S.attr[a]=clamp(atr(a)+d,10,99); }); chAviso("Atributos +"+d+"."); chRefresca(); }
 function chAttrs90(){ if(!CHEATS_ON||!S) return; ATTR_ORDEN.concat(S.pos==="POR"?["POR"]:[]).forEach(function(a){ S.techos=S.techos||{}; S.techos[a]=70; S.attr[a]=Math.max(atr(a),90); }); S.nivel=Math.max(S.nivel||1,80); chAviso("Atributos a 90, techo alto en todos, nivel 80."); chRefresca(); }
 function chEjes(d){ if(!CHEATS_ON||!S) return; S.car=S.car||{}; RASGOS_ORDEN.forEach(function(k){ var R=RASGOS_P[k]; S.car[k]=clamp((eje(k))+d, R.rango[0], R.rango[1]); }); chAviso("Los seis ejes +"+d+"."); chRefresca(); }
@@ -9655,15 +9655,116 @@ function chSaltarPrueba(){
   PICK.notaPrueba=8.2; PICK.golesPrueba=2; PICK.asisPrueba=1; PICK.paradasPrueba=(PICK.pos==="POR"?6:0);
   finPruebaCheat();
 }
+
+/* ===== CÓDIGOS: efectos que un código puede dar =====
+   El servidor (PocketBase de Goatmaker) guarda cada código con su lista de efectos [{k,v}] y sus límites (usos, caducidad, una vez por jugador).
+   Aquí vive el REGISTRO de lo que el juego sabe aplicar. Todo pasa por el motor real (las mismas funciones del taller).
+   Añadir un efecto = una línea en EFECTOS + una línea en el catálogo del panel admin. El juego manda sus claves (caps) al canjear y el
+   servidor rechaza, sin gastar el código, uno cuyo efecto esta versión no conoce. */
+var EFECTOS={
+  dinero:   {n:"Dinero",              u:"€",      min:1, max:1000000000, ap:function(v){ chDinero(v); },                 txt:function(v){ return "+"+fmtDinero(v)+" a tu cuenta"; }},
+  xp:       {n:"Experiencia",         u:"XP",     min:1, max:1000000,    ap:function(v){ ganarXP(v); },                   txt:function(v){ return "+"+v+" XP"; }},
+  niveles:  {n:"Subir de nivel",      u:"niveles",min:1, max:20,         ap:function(v){ for(var i=0;i<v && (S.nivel||1)<99;i++) ganarXP(Math.max(1,xpParaNivel(S.nivel||1)-(S.xp||0))); }, txt:function(v){ return "+"+v+" nivel(es): ahora nivel "+(S.nivel||1); }},
+  atributos:{n:"Atributos",           u:"puntos", min:1, max:15,         ap:function(v){ chAttrs(v); },                  txt:function(v){ return "Todos tus atributos +"+v; }},
+  ejes:     {n:"Los seis ejes",       u:"puntos", min:1, max:20,         ap:function(v){ chEjes(v); },                   txt:function(v){ return "Los seis ejes de carácter +"+v; }},
+  fama:     {n:"Fama (+20, +5k seguidores, grada +15)",                                  ap:function(){ chFama(); },          txt:function(){ return "Fama +20, +5.000 seguidores, grada +15"; }},
+  vital:    {n:"Forma 100 · Conf 90 · Míster 90 · Ánimo 90",                             ap:function(){ chVital(); },         txt:function(){ return "Forma, confianza, míster y ánimo al máximo"; }},
+  vestuario:{n:"Vestuario",           u:"puntos", min:1, max:30,         ap:function(v){ mueveAfin(v); },                 txt:function(v){ return "El vestuario te quiere +"+v; }},
+  curar:    {n:"Curar lesión y sanción",                                                 ap:function(){ chCurar(); },         txt:function(){ return "Sano y disponible"; }},
+  taller:   {n:"Abrir el taller de pruebas en este dispositivo",                          ap:function(){}, sinCarrera:true,    txt:function(){ return "Taller de pruebas abierto (Ajustes › Código)"; }}
+};
+function aplicarEfectos(lista){
+  var hechos=[], prev=CHEATS_ON, abre=false;
+  CHEATS_ON=true; CH_MUDO=true;
+  try{
+    (lista||[]).forEach(function(x){
+      var E=EFECTOS[x&&x.k]; if(!E) throw new Error("efecto desconocido: "+(x&&x.k));
+      var v=Number(x.v); if(E.u){ v=Math.round(clamp(isFinite(v)? v : E.min, E.min, E.max)); }
+      E.ap(v); hechos.push(E.txt(v)); if(x.k==="taller") abre=true;
+    });
+  } finally { CH_MUDO=false; CHEATS_ON = abre? true : prev; }
+  if(abre){ aplicarCheats(); guardarAjustes(); }
+  return hechos;
+}
+var COD_BUSY=false, COD_MSG=null;
+function codMsg(tipo,t){ var el=$("cod-res"); COD_MSG={tipo:tipo,t:t}; if(el) el.innerHTML=codMsgHTML(); }
+function codMsgHTML(){ if(!COD_MSG) return ""; var c=COD_MSG.tipo==="ok"? "var(--ok,#4ade80)" : COD_MSG.tipo==="mal"? "var(--bad)" : "var(--muted)";
+  return '<div class="note" style="margin-top:10px;color:'+c+'">'+COD_MSG.t+'</div>'; }
+var COD_ERR={no_existe:"Ese código no existe.", inactivo:"Ese código está desactivado.", aun_no:"Ese código todavía no se puede usar.", caducado:"Ese código ha caducado.",
+  agotado:"Ese código ya se ha usado el máximo de veces.", ya_usado:"Ya has canjeado ese código.", version:"Este código necesita una versión más nueva del juego: recarga la página (Ctrl+F5).",
+  demasiados:"Demasiados intentos seguidos. Espera unos minutos."};
+function canjearCodigo(){
+  if(COD_BUSY) return;
+  var el=$("cod-in"), v=el? el.value : "";
+  if(v.replace(/[^A-Za-z0-9]/g,"").length<4){ codMsg("mal","Escribe el código completo."); return; }
+  if(!S){ codMsg("mal","Necesitas una carrera en marcha para canjear un código."); return; }
+  COD_BUSY=true; codMsg("","Comprobando…");
+  TELE.post({op:"canje", code:v, caps:Object.keys(EFECTOS)}).then(function(r){
+    COD_BUSY=false;
+    if(r.ok && r.j && r.j.ok){
+      var hechos;
+      try{ hechos=aplicarEfectos(r.j.efectos); }
+      catch(e){ TELE.ev("canje_error",{msg:String(e&&e.message||e).slice(0,200)}); codMsg("mal","El código era válido pero algo falló al aplicarlo: "+esc(String(e&&e.message||e))+". Cuéntaselo a quien te lo dio."); return; }
+      try{ guardar(); }catch(e){}
+      COD_MSG={tipo:"ok", t:"<b>Código canjeado.</b><br>"+hechos.map(esc).join("<br>")};
+      irSub("ajustes","codigo");
+    } else if(r.sinRed){ codMsg("mal","No hay conexión con el servidor de Goatmaker. Inténtalo en un rato."); }
+    else { var e=(r.j && r.j.err)||""; codMsg("mal", esc(COD_ERR[e] || (r.status===403? "El servidor no acepta esta versión del juego (recarga con Ctrl+F5)." : "No se pudo canjear ("+(r.status||"sin respuesta")+")."))); }
+  });
+}
+function secCodigo(){
+  var H='<div class="card"><div class="eyebrow">Código</div>'
+    +'<p class="note" style="margin:4px 2px 10px">¿Te han pasado un código? Escríbelo aquí y se aplica a tu carrera actual. Cada código tiene sus propios límites: puede caducar, agotarse o valer una sola vez por jugador.</p>'
+    +'<input id="cod-in" class="inp" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="GM-XXXX-XXXX-XXXX" style="width:100%;text-transform:uppercase;letter-spacing:.08em" onkeydown="if(event.key===\'Enter\') canjearCodigo()">'
+    +'<button class="gold-btn" style="margin-top:10px" onclick="canjearCodigo()">Canjear</button><div id="cod-res">'+codMsgHTML()+'</div>'
+    +(S? '' : '<p class="note" style="margin:10px 2px 0">Primero tiene que haber una carrera en marcha.</p>')+'</div>';
+  COD_MSG=null;
+  if(CHEATS_ON) H+=secCheats();
+  return H;
+}
+/* ===== REPORTES: bugs, ideas y lo que el jugador quiera contar (van al panel admin) ===== */
+var REP={tipo:"bug", texto:"", save:true, busy:false, msg:null};
+function repTipo(t){ REP.tipo=t; irSub("ajustes","reportar"); }
+function repEnviar(){
+  if(REP.busy) return;
+  var tx=($("rep-tx")&&$("rep-tx").value||"").trim(); REP.texto=$("rep-tx")? $("rep-tx").value : REP.texto;
+  var m=$("rep-msg"), say=function(c,t){ REP.msg={c:c,t:t}; if(m) m.innerHTML='<div class="note" style="margin-top:10px;color:'+(c==="ok"?"var(--ok,#4ade80)":c==="mal"?"var(--bad)":"var(--muted)")+'">'+t+'</div>'; };
+  if(tx.length<3){ say("mal","Cuéntanos algo más: escribe al menos unas palabras."); return; }
+  REP.busy=true; say("","Enviando…");
+  var res=null, ctx={ ver:VERSION, ua:String(navigator.userAgent||"").slice(0,200), vp:innerWidth+"x"+innerHeight, lang:navigator.language||"" };
+  try{ res=TELE.resumen(); if(res){ ctx.estado=res; } }catch(e){}
+  var b={op:"reporte", tipo:REP.tipo, texto:tx, ctx:ctx};
+  if(S && REP.save){ b.save=S; }
+  TELE.post(b).then(function(r){
+    REP.busy=false;
+    if(r.ok && r.j && r.j.ok){ REP.texto=""; REP.msg={c:"ok", t:"<b>Enviado, gracias.</b> Lo leeré."}; irSub("ajustes","reportar"); }
+    else if(r.sinRed){ say("mal","No hay conexión con el servidor de Goatmaker; tu texto sigue aquí. Inténtalo en un rato."); }
+    else if(r.status===429){ say("mal","Has enviado varios reportes seguidos. Prueba de nuevo en una hora."); }
+    else if(r.status===413){ say("mal","El reporte es demasiado grande: desmarca «Adjuntar mi partida» e inténtalo otra vez."); }
+    else say("mal","No se pudo enviar ("+(r.status||"sin respuesta")+"). Tu texto sigue aquí.");
+  });
+}
+function secReportar(){
+  var TT=[["bug","🐞 Fallo"],["idea","💡 Idea"],["otro","💬 Otro"]];
+  var msg=REP.msg; REP.msg=null;
+  return '<div class="card"><div class="eyebrow">Reportar</div>'
+    +'<p class="note" style="margin:4px 2px 10px">Cuenta un fallo, propón una idea o dime lo que quieras. Va directo a quien hace el juego.</p>'
+    +'<div class="chips" style="grid-template-columns:repeat(3,1fr)">'+TT.map(function(t){ return '<button class="chip'+(REP.tipo===t[0]?' on':'')+'" onclick="repTipo(\''+t[0]+'\')">'+t[1]+'</button>'; }).join("")+'</div>'
+    +'<textarea id="rep-tx" maxlength="4000" rows="6" style="width:100%" placeholder="'+(REP.tipo==="bug"? "¿Qué ha pasado y qué esperabas? Si sabes cómo repetirlo, mejor." : REP.tipo==="idea"? "¿Qué añadirías o cambiarías?" : "Lo que quieras contar…")+'" oninput="REP.texto=this.value">'+esc(REP.texto)+'</textarea>'
+    +(S? '<label class="note" style="display:flex;gap:8px;align-items:flex-start;margin:10px 2px 0"><input type="checkbox" '+(REP.save?'checked':'')+' onchange="REP.save=this.checked" style="margin-top:3px"><span>Adjuntar mi partida (así se puede reproducir el fallo)</span></label>' : '')
+    +'<p class="note" style="margin:8px 2px 0;font-size:11px">Con el texto se envían: versión del juego, tu club, temporada y jornada, y tu navegador.</p>'
+    +'<button class="gold-btn" style="margin-top:10px" onclick="repEnviar()">Enviar</button><div id="rep-msg">'
+    +(msg? '<div class="note" style="margin-top:10px;color:'+(msg.c==="ok"?"var(--ok,#4ade80)":"var(--bad)")+'">'+msg.t+'</div>' : '')+'</div></div>';
+}
 var CHEAT_CAT="rpg";
-function verCatCheat(c){ CHEAT_CAT=c; irSub("ajustes","cheats"); }
+function verCatCheat(c){ CHEAT_CAT=c; irSub("ajustes","codigo"); }
 function secCheats(){
   var preClub=(typeof PICK!=="undefined" && PICK && PICK.pos && PICK.notaPrueba===undefined);
   var tabs=(preClub?[["prueba","Prueba"]]:[]).concat(S?[["rpg","RPG"],["dinero","Dinero"],["tiempo","Tiempo"],["despachos","Despachos"],["cuerpo","Cuerpo"]]:[]);
   var H='<div class="card"><div class="eyebrow">⚗️ Taller de pruebas</div>'
-    +'<p class="note" style="margin:4px 2px 10px">Trucos y atajos para probar sistemas: atributos, dinero, saltar semanas, ofertas al instante. Todo pasa por el motor real; nada queda maquillado. Nace apagado: así la carrera es la de verdad.</p>'
+    +'<p class="note" style="margin:4px 2px 10px">Trucos y atajos para probar sistemas: atributos, dinero, saltar semanas, ofertas al instante. Todo pasa por el motor real; nada queda maquillado. Se abre con un código y nace apagado: así la carrera es la de verdad.</p>'
     +'<button class="opt'+(CHEATS_ON?' salida':'')+'" style="margin:0" onclick="toggleCheats()"><b>Taller: '+(CHEATS_ON?'ENCENDIDO':'APAGADO')+'</b>'
-    +'<small>'+(CHEATS_ON?'Toca para apagarlo.':'Toca para encenderlo.')+' Se recuerda en este dispositivo.</small></button></div>';
+    +'<small>Toca para apagarlo y volver a la carrera de verdad (se vuelve a abrir con un código). Se recuerda en este dispositivo.</small></button></div>';
   if(!CHEATS_ON) return H;
   if(!tabs.length) return H+'<div class="card"><p class="note" style="margin:4px 2px">Necesita una partida en marcha (o una prueba a medio elegir).</p></div>';
   if(!tabs.some(function(t){return t[0]===CHEAT_CAT;})) CHEAT_CAT=tabs[0][0];
@@ -9703,7 +9804,8 @@ function secCheats(){
 function secAjustes(){
   var k=SUB.ajustes, hay=!!S;   /* sin carrera (arranque limpio, tras «Empezar de cero», prueba a medias) S es null: ninguna pestaña puede darlo por hecho */
   var H='<div class="eyebrow">Ajustes</div><h2 class="disp">Configuración</h2>'+subTabs("ajustes");
-  if(k==="cheats"){ H+=secCheats(); }
+  if(k==="codigo"){ H+=secCodigo(); }
+  else if(k==="reportar"){ H+=secReportar(); }
   else if(k==="partida"){
     H+='<div class="card"><div class="eyebrow">Tu partida</div>'
       +(hay? '<button class="ghost" onclick="exportar()">Exportar partida (JSON)</button>' : '')
@@ -9857,7 +9959,7 @@ function exportarContenido(){
   var blob=new Blob([JSON.stringify(limpio,null,2)],{type:"application/json"});
   var a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
-  a.download="goatmaker-pro-situaciones.json";
+  a.download="goatmaker-situaciones.json";
   a.click();
 }
 /* decide tu papel en la próxima jornada y lo deja fijado */
@@ -10943,7 +11045,7 @@ function exportar(){
   var blob=new Blob([data],{type:"application/json"});
   var a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
-  a.download="goatmaker-pro-v"+VERSION+"-t"+S.temporada+"-j"+(S.jornada+1)+".json";
+  a.download="goatmaker-v"+VERSION+"-t"+S.temporada+"-j"+(S.jornada+1)+".json";
   a.click();
 }
 function importar(){
@@ -10955,7 +11057,7 @@ function importar(){
       try{
         var d=JSON.parse(r.result);
         if(adoptarPartida(d)) return;
-        modal({ico:"📄", t:"Archivo no válido", x:"Ese JSON no parece una partida de Goatmaker Pro.", okTxt:"Entendido", cancelTxt:"Cerrar"});
+        modal({ico:"📄", t:"Archivo no válido", x:"Ese JSON no parece una partida de Goatmaker.", okTxt:"Entendido", cancelTxt:"Cerrar"});
       }catch(e){ modal({ico:"📄", t:"No se pudo leer", x:"El archivo está dañado o no es JSON.", okTxt:"Entendido", cancelTxt:"Cerrar"}); }
     };
     r.readAsText(f);
@@ -11068,7 +11170,17 @@ var TELE=(function(){
   window.addEventListener("pagehide",function(){ try{ flush(true); }catch(e){} });
   ev("sesion",{ref:(function(){ try{ return document.referrer? new URL(document.referrer).host : ""; }catch(e){ return ""; } })()});
   setTimeout(function(){ try{ flush(false); }catch(e){} },2500);
-  return { ev:ev, flush:flush, alGuardar:alGuardar, err:err, resumen:resumen, install:install, sid:sid, cola:function(){ return q.length; }, enviados:function(){ return nSent; }, vivo:function(){ return !dead && !!url(); } };
+  /* canje y reportes: peticiones sueltas a la misma puerta /tele (op:"canje" / op:"reporte"). Ignoran el interruptor de apagado de la telemetría. */
+  function post(obj){
+    var base=String(lsGet(NS+"tele-url")||TELE_URL||"").replace(/\/+$/,"");
+    if(!base) return Promise.resolve({ok:false,status:0,j:null,sinRed:true});
+    obj.k=llave(); obj.install=install; obj.ver=VERSION;
+    var ac=(typeof AbortController!=="undefined")? new AbortController() : null, to=ac? setTimeout(function(){ try{ ac.abort(); }catch(e){} },20000) : 0;
+    return fetch(base+"/tele",{method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(obj), signal:ac? ac.signal : undefined})
+      .then(function(r){ clearTimeout(to); return r.json().then(function(j){ return {ok:r.ok,status:r.status,j:j}; },function(){ return {ok:r.ok,status:r.status,j:null}; }); },
+            function(){ clearTimeout(to); return {ok:false,status:0,j:null,sinRed:true}; });
+  }
+  return { post:post, ev:ev, flush:flush, alGuardar:alGuardar, err:err, resumen:resumen, install:install, sid:sid, cola:function(){ return q.length; }, enviados:function(){ return nSent; }, vivo:function(){ return !dead && !!url(); } };
 })();
 (function enganchar(){
   function envolver(nombre,antes,despues){
@@ -11099,7 +11211,7 @@ setTimeout(function(){
       document.body.style.background="#070810";
       var d=document.createElement("div");
       d.style.cssText="position:fixed;inset:0;background:#070810;color:#EDF0F8;padding:24px;font:15px system-ui;z-index:999";
-      d.innerHTML="<h2 style='color:#FFC24B'>Goatmaker Pro</h2><p>La pantalla no se ha pintado bien en este visor.</p>"
+      d.innerHTML="<h2 style='color:#FFC24B'>Goatmaker</h2><p>La pantalla no se ha pintado bien en este visor.</p>"
         +"<p style='color:#8891AA;font-size:13px'>alto pantalla: "+(t?t.offsetHeight:"sin nodo")+"px · ancho: "+window.innerWidth+"px</p>"
         +"<button onclick=\"document.body.removeChild(this.parentNode);irElegir()\" style='background:#FFC24B;border:0;border-radius:12px;padding:14px 18px;font-weight:800'>Entrar igualmente</button>";
       document.body.appendChild(d);

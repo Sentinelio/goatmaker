@@ -1,11 +1,12 @@
-# Goatmaker Pro · telemetría y panel admin
+# Goatmaker · telemetría, códigos, reportes y panel admin
 
 Qué hay en esta carpeta
 
 | Archivo | Para qué |
 |---|---|
 | `pb_migrations/1763000000_tele.js` | Crea las 4 colecciones `tl_players`, `tl_sessions`, `tl_events`, `tl_snapshots`. Todas cerradas al público. |
-| `pb_hooks/tele.pb.js` | Ruta `POST /tele`: único punto de entrada de los jugadores. Valida la clave, recorta tamaños y escribe. |
+| `pb_migrations/1763000001_codigos_reportes.js` | Crea `tl_codes`, `tl_canjes`, `tl_reports`, `tl_intentos` (códigos canjeables y reportes). Cerradas al público. |
+| `pb_hooks/tele.pb.js` | Ruta `POST /tele`: único punto de entrada de los jugadores. Valida la clave y reparte: telemetría (sin `op`), `op:"canje"` (códigos) y `op:"reporte"`. |
 | `goatmaker-admin.html` | Tu panel. Se abre con doble clic (o desde `pb_public/`). Entras con tu superusuario de PocketBase. |
 
 Probado con PocketBase **0.23.12** (hace falta ≥ 0.23: usa `_superusers` y los hooks JS nuevos).
@@ -85,3 +86,26 @@ Apagar en un navegador concreto (el tuyo, por ejemplo), en la consola del navega
 ## Panel dentro del propio PocketBase (recomendado)
 
 Copia `pb_public/index.html` junto a `pb_data` (carpeta `pb_public`). PocketBase lo sirve en la raíz de su URL (`/`), así que el panel vive en la **misma dirección privada** que el panel de PocketBase y no necesita CORS: `https://TU-SERVIDOR.ts.net:8447/`. Si pones `--origins=https://sentinelio.github.io` al arrancar, solo el juego (desde GitHub Pages) puede enviar desde un navegador, y el panel sigue funcionando porque es del mismo origen. Por la puerta pública solo debe verse `/tele`, así que `pb_public` nunca queda expuesto a internet.
+
+## Códigos canjeables (regalos) · v4.68.0
+
+En el panel, pestaña **Códigos**: marcas los efectos (dinero, XP, subir de nivel, atributos, ejes, fama, forma, vestuario, curar, abrir el taller), pones los valores, un máximo de usos, una caducidad y si vale una vez por jugador, y pulsas **Crear código**. Te queda copiado (`GM-XXXX-XXXX-XXXX`): se lo mandas a tu amigo. Él lo escribe en el juego, en **Ajustes → Código → Canjear**, y se aplica a su carrera actual.
+
+- **Usos y tiempo**: un código deja de valer cuando se agota, caduca o lo desactivas. Eso lo decide el servidor, dentro de una transacción (si 20 amigos lo escriben a la vez, solo entran los que quepan).
+- **Regenerar**: cambia la cadena del código (la vieja deja de valer), pone los usos a cero y lo reactiva con los mismos efectos; te pregunta si quieres darle días de validez nuevos. Útil si se agotó, caducó o se filtró.
+- **Freno**: 6 intentos fallidos seguidos por navegador (80 en total) y espera 10 minutos.
+- **Versiones**: el juego manda qué efectos conoce; si un código trae un efecto que esa versión no entiende, el servidor lo rechaza **sin gastarlo**.
+- **Límite**: el efecto se aplica en el navegador del jugador; sirve para regalos entre amigos, no es un control de acceso fuerte.
+- **Añadir un efecto nuevo**: una línea en `EFECTOS` (en el juego) y otra en `CAT` (en el panel). El test del panel comprueba que coinciden.
+
+## Reportes de jugadores · v4.68.0
+
+En el juego: **Ajustes → Reportar** (fallo, idea u otro; con casilla para adjuntar la partida). En el panel, pestaña **Reportes** (el menú muestra cuántos hay nuevos): filtras por estado y tipo, cambias el estado (nuevo, visto, hecho, descartado), escribes tu nota y pulsas **📋 Copiar para Claude**, que deja un texto con tipo, versión, jugador, club, temporada y jornada, navegador y el texto del jugador, listo para pegar. «Descargar partida» baja el `.json` que se importa en el juego para reproducir el fallo. Máximo 6 reportes por navegador y hora.
+
+## Actualizar un servidor que ya tienes en marcha (v4.67.x → 4.68.0)
+
+1. **En el explorador de archivos, en la carpeta del servidor:** haz copia de `pb_hooks\tele.pb.js`. Si el tuyo tiene cambios propios (por ejemplo una ruta `GET /tele`), anótalos: hay que conservarlos al sustituirlo.
+2. **Copia** `pb_migrations\1763000001_codigos_reportes.js` a `pb_migrations\`, el nuevo `pb_hooks\tele.pb.js` a `pb_hooks\` y `pb_public\index.html` a `pb_public\`.
+3. **En PowerShell (administrador):** reinicia el servicio de PocketBase (`Restart-Service PocketBase-Goatmaker`, o el nombre que tenga). La migración crea las colecciones nuevas al arrancar.
+4. **Comprueba** (PowerShell): `curl.exe -s -X POST https://TU-SERVIDOR.ts.net/tele -H "Content-Type: application/json" -d "{\"k\":\"LA-CLAVE\",\"op\":\"canje\",\"install\":\"prueba12345\",\"code\":\"NOEXISTE1\"}"` debe devolver `{"err":"no_existe","ok":false}`.
+5. La puerta pública (Funnel) no cambia: sigue siendo solo `/tele`.
