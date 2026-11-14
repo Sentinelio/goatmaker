@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>La Primera · Pirámide y edades</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0d11; --panel:#12161c; --panel2:#171c23; --line:#252c35; --gold:#c9a227; --gold-dim:#7a6620;
+  --ink:#e9e5d8; --muted:#8b93a0; --dim:#565f6b; --ok:#4f9d6e; --bad:#c8553d; --r:10px;
+  --bajo:#7a3b32; --medio:#6e5a1e; --alto:#2d6a47;
+  --f0:#2a3340; --f1:#4a3b2a; --f2:#5a4a24; --f3:#44572f; --f4:#2f5f5a; --f5:#3a5a8a;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+body{min-height:100vh;background:radial-gradient(ellipse 900px 500px at 12% -5%, rgba(201,162,39,.07), transparent),radial-gradient(ellipse 700px 600px at 100% 8%, rgba(61,138,138,.05), transparent),var(--bg);}
+.disp{font-family:'Oswald',sans-serif;letter-spacing:.01em;} .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 70px;}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;padding-bottom:16px;border-bottom:1px solid var(--line);margin-bottom:16px;}
+.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);font-weight:600;}
+h1{font-size:32px;margin:2px 0 4px;font-weight:700;} h2{font-size:19px;margin:0 0 4px;font-weight:600;} h3{font-size:13px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600;}
+.sub{color:var(--muted);font-size:13px;max-width:640px;line-height:1.5;}
+.hbtns{display:flex;gap:8px;flex-wrap:wrap;}
+button,select,input{font:inherit;color:inherit;}
+.btn{background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:7px 12px;font-size:12.5px;cursor:pointer;}
+.btn:hover{border-color:var(--gold-dim);} .btn.on{background:var(--gold);color:#16120a;border-color:var(--gold);font-weight:600;}
+.ctl{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:12px 22px;align-items:center;background:rgba(10,13,17,.94);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;}
+.ctl label{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
+.ctl b{font-family:'IBM Plex Mono',monospace;color:var(--gold);font-size:17px;min-width:34px;text-align:right;}
+.ctl input[type=range]{accent-color:var(--gold);width:150px;} .ctl select{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 8px;}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+.tabs .btn{font-family:'Oswald',sans-serif;letter-spacing:.04em;font-size:14px;padding:8px 16px;}
+section.tab{display:none;} section.tab.on{display:block;}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;margin-bottom:14px;}
+.note{color:var(--muted);font-size:12.5px;line-height:1.55;margin:4px 0 0;} .warn{color:#e0a458;}
+.row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;} .col{flex:1 1 320px;min-width:0;}
+/* mapa de puertas */
+.hmwrap{overflow-x:auto;padding-bottom:4px;}
+.hm{min-width:640px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;}
+.hm-h,.hm-r{display:grid;grid-template-columns:100px repeat(13,minmax(40px,1fr));gap:2px;margin-bottom:2px;align-items:stretch;}
+.hm-h span{color:var(--muted);text-align:center;padding:2px 0;font-size:10.5px;}
+.hm-r .age{display:flex;align-items:center;gap:6px;color:var(--ink);padding:0 6px;border-left:4px solid var(--rc);background:var(--panel2);border-radius:3px;font-size:11.5px;}
+.hm-r .age small{color:var(--muted);font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;}
+.hm-r.cut .age{margin-top:6px;} .hm-r.cut .c{margin-top:6px;}
+.c{text-align:center;padding:3px 0;border-radius:3px;color:#eee;font-weight:600;cursor:default;}
+.c.b-bajo{background:var(--bajo);} .c.b-medio{background:var(--medio);} .c.b-alto{background:var(--alto);}
+.c.f0{background:var(--f0);} .c.f1{background:var(--f1);} .c.f2{background:var(--f2);} .c.f3{background:var(--f3);} .c.f4{background:var(--f4);} .c.f5{background:var(--f5);}
+.c.sel{outline:2px solid var(--gold);outline-offset:0;z-index:1;position:relative;} .c.rowsel{filter:brightness(1.25);}
+.leg{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:8px 0 2px;align-items:center;} .leg i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-2px;}
+.seg{display:flex;height:16px;border-radius:4px;overflow:hidden;background:var(--panel2);min-width:120px;} .seg span{display:block;height:100%;}
+table{border-collapse:collapse;width:100%;font-size:13px;} th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle;}
+th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;white-space:nowrap;} td.n,th.n{text-align:right;font-family:'IBM Plex Mono',monospace;white-space:nowrap;}
+.tw{overflow-x:auto;}
+/* entrada */
+.big{font-family:'Oswald',sans-serif;font-size:64px;line-height:1;font-weight:700;color:var(--gold);}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;} .chip{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;border:1px solid var(--line);background:var(--panel2);}
+.chip.r{border-color:var(--rc);color:var(--rc);} .chip.b-bajo{border-color:#b5584c;color:#e08a7c;} .chip.b-medio{border-color:#b8962a;color:#e3c25a;} .chip.b-alto{border-color:#4f9d6e;color:#7fd0a0;}
+.bolsa{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--panel2);} .bolsa.off{opacity:.45;} .bolsa h4{margin:0 0 2px;font-size:14px;font-weight:600;}
+.bolsa .m{color:var(--muted);font-size:12px;} .rolbar{display:flex;height:10px;border-radius:3px;overflow:hidden;margin:6px 0 3px;background:#0c0f13;} .rolbar span{display:block;height:100%;}
+.r0{background:#4f9d6e;} .r1{background:#c9a227;} .r2{background:#8b93a0;} .r3{background:#c8553d;}
+.mesa{border-left:3px solid var(--gold);padding:7px 11px;margin-bottom:7px;background:var(--panel2);border-radius:0 8px 8px 0;} .mesa b{font-weight:600;} .mesa .rol{font-size:12px;} .mesa .q{color:var(--muted);font-style:italic;font-size:12.5px;margin-top:2px;}
+/* curva */
+.sw{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px;vertical-align:-1px;}
+.pills{display:flex;gap:6px;flex-wrap:wrap;} .pill{border:1px solid var(--line);background:var(--panel2);border-radius:999px;padding:4px 11px;font-size:12px;cursor:pointer;user-select:none;} .pill.on{border-color:var(--gold);color:var(--gold);}
+.fld{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;} .fld input,.fld select{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px 8px;color:var(--ink);font-size:13px;width:96px;}
+svg text{font-family:'IBM Plex Mono',monospace;font-size:10.5px;fill:var(--muted);}
+td input.ed{width:54px;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 5px;color:var(--ink);text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;}
+.mx{display:inline-block;min-width:22px;text-align:center;border-radius:4px;font-size:12px;padding:1px 4px;} .mx.full{background:#27492f;color:#9be0b4;} .mx.part{background:#4b4021;color:#e3c25a;} .mx.none{color:var(--dim);}
+.chk{accent-color:var(--gold);}
+details{margin-top:8px;} summary{cursor:pointer;color:var(--gold);font-size:13px;}
+.badge{white-space:nowrap;font-size:10.5px;padding:1px 7px;border-radius:999px;border:1px solid var(--gold-dim);color:var(--gold);margin-left:6px;vertical-align:2px;text-transform:uppercase;letter-spacing:.06em;}
+@media (max-width:640px){ h1{font-size:26px;} .big{font-size:52px;} .ctl input[type=range]{width:110px;} .ctl{position:static;} }
+.cob{font-family:'IBM Plex Mono',monospace;text-align:center;border-radius:4px;padding:2px 6px;display:inline-block;min-width:44px;}
+.cob.ok{background:#27492f;color:#9be0b4;} .cob.uno{background:#4b4021;color:#e3c25a;} .cob.cero{background:#5a2a22;color:#f0a090;} .cob.na{color:var(--dim);}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <div class="eyebrow">La Primera · taller de diseño</div>
+    <h1 class="disp">Pirámide y edades</h1>
+    <div class="sub">Las fórmulas de media, nivel, techo, entreno, declive y sueldo son <b>las del motor</b> (v4.66.0, comprobadas con un test de 23.000 casos). Lo nuevo —puertas, rangos, bolsas de equipos— es una <b>propuesta que puedes mover</b>: todo lo que cambies se guarda en este navegador.</div>
+  </div>
+  <div class="hbtns"><button class="btn" id="b-reset">Restaurar propuesta</button><button class="btn" id="b-copy">Copiar configuración</button><button class="btn" id="b-paste">Pegar configuración</button></div>
+</header>
+
+<div class="ctl">
+  <label>Posición <select id="c-pos"></select></label>
+  <label>Nota del ojeo <input type="range" id="c-nota" min="4" max="10" step="0.1"><b id="v-nota"></b></label>
+  <label>Edad <input type="range" id="c-edad" min="14" max="38" step="1"><b id="v-edad"></b></label>
+</div>
+
+<nav class="tabs" id="tabs">
+  <button class="btn on" data-t="puertas">1 · Las puertas</button>
+  <button class="btn" data-t="entrada">2 · Tu entrada</button>
+  <button class="btn" data-t="curva">3 · La curva</button>
+  <button class="btn" data-t="reglas">4 · Reglas y rangos</button>
+</nav>
+
+<section class="tab on" id="t-puertas">
+  <div class="card">
+    <div class="row" style="align-items:center;justify-content:space-between">
+      <div><h2 class="disp">¿Qué puerta abre cada edad con cada nota?</h2>
+        <p class="note">Cada casilla es la <b>media de salida</b> (la fórmula real de <span class="mono">mediaAspirante</span>) para esa edad y esa nota del partido de ojeo, en la posición elegida arriba.</p></div>
+      <div class="pills" id="modo"><span class="pill on" data-m="nueva">Propuesta · bandas</span><span class="pill" data-m="hoy">Hoy · mejor oferta</span></div>
+    </div>
+    <div class="leg" id="leg"></div>
+    <div class="hmwrap"><div class="hm" id="hm"></div></div>
+  </div>
+  <div class="card"><h3>Reparto por rango (notas de 5,0 a 9,0)</h3><div class="tw" id="reparto"></div>
+    <p class="note" id="repnote"></p></div>
+  <div class="card"><h3>Cobertura: ¿cuántas bolsas ve cada edad en cada banda?</h3><div class="tw" id="cober"></div>
+    <p class="note"><span class="cob cero" style="min-width:0">0</span> nadie te ficha · <span class="cob uno" style="min-width:0">1</span> una sola opción: no hay elección real · <span class="cob ok" style="min-width:0">2+</span> hay donde elegir. Solo cuenta lo alcanzable: con la posición elegida, hay bandas que ese rango no puede sacar con ninguna nota (—).</p></div>
+</section>
+
+<section class="tab" id="t-entrada">
+  <div class="row">
+    <div class="col">
+      <div class="card"><h3>Tras el partido de ojeo</h3><div class="big" id="e-media">–</div>
+        <div class="chips" id="e-chips"></div><p class="note" id="e-nota"></p></div>
+      <div class="card"><h3>Lo que ve el jugador: cinco mesas de ejemplo</h3><div id="e-mesas"></div>
+        <p class="note">La línea en cursiva es la <b>opinión del club</b>, con el motivo real (edad, papel). No hay número de «potencial»: el techo es tuyo.</p></div>
+    </div>
+    <div class="col">
+      <div class="card"><h3>Equipos que pueden ficharte <span class="badge" id="e-ban"></span></h3><div id="e-bolsas"></div>
+        <p class="note">Una bolsa entra si la <b>puerta</b> de tu banda la incluye y tu <b>edad</b> cae en su ventana. La barra muestra qué papel tendrías en sus clubes (verde = titular desde el primer día).</p></div>
+      <div class="card"><h3>Hoy, en el juego</h3><div id="e-hoy"></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="tab" id="t-curva">
+  <div class="card">
+    <div class="row" style="align-items:flex-end;gap:18px">
+      <div class="fld">Minutos (XP por temporada)
+        <div class="pills" id="xpp"><span class="pill on" data-xp="1700">Titular · 1.700</span><span class="pill" data-xp="1300">Habitual · 1.300</span><span class="pill" data-xp="900">Rotación · 900</span><span class="pill" data-xp="400">Suplente · 400</span></div></div>
+      <div class="fld">Sesiones por jornada<select id="k-ses"><option>1</option><option>2</option><option selected>3</option></select></div>
+      <div class="fld">Puntos de techo<select id="k-rep"><option value="reparto">Repartidos entre los 3 clave</option><option value="concentra">Todos al más importante</option></select></div>
+      <div class="fld">Entreno ×<input id="k-mult" type="number" min="0.5" max="2" step="0.05" value="1"></div>
+      <div class="fld">«Temporadas ≥»<input id="k-umb" type="number" min="40" max="95" step="1" value="80"></div>
+    </div>
+    <p class="note">Entrenas con el ejercicio que más media da en cada sesión y no te cansas ni te lesionas: es <b>el techo de lo posible</b>; la carrera real quedará algo por debajo. «Entreno ×» recoge tienda, patrocinios y talentos (1 = nada comprado).</p>
+    <div class="pills" id="edades" style="margin-top:8px"></div>
+  </div>
+  <div class="card"><h3>Media a lo largo de la carrera según la edad a la que entras</h3><div id="chart"></div></div>
+  <div class="card"><h3>Comparativa</h3><div class="tw" id="tabla"></div><p class="note" id="tnota"></p></div>
+</section>
+
+<section class="tab" id="t-reglas">
+  <div class="row">
+    <div class="col">
+      <div class="card"><h3>Umbrales de media (puertas)</h3>
+        <div class="row"><div class="fld">Banda baja: menos de<input class="ed" style="width:70px" type="number" id="u-bajo" min="40" max="95"></div>
+        <div class="fld">Banda alta: desde<input class="ed" style="width:70px" type="number" id="u-alto" min="40" max="95"></div></div>
+        <p class="note">Tu propuesta: &lt;50 · 50–79 · ≥80.</p></div>
+      <div class="card"><h3>Rangos de edad</h3><div class="tw" id="r-rangos"></div></div>
+      <div class="card"><h3>Qué bolsas admite cada puerta</h3><div class="tw" id="r-puertas"></div></div>
+    </div>
+    <div class="col">
+      <div class="card"><h3>Bolsas de equipos y su ventana de edad</h3><div class="tw" id="r-bolsas"></div>
+        <p class="note">«Mejor» es la media del mejor jugador de tu puesto en ese tipo de club (en Primera y Segunda se usan los clubes reales del juego; en las demás, un supuesto que puedes cambiar).</p></div>
+      <div class="card"><h3>Bolsa × rango <span class="mx full" style="font-size:11px">todo el rango</span> <span class="mx part" style="font-size:11px">parte</span></h3><div class="tw" id="r-matriz"></div></div>
+    </div>
+  </div>
+  <div class="card"><h3>Las reglas de edad que el motor YA tiene (repartidas en ~10 sitios)</h3><div class="tw" id="r-edad"></div>
+    <p class="note">Esta tabla es solo lectura: es lo que el motor aplica hoy. La idea es reunirlo todo en una única tabla <span class="mono">RANGOS</span>.</p><p class="note" id="r-saltos"></p></div>
+</section>
+</div>
+
+<script>
+/*CORE-START*/
+/* ===== NÚCLEO · las fórmulas del motor de La Primera, copiadas tal cual (v4.66.0) =====
+   Nada de aquí es una aproximación: cada función replica a la del juego y el test F87 lo comprueba contra el motor real.
+   Lo único «nuevo» (puertas, rangos, bolsas) vive en CFG, fuera de este bloque. */
+var CORE=(function(){
+  function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+  var POSL=["POR","DFC","LAT","MCD","MC","MCO","EXT","DC"];
+  var POS_N={POR:"Portero",DFC:"Central",LAT:"Lateral",MCD:"Pivote",MC:"Interior",MCO:"Mediapunta",EXT:"Extremo",DC:"Delantero"};
+  var ATTR_ORDEN=["TEC","FIS","TAC","DEF","MEN"];
+  var ATTR_BASE={
+    POR:{TEC:44,FIS:52,TAC:56,DEF:50,MEN:58,POR:60},
+    DFC:{TEC:46,FIS:60,TAC:56,DEF:64,MEN:54,POR:10},
+    LAT:{TEC:52,FIS:64,TAC:54,DEF:56,MEN:50,POR:10},
+    MCD:{TEC:52,FIS:58,TAC:62,DEF:60,MEN:54,POR:10},
+    MC: {TEC:60,FIS:56,TAC:62,DEF:48,MEN:52,POR:10},
+    MCO:{TEC:64,FIS:50,TAC:58,DEF:40,MEN:54,POR:10},
+    EXT:{TEC:62,FIS:60,TAC:50,DEF:40,MEN:50,POR:10},
+    DC: {TEC:58,FIS:58,TAC:50,DEF:38,MEN:58,POR:10}
+  };
+  var PESO_MEDIA={
+    POR:{POR:.55,TAC:.15,MEN:.15,TEC:.10,FIS:.05,DEF:0},
+    DFC:{DEF:.38,FIS:.22,TAC:.20,MEN:.10,TEC:.10,POR:0},
+    LAT:{FIS:.30,DEF:.24,TEC:.20,TAC:.16,MEN:.10,POR:0},
+    MCD:{TAC:.28,DEF:.28,TEC:.20,FIS:.14,MEN:.10,POR:0},
+    MC: {TEC:.32,TAC:.28,FIS:.18,MEN:.12,DEF:.10,POR:0},
+    MCO:{TEC:.38,TAC:.24,MEN:.18,FIS:.12,DEF:.08,POR:0},
+    EXT:{TEC:.34,FIS:.26,TAC:.16,MEN:.14,DEF:.10,POR:0},
+    DC: {TEC:.34,MEN:.24,FIS:.24,TAC:.12,DEF:.06,POR:0}
+  };
+  var ENTRENOS=[
+    {id:"tecnica",  pos:null, sube:{TEC:1}},
+    {id:"fisico",   pos:null, sube:{FIS:1}},
+    {id:"tactica",  pos:null, sube:{TAC:1}},
+    {id:"mental",   pos:null, sube:{MEN:1}},
+    {id:"parado",   pos:null, sube:{TEC:0.55,MEN:0.5}},
+    {id:"reflejos", pos:["POR"], sube:{POR:1.1}},
+    {id:"salidas",  pos:["POR"], sube:{POR:0.7,DEF:0.5}},
+    {id:"pies",     pos:["POR"], sube:{TEC:0.8,TAC:0.4}},
+    {id:"duelos",   pos:["DFC","LAT","MCD"], sube:{DEF:1.1}},
+    {id:"salidabal",pos:["DFC","LAT","MCD"], sube:{TEC:0.7,TAC:0.5}},
+    {id:"idayvuelta",pos:["LAT","EXT"], sube:{FIS:0.9,TAC:0.3}},
+    {id:"pasein",   pos:["MCD","MC","MCO"], sube:{TEC:0.7,TAC:0.6}},
+    {id:"llegada",  pos:["MC","MCO","LAT"], sube:{FIS:0.6,TEC:0.5}},
+    {id:"robo",     pos:["MCD","MC","DFC"], sube:{DEF:0.8,TAC:0.5}},
+    {id:"definicion",pos:["DC","EXT","MCO"], sube:{TEC:0.9,MEN:0.4}},
+    {id:"regate",   pos:["EXT","MCO","DC"], sube:{TEC:0.8,FIS:0.4}},
+    {id:"remate",   pos:["DC","DFC"], sube:{FIS:0.7,DEF:0.4,TEC:0.3}}
+  ];
+  function entrenosDe(pos){ return ENTRENOS.filter(function(e){ return !e.pos || e.pos.indexOf(pos)>=0; }); }
+  /* ---- nivel y XP ---- */
+  function xpParaNivel(n){ return 30+10*n; }
+  function nivelSuelo(edad){ return Math.max(1, Math.round((edad-16)*1.7)+1); }
+  function nivelRango(edad){ return Math.round(clamp(26-(edad-16)*0.9, 5, 25)); }
+  function nivelInicial(edad, notaPrueba){
+    var suelo=nivelSuelo(edad), rango=nivelRango(edad);
+    var norm=clamp(((notaPrueba||6)-4)/5, 0, 1);
+    return clamp(suelo+Math.round(rango*norm), 1, 99);
+  }
+  function talentosDe(nivel){ return Math.max(0, nivel-7); }
+  /* ---- la media y la edad ---- */
+  function offsetEdad(e){ return e<20? -(20-e)*3.2 : e<=30? (e-20)*0.9 : (10*0.9)-(e-30)*1.4; }
+  function curvaEdad(e){ return e<20? -4+(e-16)*1.1 : e<=30? (e-20)*0.55 : -(e-30)*1.1; }
+  function bonusPrueba(n){ return clamp(Math.round((n-6.3)*(n>=8?12:8)), -16, 26); }
+  function mediaAspirante(pos, e, nota, attrBonus){
+    var b=JSON.parse(JSON.stringify(ATTR_BASE[pos]));
+    var d=offsetEdad(e);
+    var w=PESO_MEDIA[pos]||PESO_MEDIA.MC, base=0;
+    for(var k in w){ base+=clamp(b[k]+d+(attrBonus||0),15,92)*w[k]; }
+    base+=(nota===undefined? 0 : bonusPrueba(nota));
+    return Math.round(clamp(base*0.92+curvaEdad(e)+14, 40, 95));
+  }
+  function atributosIniciales(pos, e){
+    var b=JSON.parse(JSON.stringify(ATTR_BASE[pos])), d=offsetEdad(e);
+    for(var k in b){ b[k]=Math.round(clamp(b[k]+d,15,92)); }
+    return b;
+  }
+  function mediaDe(pos, e, attr){
+    var w=PESO_MEDIA[pos]||PESO_MEDIA.MC, base=0;
+    for(var k in w){ base+=(attr[k]===undefined?50:attr[k])*w[k]; }
+    return Math.round(clamp(base*0.92+curvaEdad(e)+14, 40, 95));
+  }
+  /* ---- techo por atributo (68 + 0,28 por punto) y declive a partir de los 29 ---- */
+  function tasaDeclive(k){ return {TEC:0.35, FIS:1.0, TAC:0.30, DEF:0.55, MEN:0.20, POR:0.40}[k]||0.5; }
+  function techoAtributo(pos, e, techos, k){
+    var base=68, inc=0.28, pts=(techos&&techos[k])||0;
+    var techo=base+pts*inc;
+    if(e>28){
+      var peso=(PESO_MEDIA[pos]||PESO_MEDIA.MC)[k]; if(peso===undefined) peso=0.15;
+      var factorPos=0.3+peso*3.5, d=e-28;
+      techo-=d*d*0.12*tasaDeclive(k)*factorPos;
+    }
+    return clamp(techo,30,96);
+  }
+  /* ---- una sesión de entreno ---- */
+  function gananciaEntreno(ej, k, v, T, p){
+    var base=(ej.sube[k]||0); if(!base) return 0;
+    if(v>=T) return 0;
+    var techo=clamp((T-v)/52, 0.05, 1.10);
+    var ff=(ej.id==="remate")? clamp(1+(((p.altura===undefined?180:p.altura)-180)/220)+(((p.peso===undefined?75:p.peso)-75)/280), 0.85, 1.20) : 1;   /* factorFisico: solo el remate */
+    var mult=(0.85+((p.conf===undefined?55:p.conf)/300))*(p.multEntreno||1)*ff;
+    return Math.round(base*techo*mult*100)/100;
+  }
+  /* ---- el envejecimiento de cada verano (nuevaTemporada) ---- */
+  function caidaAnual(ed){ return ed>=34? 2.6 : ed>=32? 1.7 : 0.9; }
+  function envejecer(pos, attr, ed){
+    if(ed<30) return;
+    var c=caidaAnual(ed);
+    attr.FIS=clamp(attr.FIS-c*1.6,10,95); attr.TEC=clamp(attr.TEC-c*0.4,10,95); attr.DEF=clamp(attr.DEF-c*0.5,10,95);
+    if(pos==="POR") attr.POR=clamp(attr.POR-c*0.5,10,95);
+    attr.TAC=clamp(attr.TAC+0.6,10,95); attr.MEN=clamp(attr.MEN+0.5,10,95);
+  }
+  /* ---- las reglas de edad que ya existen repartidas por el motor ---- */
+  function sueldoX(e){ return e<19? 0.45 : e<22? 0.7 : e<=30? 1 : 0.75; }
+  function contratoAnos(e){ return e<20? 4.4 : e<24? 3.5 : e<=30? 3 : 2; }   /* esperanza: 4+40%, 3+50% */
+  function valorX(e){ return e<=21?1.15 : e<=27?1 : e<=29?0.85 : e<=31?0.65 : e<=33?0.45 : 0.3; }
+  function traspasoX(e){ return e<=23? 1.35 : e<=27? 1.15 : e<=30? 0.85 : 0.5; }
+  function oxidoSkill(e){ return e>=31? 1.5 : e>=28? 1.2 : e<=22? 0.7 : 1.0; }
+  function oxidoTalento(e){ return e>=31? 1.6 : e>=28? 1.2 : e<=22? 0.6 : 1.0; }
+  function reglasEdad(e){
+    return {edad:e, off:offsetEdad(e), curva:curvaEdad(e), sueldoX:sueldoX(e), anos:contratoAnos(e), valorX:valorX(e), traspasoX:traspasoX(e),
+            oxSk:oxidoSkill(e), oxTa:oxidoTalento(e), caidaFIS:(e>=30? caidaAnual(e)*1.6 : 0)};
+  }
+  /* ---- dinero: la ficha según la franja del club, tu media y tu edad ---- */
+  var FRANJAS=["segunda","modesta","baja","media","alta","élite"];
+  var FR={ "segunda":{exige:48,sal:150000,cl:10}, "modesta":{exige:52,sal:190000,cl:16}, "baja":{exige:59,sal:380000,cl:22},
+           "media":{exige:65,sal:750000,cl:30}, "alta":{exige:71,sal:1500000,cl:45}, "élite":{exige:78,sal:3400000,cl:60} };
+  function franjaPorMedia(mia){ return mia>=78?5 : mia>=71?4 : mia>=65?3 : mia>=59?2 : mia>=53?1 : 0; }
+  function salarioDe(f, mia, edad){
+    var ajusteMedia=Math.pow(clamp(mia/f.exige,0.55,1.4),2.2);
+    return Math.round(f.sal*ajusteMedia*sueldoX(edad)/1000)*1000;
+  }
+  /* ---- la tanda de entrada de HOY (generarTanda): la franja manda, la nota del ojeo empuja o hunde ---- */
+  function nivelHoy(mia, nota){
+    var nivel=franjaPorMedia(mia);
+    if(nota!==undefined){ if(nota>=8.6) nivel+=2; else if(nota>=7.6) nivel+=1; else if(nota<5.0) nivel-=1; }
+    return clamp(nivel,0,5);
+  }
+  function tandaHoy(mia, nota){ var n=nivelHoy(mia,nota); return [Math.min(5,n+1), n, n, Math.max(0,n-1), Math.max(0,n-2)]; }
+  /* ---- el papel que te ofrece un club (ofertaDe) ---- */
+  function rolDe(dif){ return dif>=2? 0 : dif>=-5? 1 : dif>=-12? 2 : 3; }
+  var ROLES=["Titular desde el primer día","Pelearás el puesto","Rotaciones y minutos sueltos","Banquillo y mucha paciencia"];
+  /* ---- la carrera: sesiones voraces (el ejercicio que más media da), XP fija por temporada, puntos de techo a los 3 atributos clave ---- */
+  function claves(pos){
+    var w=PESO_MEDIA[pos], ks=Object.keys(w).filter(function(k){ return w[k]>0; });
+    ks.sort(function(a,b){ return w[b]-w[a]; });
+    return ks.slice(0,3);
+  }
+  function simular(p){
+    var pos=p.pos, a0=p.edad0, nSes=(p.sesiones===undefined?3:p.sesiones), xpT=p.xpTemp, reparto=p.reparto||"reparto";
+    var W=PESO_MEDIA[pos], K=Object.keys(W).filter(function(k){return W[k]>0;}).sort(function(a,b){return W[b]-W[a];});
+    var disp=entrenosDe(pos).filter(function(e){ return Object.keys(e.sube).some(function(k){ return W[k]>0; }); });
+    var attr=atributosIniciales(pos,a0), techos={}, nivel=nivelInicial(a0,p.nota), xp=0, pend=0, pts=0, out=[], rot=0, plata=0;
+    var nivel0=nivel, maxEdad=p.maxEdad||38;
+    for(var a=a0; a<=maxEdad; a++){
+      for(var j=0;j<38;j++){
+        for(var s=0;s<nSes;s++){
+          var mejor=null, mv=-1, mg=null;
+          for(var i=0;i<disp.length;i++){
+            var e=disp[i], val=0, gs={};
+            for(var k in e.sube){
+              var T=techoAtributo(pos,a,techos,k), g=gananciaEntreno(e,k,attr[k],T,p);
+              gs[k]=g; val+=g*(W[k]||0);
+            }
+            if(val>mv){ mv=val; mejor=e; mg=gs; }
+          }
+          if(mejor){ for(var k2 in mg){ attr[k2]=clamp(attr[k2]+mg[k2],10,techoAtributo(pos,a,techos,k2)); } }
+        }
+        if(nivel<99){
+          xp+=xpT/38;
+          while(nivel<99 && xp>=xpParaNivel(nivel)){ xp-=xpParaNivel(nivel); nivel++; pend++; }
+        }
+        while(pend>0){
+          var kk=null;
+          if(reparto==="concentra"){ for(var q=0;q<K.length;q++){ if(techoAtributo(pos,a,techos,K[q])<90){ kk=K[q]; break; } } if(!kk) kk=K[0]; }
+          else { kk=K[rot%3]; rot++; }
+          techos[kk]=(techos[kk]||0)+1; pend--; pts++;
+        }
+      }
+      var med=mediaDe(pos,a,attr);
+      var fr=FR[FRANJAS[franjaPorMedia(med)]];
+      var ficha=salarioDe(fr,med,a); plata+=ficha;
+      out.push({edad:a, media:med, nivel:nivel, pts:pts, talentos:talentosDe(nivel), ficha:ficha, plata:plata, franja:FRANJAS[franjaPorMedia(med)],
+                attr:JSON.parse(JSON.stringify(attr))});
+      envejecer(pos,attr,a+1);
+    }
+    return {nivel0:nivel0, talentos0:talentosDe(nivel0), temporadas:out};
+  }
+  return {POSL:POSL, POS_N:POS_N, ATTR_ORDEN:ATTR_ORDEN, ATTR_BASE:ATTR_BASE, PESO_MEDIA:PESO_MEDIA, ENTRENOS:ENTRENOS, FRANJAS:FRANJAS, FR:FR, ROLES:ROLES,
+          clamp:clamp, xpParaNivel:xpParaNivel, nivelInicial:nivelInicial, talentosDe:talentosDe, offsetEdad:offsetEdad, curvaEdad:curvaEdad,
+          bonusPrueba:bonusPrueba, mediaAspirante:mediaAspirante, atributosIniciales:atributosIniciales, mediaDe:mediaDe,
+          techoAtributo:techoAtributo, gananciaEntreno:gananciaEntreno, envejecer:envejecer, entrenosDe:entrenosDe,
+          sueldoX:sueldoX, contratoAnos:contratoAnos, valorX:valorX, traspasoX:traspasoX, oxidoSkill:oxidoSkill, oxidoTalento:oxidoTalento,
+          reglasEdad:reglasEdad, franjaPorMedia:franjaPorMedia, salarioDe:salarioDe, rolDe:rolDe, claves:claves, simular:simular,
+          nivelHoy:nivelHoy, tandaHoy:tandaHoy};
+})();
+
+/*CORE-END*/
+
+var CLUBES={"l1":[{"id":"BAR","n":"FC Barcelona","c":"Barcelona","rank":1,"m":{"POR":85,"DFC":86,"LAT":85,"MCD":81,"MC":90,"MCO":81,"EXT":92,"DC":84}},{"id":"RMA","n":"Real Madrid","c":"R. Madrid","rank":2,"m":{"POR":88,"DFC":84,"LAT":85,"MCD":82,"MC":90,"MCO":82,"EXT":91,"DC":92}},{"id":"ATM","n":"Atlético de Madrid","c":"Atlético","rank":3,"m":{"POR":87,"DFC":83,"LAT":83,"MCD":79,"MC":84,"MCO":79,"EXT":79,"DC":89}},{"id":"VIL","n":"Villarreal CF","c":"Villarreal","rank":4,"m":{"POR":78,"DFC":80,"LAT":81,"MCD":76,"MC":85,"MCO":76,"EXT":82,"DC":82}},{"id":"BET","n":"Real Betis","c":"Betis","rank":5,"m":{"POR":79,"DFC":78,"LAT":77,"MCD":75,"MC":85,"MCO":75,"EXT":82,"DC":79}},{"id":"VAL","n":"Valencia CF","c":"Valencia","rank":6,"m":{"POR":77,"DFC":78,"LAT":82,"MCD":74,"MC":80,"MCO":74,"EXT":79,"DC":78}},{"id":"CEL","n":"RC Celta","c":"Celta","rank":7,"m":{"POR":76,"DFC":78,"LAT":79,"MCD":73,"MC":80,"MCO":73,"EXT":79,"DC":78}},{"id":"RAY","n":"Rayo Vallecano","c":"Rayo","rank":8,"m":{"POR":77,"DFC":76,"LAT":80,"MCD":73,"MC":76,"MCO":73,"EXT":79,"DC":78}},{"id":"RSO","n":"Real Sociedad","c":"R. Sociedad","rank":9,"m":{"POR":82,"DFC":80,"LAT":78,"MCD":76,"MC":81,"MCO":76,"EXT":85,"DC":85}},{"id":"ATH","n":"Athletic Club","c":"Athletic","rank":10,"m":{"POR":85,"DFC":83,"LAT":78,"MCD":76,"MC":83,"MCO":76,"EXT":88,"DC":78}},{"id":"OSA","n":"CA Osasuna","c":"Osasuna","rank":11,"m":{"POR":77,"DFC":78,"LAT":75,"MCD":73,"MC":79,"MCO":73,"EXT":79,"DC":79}},{"id":"GET","n":"Getafe CF","c":"Getafe","rank":12,"m":{"POR":79,"DFC":76,"LAT":76,"MCD":73,"MC":79,"MCO":73,"EXT":75,"DC":80}},{"id":"ALA","n":"Deportivo Alavés","c":"Alavés","rank":13,"m":{"POR":78,"DFC":77,"LAT":75,"MCD":73,"MC":77,"MCO":73,"EXT":78,"DC":76}},{"id":"LEV","n":"Levante UD","c":"Levante","rank":14,"m":{"POR":74,"DFC":74,"LAT":76,"MCD":71,"MC":75,"MCO":71,"EXT":76,"DC":75}},{"id":"ESP","n":"RCD Espanyol","c":"Espanyol","rank":15,"m":{"POR":76,"DFC":76,"LAT":77,"MCD":72,"MC":77,"MCO":72,"EXT":79,"DC":75}},{"id":"SEV","n":"Sevilla FC","c":"Sevilla","rank":16,"m":{"POR":77,"DFC":76,"LAT":78,"MCD":73,"MC":78,"MCO":73,"EXT":77,"DC":78}},{"id":"ELC","n":"Elche CF","c":"Elche","rank":17,"m":{"POR":72,"DFC":75,"LAT":73,"MCD":71,"MC":76,"MCO":71,"EXT":76,"DC":77}},{"id":"RAC","n":"Racing de Santander","c":"Racing","rank":18,"m":{"POR":76,"DFC":74,"LAT":73,"MCD":72,"MC":78,"MCO":72,"EXT":78,"DC":76}},{"id":"MLG","n":"Málaga CF","c":"Málaga","rank":19,"m":{"POR":74,"DFC":74,"LAT":73,"MCD":71,"MC":77,"MCO":71,"EXT":78,"DC":76}},{"id":"DEP","n":"Deportivo de La Coruña","c":"Deportivo","rank":20,"m":{"POR":74,"DFC":75,"LAT":72,"MCD":72,"MC":77,"MCO":72,"EXT":84,"DC":76}}],"l2":[{"id":"ZAR","n":"Real Zaragoza","c":"Zaragoza","rank":21,"m":{"POR":68,"DFC":68,"LAT":68,"MCD":67,"MC":68,"MCO":67,"EXT":70,"DC":68}},{"id":"SPG","n":"Sporting de Gijón","c":"Sporting","rank":22,"m":{"POR":69,"DFC":67,"LAT":67,"MCD":66,"MC":67,"MCO":65,"EXT":67,"DC":66}},{"id":"LPA","n":"UD Las Palmas","c":"Las Palmas","rank":23,"m":{"POR":66,"DFC":68,"LAT":68,"MCD":66,"MC":68,"MCO":65,"EXT":67,"DC":66}},{"id":"VLL","n":"Real Valladolid","c":"Valladolid","rank":24,"m":{"POR":67,"DFC":67,"LAT":67,"MCD":63,"MC":67,"MCO":65,"EXT":66,"DC":67}},{"id":"OVI","n":"Real Oviedo","c":"Oviedo","rank":25,"m":{"POR":65,"DFC":66,"LAT":65,"MCD":66,"MC":65,"MCO":64,"EXT":66,"DC":65}},{"id":"CAD","n":"Cádiz CF","c":"Cádiz","rank":26,"m":{"POR":65,"DFC":66,"LAT":66,"MCD":64,"MC":66,"MCO":63,"EXT":66,"DC":67}},{"id":"GIR","n":"Girona FC","c":"Girona","rank":27,"m":{"POR":65,"DFC":65,"LAT":65,"MCD":65,"MC":66,"MCO":62,"EXT":64,"DC":65}},{"id":"EIB","n":"SD Eibar","c":"Eibar","rank":28,"m":{"POR":65,"DFC":64,"LAT":65,"MCD":63,"MC":65,"MCO":62,"EXT":65,"DC":64}},{"id":"LEG","n":"CD Leganés","c":"Leganés","rank":29,"m":{"POR":62,"DFC":65,"LAT":65,"MCD":63,"MC":64,"MCO":64,"EXT":64,"DC":64}},{"id":"TEN","n":"CD Tenerife","c":"Tenerife","rank":30,"m":{"POR":64,"DFC":64,"LAT":64,"MCD":62,"MC":64,"MCO":61,"EXT":62,"DC":63}},{"id":"ALM","n":"UD Almería","c":"Almería","rank":31,"m":{"POR":63,"DFC":64,"LAT":64,"MCD":61,"MC":63,"MCO":62,"EXT":63,"DC":63}},{"id":"HUE","n":"SD Huesca","c":"Huesca","rank":32,"m":{"POR":62,"DFC":63,"LAT":62,"MCD":59,"MC":63,"MCO":61,"EXT":62,"DC":62}},{"id":"BUR","n":"Burgos CF","c":"Burgos","rank":33,"m":{"POR":60,"DFC":61,"LAT":61,"MCD":62,"MC":63,"MCO":61,"EXT":62,"DC":61}},{"id":"COR","n":"Córdoba CF","c":"Córdoba","rank":34,"m":{"POR":59,"DFC":60,"LAT":61,"MCD":60,"MC":60,"MCO":60,"EXT":61,"DC":60}},{"id":"ALB","n":"Albacete Balompié","c":"Albacete","rank":35,"m":{"POR":60,"DFC":61,"LAT":61,"MCD":60,"MC":60,"MCO":57,"EXT":61,"DC":59}},{"id":"MIR","n":"CD Mirandés","c":"Mirandés","rank":36,"m":{"POR":60,"DFC":60,"LAT":59,"MCD":58,"MC":61,"MCO":58,"EXT":59,"DC":60}},{"id":"CAS","n":"CD Castellón","c":"Castellón","rank":37,"m":{"POR":58,"DFC":60,"LAT":58,"MCD":58,"MC":59,"MCO":56,"EXT":58,"DC":58}},{"id":"FER","n":"Racing de Ferrol","c":"Ferrol","rank":38,"m":{"POR":57,"DFC":59,"LAT":59,"MCD":56,"MC":58,"MCO":57,"EXT":57,"DC":59}},{"id":"CTG","n":"FC Cartagena","c":"Cartagena","rank":39,"m":{"POR":56,"DFC":58,"LAT":58,"MCD":56,"MC":57,"MCO":55,"EXT":57,"DC":58}},{"id":"AND","n":"FC Andorra","c":"Andorra","rank":40,"m":{"POR":56,"DFC":57,"LAT":56,"MCD":53,"MC":56,"MCO":55,"EXT":57,"DC":56}}]};
+
+/* ================= CONFIGURACIÓN (lo nuevo, editable) ================= */
+var GRANDES_B=["Barça Atlètic","Real Madrid Castilla","Atlético Madrileño","Villarreal B","Betis Deportivo","Valencia Mestalla"];
+var RESTO_B=["Celta Fortuna","Rayo Vallecano B","Real Sociedad B","Bilbao Athletic","Osasuna B","Getafe B","Alavés B","Levante Atlético","Espanyol B","Sevilla Atlético","Elche Ilicitano","Rayo Cantabria","Atlético Malagueño","Deportivo Fabril"];
+var CFG0={
+  umbral:{bajo:50, alto:80},
+  rangos:[
+    {id:"cantera",  n:"Cantera",  de:14, a:17, col:"#d08a4b"},
+    {id:"promesa",  n:"Promesa",  de:18, a:21, col:"#d4b13a"},
+    {id:"plenitud", n:"Plenitud", de:22, a:27, col:"#5aa97a"},
+    {id:"madurez",  n:"Madurez",  de:28, a:33, col:"#5b8fb9"},
+    {id:"veterano", n:"Veterano", de:34, a:38, col:"#8f7bb5"}
+  ],
+  bolsas:[
+    {id:"L1g", n:"Primera · grandes",   sub:"puestos 1–6",  kind:"1er", ed:[18,38], f:"l1", rk:[1,6]},
+    {id:"L1m", n:"Primera · medios",    sub:"puestos 7–11", kind:"1er", ed:[18,38], f:"l1", rk:[7,11]},
+    {id:"L1f", n:"Primera · flojos",    sub:"puestos 12–20",kind:"1er", ed:[18,38], f:"l1", rk:[12,20]},
+    {id:"L2",  n:"Segunda",             sub:"20 clubes",    kind:"1er", ed:[18,38], f:"l2"},
+    {id:"L3",  n:"Primera Federación",  sub:"lista real por cargar", kind:"1er", ed:[17,38], f:"p", mejor:54, cuantos:20},
+    {id:"L4",  n:"Segunda Federación",  sub:"lista real por cargar", kind:"1er", ed:[17,38], f:"p", mejor:48, cuantos:18},
+    {id:"Bg",  n:"B de los grandes",    sub:"filiales de los 6 primeros", kind:"B", ed:[16,23], f:"p", mejor:58, cuantos:6},
+    {id:"Br",  n:"B del resto",         sub:"filiales de los otros 14", kind:"B", ed:[16,23], f:"p", mejor:52, cuantos:14},
+    {id:"Cg",  n:"C de los grandes",    sub:"juvenil / tercer equipo", kind:"C", ed:[14,19], f:"p", mejor:46, cuantos:6},
+    {id:"Cr",  n:"C del resto",         sub:"juvenil / tercer equipo", kind:"C", ed:[14,19], f:"p", mejor:42, cuantos:14}
+  ],
+  puertas:{ bajo:["L4","Cg","Cr"], medio:["Cg","Cr","Br","L2","L3","L4"], alto:["Bg","L1f"] }
+};
+var LS="lp-piramide-cfg-v1";
+function copia(o){ return JSON.parse(JSON.stringify(o)); }
+function cargarCfg(){ try{ var s=localStorage.getItem(LS); if(s){ var c=JSON.parse(s); if(c&&c.umbral&&c.rangos&&c.bolsas&&c.puertas) return c; } }catch(e){} return copia(CFG0); }
+function guardarCfg(){ try{ localStorage.setItem(LS,JSON.stringify(CFG)); }catch(e){} }
+var CFG=cargarCfg();
+var ST={pos:"DC", nota:6.3, edad:20, modo:"nueva", xp:1700, ses:3, rep:"reparto", mult:1, umb:80, edades:[14,16,18,22,26,30,34]};
+var PALETA={14:"#e07a5f",16:"#f2a65a",18:"#d4b13a",20:"#a6c36f",22:"#81b29a",24:"#4fb0a5",26:"#5bb3c9",28:"#5b8fb9",30:"#7a86d6",32:"#9b7fd0",34:"#b774c5",36:"#d070a8",38:"#e07090"};
+var $=function(id){ return document.getElementById(id); };
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+function fmtE(v){ return v>=1e6? (v/1e6).toFixed(v>=1e7?0:1).replace(".",",")+" M€" : v>=1e3? Math.round(v/1e3)+" k€" : v+" €"; }
+function bandaDe(m){ return m<CFG.umbral.bajo? "bajo" : m<CFG.umbral.alto? "medio" : "alto"; }
+var BAND_N={bajo:"baja",medio:"media",alto:"alta"};
+function rangoDe(e){ for(var i=0;i<CFG.rangos.length;i++){ var r=CFG.rangos[i]; if(e>=r.de && e<=r.a) return r; } return null; }
+function bolsaDe(id){ return CFG.bolsas.filter(function(b){return b.id===id;})[0]; }
+function enVentana(b,e){ return e>=b.ed[0] && e<=b.ed[1]; }
+var NOTAS=[]; for(var nn=4; nn<=10.0001; nn+=0.5) NOTAS.push(Math.round(nn*10)/10);
+var FR_ABR=["seg","mod","baj","med","alt","éli"], FR_NOM=["Segunda","modesta","baja","media","alta","élite"];
+
+/* ================= bolsas → clubes con su «mejor de tu puesto» ================= */
+function nombresB(b){
+  if(b.id==="Bg") return GRANDES_B;
+  if(b.id==="Br") return RESTO_B;
+  var out=[], grandes=CLUBES.l1.slice(0,6).map(function(c){return c.c;}), resto=CLUBES.l1.slice(6).map(function(c){return c.c;});
+  if(b.id==="Cg") return grandes.map(function(x){ return "C de "+x; });
+  if(b.id==="Cr") return resto.map(function(x){ return "C de "+x; });
+  for(var i=1;i<=(b.cuantos||10);i++) out.push(b.n+" · nº "+i);
+  return out;
+}
+function clubsDe(b){
+  var pos=ST.pos;
+  if(b.f==="l1") return CLUBES.l1.filter(function(c){ return c.rank>=b.rk[0] && c.rank<=b.rk[1]; }).map(function(c){ return {n:c.n, mejor:c.m[pos]}; });
+  if(b.f==="l2") return CLUBES.l2.map(function(c){ return {n:c.n, mejor:c.m[pos]}; });
+  var nom=nombresB(b), n=Math.max(1,nom.length), out=[];
+  for(var i=0;i<n;i++) out.push({n:nom[i], mejor:Math.round(b.mejor+(n>1? -3+6*i/(n-1) : 0))});   /* supuesto: ±3 alrededor del valor de la bolsa */
+  return out;
+}
+function rolesDe(b,media){
+  var cl=clubsDe(b), cnt=[0,0,0,0];
+  cl.forEach(function(c){ cnt[CORE.rolDe(media-c.mejor)]++; });
+  return {cl:cl, cnt:cnt};
+}
+function mediaEntrada(){ return CORE.mediaAspirante(ST.pos, ST.edad, ST.nota); }
+
+/* ================= 1 · LAS PUERTAS ================= */
+function textoHoy(){   /* lo que hace HOY el juego con una prueba normal, calculado con generarTanda y no escrito a mano */
+  var N=6.3, t30=CORE.tandaHoy(CORE.mediaAspirante(ST.pos,30,N),N), t16=CORE.tandaHoy(CORE.mediaAspirante(ST.pos,16,N),N);
+  var top=function(t){ return FR_NOM[Math.max.apply(null,t)]; }, seg=function(t){ return t.filter(function(x){ return x===0; }).length; };
+  return 'Hoy, con una prueba normal (nota 6,3) y la misma posición: a los <b>30 años</b> la mejor de las cinco mesas es de franja <b>'+top(t30)+'</b> y '+seg(t30)+' de 5 son de Segunda; a los <b>16</b>, la mejor es <b>'+top(t16)+'</b> y '+seg(t16)+' de 5 son de Segunda. El mismo partido abre puertas muy distintas según la edad.';
+}
+function renderPuertas(){
+  var hoy=ST.modo==="hoy", h='<div class="hm-h"><span></span>'+NOTAS.map(function(n){ return '<span>'+n.toFixed(1)+'</span>'; }).join("")+'</div>';
+  var prev=null, notaSel=NOTAS.reduce(function(a,b){ return Math.abs(b-ST.nota)<Math.abs(a-ST.nota)? b : a; });
+  for(var e=14;e<=38;e++){
+    var r=rangoDe(e)||{id:"-",n:"",col:"#555"}, cut=(prev!==null && prev!==r.id);
+    h+='<div class="hm-r'+(cut?' cut':'')+'" style="--rc:'+r.col+'"><span class="age"><b>'+e+'</b><small>'+(prev===r.id?'':esc(r.n))+'</small></span>';
+    NOTAS.forEach(function(n){
+      var mia=CORE.mediaAspirante(ST.pos,e,n), cls, txt, tip;
+      if(hoy){ var t=CORE.tandaHoy(mia,n), top=t[0]; cls="f"+top; txt=FR_ABR[top]; tip="media "+mia+" · hoy: "+t.map(function(x){return FR_NOM[x];}).join(", "); }
+      else { var b=bandaDe(mia); cls="b-"+b; txt=mia; tip="media "+mia+" · puerta "+BAND_N[b]; }
+      h+='<span class="c '+cls+(e===ST.edad&&n===notaSel?' sel':'')+'" title="'+esc(e+" años · nota "+n.toFixed(1)+" · "+tip)+'">'+txt+'</span>';
+    });
+    h+='</div>'; prev=r.id;
+  }
+  $("hm").innerHTML=h;
+  $("leg").innerHTML = hoy
+    ? FR_NOM.map(function(n,i){ return '<span><i style="background:var(--f'+i+')"></i>'+n+'</span>'; }).join("")+'<span>· color = la franja más alta que ofrece la tanda de hoy (la mejor de las cinco mesas)</span>'
+    : '<span><i style="background:var(--bajo)"></i>baja &lt;'+CFG.umbral.bajo+'</span><span><i style="background:var(--medio)"></i>media '+CFG.umbral.bajo+'–'+(CFG.umbral.alto-1)+'</span><span><i style="background:var(--alto)"></i>alta ≥'+CFG.umbral.alto+'</span><span>· el recuadro dorado es tu edad y tu nota de arriba</span>';
+  /* reparto por rango */
+  var th='<table><tr><th>Rango</th><th>Edades</th><th>'+(hoy?'Mejor oferta de hoy (reparto)':'Reparto de bandas')+'</th><th class="n">media 5,0</th><th class="n">media 7,0</th><th class="n">media 9,0</th></tr>';
+  CFG.rangos.forEach(function(r){
+    var cnt=hoy? [0,0,0,0,0,0] : {bajo:0,medio:0,alto:0}, tot=0;
+    for(var e2=r.de;e2<=r.a;e2++){ [5,5.5,6,6.5,7,7.5,8,8.5,9].forEach(function(n){ var m=CORE.mediaAspirante(ST.pos,e2,n); if(hoy) cnt[CORE.tandaHoy(m,n)[0]]++; else cnt[bandaDe(m)]++; tot++; }); }
+    var seg='<div class="seg">';
+    if(hoy){ for(var i=0;i<6;i++){ if(cnt[i]) seg+='<span style="width:'+(100*cnt[i]/tot)+'%;background:var(--f'+i+')" title="'+FR_NOM[i]+' '+Math.round(100*cnt[i]/tot)+'%"></span>'; } }
+    else { ["bajo","medio","alto"].forEach(function(b){ if(cnt[b]) seg+='<span style="width:'+(100*cnt[b]/tot)+'%;background:var(--'+b+')" title="'+BAND_N[b]+' '+Math.round(100*cnt[b]/tot)+'%"></span>'; }); }
+    seg+='</div>';
+    var mm=function(n){ var a=CORE.mediaAspirante(ST.pos,r.de,n), b=CORE.mediaAspirante(ST.pos,r.a,n); return Math.min(a,b)+'–'+Math.max(a,b); };
+    th+='<tr><td><span class="sw" style="background:'+r.col+'"></span><b>'+esc(r.n)+'</b></td><td class="mono">'+r.de+'–'+r.a+'</td><td>'+seg+'</td><td class="n">'+mm(5)+'</td><td class="n">'+mm(7)+'</td><td class="n">'+mm(9)+'</td></tr>';
+  });
+  th+='</table>';
+  $("reparto").innerHTML=th;
+  $("repnote").innerHTML = hoy ? textoHoy() : 'Con tus umbrales, la banda depende de la media que ves, y la media ya depende de la edad: a igual partido, el rango de media de cada edad se lee en las tres últimas columnas.';
+}
+
+/* cobertura: para cada rango y banda, cuántas bolsas elegibles (mín–máx entre las edades del rango); solo bandas alcanzables */
+function cobertura(){
+  return CFG.rangos.map(function(r){
+    var celdas={bajo:null,medio:null,alto:null}, huecos=[];
+    for(var e=r.de;e<=r.a;e++){
+      var alc={bajo:false,medio:false,alto:false};
+      for(var n=40;n<=100;n++) alc[bandaDe(CORE.mediaAspirante(ST.pos,e,n/10))]=true;
+      ["bajo","medio","alto"].forEach(function(b){
+        if(!alc[b]) return;
+        var c=CFG.bolsas.filter(function(x){ return CFG.puertas[b].indexOf(x.id)>=0 && enVentana(x,e); }).length, cc=celdas[b];
+        celdas[b]= cc? {min:Math.min(cc.min,c),max:Math.max(cc.max,c)} : {min:c,max:c};
+        if(c===0) huecos.push(e);
+      });
+    }
+    return {r:r,celdas:celdas,huecos:huecos};
+  });
+}
+function renderCobertura(){
+  var h='<table><tr><th>Rango</th><th>Edades</th><th class="n">Banda baja (&lt;'+CFG.umbral.bajo+')</th><th class="n">Banda media</th><th class="n">Banda alta (≥'+CFG.umbral.alto+')</th></tr>';
+  cobertura().forEach(function(f){
+    h+='<tr><td><span class="sw" style="background:'+f.r.col+'"></span><b>'+esc(f.r.n)+'</b></td><td class="mono">'+f.r.de+'–'+f.r.a+'</td>'+["bajo","medio","alto"].map(function(b){
+      var c=f.celdas[b]; if(!c) return '<td class="n"><span class="cob na">—</span></td>';
+      var cl= c.min===0? 'cero' : c.min===1? 'uno' : 'ok';
+      return '<td class="n"><span class="cob '+cl+'">'+(c.min===c.max? c.min : c.min+'–'+c.max)+'</span></td>'; }).join("")+'</tr>';
+  });
+  $("cober").innerHTML=h+'</table>';
+}
+
+/* ================= 2 · TU ENTRADA ================= */
+function motivo(b,club,edad,media,rol){
+  if(b.kind==="C") return "Te ficha el "+club.n+" porque tienes "+edad+" años: aquí se crece jugando.";
+  if(b.kind==="B") return "El filial te quiere para crecer: "+edad+" años y media "+media+".";
+  return rol===0? "Serías titular: no tiene a nadie de tu puesto a tu nivel." : rol===1? "Te quiere compitiendo por el puesto." : rol===2? "Te quiere de fondo de armario, con minutos sueltos." : "Te ficha por si acaso: el banquillo será largo.";
+}
+function renderEntrada(){
+  var media=mediaEntrada(), ban=bandaDe(media), r=rangoDe(ST.edad), niv=CORE.nivelInicial(ST.edad,ST.nota);
+  $("e-media").textContent=media;
+  $("e-chips").innerHTML='<span class="chip r" style="--rc:'+(r?r.col:'#888')+'">'+(r? esc(r.n)+' · '+r.de+'–'+r.a : 'sin rango')+'</span><span class="chip b-'+ban+'">Puerta '+BAND_N[ban]+'</span><span class="chip">Nivel '+niv+' · '+CORE.talentosDe(niv)+' talentos el día 1</span><span class="chip">'+CORE.POS_N[ST.pos]+' · '+ST.edad+' años · nota '+ST.nota.toFixed(1)+'</span>';
+  $("e-nota").textContent="La media de salida = lo que el motor calcula hoy tras el partido de ojeo (atributos de tu edad y puesto + el efecto de la nota).";
+  $("e-ban").textContent="banda "+BAND_N[ban];
+  var ids=CFG.puertas[ban]||[], elig=[], h="";
+  CFG.bolsas.forEach(function(b){
+    var enPuerta=ids.indexOf(b.id)>=0, enV=enVentana(b,ST.edad), ok=enPuerta&&enV;
+    var rr=rolesDe(b,media), tot=rr.cl.length||1;
+    var why=ok? "" : (!enPuerta? "no está en tu puerta" : "tu edad ("+ST.edad+") fuera de su ventana "+b.ed[0]+"–"+b.ed[1]);
+    if(ok) elig.push({b:b,rr:rr});
+    var bar='<div class="rolbar">'+rr.cnt.map(function(c,i){ return c? '<span class="r'+i+'" style="width:'+(100*c/tot)+'%" title="'+CORE.ROLES[i]+': '+c+' de '+rr.cl.length+'"></span>' : ''; }).join("")+'</div>';
+    var ej=rr.cl.slice(0,3).map(function(c){return c.n;}).join(", ");
+    h+='<div class="bolsa'+(ok?'':' off')+'"><h4>'+esc(b.n)+' <span class="m">· '+esc(b.sub)+' · edad '+b.ed[0]+'–'+b.ed[1]+'</span></h4>'
+      +(ok? bar+'<div class="m">Titular en '+rr.cnt[0]+' · pelearías en '+rr.cnt[1]+' · rotaciones en '+rr.cnt[2]+' · banquillo en '+rr.cnt[3]+' de '+rr.cl.length+' · ej.: '+esc(ej)+'</div>' : '<div class="m warn">'+esc(why)+'</div>')+'</div>';
+  });
+  if(!elig.length) h='<div class="bolsa"><h4 class="warn">⚠ Ninguna bolsa elegible</h4><div class="m">La puerta de la banda '+BAND_N[ban]+' no admite a un '+CORE.POS_N[ST.pos].toLowerCase()+' de '+ST.edad+' años. Hay que ampliar una ventana o añadir una bolsa a esa puerta.</div></div>'+h;
+  $("e-bolsas").innerHTML=h;
+  /* cinco mesas de ejemplo: de la bolsa más exigente a la menos, clubes repartidos por su nivel */
+  var cand=[];
+  elig.sort(function(a,b2){ var ma=a.rr.cl.reduce(function(s,c){return s+c.mejor;},0)/a.rr.cl.length, mb=b2.rr.cl.reduce(function(s,c){return s+c.mejor;},0)/b2.rr.cl.length; return mb-ma; });
+  elig.forEach(function(x){ var cl=x.rr.cl.slice().sort(function(p,q){return q.mejor-p.mejor;}); cand.push({b:x.b,cl:cl}); });
+  var mesas=[], k=0, quant=[0.5,0.15,0.85,0.35,0.7];
+  while(mesas.length<5 && cand.length && k<30){
+    var c=cand[k%cand.length], q=quant[Math.floor(k/cand.length)%quant.length], club=c.cl[Math.min(c.cl.length-1,Math.floor(q*c.cl.length))];
+    if(!mesas.some(function(m){return m.club.n===club.n;})) mesas.push({b:c.b,club:club});
+    k++;
+  }
+  $("e-mesas").innerHTML=mesas.length? mesas.map(function(m){
+    var dif=media-m.club.mejor, rol=CORE.rolDe(dif), col=["#4f9d6e","#c9a227","#8b93a0","#c8553d"][rol];
+    return '<div class="mesa" style="border-left-color:'+col+'"><b>'+esc(m.club.n)+'</b>'+(m.club.n.indexOf(m.b.n)===0? '' : ' <span class="m" style="color:var(--muted)">· '+esc(m.b.n)+'</span>')+'<div class="rol" style="color:'+col+'">'+CORE.ROLES[rol]+' <span class="mono" style="color:var(--muted)">(tu media '+media+' · su mejor '+m.club.mejor+')</span></div><div class="q">«'+esc(motivo(m.b,m.club,ST.edad,media,rol))+'»</div></div>';
+  }).join("") : '<p class="note warn">Sin mesas: no hay ninguna bolsa elegible.</p>';
+  var t=CORE.tandaHoy(media,ST.nota);
+  $("e-hoy").innerHTML='<p class="note" style="margin:0">Con esta edad y esta nota, <b>generarTanda</b> ofrecería hoy cinco mesas de estas franjas:</p><div class="chips">'+t.map(function(x){ return '<span class="chip" style="background:var(--f'+x+')">'+FR_NOM[x]+'</span>'; }).join("")+'</div>';
+}
+
+/* ================= 3 · LA CURVA ================= */
+function simular(a0){ return CORE.simular({pos:ST.pos, edad0:a0, nota:ST.nota, xpTemp:ST.xp, sesiones:ST.ses, reparto:ST.rep, multEntreno:ST.mult}); }
+function renderCurva(){
+  var ALL=[14,16,18,20,22,24,26,28,30,32,34,36,38];
+  $("edades").innerHTML='<span class="note" style="margin:0 6px 0 0;align-self:center">Entras a los:</span>'+ALL.map(function(a){ return '<span class="pill'+(ST.edades.indexOf(a)>=0?' on':'')+'" data-a="'+a+'">'+a+'</span>'; }).join("");
+  var sel=ST.edades.slice().sort(function(a,b){return a-b;}), runs={};
+  sel.forEach(function(a){ runs[a]=simular(a); });
+  /* gráfico */
+  var W=760,H=340,L=44,Rr=14,T=14,B=30, x=function(e){ return L+(e-14)/(38-14)*(W-L-Rr); }, y=function(m){ return T+(95-m)/(95-40)*(H-T-B); };
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:'+W+'px;display:block">';
+  for(var m=40;m<=95;m+=10){ svg+='<line x1="'+L+'" x2="'+(W-Rr)+'" y1="'+y(m)+'" y2="'+y(m)+'" stroke="#252c35" stroke-width="1"/><text x="'+(L-6)+'" y="'+(y(m)+3)+'" text-anchor="end">'+m+'</text>'; }
+  for(var e=14;e<=38;e+=2){ svg+='<text x="'+x(e)+'" y="'+(H-10)+'" text-anchor="middle">'+e+'</text>'; }
+  CFG.rangos.forEach(function(r){ svg+='<rect x="'+x(r.de-0.5)+'" y="'+T+'" width="'+(x(r.a+0.5)-x(r.de-0.5))+'" height="'+(H-T-B)+'" fill="'+r.col+'" opacity="0.06"/><text x="'+((x(r.de-0.5)+x(r.a+0.5))/2)+'" y="'+(T+11)+'" text-anchor="middle" style="fill:'+r.col+';opacity:.9">'+esc(r.n)+'</text>'; });
+  [CFG.umbral.bajo,CFG.umbral.alto].forEach(function(u){ svg+='<line x1="'+L+'" x2="'+(W-Rr)+'" y1="'+y(u)+'" y2="'+y(u)+'" stroke="#c9a227" stroke-dasharray="4 4" opacity=".55"/><text x="'+(W-Rr-2)+'" y="'+(y(u)-4)+'" text-anchor="end" style="fill:#c9a227">umbral '+u+'</text>'; });
+  sel.forEach(function(a){
+    var pts=runs[a].temporadas.map(function(t){ return x(t.edad)+','+y(t.media); }).join(" "), col=PALETA[a]||"#ccc";
+    svg+='<polyline fill="none" stroke="'+col+'" stroke-width="2.2" points="'+pts+'"/>';
+    runs[a].temporadas.forEach(function(t,i){ if(i===0||t.edad%2===0) svg+='<circle cx="'+x(t.edad)+'" cy="'+y(t.media)+'" r="'+(i===0?4:2.4)+'" fill="'+col+'"><title>entra a los '+a+' · '+t.edad+' años · media '+t.media+' · N'+t.nivel+'</title></circle>'; });
+  });
+  svg+='</svg>';
+  $("chart").innerHTML=svg+'<div class="leg">'+sel.map(function(a){ return '<span><i style="background:'+(PALETA[a]||"#ccc")+'"></i>entra a los '+a+'</span>'; }).join("")+'</div>';
+  /* tabla */
+  var U=ST.umb, h='<table><tr><th>Entras a los</th><th class="n">Nivel · talentos día 1</th><th class="n">Media a los 22 · 26 · 30 · 34</th><th class="n">Pico (edad)</th><th class="n">Temp. ≥'+U+'</th><th class="n">Temp. ≥75</th><th class="n">Nivel · talentos a los 38</th><th class="n">Puntos de techo</th><th class="n">Ficha acumulada</th></tr>';
+  sel.forEach(function(a){
+    var R=runs[a], tt=R.temporadas, por={}; tt.forEach(function(t){ por[t.edad]=t; });
+    var pico=tt.reduce(function(p,t){ return t.media>p.media? t : p; }, tt[0]), fin=tt[tt.length-1];
+    var n1=tt.filter(function(t){return t.media>=U;}).length, n2=tt.filter(function(t){return t.media>=75;}).length;
+    var edades=[22,26,30,34].map(function(ed){ return por[ed]? por[ed].media : "—"; }).join(" · ");
+    h+='<tr><td><span class="sw" style="background:'+(PALETA[a]||"#ccc")+'"></span><b>'+a+'</b> <span class="note" style="margin:0">'+(rangoDe(a)? esc(rangoDe(a).n):'')+'</span></td><td class="n">N'+R.nivel0+' · '+R.talentos0+'</td><td class="n">'+edades+'</td><td class="n">'+pico.media+' ('+pico.edad+')</td><td class="n">'+n1+' de '+tt.length+'</td><td class="n">'+n2+' de '+tt.length+'</td><td class="n">N'+fin.nivel+' · '+fin.talentos+'</td><td class="n">+'+fin.pts+'</td><td class="n">'+fmtE(fin.plata)+'</td></tr>';
+  });
+  h+='</table>';
+  $("tabla").innerHTML=h;
+  $("tnota").innerHTML='La ficha acumulada usa <span class="mono">salarioDe</span> del motor con un club de la franja que corresponde a tu media en cada temporada (por debajo de 53, sueldo de Segunda; las nuevas divisiones aún no tienen escala). Es solo la ficha: sin primas, traspasos ni patrocinios.';
+}
+
+/* ================= 4 · REGLAS Y RANGOS ================= */
+function renderReglas(){
+  $("u-bajo").value=CFG.umbral.bajo; $("u-alto").value=CFG.umbral.alto;
+  var h='<table><tr><th></th><th>Nombre</th><th class="n">Desde</th><th class="n">Hasta</th></tr>';
+  CFG.rangos.forEach(function(r,i){ h+='<tr><td><span class="sw" style="background:'+r.col+'"></span></td><td><input class="ed" style="width:110px;text-align:left" data-r="'+i+'" data-f="n" value="'+esc(r.n)+'"></td><td class="n"><input class="ed" type="number" data-r="'+i+'" data-f="de" value="'+r.de+'"></td><td class="n"><input class="ed" type="number" data-r="'+i+'" data-f="a" value="'+r.a+'"></td></tr>'; });
+  $("r-rangos").innerHTML=h+'</table>';
+  h='<table><tr><th>Bolsa</th><th class="n">&lt;'+CFG.umbral.bajo+'</th><th class="n">'+CFG.umbral.bajo+'–'+(CFG.umbral.alto-1)+'</th><th class="n">≥'+CFG.umbral.alto+'</th></tr>';
+  CFG.bolsas.forEach(function(b){ h+='<tr><td>'+esc(b.n)+'</td>'+["bajo","medio","alto"].map(function(ba){ return '<td class="n"><input class="chk" type="checkbox" data-p="'+ba+'" data-b="'+b.id+'"'+(CFG.puertas[ba].indexOf(b.id)>=0?' checked':'')+'></td>'; }).join("")+'</tr>'; });
+  $("r-puertas").innerHTML=h+'</table>';
+  h='<table><tr><th>Bolsa</th><th>Tipo</th><th class="n">Edad desde</th><th class="n">hasta</th><th class="n">Mejor</th><th class="n">Clubes</th></tr>';
+  CFG.bolsas.forEach(function(b){
+    var param=b.f==="p";
+    h+='<tr><td>'+esc(b.n)+'<div class="note" style="margin:0">'+esc(b.sub)+'</div></td><td>'+(b.kind==="1er"?"1.er equipo":b.kind)+'</td>'
+      +'<td class="n"><input class="ed" type="number" data-bo="'+b.id+'" data-f="e0" value="'+b.ed[0]+'"></td><td class="n"><input class="ed" type="number" data-bo="'+b.id+'" data-f="e1" value="'+b.ed[1]+'"></td>'
+      +'<td class="n">'+(param? '<input class="ed" type="number" data-bo="'+b.id+'" data-f="mejor" value="'+b.mejor+'">' : '<span class="note" style="margin:0">real</span>')+'</td>'
+      +'<td class="n">'+(param? b.cuantos : (b.f==="l2"? CLUBES.l2.length : CLUBES.l1.filter(function(c){return c.rank>=b.rk[0]&&c.rank<=b.rk[1];}).length))+'</td></tr>';
+  });
+  $("r-bolsas").innerHTML=h+'</table>';
+  renderMatriz();
+  var he='<table><tr><th class="n">Edad</th><th class="n">Atributos ±</th><th class="n">Curva media</th><th class="n">Sueldo ×</th><th class="n">Contrato (años)</th><th class="n">Valor ×</th><th class="n">Traspaso ×</th><th class="n">Óxido skills ×</th><th class="n">Óxido talentos ×</th><th class="n">FIS/año</th></tr>';
+  for(var e=14;e<=38;e++){ var q=CORE.reglasEdad(e), r=rangoDe(e); he+='<tr style="border-left:4px solid '+(r?r.col:'#555')+'"><td class="n"><b>'+e+'</b></td><td class="n">'+(q.off>=0?'+':'')+q.off.toFixed(1)+'</td><td class="n">'+(q.curva>=0?'+':'')+q.curva.toFixed(1)+'</td><td class="n">'+q.sueldoX.toFixed(2)+'</td><td class="n">'+q.anos.toFixed(1)+'</td><td class="n">'+q.valorX.toFixed(2)+'</td><td class="n">'+q.traspasoX.toFixed(2)+'</td><td class="n">'+q.oxSk.toFixed(1)+'</td><td class="n">'+q.oxTa.toFixed(1)+'</td><td class="n">'+(q.caidaFIS? '−'+q.caidaFIS.toFixed(1) : '·')+'</td></tr>'; }
+  $("r-edad").innerHTML=he+'</table>';
+  var sal=[]; for(var e3=15;e3<=38;e3++){ var d=CORE.reglasEdad(e3).curva-CORE.reglasEdad(e3-1).curva; if(Math.abs(d)>2.5) sal.push((e3-1)+'→'+e3+' ('+(d>0?'+':'−')+Math.abs(d).toFixed(1).replace('.',',')+')'); }
+  $("r-saltos").innerHTML= sal.length? '<span class="warn">⚠ Escalón en la curva de media entre edades seguidas: <b>'+sal.join(' · ')+'</b>.</span> Es lo que el motor hace hoy: el año que cumples 31 la media de salida baja de golpe, además de lo que ya pierdas por atributos. Dilo si no es intencionado.' : 'La curva de media no tiene escalones entre edades seguidas.';
+}
+function renderMatriz(){
+  var h='<table><tr><th>Bolsa</th>'+CFG.rangos.map(function(r){ return '<th class="n" style="color:'+r.col+'">'+esc(r.n)+'</th>'; }).join("")+'</tr>';
+  CFG.bolsas.forEach(function(b){
+    h+='<tr><td>'+esc(b.n)+'</td>'+CFG.rangos.map(function(r){
+      var a=Math.max(r.de,b.ed[0]), z=Math.min(r.a,b.ed[1]), full=(b.ed[0]<=r.de && b.ed[1]>=r.a);
+      return '<td class="n"><span class="mx '+(full?'full">✔':(a<=z?'part">½':'none">·'))+'</span></td>'; }).join("")+'</tr>';
+  });
+  $("r-matriz").innerHTML=h+'</table>';
+}
+
+/* ================= eventos y arranque ================= */
+function todo(){ renderPuertas(); renderCobertura(); renderEntrada(); renderCurva(); renderMatriz(); }
+function sincro(){ $("v-nota").textContent=ST.nota.toFixed(1); $("v-edad").textContent=ST.edad; }
+function init(){
+  $("c-pos").innerHTML=CORE.POSL.map(function(p){ return '<option value="'+p+'"'+(p===ST.pos?' selected':'')+'>'+CORE.POS_N[p]+' ('+p+')</option>'; }).join("");
+  $("c-nota").value=ST.nota; $("c-edad").value=ST.edad; sincro();
+  $("c-pos").onchange=function(){ ST.pos=this.value; todo(); };
+  $("c-nota").oninput=function(){ ST.nota=parseFloat(this.value); sincro(); todo(); };
+  $("c-edad").oninput=function(){ ST.edad=parseInt(this.value,10); sincro(); todo(); };
+  $("tabs").onclick=function(ev){ var t=ev.target.getAttribute&&ev.target.getAttribute("data-t"); if(!t) return;
+    [].forEach.call(document.querySelectorAll("#tabs .btn"),function(b){ b.classList.toggle("on",b.getAttribute("data-t")===t); });
+    [].forEach.call(document.querySelectorAll("section.tab"),function(s){ s.classList.toggle("on",s.id==="t-"+t); }); };
+  $("modo").onclick=function(ev){ var m=ev.target.getAttribute&&ev.target.getAttribute("data-m"); if(!m) return; ST.modo=m;
+    [].forEach.call(document.querySelectorAll("#modo .pill"),function(p){ p.classList.toggle("on",p.getAttribute("data-m")===m); }); renderPuertas(); };
+  $("xpp").onclick=function(ev){ var v=ev.target.getAttribute&&ev.target.getAttribute("data-xp"); if(!v) return; ST.xp=parseInt(v,10);
+    [].forEach.call(document.querySelectorAll("#xpp .pill"),function(p){ p.classList.toggle("on",p.getAttribute("data-xp")===v); }); renderCurva(); };
+  $("k-ses").onchange=function(){ ST.ses=parseInt(this.value,10); renderCurva(); };
+  $("k-rep").onchange=function(){ ST.rep=this.value; renderCurva(); };
+  $("k-mult").oninput=function(){ var v=parseFloat(this.value); if(v>0){ ST.mult=v; renderCurva(); } };
+  $("k-umb").oninput=function(){ var v=parseInt(this.value,10); if(v>0){ ST.umb=v; renderCurva(); } };
+  $("edades").onclick=function(ev){ var a=ev.target.getAttribute&&ev.target.getAttribute("data-a"); if(!a) return; a=parseInt(a,10);
+    var i=ST.edades.indexOf(a); if(i>=0) ST.edades.splice(i,1); else ST.edades.push(a); renderCurva(); };
+  /* reglas */
+  $("u-bajo").oninput=function(){ var v=parseInt(this.value,10); if(v>0){ CFG.umbral.bajo=v; guardarCfg(); todo(); } };
+  $("u-alto").oninput=function(){ var v=parseInt(this.value,10); if(v>0){ CFG.umbral.alto=v; guardarCfg(); todo(); } };
+  $("r-rangos").oninput=function(ev){ var t=ev.target, i=t.getAttribute("data-r"), f=t.getAttribute("data-f"); if(i===null) return;
+    var v=f==="n"? t.value : parseInt(t.value,10); if(f!=="n" && !(v>0)) return; CFG.rangos[+i][f]=v; guardarCfg(); todo(); };
+  $("r-puertas").onchange=function(ev){ var t=ev.target, p=t.getAttribute("data-p"), b=t.getAttribute("data-b"); if(!p) return;
+    var L=CFG.puertas[p], i=L.indexOf(b); if(t.checked && i<0) L.push(b); if(!t.checked && i>=0) L.splice(i,1); guardarCfg(); todo(); };
+  $("r-bolsas").oninput=function(ev){ var t=ev.target, id=t.getAttribute("data-bo"), f=t.getAttribute("data-f"); if(!id) return; var v=parseInt(t.value,10); if(!(v>=0)) return;
+    var b=bolsaDe(id); if(f==="e0") b.ed[0]=v; if(f==="e1") b.ed[1]=v; if(f==="mejor") b.mejor=v; guardarCfg(); todo(); };
+  $("b-reset").onclick=function(){ CFG=copia(CFG0); guardarCfg(); renderReglas(); todo(); };
+  $("b-copy").onclick=function(){ var s=JSON.stringify(CFG), btn=this;
+    var ok=function(){ btn.textContent="Copiado ✔"; setTimeout(function(){ btn.textContent="Copiar configuración"; },1600); };
+    try{ navigator.clipboard.writeText(s).then(ok,function(){ window.prompt("Copia esta configuración:",s); }); }catch(e){ window.prompt("Copia esta configuración:",s); } };
+  $("b-paste").onclick=function(){ var s=window.prompt("Pega aquí una configuración copiada:"); if(!s) return;
+    try{ var c=JSON.parse(s); if(c&&c.umbral&&c.rangos&&c.bolsas&&c.puertas){ CFG=c; guardarCfg(); renderReglas(); todo(); } else window.alert("Eso no parece una configuración."); }catch(e){ window.alert("No he podido leerla."); } };
+  renderReglas(); todo();
+}
+init();
+</script>
+</body>
+</html>

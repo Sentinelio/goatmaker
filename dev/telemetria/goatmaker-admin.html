@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Goatmaker Pro · Admin</title>
+<style>
+:root{--bg:#070810;--card:#0f111c;--card2:#141726;--line:#1f2336;--tx:#e8eaf3;--mut:#8a90a8;--gold:#FFC24B;--ok:#4ade80;--bad:#f87171;--blue:#60a5fa;--vio:#a78bfa}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1240px;margin:0 auto;padding:0 16px 60px}
+header{position:sticky;top:0;z-index:5;background:rgba(7,8,16,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.hd{max-width:1240px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{font-weight:800;letter-spacing:-.02em;font-size:18px}.brand b{color:var(--gold)}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav button{background:none;border:0;color:var(--mut);padding:7px 12px;border-radius:8px;cursor:pointer;font:inherit;font-weight:600}
+nav button.on{background:var(--card2);color:var(--tx)}
+.sp{flex:1}
+.mut{color:var(--mut)}.small{font-size:12px}.mono{font-variant-numeric:tabular-nums;font-family:ui-monospace,Consolas,monospace}
+button.b{background:var(--card2);border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit}
+button.b:hover{border-color:#34395a}button.gold{background:var(--gold);color:#241800;border-color:var(--gold);font-weight:700}
+button.red{border-color:#5b2630;color:var(--bad)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#444a63;margin-right:6px}.dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}.dot.rec{background:var(--gold)}
+.grid{display:grid;gap:14px}.g4{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}.g2{grid-template-columns:repeat(auto-fit,minmax(min(380px,100%),1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.card h3{margin:0 0 10px;font-size:13px;color:var(--mut);font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.kpi .v{font-size:30px;font-weight:800;letter-spacing:-.02em}.kpi .s{color:var(--mut);font-size:12px}
+table{width:100%;border-collapse:collapse}th,td{padding:7px 8px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;font-weight:700;cursor:default}
+th.s{cursor:pointer}th.s:hover{color:var(--tx)}
+tr.cl{cursor:pointer}tr.cl:hover td{background:#12152200;background:var(--card2)}
+td.r,th.r{text-align:right}
+.scroll{overflow-x:auto}
+input.lab{background:transparent;border:1px solid transparent;color:var(--tx);font:inherit;border-radius:6px;padding:3px 6px;width:130px}
+input.lab:hover,input.lab:focus{border-color:var(--line);background:var(--bg);outline:0}
+.chip{display:inline-block;padding:2px 8px;border-radius:99px;background:var(--card2);border:1px solid var(--line);font-size:12px;margin:2px 4px 2px 0;cursor:pointer}
+.chip.on{background:var(--gold);color:#241800;border-color:var(--gold)}
+.tag{display:inline-block;padding:1px 7px;border-radius:6px;font-size:11px;font-weight:700;background:var(--card2);color:var(--mut)}
+.tag.ok{color:var(--ok)}.tag.bad{color:var(--bad)}.tag.gold{color:var(--gold)}.tag.blue{color:var(--blue)}.tag.vio{color:var(--vio)}
+.tl{max-height:560px;overflow:auto}.tl .row{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)}.tl .t{width:118px;flex:none;color:var(--mut);font-size:12px}
+.bar{display:flex;align-items:center;gap:8px;margin:4px 0}.bar .l{width:110px;flex:none;color:var(--mut);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bar .f{height:14px;background:var(--gold);border-radius:3px;min-width:2px}.bar .n{font-size:12px}
+.login{max-width:380px;margin:12vh auto;padding:24px}.login input{width:100%;margin:6px 0 12px;padding:10px;background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--tx);font:inherit}
+.hide{display:none!important}
+details summary{cursor:pointer;color:var(--blue)}
+pre{white-space:pre-wrap;word-break:break-word;background:var(--bg);padding:8px;border-radius:8px;font-size:12px;margin:6px 0}
+svg text{fill:var(--mut);font-size:10px}
+.err{color:var(--bad)}
+@media(max-width:700px){.g2{grid-template-columns:1fr}.tl .t{width:84px}}
+</style>
+</head>
+<body>
+<div id="login" class="login card">
+  <div class="brand" style="font-size:22px">Goatmaker <b>Pro</b> · Admin</div>
+  <p class="mut small">Entra con tu usuario superusuario de PocketBase. La sesión vive solo en esta pestaña.</p>
+  <label class="small mut">URL de PocketBase</label><input id="l-url" placeholder="https://pb.midominio.com">
+  <label class="small mut">Email</label><input id="l-mail" type="email" autocomplete="username">
+  <label class="small mut">Contraseña</label><input id="l-pass" type="password" autocomplete="current-password">
+  <button class="b gold" id="l-go" style="width:100%;padding:10px">Entrar</button>
+  <p id="l-err" class="err small"></p>
+</div>
+
+<div id="app" class="hide">
+<header><div class="hd">
+  <div class="brand">Goatmaker <b>Pro</b> · Admin</div>
+  <nav id="nav"></nav><div class="sp"></div>
+  <span class="small mut" id="upd"></span>
+  <button class="b" id="refresh">↻ Actualizar</button>
+  <button class="b" id="logout">Salir</button>
+</div></header>
+<div class="wrap" id="main"></div>
+</div>
+
+<script>
+/* id de club → nombre (generado desde el juego; si añades clubes, vuelve a generarlo) */
+var CLUBES={"BAR":"Barcelona","RMA":"R. Madrid","ATM":"Atlético","VIL":"Villarreal","BET":"Betis","VAL":"Valencia","CEL":"Celta","RAY":"Rayo","RSO":"R. Sociedad","ATH":"Athletic","OSA":"Osasuna","GET":"Getafe","ALA":"Alavés","LEV":"Levante","ESP":"Espanyol","SEV":"Sevilla","ELC":"Elche","RAC":"Racing","MLG":"Málaga","DEP":"Deportivo","PRA":"Blancos","PRB":"Naranjas","ZAR":"Zaragoza","SPG":"Sporting","LPA":"Las Palmas","VLL":"Valladolid","OVI":"Oviedo","CAD":"Cádiz","GIR":"Girona","EIB":"Eibar","LEG":"Leganés","TEN":"Tenerife","ALM":"Almería","HUE":"Huesca","BUR":"Burgos","COR":"Córdoba","ALB":"Albacete","MIR":"Mirandés","CAS":"Castellón","FER":"Ferrol","CTG":"Cartagena","AND":"Andorra"};
+var $=function(i){return document.getElementById(i)};
+function h(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]})}
+function club(id){return CLUBES[id]||id||"—"}
+var ST={url:"",tok:"",players:[],sessions:[],events:[],snaps:[],tab:"resumen",sel:null,sort:{k:"last_t",d:-1},fEv:{},at:0};
+var TABS=[["resumen","Resumen"],["jugadores","Jugadores"],["errores","Errores"],["balance","Balance"]];
+
+/* ---------- utilidades ---------- */
+function ago(t){if(!t)return"—";var s=Math.max(0,(Date.now()-t)/1000);if(s<90)return"ahora";if(s<3600)return Math.round(s/60)+" min";if(s<86400)return Math.round(s/3600)+" h";return Math.round(s/86400)+" d"}
+function dur(s){s=Math.round(s||0);if(s<60)return s+" s";if(s<3600)return Math.round(s/60)+" min";return Math.floor(s/3600)+" h "+Math.round((s%3600)/60)+" min"}
+function fdt(t){var d=new Date(t);return d.toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit"})+" "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})}
+function by(a,f){var o={};a.forEach(function(x){var k=f(x);(o[k]=o[k]||[]).push(x)});return o}
+function avg(a){return a.length?a.reduce(function(s,x){return s+x},0)/a.length:null}
+function f1(v,d){return v==null?"—":(+v).toFixed(d==null?1:d)}
+function dev(ua){ua=ua||"";var m=/Mobi|Android|iPhone|iPad/.test(ua)?"Móvil":"Escritorio";var b=/Edg\//.test(ua)?"Edge":/Firefox\//.test(ua)?"Firefox":/Chrome\//.test(ua)?"Chrome":/Safari\//.test(ua)?"Safari":"Otro";return{tipo:m,nav:b}}
+function bars(items,col){var mx=Math.max.apply(null,items.map(function(i){return i[1]}).concat([1]));return items.map(function(i){return'<div class="bar"><span class="l" title="'+h(i[0])+'">'+h(i[0])+'</span><span class="f" style="width:'+Math.max(2,i[1]/mx*110)+'px;'+(col?'background:'+col:'')+'"></span><span class="n mono">'+i[1]+'</span></div>'}).join("")||'<span class="mut small">Sin datos todavía</span>'}
+function svgBars(vals,labels,w,hh,col){w=w||520;hh=hh||110;var mx=Math.max.apply(null,vals.concat([1])),n=vals.length,bw=w/n,s='<svg viewBox="0 0 '+w+' '+(hh+16)+'" width="100%" height="'+(hh+16)+'">';vals.forEach(function(v,i){var bh=v/mx*hh;s+='<rect x="'+(i*bw+2)+'" y="'+(hh-bh)+'" width="'+(bw-4)+'" height="'+Math.max(bh,v?2:0)+'" rx="2" fill="'+(col||"#FFC24B")+'"><title>'+h(labels[i])+': '+v+'</title></rect>';if(n<=16||i%Math.ceil(n/12)===0)s+='<text x="'+(i*bw+bw/2)+'" y="'+(hh+12)+'" text-anchor="middle">'+h(labels[i])+'</text>'});return s+'</svg>'}
+function svgLine(vals,w,hh,lo,hi){w=w||520;hh=hh||120;var v=vals.filter(function(x){return x!=null});if(v.length<2)return'<span class="mut small">Faltan partidos con nota</span>';lo=lo==null?Math.min.apply(null,v):lo;hi=hi==null?Math.max.apply(null,v):hi;if(hi===lo)hi=lo+1;var pts=[];vals.forEach(function(x,i){if(x!=null)pts.push((8+i*(w-16)/Math.max(vals.length-1,1)).toFixed(1)+","+(hh-6-(x-lo)/(hi-lo)*(hh-14)).toFixed(1))});return'<svg viewBox="0 0 '+w+' '+hh+'" width="100%" height="'+hh+'"><polyline points="'+pts.join(" ")+'" fill="none" stroke="#FFC24B" stroke-width="2"/><text x="2" y="10">'+f1(hi)+'</text><text x="2" y="'+(hh-1)+'">'+f1(lo)+'</text></svg>'}
+
+/* ---------- API ---------- */
+async function api(path,opt){opt=opt||{};opt.headers=Object.assign({Authorization:ST.tok},opt.headers||{});var r=await fetch(ST.url+path,opt);if(r.status===401){logout();throw new Error("sesión caducada")}if(!r.ok){var t="";try{t=(await r.json()).message}catch(e){}throw new Error(r.status+" "+t)}return r.status===204?null:r.json()}
+async function all(col,q,prog){var out=[],p=1,tp=1;do{var r=await api("/api/collections/"+col+"/records?perPage=500&page="+p+"&"+(q||""));out=out.concat(r.items);tp=r.totalPages;p++;if(prog)prog(out.length,r.totalItems)}while(p<=tp);return out}
+async function login(){
+  var u=$("l-url").value.trim().replace(/\/+$/,"");$("l-err").textContent="";
+  try{var r=await fetch(u+"/api/collections/_superusers/auth-with-password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({identity:$("l-mail").value.trim(),password:$("l-pass").value})});
+    var j=await r.json();if(!r.ok)throw new Error(j.message||r.status);ST.url=u;ST.tok=j.token;try{sessionStorage.setItem("gm-adm",JSON.stringify({u:u,t:j.token}));localStorage.setItem("gm-adm-url",u)}catch(e){}
+    $("login").classList.add("hide");$("app").classList.remove("hide");$("l-pass").value="";await load()}
+  catch(e){$("l-err").textContent="No se pudo entrar: "+e.message}
+}
+function logout(){try{sessionStorage.removeItem("gm-adm")}catch(e){}ST.tok="";$("app").classList.add("hide");$("login").classList.remove("hide")}
+async function load(){
+  $("main").innerHTML='<p class="mut" id="prog">Cargando…</p>';
+  try{
+    var since=Date.now()-90*86400000;
+    ST.players=await all("tl_players","sort=-last_t");
+    ST.sessions=await all("tl_sessions","sort=-start_t&filter="+encodeURIComponent("start_t>"+since));
+    ST.snaps=await all("tl_snapshots","sort=-t&fields=id,install,sid,t,bytes,ver");
+    ST.events=await all("tl_events","sort=-t&filter="+encodeURIComponent("t>"+since),function(n,tot){var p=$("prog");if(p)p.textContent="Eventos "+n+" / "+tot+"…"});
+    ST.at=Date.now();index();render()
+  }catch(e){$("main").innerHTML='<p class="err">Error cargando: '+h(e.message)+'</p>'}
+}
+var IDX={};
+function index(){
+  IDX.ev=by(ST.events,function(e){return e.install});IDX.ses=by(ST.sessions,function(s){return s.install});IDX.snap=by(ST.snaps,function(s){return s.install});
+  IDX.pl={};ST.players.forEach(function(p){IDX.pl[p.install]=p});
+  IDX.stats={};ST.players.forEach(function(p){var E=IDX.ev[p.install]||[],pa=E.filter(function(e){return e.tipo==="partido"});IDX.stats[p.install]={partidos:pa.length,jug:pa.filter(function(e){return!e.d.sin}).length,err:E.filter(function(e){return e.tipo==="error"}).length,temps:E.filter(function(e){return e.tipo==="temporada_nueva"}).length,carrera:E.some(function(e){return e.tipo==="carrera_inicio"})}})
+}
+function nom(p){return p.label||(p.estado&&p.estado.nombre)||p.install.slice(0,8)}
+
+/* ---------- vistas ---------- */
+function render(){
+  $("nav").innerHTML=TABS.map(function(t){return'<button data-t="'+t[0]+'" class="'+((ST.tab===t[0]&&!ST.sel)?"on":"")+'">'+t[1]+'</button>'}).join("");
+  $("upd").textContent="Actualizado "+new Date(ST.at).toLocaleTimeString("es-ES");
+  if(ST.sel)return detalle(ST.sel);
+  ({resumen:vResumen,jugadores:vJugadores,errores:vErrores,balance:vBalance})[ST.tab]()
+}
+function kpi(v,t,s){return'<div class="card kpi"><h3>'+t+'</h3><div class="v">'+v+'</div><div class="s">'+(s||"&nbsp;")+'</div></div>'}
+function vResumen(){
+  var now=Date.now(),P=ST.players,act24=P.filter(function(p){return now-p.last_t<864e5}).length,act7=P.filter(function(p){return now-p.last_t<7*864e5}).length;
+  var onl=P.filter(function(p){return now-p.last_t<120000}).length;
+  var tot=ST.sessions.length,tAct=ST.sessions.reduce(function(s,x){return s+(x.active_s||0)},0);
+  var parts=ST.events.filter(function(e){return e.tipo==="partido"}).length,errs7=ST.events.filter(function(e){return e.tipo==="error"&&now-e.t<7*864e5}).length;
+  var dias=[],lab=[];for(var i=13;i>=0;i--){var d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-i);var a=d.getTime(),b=a+864e5;dias.push(ST.sessions.filter(function(s){return s.start_t>=a&&s.start_t<b}).length);lab.push(d.getDate()+"/"+(d.getMonth()+1))}
+  var hrs=[],hl=[];for(var k=0;k<24;k++){hrs.push(0);hl.push(k)}ST.events.forEach(function(e){hrs[new Date(e.t).getHours()]++});
+  var S=IDX.stats,fun=[["Abrieron el juego",P.length],["Empezaron carrera",P.filter(function(p){return S[p.install].carrera}).length],["Jugaron ≥ 1 partido",P.filter(function(p){return S[p.install].jug>=1}).length],["≥ 10 partidos",P.filter(function(p){return S[p.install].jug>=10}).length],["≥ 38 (1 temporada)",P.filter(function(p){return S[p.install].jug>=38}).length],["≥ 2 temporadas",P.filter(function(p){return S[p.install].temps>=1}).length]];
+  var vers=by(P,function(p){return p.ver||"?"}),dv=by(P,function(p){var d=dev(p.ua);return d.tipo+" · "+d.nav});
+  $("main").innerHTML='<div class="grid g4" style="margin:16px 0">'
+    +kpi(P.length,"Jugadores",onl+" en línea ahora · "+act24+" activos 24 h · "+act7+" en 7 d")
+    +kpi(tot,"Sesiones (90 d)","tiempo activo medio "+dur(tot?tAct/tot:0))
+    +kpi(parts,"Partidos jugados",ST.events.filter(function(e){return e.tipo==="decision"}).length+" decisiones tomadas")
+    +kpi('<span class="'+(errs7?"err":"")+'">'+errs7+'</span>',"Errores (7 d)",errs7?"mira la pestaña Errores":"todo limpio")+'</div>'
+    +'<div class="grid g2"><div class="card"><h3>Sesiones por día (14 d)</h3>'+svgBars(dias,lab)+'</div><div class="card"><h3>Actividad por hora del día (hora local)</h3>'+svgBars(hrs,hl,520,110,"#60a5fa")+'</div>'
+    +'<div class="card"><h3>Embudo de jugadores</h3>'+bars(fun)+'</div><div class="card"><h3>Versiones y dispositivos</h3>'+bars(Object.keys(vers).map(function(k){return["v"+k,vers[k].length]}),"#a78bfa")+'<div style="height:10px"></div>'+bars(Object.keys(dv).map(function(k){return[k,dv[k].length]}),"#4ade80")+'</div></div>'
+}
+function vJugadores(){
+  var rows=ST.players.map(function(p){var e=p.estado||{},s=IDX.stats[p.install];return{p:p,last_t:p.last_t,nombre:nom(p),club:e.club_n||"",div:e.division||"",temp:(e.temporada||0)*100+(e.jornada||0),nivel:e.nivel||0,pj:e.pj||0,g:e.g||0,a:e.a||0,nota:e.nota||0,act:p.active_s||0,ses:p.sessions||0,ver:p.ver||"",err:s.err}});
+  var k=ST.sort.k,d=ST.sort.d;rows.sort(function(a,b){var x=a[k],y=b[k];return(typeof x==="string"?x.localeCompare(y):x-y)*d});
+  var now=Date.now(),H=[["nombre","Jugador"],["club","Club"],["div","Div"],["temp","Temp · Jor"],["nivel","Nivel"],["pj","PJ"],["g","G"],["a","A"],["nota","Nota"],["act","Activo"],["ses","Ses."],["err","Err."],["last_t","Visto"],["ver","Ver"]];
+  $("main").innerHTML='<div class="card scroll" style="margin-top:16px"><table><thead><tr><th></th>'+H.map(function(c){return'<th class="s '+(["nivel","pj","g","a","nota","act","ses","err"].indexOf(c[0])>=0?"r":"")+'" data-s="'+c[0]+'">'+c[1]+(ST.sort.k===c[0]?(ST.sort.d>0?" ▲":" ▼"):"")+'</th>'}).join("")+'</tr></thead><tbody>'
+  +rows.map(function(r){var p=r.p,e=p.estado||{};return'<tr class="cl" data-i="'+h(p.install)+'"><td><span class="dot '+(now-p.last_t<120000?"on":now-p.last_t<864e5?"rec":"")+'"></span></td>'
+    +'<td><input class="lab" data-l="'+p.id+'" value="'+h(p.label||"")+'" placeholder="'+h(e.nombre||p.install.slice(0,8))+'"> <span class="mut small">'+h(p.label&&e.nombre?e.nombre:"")+'</span></td><td>'+h(r.club||"—")+'</td><td>'+(e.division==="2"?"2ª":e.division==="1"?"1ª":"—")+'</td><td class="mono">'+(e.temporada?"T"+e.temporada+" · J"+(e.jornada||0):"—")+'</td><td class="r mono">'+(e.nivel==null?"—":e.nivel)+'</td><td class="r mono">'+r.pj+'</td><td class="r mono">'+r.g+'</td><td class="r mono">'+r.a+'</td><td class="r mono">'+(e.nota==null?"—":f1(e.nota,2))+'</td><td class="r mono">'+dur(r.act)+'</td><td class="r mono">'+r.ses+'</td><td class="r mono '+(r.err?"err":"")+'">'+r.err+'</td><td>'+ago(p.last_t)+'</td><td class="mut">'+h(r.ver)+'</td></tr>'}).join("")
+  +'</tbody></table>'+(rows.length?'':'<p class="mut" style="padding:14px">Todavía no ha abierto el juego nadie con la telemetría activada.</p>')+'</div><p class="mut small">Pulsa un jugador para ver su detalle. Escribe su nombre en la primera columna para etiquetarlo.</p>'
+}
+var ICON={sesion:"🟢",carrera:"📂",carrera_inicio:"🆕",partido:"⚽",decision:"🎯",pantalla:"🖥",modal:"💬",club:"🔁",division:"📶",lesion:"🩹",sancion:"🟥",nivel:"⬆️",temporada_nueva:"📅",fin_temporada:"🏁",traspaso_ui:"✍️",error:"🔴"};
+function evTxt(e){var d=e.d||{};switch(e.tipo){
+  case"sesion":return"Abrió el juego"+(d.ref?" desde "+h(d.ref):"");
+  case"carrera":return"Carrera "+(d.motivo==="sesion"?"cargada":"cambiada")+(d.r?": "+h(d.r.nombre)+" · "+h(d.r.club_n)+" · T"+d.r.temporada+" J"+d.r.jornada:"");
+  case"carrera_inicio":return"Empieza carrera: "+h(d.pos)+" en "+h(club(d.eq));
+  case"partido":var w=d.sc?(d.sc[0]>d.sc[1]?"V":d.sc[0]<d.sc[1]?"D":"E"):"";return"T"+d.t+" J"+d.j+" · "+(d.casa?"vs ":"en ")+h(club(d.rival))+" "+(d.sc?d.sc[0]+"–"+d.sc[1]:"")+' <span class="tag '+(w==="V"?"ok":w==="D"?"bad":"")+'">'+w+'</span> '+(d.sin?'<span class="tag">'+h(d.sin)+'</span>':d.min+"′ · nota "+f1(d.nota,1)+(d.g?" · "+d.g+" g":"")+(d.a?" · "+d.a+" a":"")+(d.ta?" · 🟨":"")+(d.tr?" · 🟥":""));
+  case"decision":return"Decide: «"+h(d.l)+"»"+(d.s?" ("+h(d.s)+")":"")+" · "+(d.f?h(d.f)+" · ":"")+"min "+d.m;
+  case"pantalla":return"Abre «"+h(d.k)+"»";case"modal":return"Aviso: "+h(d.t);
+  case"club":return"Cambia de club: "+h(club(d.de))+" → <b>"+h(club(d.a))+"</b>";
+  case"division":return"División "+h(d.de)+" → "+h(d.a);case"lesion":return"Lesión de "+d.jornadas+" jornadas (T"+d.t+" J"+d.j+")";
+  case"sancion":return"Sanción de "+d.jornadas+" jornadas";case"nivel":return"Sube de nivel "+d.de+" → "+d.a+" (edad "+d.edad+")";
+  case"temporada_nueva":return"Nueva temporada T"+d.a+" · cierra T"+d.de+": "+d.pj+" PJ, "+d.g+" g, "+d.asist+" a, nota "+f1(d.nota,2);
+  case"fin_temporada":return"Fin de temporada T"+d.t+": puesto "+d.pos+" en "+(d.div==="2"?"Segunda":"Primera")+" con "+h(club(d.club));
+  case"traspaso_ui":return"Traspaso a "+h(club(d.eq));
+  case"error":return'<span class="err">'+h(d.msg)+'</span> <span class="mut">'+h(d.src)+":"+d.line+"</span>";
+  default:return h(JSON.stringify(d))}}
+function detalle(inst){
+  var p=IDX.pl[inst];if(!p){ST.sel=null;return render()}
+  var e=p.estado||{},E=(IDX.ev[inst]||[]).slice(),SE=IDX.ses[inst]||[],SN=IDX.snap[inst]||[],f=ST.fEv,tipos=Object.keys(by(E,function(x){return x.tipo})).sort();
+  var notas=E.filter(function(x){return x.tipo==="partido"&&x.d.nota!=null}).sort(function(a,b){return a.t-b.t}).map(function(x){return x.d.nota});
+  var shown=E.filter(function(x){return!Object.keys(f).some(function(k){return f[k]===0})||f[x.tipo]!==0}).slice(0,400);
+  var res=E.filter(function(x){return x.tipo==="partido"&&!x.d.sin&&x.d.sc}),V=res.filter(function(x){return x.d.sc[0]>x.d.sc[1]}).length,D=res.filter(function(x){return x.d.sc[0]<x.d.sc[1]}).length;
+  var dv=dev(p.ua);
+  $("main").innerHTML='<p style="margin:16px 0 8px"><button class="b" id="back">← Jugadores</button></p>'
+  +'<div class="grid g4">'+kpi(h(nom(p)),"Jugador",h(e.nombre||"")+" · "+h(e.pos||"")+" · "+(e.edad||"?")+" años")+kpi(h(e.club_n||"—"),"Club",(e.division==="2"?"Segunda":"Primera")+" · T"+(e.temporada||"?")+" J"+(e.jornada||0))
+    +kpi((e.nivel==null?"—":e.nivel),"Nivel","potencial "+(e.potencial||"?")+" · fama "+(e.fama||"?"))+kpi(dur(p.active_s),"Tiempo activo",p.sessions+" sesiones · visto hace "+ago(p.last_t))+'</div>'
+  +'<div class="grid g2" style="margin-top:14px"><div class="card"><h3>Nota por partido</h3>'+svgLine(notas,520,120,3,10)+'<p class="small mut">'+res.length+" jugados · "+V+" V / "+(res.length-V-D)+" E / "+D+" D · "+f1(avg(notas),2)+" nota media</p></div>"
+  +'<div class="card"><h3>Dispositivo</h3><p style="margin:0">'+dv.tipo+" · "+dv.nav+" · "+h(p.scr)+"<br><span class='mut small'>"+h(p.lang)+" · "+h(p.tz)+" · v"+h(p.ver)+"</span></p><p class='small mut' style='word-break:break-all'>"+h(p.ua)+"</p><button class='b red' id='del'>Borrar todos sus datos</button></div></div>"
+  +'<div class="card" style="margin-top:14px"><h3>Partidas guardadas ('+SN.length+")</h3>"+(SN.length?'<table><tbody>'+SN.map(function(s){return"<tr><td>"+fdt(s.t)+'</td><td class="mono">'+Math.round(s.bytes/1024)+" KB</td><td>v"+h(s.ver)+'</td><td class="r"><button class="b" data-snap="'+s.id+'">Descargar .json</button></td></tr>'}).join("")+"</tbody></table><p class='small mut'>El .json se importa tal cual en el juego (Opciones → Importar) para abrir su carrera y reproducir un bug.</p>":'<span class="mut small">Aún no ha enviado ninguna.</span>')+"</div>"
+  +'<div class="card" style="margin-top:14px"><h3>Línea de tiempo</h3><div>'+tipos.map(function(t){return'<span class="chip '+(f[t]===0?"":"on")+'" data-f="'+t+'">'+(ICON[t]||"•")+" "+t+" "+E.filter(function(x){return x.tipo===t}).length+"</span>"}).join("")+'</div><div class="tl">'+shown.map(function(x){return'<div class="row"><span class="t">'+fdt(x.t)+"</span><span>"+(ICON[x.tipo]||"•")+" "+evTxt(x)+"</span></div>"}).join("")+"</div></div>"
+}
+function vErrores(){
+  var E=ST.events.filter(function(e){return e.tipo==="error"}),g=by(E,function(e){return(e.d.msg||"")+"|"+(e.d.src||"")+"|"+(e.d.line||0)}),L=Object.keys(g).map(function(k){var a=g[k];return{a:a,n:a.length,pl:Object.keys(by(a,function(x){return x.install})).length,last:Math.max.apply(null,a.map(function(x){return x.t})),vers:Object.keys(by(a,function(x){return x.ver}))}}).sort(function(a,b){return b.last-a.last});
+  $("main").innerHTML='<div class="card" style="margin-top:16px"><h3>Errores de JavaScript agrupados</h3>'+(L.length?L.map(function(x){var d=x.a[0].d;return'<div style="padding:8px 0;border-bottom:1px solid var(--line)"><span class="err"><b>'+h(d.msg)+'</b></span> <span class="mut small">'+h(d.src)+":"+d.line+'</span><br><span class="small mut">'+x.n+" veces · "+x.pl+" jugador(es) · v"+x.vers.map(h).join(", v")+" · último hace "+ago(x.last)+"</span>"+(d.stack?"<details><summary>pila</summary><pre>"+h(d.stack)+"</pre></details>":"")+"</div>"}).join(""):'<p class="mut">Ningún error registrado en 90 días.</p>')+"</div>"
+}
+function vBalance(){
+  var P=ST.events.filter(function(e){return e.tipo==="partido"&&!e.d.sin&&e.d.sc}),notas=P.filter(function(e){return e.d.nota!=null}).map(function(e){return e.d.nota});
+  var hist=[];for(var b=3;b<10;b+=.5){hist.push(notas.filter(function(n){return n>=b&&n<b+.5}).length)}
+  var V=P.filter(function(e){return e.d.sc[0]>e.d.sc[1]}).length,D=P.filter(function(e){return e.d.sc[0]<e.d.sc[1]}).length;
+  var dec=by(ST.events.filter(function(e){return e.tipo==="decision"}),function(e){return e.d.s||("fase: "+(e.d.f||"sin id"))}),DL=Object.keys(dec).map(function(k){return[k,dec[k]]}).sort(function(a,b){return b[1].length-a[1].length}).slice(0,15);
+  var les=ST.events.filter(function(e){return e.tipo==="lesion"}).length,niv=by(ST.events.filter(function(e){return e.tipo==="nivel"}),function(e){return e.d.edad}),NL=Object.keys(niv).sort(function(a,b){return a-b}).map(function(k){return["edad "+k,Math.round(avg(niv[k].map(function(e){return e.d.a})))]});
+  var fin=by(ST.events.filter(function(e){return e.tipo==="fin_temporada"}),function(e){return(e.d.div==="2"?"Segunda":"Primera")+" · puesto "+e.d.pos});
+  $("main").innerHTML='<div class="grid g2" style="margin-top:16px"><div class="card"><h3>Notas de partido (jugados: '+P.length+')</h3>'+svgBars(hist,hist.map(function(_,i){return(3+i*.5).toFixed(1)}),520,110,"#a78bfa")+'<p class="small mut">Media '+f1(avg(notas),2)+" · "+V+" V / "+(P.length-V-D)+" E / "+D+" D · "+f1(avg(P.map(function(e){return e.d.g||0})),2)+" goles por partido · "+f1(les/Math.max(P.length,1)*100,1)+" lesiones por 100 partidos</p></div>"
+  +'<div class="card"><h3>Nivel medio alcanzado por edad</h3>'+bars(NL,"#4ade80")+"</div>"
+  +'<div class="card"><h3>Finales de temporada</h3>'+bars(Object.keys(fin).sort().map(function(k){return[k,fin[k].length]}),"#60a5fa")+"</div>"
+  +'<div class="card"><h3>Decisiones más frecuentes</h3>'+(DL.length?DL.map(function(x){var o=by(x[1],function(e){return e.d.l}),OL=Object.keys(o).map(function(k){return[k,o[k].length]}).sort(function(a,b){return b[1]-a[1]});return"<details><summary>"+h(x[0])+" · "+x[1].length+"</summary>"+bars(OL)+"</details>"}).join(""):'<span class="mut small">Sin decisiones aún</span>')+"</div></div>"
+}
+
+/* ---------- eventos de la interfaz ---------- */
+document.addEventListener("click",async function(ev){
+  var t=ev.target,n=t.closest&&t.closest("[data-t]");if(n&&n.parentNode.id==="nav"){ST.tab=n.dataset.t;ST.sel=null;return render()}
+  if(t.id==="refresh")return load();if(t.id==="logout")return logout();if(t.id==="back"){ST.sel=null;ST.fEv={};return render()}
+  var th=t.closest&&t.closest("th[data-s]");if(th){var k=th.dataset.s;ST.sort=ST.sort.k===k?{k:k,d:-ST.sort.d}:{k:k,d:(k==="nombre"||k==="club"||k==="ver")?1:-1};return render()}
+  if(t.classList&&t.classList.contains("lab"))return;
+  var tr=t.closest&&t.closest("tr.cl");if(tr){ST.sel=tr.dataset.i;ST.fEv={};return render()}
+  var fc=t.closest&&t.closest("[data-f]");if(fc){var q=fc.dataset.f;ST.fEv[q]=ST.fEv[q]===0?1:0;return render()}
+  var sb=t.closest&&t.closest("[data-snap]");if(sb){try{var r=await api("/api/collections/tl_snapshots/records/"+sb.dataset.snap),p=IDX.pl[r.install],s=r.save,b=new Blob([JSON.stringify(s)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="goatmaker-"+(nom(p)||"jugador").replace(/[^\w-]+/g,"_")+"-t"+s.temporada+"-j"+(s.jornada+1)+".json";a.click()}catch(e){alert("No se pudo descargar: "+e.message)}return}
+  if(t.id==="del"){var p2=IDX.pl[ST.sel];if(!confirm("¿Borrar TODOS los datos de «"+nom(p2)+"» (jugador, sesiones, eventos y partidas)?"))return;if(!confirm("Segunda confirmación: no se puede deshacer."))return;
+    try{for(var c of["tl_events","tl_sessions","tl_snapshots","tl_players"]){var rs=await all(c,"fields=id&filter="+encodeURIComponent("install='"+p2.install+"'"));for(var x of rs)await api("/api/collections/"+c+"/records/"+x.id,{method:"DELETE"})}ST.sel=null;await load()}catch(e){alert("Error borrando: "+e.message)}}
+});
+document.addEventListener("change",async function(ev){var t=ev.target;if(t.classList&&t.classList.contains("lab")){try{await api("/api/collections/tl_players/records/"+t.dataset.l,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({label:t.value.trim().slice(0,80)})});var p=ST.players.find(function(x){return x.id===t.dataset.l});if(p)p.label=t.value.trim();t.style.borderColor="var(--ok)";setTimeout(function(){t.style.borderColor=""},800)}catch(e){alert("No se pudo guardar: "+e.message)}}});
+$("l-go").onclick=login;$("l-pass").addEventListener("keydown",function(e){if(e.key==="Enter")login()});
+setInterval(function(){if(ST.tok&&!document.hidden&&Date.now()-ST.at>60000&&!ST.sel&&document.activeElement.tagName!=="INPUT")load()},30000);
+(function init(){try{$("l-url").value=/^https?:$/.test(location.protocol)?location.origin:(localStorage.getItem("gm-adm-url")||"");var s=JSON.parse(sessionStorage.getItem("gm-adm")||"null");if(s&&s.t){ST.url=s.u;ST.tok=s.t;$("login").classList.add("hide");$("app").classList.remove("hide");load()}}catch(e){}})();
+</script>
+</body>
+</html>

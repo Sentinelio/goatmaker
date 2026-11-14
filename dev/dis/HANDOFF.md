@@ -1,0 +1,51 @@
+# Goatmaker Pro · traspaso de contexto (14 nov 2026)
+
+Lee esto primero en una sesión nueva. Resume todo lo hecho hasta v4.67.1. Detalle técnico por versión: `dis/sistemas.md`. Diseño de pirámide/edades: doc del proyecto `claude/piramide-y-edades.md` y `piramide.html`.
+
+## 1. Qué es y reglas del dueño (Manu)
+- Simulador de carrera de fútbol en **un solo HTML**, en español. Antes «La Primera», ahora **Goatmaker Pro** (renombrado en 4.66.2). Archivo de trabajo: `/mnt/user-data/outputs/la-primera.html`; el repo público lo tiene como `index.html`.
+- Innegociables: todo lo que se muestra es mecánicamente real; sin tutoriales; clubes y marcas reales; entregas versionadas con md5 (SendUserFile); diseños genéricos y extensibles; los sistemas complejos se validan con calculadoras aparte antes de tocar el juego; Manu aporta las decisiones de diseño.
+- Disciplina de parches: parches Python con `assert count==1`, `node --check`, pruebas por mutación, cambios de UI quirúrgicos.
+- Trato: español, directo, sin rodeos; en cada paso decir **en qué programa/ventana** se hace (PowerShell, navegador, app de Tailscale…).
+- Decisiones de Manu sobre telemetría: sin aviso de consentimiento; recoger todo lo posible; la página de admin no debe exponer el enlace de PocketBase.
+
+## 2. Estado de versiones
+| Versión | Qué | md5 |
+|---|---|---|
+| 4.66.1 | maquetación escritorio | — |
+| 4.66.2 | renombrado a Goatmaker Pro | `fb020496b2889b1461012c35d91ed467` |
+| 4.67.0 | telemetría apagada por defecto (constantes vacías) | `7c0cbe32894da6cb0397cfbb68d2eca0` |
+| **4.67.1** | **telemetría activa** (solo URL+clave+versión) | `4d6145017f0aaf47e79ae8a13a1c8ffd` |
+
+Repo: `github.com/Sentinelio/goatmaker`, rama main, GitHub Pages en `https://sentinelio.github.io/goatmaker/` (misma origin que otra app de Manu, otra ruta). Commit 4.67.1: `b828c51`. Guardado del jugador: `localStorage` con prefijo `lap1-` (clave `lap1-save`), por navegador: cada amigo juega su partida sin ver la de otro.
+
+## 3. Telemetría (4.67.x)
+- **Cliente** `TELE` dentro del juego: envuelve `guardar`, `irSec`, `modal`, `elegirOpcion`, `finTemporada`, `empezarCarrera`; encadena `window.onerror`/`unhandledrejection`. Eventos por diferencia de estado (carrera, partido, club, división, lesión, sanción, nivel, temporada nueva) y explícitos (sesión, pantalla, modal, decisión, fin de temporada, error). Cola en `lap1-tele-q` (tope 400), envío ≤150 eventos/petición; 4xx descarta el lote (403 → desactiva), 5xx/red reintenta con espera creciente. Pulso cada 15 s (solo tiempo activo y visible). Partida completa cuando cambió y (fin o >180 s), ≤4,8 MB. Claves: `lap1-tele-id` (id aleatorio), `lap1-tele-off=1` (apagar en ese navegador), `lap1-tele-url/key` (anular).
+- **Servidor**: hook PocketBase `pb_hooks/tele.pb.js`, único punto de entrada `POST /tele`: 503 sin clave, 403 clave mala, 400 ids malos, 200 `{"ok":true,"n":N}`. Migración `pb_migrations/1763000000_tele.js` crea `tl_players`, `tl_sessions`, `tl_events`, `tl_snapshots`, cerradas al público. El servidor guarda las 6 últimas partidas por jugador.
+- **Panel** `goatmaker-admin.html` (= `pb_public/index.html`): Resumen, Jugadores (etiquetar por nombre), detalle (línea de tiempo, partidas descargables), Errores, Balance. Entra con superusuario de PocketBase. Las partidas descargadas se importan en el juego (Opciones → Importar).
+- **Producción (PC de casa)**: PocketBase 0.40.5 en `C:\MyProjects\Goatmaker\Servidor` (servicio NSSM `PocketBase-Goatmaker`, 127.0.0.1:8091). **Dos puertas con Tailscale**: Funnel público solo `https://server-pc.tail3b4002.ts.net/tele`; panel y PocketBase solo por tailnet `https://server-pc.tail3b4002.ts.net:8447/`; `/api/collections/_superusers` bloqueado. Otro proyecto (ShoppingList, :8090) convive y no se toca. Notas del servidor: `C:\MyProjects\Goatmaker\HANDOFF.md`. El agente del servidor editó el hook desplegado (lee `tele.key`, GET /tele → 404): la copia de producción puede diferir de `telemetria/pb_hooks/tele.pb.js`.
+- **Clave**: constante `TELE_KEY` del propio `index.html` (pública; solo frena a curiosos). La protección real: colecciones cerradas y `/tele` solo escribe.
+- **Pruebas**: `dis/E2E_telemetria.js` (50 comprobaciones contra un PocketBase 0.23.12 real y Chromium; necesita la build con TELE_URL vacío y `PB=/ruta/pocketbase`), `dis/mutar_telemetria.py` (12/12 mutantes), pruebas del panel (16). Regresión completa verde.
+- **Pendiente de verificar**: el sandbox no llega a la URL pública (salida bloqueada: 403 del túnel del proxy), así que **no se ha probado el servidor en vivo desde aquí**. Falta: una jornada real con el panel abierto; borrar el jugador de prueba `iprueba123456` desde el panel. Para dar salida a Claude: añadir el dominio en Configuración → Code → entorno → Network access.
+
+## 4. Diseño en curso: pirámide y edades (nada implementado en el juego)
+Resumen (todo en `claude/piramide-y-edades.md`): empezar a los 14 años; puerta de entrada por la media visible tras el ojeo (<50, 50–79, ≥80); cinco rangos de edad (Cantera 14–17, Promesa 18–21, Plenitud 22–27, Madurez 28–33, Veterano 34–38); diez bolsas de equipos con ventana de edad; **entorno** de cinco niveles con dos canales (ritmo y formación = «multiplicador de potencial» que viaja con el jugador); plasticidad por rango; **giros** puntuales; regla «sin callejones, sin garantías»; término de edad de la media «Suave» para que Modrić/Kane sean posibles. Herramienta: `piramide.html`, fuentes en `dis/piramide/`, pruebas `dis/F87_piramide.js` (25.726 comprobaciones) y `dis/E2E_piramide.js` (303), 14+12 mutaciones.
+**Decisiones que Manu aún no ha dado**: (1) puerta 50/80 con edad por media y ventana de cada bolsa; (2) los cinco rangos; (3) tope de edad 38 (subirlo exige Retirada); (4) cuarta puerta para buenos veteranos; (5) formación dinámica que viaja con el jugador, sí/no; (6) suavizar el término de edad de la media (recomendado «Suave»); (7) giros con causa visible y tirada por edad o solo por decisiones; (8) calibración de «Normal» (86 como hoy o más bajo, formación de partida −4/−5).
+Hallazgo clave del motor: el techo por atributo es `68 + 0,28·puntos − declive`, con la base 68 igual para todos; hoy «normal» ya es top y el pasado casi no deja huella; la media cae 6,6 de golpe a los 31.
+Reglas de diseño aprendidas: ver `design-principles.md` del proyecto.
+
+## 5. Otros pendientes
+- Tres fallos detectados, a la espera de que Manu apruebe un parche pequeño: compañero «undefined»; agentes/marcas idénticos; fluctuación del bazar.
+- Pool de nombres de personas (`dis/nombres/`): **pausado**, Manu no lo ha pedido (se había pedido por error; quería alternativas al nombre «La Primera», ya resuelto).
+- Antes de cambiar progresión, talento o atributos: leer `design-principles.md`.
+
+## 6. Cómo reproducir el entorno de pruebas
+- Arnés: `dis/correr.sh TEST.js [veces]` genera `lap.js` a partir del HTML (variable `HTML=`), antepone `stub.js` y `post.js` y ejecuta el test con Node.
+- Playwright con Chromium (`NODE_PATH=$(npm root -g)`); PocketBase de pruebas 0.23.12 descargado en `/tmp/pbtest/pocketbase` (se pierde al reiniciar el entorno).
+- Cada parche: script Python con `assert s.count(a)==1`, luego `node --check` sobre los scripts concatenados y las pruebas relevantes; mutación cuando se toca lógica.
+- Commits al repo con los trailers de atribución que indique la sesión.
+
+## 7. Dónde está cada cosa
+- Repo `Sentinelio/goatmaker`: `index.html` (juego) y carpeta `dev/` con `dis/` y `telemetria/` (esto).
+- Proyecto «Football Pro» (claude.ai): `claude/piramide-y-edades.md`, `claude/goatmaker-traspaso.md` (este texto), `piramide.html`, versiones anteriores del juego.
+- Servidor de Manu: ver §3.

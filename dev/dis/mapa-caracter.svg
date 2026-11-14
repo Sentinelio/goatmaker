@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 1010" font-family="system-ui,-apple-system,sans-serif">
+<rect width="1140" height="1010" fill="#070810"/>
+<rect x="790.5" y="80.0" width="269.5" height="233.8" fill="#FFC24B" opacity=".12"/>
+<rect x="790.5" y="80.0" width="269.5" height="233.8" fill="none" stroke="#FFC24B" stroke-width="1" opacity=".28"/>
+<rect x="790.5" y="313.8" width="269.5" height="361.2" fill="#4FA3FF" opacity=".12"/>
+<rect x="790.5" y="313.8" width="269.5" height="361.2" fill="none" stroke="#4FA3FF" stroke-width="1" opacity=".28"/>
+<rect x="790.5" y="675.0" width="269.5" height="255.0" fill="#3DDC97" opacity=".12"/>
+<rect x="790.5" y="675.0" width="269.5" height="255.0" fill="none" stroke="#3DDC97" stroke-width="1" opacity=".28"/>
+<rect x="643.5" y="80.0" width="147.0" height="276.2" fill="#FFC24B" opacity=".12"/>
+<rect x="643.5" y="80.0" width="147.0" height="276.2" fill="none" stroke="#FFC24B" stroke-width="1" opacity=".28"/>
+<rect x="643.5" y="356.2" width="147.0" height="255.0" fill="#4FA3FF" opacity=".12"/>
+<rect x="643.5" y="356.2" width="147.0" height="255.0" fill="none" stroke="#4FA3FF" stroke-width="1" opacity=".28"/>
+<rect x="643.5" y="611.2" width="147.0" height="318.8" fill="#3DDC97" opacity=".12"/>
+<rect x="643.5" y="611.2" width="147.0" height="318.8" fill="none" stroke="#3DDC97" stroke-width="1" opacity=".28"/>
+<rect x="427.9" y="80.0" width="215.6" height="170.0" fill="#FF9E3D" opacity=".12"/>
+<rect x="427.9" y="80.0" width="215.6" height="170.0" fill="none" stroke="#FF9E3D" stroke-width="1" opacity=".28"/>
+<rect x="427.9" y="250.0" width="215.6" height="127.5" fill="#FFC24B" opacity=".12"/>
+<rect x="427.9" y="250.0" width="215.6" height="127.5" fill="none" stroke="#FFC24B" stroke-width="1" opacity=".28"/>
+<rect x="427.9" y="377.5" width="215.6" height="233.8" fill="#8891AA" opacity=".12"/>
+<rect x="427.9" y="377.5" width="215.6" height="233.8" fill="none" stroke="#8891AA" stroke-width="1" opacity=".28"/>
+<rect x="427.9" y="611.2" width="215.6" height="318.8" fill="#3DDC97" opacity=".12"/>
+<rect x="427.9" y="611.2" width="215.6" height="318.8" fill="none" stroke="#3DDC97" stroke-width="1" opacity=".28"/>
+<rect x="354.4" y="80.0" width="73.5" height="191.2" fill="#FF9E3D" opacity=".12"/>
+<rect x="354.4" y="80.0" width="73.5" height="191.2" fill="none" stroke="#FF9E3D" stroke-width="1" opacity=".28"/>
+<rect x="354.4" y="271.2" width="73.5" height="106.2" fill="#FFC24B" opacity=".12"/>
+<rect x="354.4" y="271.2" width="73.5" height="106.2" fill="none" stroke="#FFC24B" stroke-width="1" opacity=".28"/>
+<rect x="354.4" y="377.5" width="73.5" height="552.5" fill="#FF5470" opacity=".12"/>
+<rect x="354.4" y="377.5" width="73.5" height="552.5" fill="none" stroke="#FF5470" stroke-width="1" opacity=".28"/>
+<rect x="80.0" y="80.0" width="274.4" height="233.8" fill="#B45CFF" opacity=".12"/>
+<rect x="80.0" y="80.0" width="274.4" height="233.8" fill="none" stroke="#B45CFF" stroke-width="1" opacity=".28"/>
+<rect x="80.0" y="313.8" width="274.4" height="616.2" fill="#FF5470" opacity=".12"/>
+<rect x="80.0" y="313.8" width="274.4" height="616.2" fill="none" stroke="#FF5470" stroke-width="1" opacity=".28"/>
+<text x="798.5" y="99.0" fill="#FFC24B" font-size="12" font-weight="800" opacity=".8" letter-spacing="1.5">LA ESTRELLA</text>
+<text x="798.5" y="332.8" fill="#4FA3FF" font-size="12" font-weight="800" opacity=".8" letter-spacing="1.5">EL CAPITÁN</text>
+<text x="798.5" y="694.0" fill="#3DDC97" font-size="12" font-weight="800" opacity=".8" letter-spacing="1.5">EL SOLDADO</text>
+<text x="435.9" y="99.0" fill="#FF9E3D" font-size="12" font-weight="800" opacity=".8" letter-spacing="1.5">EL SHOWMAN</text>
+<text x="435.9" y="396.5" fill="#8891AA" font-size="12" font-weight="800" opacity=".8" letter-spacing="1.5">UNO MÁS</text>
+<text x="362.4" y="396.5" fill="#FF5470" font-size="12" font-weight="800" opacity=".8" letter-spacing="1.5">EL PROBLEMA</text>
+<text x="88.0" y="99.0" fill="#B45CFF" font-size="12" font-weight="800" opacity=".8" letter-spacing="1.5">EL GENIO REBELDE</text>
+<line x1="80" y1="505.0" x2="1060" y2="505.0" stroke="#EDF0F8" stroke-width="1" opacity=".3"/>
+<line x1="570.0" y1="80" x2="570.0" y2="930" stroke="#EDF0F8" stroke-width="1" opacity=".3"/>
+<text x="80" y="38" fill="#EDF0F8" font-size="24" font-weight="800">Mapa de carácter · 40 futbolistas</text>
+<text x="80" y="58" fill="#8891AA" font-size="13">Zonas = fronteras reales del juego. Borde naranja = temperamento ≥78 (guerrero).</text>
+<text x="80" y="964" fill="#8891AA" font-size="13" font-weight="700">← DÍSCOLO</text>
+<text x="1060" y="964" fill="#8891AA" font-size="13" font-weight="700" text-anchor="end">PROFESIONAL →</text>
+<text x="570.0" y="66" fill="#8891AA" font-size="13" font-weight="700" text-anchor="middle">EGO +100 · protagonista</text>
+<text x="570.0" y="964" fill="#8891AA" font-size="13" font-weight="700" text-anchor="middle">EGO −100 · colectivo</text>
+<circle cx="251.5" cy="207.5" r="6.5" fill="#B45CFF" stroke="#070810" stroke-width="2"/>
+<text x="251.5" y="194.5" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Maradona</text>
+<circle cx="202.5" cy="398.8" r="6.5" fill="#FF5470" stroke="#FF6B4A" stroke-width="2.5"/>
+<text x="202.5" y="385.8" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Balotelli</text>
+<circle cx="496.5" cy="143.8" r="6.5" fill="#FF9E3D" stroke="#070810" stroke-width="2"/>
+<text x="496.5" y="130.8" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Zlatan</text>
+<circle cx="913.0" cy="186.2" r="6.5" fill="#FFC24B" stroke="#070810" stroke-width="2"/>
+<text x="913.0" y="173.2" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Cristiano</text>
+<circle cx="692.5" cy="547.5" r="6.5" fill="#FF6B4A" stroke="#FF6B4A" stroke-width="2.5"/>
+<text x="692.5" y="534.5" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Roy Keane</text>
+<circle cx="1011.0" cy="590.0" r="6.5" fill="#4FA3FF" stroke="#070810" stroke-width="2"/>
+<text x="1011.0" y="577.0" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Maldini</text>
+<circle cx="986.5" cy="632.5" r="6.5" fill="#4FA3FF" stroke="#070810" stroke-width="2"/>
+<text x="986.5" y="619.5" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Puyol</text>
+<circle cx="766.0" cy="802.5" r="6.5" fill="#FF6B4A" stroke="#FF6B4A" stroke-width="2.5"/>
+<text x="766.0" y="789.5" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Gattuso</text>
+<circle cx="300.5" cy="165.0" r="6.5" fill="#B45CFF" stroke="#FF6B4A" stroke-width="2.5"/>
+<text x="300.5" y="152.0" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Cantona</text>
+<circle cx="398.5" cy="250.0" r="6.5" fill="#FF9E3D" stroke="#070810" stroke-width="2"/>
+<text x="398.5" y="237.0" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Ronaldinho</text>
+<circle cx="153.5" cy="186.2" r="6.5" fill="#B45CFF" stroke="#070810" stroke-width="2"/>
+<text x="153.5" y="173.2" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">G. Best</text>
+<circle cx="227.0" cy="271.2" r="6.5" fill="#B45CFF" stroke="#070810" stroke-width="2"/>
+<text x="227.0" y="258.2" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Gascoigne</text>
+<circle cx="276.0" cy="420.0" r="6.5" fill="#FF5470" stroke="#070810" stroke-width="2"/>
+<text x="276.0" y="407.0" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Adriano</text>
+<circle cx="472.0" cy="271.2" r="6.5" fill="#FFC24B" stroke="#070810" stroke-width="2"/>
+<text x="472.0" y="258.2" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Riquelme</text>
+<circle cx="202.5" cy="292.5" r="6.5" fill="#B45CFF" stroke="#FF6B4A" stroke-width="2.5"/>
+<text x="202.5" y="279.5" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Cassano</text>
+<circle cx="129.0" cy="377.5" r="6.5" fill="#FF5470" stroke="#FF6B4A" stroke-width="2.5"/>
+<text x="129.0" y="364.5" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Barton</text>
+<circle cx="349.5" cy="250.0" r="6.5" fill="#B45CFF" stroke="#070810" stroke-width="2"/>
+<text x="349.5" y="272.0" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Anelka</text>
+<circle cx="251.5" cy="398.8" r="6.5" fill="#FF5470" stroke="#FF6B4A" stroke-width="2.5"/>
+<text x="251.5" y="364.8" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Bellamy</text>
+<circle cx="374.0" cy="441.2" r="6.5" fill="#FF5470" stroke="#FF6B4A" stroke-width="2.5"/>
+<text x="374.0" y="428.2" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Diego Costa</text>
+<circle cx="619.0" cy="632.5" r="6.5" fill="#FF6B4A" stroke="#FF6B4A" stroke-width="2.5"/>
+<text x="619.0" y="619.5" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Pepe</text>
+<circle cx="447.5" cy="186.2" r="6.5" fill="#FF9E3D" stroke="#070810" stroke-width="2"/>
+<text x="447.5" y="173.2" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Neymar</text>
+<circle cx="423.0" cy="143.8" r="6.5" fill="#FF9E3D" stroke="#070810" stroke-width="2"/>
+<text x="423.0" y="109.8" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Higuita</text>
+<circle cx="594.5" cy="207.5" r="6.5" fill="#FF9E3D" stroke="#070810" stroke-width="2"/>
+<text x="594.5" y="194.5" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Okocha</text>
+<circle cx="790.5" cy="313.8" r="6.5" fill="#FFC24B" stroke="#070810" stroke-width="2"/>
+<text x="790.5" y="300.8" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">R. Carlos</text>
+<circle cx="447.5" cy="165.0" r="6.5" fill="#FF9E3D" stroke="#FF6B4A" stroke-width="2.5"/>
+<text x="447.5" y="152.0" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Chilavert</text>
+<circle cx="888.5" cy="271.2" r="6.5" fill="#FFC24B" stroke="#070810" stroke-width="2"/>
+<text x="888.5" y="258.2" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Messi</text>
+<circle cx="864.0" cy="165.0" r="6.5" fill="#FFC24B" stroke="#070810" stroke-width="2"/>
+<text x="864.0" y="152.0" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Mbappé</text>
+<circle cx="668.0" cy="335.0" r="6.5" fill="#FFC24B" stroke="#070810" stroke-width="2"/>
+<text x="668.0" y="322.0" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Bale</text>
+<circle cx="986.5" cy="292.5" r="6.5" fill="#FFC24B" stroke="#070810" stroke-width="2"/>
+<text x="986.5" y="279.5" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Lewandowski</text>
+<circle cx="1035.5" cy="611.2" r="6.5" fill="#4FA3FF" stroke="#070810" stroke-width="2"/>
+<text x="1035.5" y="598.2" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Zanetti</text>
+<circle cx="937.5" cy="420.0" r="6.5" fill="#4FA3FF" stroke="#070810" stroke-width="2"/>
+<text x="937.5" y="407.0" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Casillas</text>
+<circle cx="1011.0" cy="335.0" r="6.5" fill="#4FA3FF" stroke="#070810" stroke-width="2"/>
+<text x="1011.0" y="322.0" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Buffon</text>
+<circle cx="717.0" cy="207.5" r="6.5" fill="#FFC24B" stroke="#FF6B4A" stroke-width="2.5"/>
+<text x="717.0" y="194.5" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">S. Ramos</text>
+<circle cx="839.5" cy="228.8" r="6.5" fill="#FFC24B" stroke="#070810" stroke-width="2"/>
+<text x="839.5" y="215.8" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Totti</text>
+<circle cx="1035.5" cy="845.0" r="6.5" fill="#3DDC97" stroke="#070810" stroke-width="2"/>
+<text x="1035.5" y="832.0" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Kanté</text>
+<circle cx="962.0" cy="802.5" r="6.5" fill="#3DDC97" stroke="#070810" stroke-width="2"/>
+<text x="962.0" y="789.5" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Makélélé</text>
+<circle cx="986.5" cy="760.0" r="6.5" fill="#3DDC97" stroke="#070810" stroke-width="2"/>
+<text x="986.5" y="747.0" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Park Ji-sung</text>
+<circle cx="937.5" cy="696.2" r="6.5" fill="#FF6B4A" stroke="#FF6B4A" stroke-width="2.5"/>
+<text x="937.5" y="683.2" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Mascherano</text>
+<circle cx="962.0" cy="377.5" r="6.5" fill="#4FA3FF" stroke="#070810" stroke-width="2"/>
+<text x="962.0" y="364.5" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">Bergkamp</text>
+<circle cx="668.0" cy="228.8" r="6.5" fill="#FFC24B" stroke="#070810" stroke-width="2"/>
+<text x="668.0" y="215.8" fill="#EDF0F8" font-size="13" font-weight="600" text-anchor="middle">R. Nazário</text>
+</svg>
