@@ -16,7 +16,7 @@ MUT = [
  ("JUEGO: no guarda tras canjear",                      'J', 'try{ guardar(); }catch(e){}\n      COD_MSG={tipo:"ok"', 'COD_MSG={tipo:"ok"', 'codigos'),
  ("JUEGO: canjea sin carrera en marcha",                'J', 'if(!S){ codMsg("mal","Necesitas una carrera en marcha para canjear un código."); return; }', '', 'codigos'),
  ("JUEGO: «ya canjeado» sale con otro texto",           'J', 'ya_usado:"Ya has canjeado ese código."', 'ya_usado:"Error."', 'codigos'),
- ("JUEGO: el reporte adjunta la partida aunque se desmarque", 'J', 'if(S && REP.save){ b.save=S; }', 'if(S){ b.save=S; }', 'codigos'),
+ ("JUEGO: el reporte adjunta la partida aunque se desmarque", 'J', 'if(S && REP.save){ var pesa', 'if(S){ var pesa', 'codigos'),
  ("JUEGO: el reporte vacío se envía",                   'J', 'if(tx.length<3){', 'if(false){', 'codigos'),
  ("JUEGO: un fallo de red borra el texto del reporte",  'J', 'else if(r.sinRed){ say("mal","No hay conexión con el servidor de Goatmaker; tu texto sigue aquí.', 'else if(r.sinRed){ REP.texto=""; if($("rep-tx")) $("rep-tx").value=""; say("mal","No hay conexión con el servidor de Goatmaker; tu texto sigue aquí.', 'codigos'),
  ("JUEGO: el reporte filtra datos de carácter personal",'J', 'var res=null, ctx={ ver:VERSION,', 'var res=null, ctx={ email:"a@b.co", ver:VERSION,', 'codigos'),
