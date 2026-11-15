@@ -13,7 +13,7 @@ const { spawn, spawnSync } = require('child_process');
 const fs = require('fs'), os = require('os'), path = require('path');
 const GAME = process.env.GAME || '/mnt/user-data/outputs/la-primera.html';
 const PB = process.env.PB || '/tmp/pbtest/pocketbase';
-const TEL = '/mnt/user-data/outputs/telemetria';
+const TEL = process.env.TELEDIR || '/mnt/user-data/outputs/telemetria';   /* TELEDIR=/ruta/dev/telemetria cuando se corre desde el repo */
 const VER_JUEGO = (fs.readFileSync(GAME, 'utf8').match(/VERSION="([^"]+)"/) || [])[1];   /* la versión del propio juego, no un número fijo */
 const PORT = 18091, BASE = 'http://127.0.0.1:' + PORT, KEY = 'k-test';
 let fails = [], oks = 0;

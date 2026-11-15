@@ -9,6 +9,7 @@ function OKK(m){ PASA++; console.log("  ✔ "+m); }
 function FALLA(m){ FALLA_N++; console.log("  ✘ "+m); }
 var _rh=renderHub; renderHub=function(){};
 function base(eq,pos,pierna,media){
+  OVSEM=null; OVSEM_COLA=[]; NEG=null;   /* carrera nueva: nada esperando de la anterior (4.69.6: los avisos hacen cola en vez de pisarse) */
   S=nuevoEstado(eq,pos,"Manu",9,pierna||"D","nueve"===undefined?null:(ROLES[pos][0].id),24);
   S.contrato={salario:500000,anos:3,clausula:12000000,prima:25000,franja:"media",exige:65};
   ["TEC","FIS","TAC","DEF","MEN","POR"].forEach(function(k){ if(S.attr[k]!==undefined) S.attr[k]=media||70; });
@@ -1563,6 +1564,7 @@ if(false)(function(){
        && S.compis.length>=14 && S.mister===52
        && S.traspasos.some(function(t){return t.jugN===S.nombre && t.de===eqAntes && t.a==="RMA";}))) fallos.push("aceptar");
   /* 5 · tu club ficha en tu puesto: plantilla estable, exige sube, «competir» toca la forma */
+  OVSEM=null; OVSEM_COLA=[];   /* 4.69.6: los avisos hacen cola; lo que dejó sin contestar el tick del mercado no es de este paso */
   var nC=S.compis.length, exAntes=S.contrato.exige||60, formaAntes=S.forma||70;
   fichajeEnTuPuesto();
   if(!OVSEM) fallos.push("sit-fichaje");
@@ -1851,7 +1853,7 @@ if(false)(function(){
   var esperado=Math.round(S.contrato.salario*(1.12+0.5*0.28)*(1.12)/1000)*1000;
   if(!(S.ofertaInv && S.ofertaInv.salario===esperado)) fallos.push("oferta-inflada ("+(S.ofertaInv&&S.ofertaInv.salario)+" vs "+esperado+")");
   if(OVSEM) elegirSemana(OVSEM.ops.length-1);
-  S.ofertaInv=null;
+  S.ofertaInv=null; NEG=null; OVSEM_COLA=[];   /* 4.69.6: al cerrar el aviso se abre la mesa de la oferta que esperaba; aquí se descarta para probar la renovación sola */
   /* 4 · renovación proactiva: último año, fidelidad 2 → subida exacta 1.10+0.08+0.05 */
   S.jornada=26; S.contrato.anos=1; S.fidelidad=2; S.mister=60; S.renovProc=null;
   var sal0=S.contrato.salario;

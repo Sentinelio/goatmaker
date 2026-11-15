@@ -768,7 +768,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.69.5";
+var VERSION="4.69.6";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   var val=JSON.stringify(v);
@@ -930,7 +930,7 @@ function evolucionarMundo(finalIds, divPrev){
 }
 /* identidad procedural: sílabas → millones de nombres plausibles; determinista si le das semilla */
 function hashStr(s){ var h=2166136261; for(var i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return (h>>>0); }
-function lcgDe(seed){ var x=(seed>>>0)||1; return function(){ x=(Math.imul(x,1664525)+1013904223)>>>0; return x/4294967296; }; }
+function lcgDe(seed){ if(typeof seed==="string") seed=hashStr(seed); var x=(seed>>>0)||1; return function(){ x=(Math.imul(x,1664525)+1013904223)>>>0; return x/4294967296; }; }
 var NP1=["Ad","Al","An","Ar","Au","Bal","Bas","Ben","Ber","Bor","Ca","Cel","Ci","Cos","Da","Del","Dio","Do","Ed","El","Em","En","Es","Fa","Fe","Fer","Flo","Ga","Gen","Ger","Gon","Gu","He","Hi","Ho","Ib","Ig","Is","Ja","Jo","Ju","La","Le","Li","Lo","Lu","Ma","Mar","Mat","Me","Mi","Na","Ni","No","Ol","Or","Os","Pa","Pe","Po","Qui","Ra","Re","Ro","Ru","Sa","Se","Si","Te","Teo","To","Va","Ve","Vi","Xa"];
 var NP2=["bel","ber","bio","cio","co","dan","del","dio","dro","gel","gio","go","ián","iel","ilo","ín","io","ís","lán","lex","lio","lo","mán","mar","mel","mín","mo","nán","nel","nés","nio","no","ño","ón","quín","rán","rel","rén","rio","ro","sel","sio","so","teo","tín","to","tor","vio"];
 var AP1=["Ace","Agui","Alba","Alcán","Arri","Baz","Bena","Ber","Bo","Bus","Cabre","Cal","Cam","Cano","Cap","Carras","Cas","Cere","Ci","Cor","Cua","Del","Do","Escu","Fal","Fer","Figue","Fon","Fu","Gal","Gam","Garri","Gav","Gira","Gra","Guar","Herre","Hidal","Hor","Iri","Iz","Juá","Lan","Lla","Llo","Loza","Lu","Mada","Mal","Man","Mar","Mel","Mena","Mon","Mora","Mu","Na","Nie","No","Ol","Orte","Oso","Ota","Pala","Pare","Pas","Pei","Pel","Pi","Pla","Po","Pri","Quin","Ra","Re","Ri","Roble","Ru","Sala","Sam","San","Sego","Ser","So","Sola","Ta","Tole","Tor","Tru","Ur","Vala","Vare","Vera","Vila","Vive","Za","Zu","Zubi"];
@@ -1939,10 +1939,10 @@ function citaMisterHTML(){
     +'<div id="cita-pres" style="position:absolute;top:0;bottom:0;left:'+citaPos(llegada,V)+'%;width:'+(citaPos(salida,V)-citaPos(llegada,V))+'%;background:rgba(255,255,255,.22)"></div>'
     +'<input id="cita-ll" class="sl" type="range" min="'+V.ini+'" max="'+V.llamada+'" step="0.5" value="'+llegada+'" '
     +'oninput="citaMueve(\'llegada\',this.value)" onchange="citaMueve(\'llegada\',this.value)" '
-    +'style="position:absolute;top:-7px;left:0;width:35%;height:22px;margin:0;background:none">'
+    +'style="position:absolute;top:-7px;left:0;width:35%;height:22px;margin:0;background:none;border:0;outline:0;padding:0;box-shadow:none">'
     +'<input id="cita-sa" class="sl" type="range" min="'+V.fin+'" max="'+V.fin2+'" step="0.5" value="'+salida+'" '
     +'oninput="citaMueve(\'salida\',this.value)" onchange="citaMueve(\'salida\',this.value)" '
-    +'style="position:absolute;top:-7px;left:65%;width:35%;height:22px;margin:0;background:none">'
+    +'style="position:absolute;top:-7px;left:65%;width:35%;height:22px;margin:0;background:none;border:0;outline:0;padding:0;box-shadow:none">'
     +'</div>';
   H+='<div style="display:flex;font-size:12px;margin:0 11px 12px;line-height:1.35">'
     +'<div id="cita-llv" style="width:35%;color:#4FA3FF;padding-left:2px">'+esc(T.ll)+'</div>'
@@ -6429,7 +6429,7 @@ function finPrueba(){
   PICK.rojaPrueba=M.miTR;
   /* la valoración pesa sobre lo que te ofrecen */
   PICK.bonusPrueba=clamp(Math.round((n-6.3)*(n>=8?12:8)), -16, 26);
-  S=null; M=null; M_ficha=null;
+  S=null; M=null; M_ficha=null; OVSEM_COLA=[];   /* lo que esperaba menú era de la carrera que se cierra */
   cerrarOverlays();
   PICK.tanda=generarTanda();
   $("scr-hub").classList.add("hidden");
@@ -8554,7 +8554,7 @@ function mercadoSemanal(){
 }
 /* ---------- movimientos de TU club ---------- */
 function fichajeEnTuPuesto(){
-  var nueva=genPersona(rnd);
+  var nueva={n:genPersona(rnd)};
   var media=clamp(Math.round((S.attr? (atr("TEC")+atr("TAC"))/2 : 74)+1+rnd()*4), 68, 92);
   var fich={n:nueva.n, pos:S.pos, edad:20+Math.floor(rnd()*9), media:media,
             rasgo:RASGOS[Math.floor(rnd()*RASGOS.length)].id, afin:30, pj:0,g:0,a:0,ta:0,tr:0,lesion:0,sancion:0,ciclo:0};
@@ -8581,7 +8581,7 @@ function ventaCompi(){
   S.traspasos.push({jugN:v.n, de:S.equipo, a:dest, precio:precioTraspaso(v.media, v.edad), media:v.media, jor:S.jornada});
   var dolor=v.afin>=65;
   S.compis.splice(i,1);
-  var nueva=genPersona(rnd);
+  var nueva={n:genPersona(rnd)};
   S.compis.push({n:nueva.n, pos:v.pos, edad:21+Math.floor(rnd()*7), media:clamp(v.media-3,64,88),
                  rasgo:RASGOS[Math.floor(rnd()*RASGOS.length)].id, afin:34, pj:0,g:0,a:0,ta:0,tr:0,lesion:0,sancion:0,ciclo:0});
   if(dolor) S.conf=clamp(S.conf-3,5,95);
@@ -8596,7 +8596,7 @@ var SEMANA_CORRE=false;
 function bloqueado(){
   return !!((typeof M!=="undefined" && M && !M.cerrado) || SEMANA_CORRE || (typeof NEG!=="undefined" && NEG));
 }
-function alMenu(fn){ if(bloqueado()) OVSEM_COLA.push({run:fn}); else fn(); }
+function alMenu(fn){ if(bloqueado() || OVSEM) OVSEM_COLA.push({run:fn}); else fn(); }   /* tampoco encima de un aviso abierto */
 function drenarOvsem(){
   while(!OVSEM && !bloqueado() && OVSEM_COLA.length){
     var it=OVSEM_COLA.shift();
@@ -9698,7 +9698,7 @@ function pedirNuevaPartida(){
 async function nuevaPartida(){
   cancelarAuto();
   try{ await sDel("save"); }catch(e){}
-  S=null; M=null; M_ficha=null;
+  S=null; M=null; M_ficha=null; OVSEM_COLA=[];   /* lo que esperaba menú era de la carrera que se cierra */
   PICK={eq:null, pos:null, rol:null, pierna:"D", esperas:0, attrBonus:0, edad:18, nombre:null, dorsal:9, tanda:null};
   ["ov-match","ov-fin","ov-contrato","ov-modal","scr-hub","scr-sec","scr-pick","scr-pos","menu"].forEach(function(id){
     var n=$(id); if(n) n.classList.add("hidden");
@@ -9767,7 +9767,7 @@ function finPruebaCheat(){
   if(!CHEATS_ON) return;
   var n=PICK.notaPrueba;
   PICK.bonusPrueba=clamp(Math.round((n-6.3)*(n>=8?12:8)), -16, 26);
-  S=null; M=null; M_ficha=null;
+  S=null; M=null; M_ficha=null; OVSEM_COLA=[];   /* lo que esperaba menú era de la carrera que se cierra */
   cerrarOverlays();
   PICK.tanda=generarTanda();
   ["scr-hub","scr-sec","scr-pos","scr-title"].forEach(function(id){ $(id).classList.add("hidden"); });
@@ -11106,6 +11106,9 @@ function rehidratarCustom(){
   S.custom=S.custom.filter(function(c){ return c.o.length; });
 }
 function normalizarPartida(){
+    /* partidas de antes de la 4.69.6: los fichajes del club llegaban sin nombre */
+    (S.compis||[]).forEach(function(c){ if(c && !c.n) c.n=genPersona(rnd); });
+    (S.traspasos||[]).forEach(function(t){ if(t && !t.jugN) t.jugN="Fichaje del club"; });
     if(S.mister===undefined){ S.mister=58; S.desafios=0; S.castigo=0; }
     if(S.ciclo===undefined) S.ciclo=0;
     if(S.forma===undefined) S.forma=70;
