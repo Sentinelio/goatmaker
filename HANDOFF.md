@@ -22,6 +22,7 @@ Lee esto primero en una sesión nueva. Resume todo lo hecho hasta v4.69.0. Detal
 | **4.69.2** | cita con barra de tres tramos y ejercicios antes/después del entreno | `11700e3c0736738e45c2a29cbb2e0ea8` |
 | **4.69.3** | cita: controles dentro de la barra del día (35 % llegada · 30 % entreno · 35 % salida), un ejercicio por hora, máx. 4 por lado | `d1416bbd2cafdced953138c54bfbb28f` |
 | **4.69.4** | cita: barra fina con sliders normales (llegada azul · entreno dorado · salida verde); reportes muestran el motivo exacto del fallo | `ce8c25c2b8defbf69e801088c03c1a85` |
+| **4.69.5** | talentos: una pestaña por rama, progreso en pips como talentos.html, puntos libres calculados del presupuesto | `dfece86a27df800b6e05c09d81cf83fb` |
 
 Repo: `github.com/Sentinelio/goatmaker`, rama main, GitHub Pages en `https://sentinelio.github.io/goatmaker/` (misma origin que otra app de Manu, otra ruta). Commit 4.67.1: `b828c51`. Guardado del jugador: `localStorage` con prefijo `lap1-` (clave `lap1-save`), por navegador: cada amigo juega su partida sin ver la de otro.
 

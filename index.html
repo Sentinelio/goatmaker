@@ -768,7 +768,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.69.4";
+var VERSION="4.69.5";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   var val=JSON.stringify(v);
@@ -7781,44 +7781,51 @@ function secRedes(){
   return H;
 }
 function clicTalento(rama,id){ if(invertirTalento(rama,id)){ SUB.jugador="fisico"; irSec("jugador"); } }
+/* Talentos: una pestaña por rama; cada talento se pinta con pips (un tramo por rango), como en talentos.html.
+   Los puntos libres salen del presupuesto real (nivel − 7 − invertidos), no del contador de subidas de nivel. */
+var TAL_RAMA=null;
+function talRama(rama){ TAL_RAMA=rama; SUB.jugador="fisico"; irSec("jugador"); }
 function secTalentos(){
   S.talentos=S.talentos||{};
-  var gastadoTotal=puntosTalentoGastados(), presu=talentoPresupuesto();
+  var gastadoTotal=puntosTalentoGastados(), presu=talentoPresupuesto(), libres=Math.max(0, presu-gastadoTotal);
+  if(!TAL_RAMA || TALENTO_ORDEN.indexOf(TAL_RAMA)<0) TAL_RAMA=TALENTO_ORDEN[0];
   var H='<div class="card" style="border-color:var(--gold)"><div class="eyebrow">Talentos</div>'
     +'<p class="note" style="margin:0">Nivel '+(S.nivel||1)+' · '+gastadoTotal+' / '+presu+' puntos invertidos'
-    +((S.talentoPend||0)>0? ' · <b style="color:var(--gold)">'+S.talentoPend+' por asignar ahora mismo</b>':'')+'</p></div>';
-  TALENTO_ORDEN.forEach(function(rama){
-    var tree=TALENTOS[rama];
-    S.talentos[rama]=S.talentos[rama]||{};
-    var gastadoRama=0; tree.nodes.forEach(function(n){ gastadoRama+=talentoRango(rama,n.id); });
-    H+='<div class="card"><div class="eyebrow">'+esc(tree.name)+' · '+gastadoRama+' pts</div>';
-    tree.nodes.forEach(function(node){
-      var r=talentoRango(rama,node.id);
-      if(node.off && r<=0) return;
-      var ok=talentoDesbloqueado(rama,node);
-      var puedeSubir = ok && r<node.rank && gastadoTotal<presu;
-      var faltaTxt="";
-      if(!ok){
-        var falt=[];
-        if((S.nivel||1)<node.lvl) falt.push("nivel "+node.lvl);
-        if(node.req){
-          var ids=Array.isArray(node.req)?node.req:[node.req];
-          var faltNombres=ids.filter(function(id){return talentoRango(rama,id)<=0;}).map(function(id){return talentoNodo(rama,id).n;});
-          if(faltNombres.length) falt.push(faltNombres.join(" y "));
-        }
-        faltaTxt='<div class="note" style="font-size:10.5px;color:var(--bad)">Falta: '+falt.join(" · ")+'</div>';
+    +(libres>0? ' · <b style="color:var(--gold)">'+libres+' por asignar ahora mismo</b>' : ' · no te quedan puntos libres')+'</p></div>';
+  H+='<div class="chips full" style="grid-template-columns:repeat(3,1fr)">'+TALENTO_ORDEN.map(function(rama){
+    var g=0; TALENTOS[rama].nodes.forEach(function(n){ g+=talentoRango(rama,n.id); });
+    return '<button class="chip'+(rama===TAL_RAMA?' on':'')+'" onclick="talRama(\''+rama+'\')">'+esc(TALENTOS[rama].name)+' · '+g+'</button>';
+  }).join("")+'</div>';
+  var rama=TAL_RAMA, tree=TALENTOS[rama];
+  H+='<div class="card"><div class="eyebrow">'+esc(tree.name)+'</div>';
+  tree.nodes.forEach(function(node){
+    var r=talentoRango(rama,node.id);
+    if(node.off && r<=0) return;
+    var ok=talentoDesbloqueado(rama,node);
+    var puedeSubir = ok && r<node.rank && libres>0;
+    var faltaTxt="";
+    if(!ok){
+      var falt=[];
+      if((S.nivel||1)<node.lvl) falt.push("nivel "+node.lvl);
+      if(node.req){
+        var ids=Array.isArray(node.req)?node.req:[node.req];
+        var faltNombres=ids.filter(function(id){return talentoRango(rama,id)<=0;}).map(function(id){return talentoNodo(rama,id).n;});
+        if(faltNombres.length) falt.push(faltNombres.join(" y "));
       }
-      H+='<div class="row2" style="align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--linea)">'
-        +'<div style="flex:1;padding-right:8px"><b'+(r>0?' style="color:var(--gold)"':'')+'>'+esc(node.n)+(node.cap?' ★':'')+'</b>'
-        +'<div class="note" style="font-size:11px">'+esc(node.d)+'</div>'+faltaTxt+'</div>'
-        +'<div style="text-align:right;flex:none">'
-        +'<div class="pubbar" style="width:56px"><i style="width:'+Math.round(r/node.rank*100)+'%"></i></div>'
-        +'<div class="note" style="font-size:10px">'+r+'/'+node.rank+'</div>'
-        +(puedeSubir? '<button class="chip" onclick="clicTalento(\''+rama+'\',\''+node.id+'\')">+1</button>':'')
-        +'</div></div>';
-    });
-    H+='</div>';
+      faltaTxt='<div class="note" style="font-size:10.5px;color:var(--bad)">Falta: '+falt.join(" · ")+'</div>';
+    }
+    var pips="";
+    for(var k=0;k<node.rank;k++) pips+='<span style="display:inline-block;width:13px;height:4px;border-radius:2px;background:'+(k<r?'var(--gold)':'rgba(255,255,255,.12)')+'"></span>';
+    H+='<div class="row2" style="align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--linea)">'
+      +'<div style="flex:1;padding-right:8px"><b'+(r>0?' style="color:var(--gold)"':'')+'>'+esc(node.n)+(node.cap?' ★':'')+'</b>'
+      +'<div class="note" style="font-size:11px">'+esc(node.d)+'</div>'+faltaTxt+'</div>'
+      +'<div style="text-align:right;flex:none">'
+      +'<div style="display:flex;gap:3px;justify-content:flex-end;margin-top:4px">'+pips+'</div>'
+      +'<div class="note" style="font-size:10px">'+r+'/'+node.rank+'</div>'
+      +(puedeSubir? '<button class="chip" onclick="clicTalento(\''+rama+'\',\''+node.id+'\')">+1</button>':'')
+      +'</div></div>';
   });
+  H+='</div>';
   return H;
 }
 function secSkills(){
