@@ -768,7 +768,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.69.1";
+var VERSION="4.69.2";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   var val=JSON.stringify(v);
@@ -1848,97 +1848,159 @@ function horaFmt(h){
   var hh=Math.floor(h), mm=Math.round((h-hh)*60);
   return (hh<0? (24+hh):hh)+":"+(mm<10?"0":"")+mm;
 }
-/* La cita: una barra horaria con dos sliders. Llegas antes de la llamada (cuánto antes)
-   y te quedas después del entreno (cuánto). Lo que elijas se cobra al confirmar. */
-var CITA_UI={jor:-1, ll:0, sa:0};
+/* La cita del míster: tres tramos en una barra (llegada · entreno · salida).
+   Antes y después del entreno eliges un ejercicio; su efecto crece con las horas que le dedicas. */
+var CITA_ACT_LLEGADA=[
+ {id:"nada",   n:"Nada especial",              d:"Llegas, te cambias y ya."},
+ {id:"estira", n:"Movilidad y estiramientos",  d:"Recuperas forma poco a poco.", forma:2},
+ {id:"gym",    n:"Gimnasio de fuerza",         d:"Más carga: cuesta forma, pero el trabajo cuenta.", forma:-3, eje:"disciplina", ej:1},
+ {id:"video",  n:"Vídeo con el cuerpo técnico",d:"Entiendes el plan. El míster lo nota.", mister:1, eje:"disciplina", ej:0.5},
+ {id:"charla", n:"Charla con los compañeros",  d:"Vestuario antes que pizarra.", eje:"companerismo", ej:1}
+];
+var CITA_ACT_SALIDA=[
+ {id:"nada",    n:"Ducha y a casa",          d:"Sin más."},
+ {id:"hielo",   n:"Hielo y piscina",         d:"Descanso activo.", forma:3},
+ {id:"remates", n:"Remates extra",           d:"Trabajo de área tras el entreno.", forma:-3, eje:"disciplina", ej:1},
+ {id:"mister",  n:"Charla con el míster",    d:"Lo que no se dijo en el campo.", mister:2},
+ {id:"prensa",  n:"Ruedas de prensa",        d:"Hablas con los periodistas: sube tu fama, el míster lo mira raro.", fama:2, mister:-1}
+];
+var CITA_UI={jor:-1, ll:0, sa:0, aL:"nada", aS:"nada"};
 function citaVentana(){
   var e=estiloMister(), fin=e.entradaH+(e.doble?6:3);
   return {llamada:e.entradaH, fin:fin, doble:!!e.doble, ini:e.entradaH-4, fin2:fin+3};
 }
 function citaEstado(){
-  if(CITA_UI.jor!==S.jornada) CITA_UI={jor:S.jornada, ll:0, sa:0};
+  if(CITA_UI.jor!==S.jornada) CITA_UI={jor:S.jornada, ll:0, sa:0, aL:"nada", aS:"nada"};
   return CITA_UI;
 }
-function citaCuenta(ll, sa, doble){
-  var pen=doble?1.3:1;
+function citaActo(lista, id){ return lista.filter(function(a){ return a.id===id; })[0] || lista[0]; }
+function citaCuenta(ll, sa, doble, aL, aS){
+  var pen=doble?1.3:1, a=citaActo(CITA_ACT_LLEGADA, aL), b=citaActo(CITA_ACT_SALIDA, aS);
   var dA=Math.min(3, Math.round(ll*0.75)), cA=Math.round(ll*1.5*pen);
-  var dB=Math.round(sa*2/3),                cB=Math.round(sa*5/3*pen);
-  return {ded:dA+dB, coste:cA+cB};
+  var dB=Math.round(sa*2/3),               cB=Math.round(sa*5/3*pen);
+  var ejes=[];
+  if(ll>0 && a.eje) ejes.push({k:a.eje, v:a.ej*ll});
+  if(sa>0 && b.eje) ejes.push({k:b.eje, v:b.ej*sa});
+  return {
+    ded: dA+dB,                                   /* puntualidad: sube lo que ganas en el entreno */
+    coste: cA+cB,                                  /* forma que cuesta estar ahí */
+    act: Math.round((a.forma||0)*ll)+Math.round((b.forma||0)*sa),   /* efecto del ejercicio en la forma */
+    mister: Math.round((a.mister||0)*ll)+Math.round((b.mister||0)*sa),
+    fama: Math.round((a.fama||0)*ll)+Math.round((b.fama||0)*sa),
+    ejes: ejes
+  };
 }
 function citaPct(h, V){ return (h-V.ini)/(V.fin2-V.ini)*100; }
-function citaTxt(V, ll, sa){
-  var c=citaCuenta(ll, sa, V.doble), noche=faseVicio("noche");
-  var fx=(c.coste? '−'+c.coste+' forma' : 'sin coste de forma')
-    +(c.ded>0? ' · el míster lo apunta a tu favor' : '');
-  if(noche>=1 && c.ded>=1) fx+=' · con la noche encima, pesa más';
+function citaSeg(id, a, b, V){
+  var el=document.getElementById(id); if(!el) return;
+  el.style.left=citaPct(a,V)+"%"; el.style.width=(citaPct(b,V)-citaPct(a,V))+"%";
+}
+function citaTextos(V, st){
+  var c=citaCuenta(st.ll, st.sa, V.doble, st.aL, st.aS), noche=faseVicio("noche");
+  var mis=c.mister+(c.ded>0? Math.round(c.ded*1.5) : 0);
+  var partes=[];
+  var net=c.act-c.coste;
+  partes.push("Forma "+(net>0?"+":net<0?"−":"")+Math.abs(net));
+  if(mis) partes.push("Míster "+(mis>0?"+":"−")+Math.abs(mis));
+  if(c.fama) partes.push("Fama +"+c.fama);
+  if(c.ded>0) partes.push("el míster lo apunta a tu favor");
+  if(noche>=1 && c.ded>=1) partes.push("con la noche encima, pesa más");
+  var a=citaActo(CITA_ACT_LLEGADA, st.aL), b=citaActo(CITA_ACT_SALIDA, st.aS);
   return {
-    ll: horaFmt(V.llamada-ll)+(ll? ' · '+ll+' h antes del entreno' : ' · a la hora'),
-    sa: horaFmt(V.fin+sa)+(sa? ' · '+sa+' h después del entreno' : ' · al terminar'),
-    fx: fx
+    ll: horaFmt(V.llamada-st.ll)+(st.ll? " · "+st.ll+" h antes del entreno" : " · a la hora"),
+    sa: horaFmt(V.fin+st.sa)+(st.sa? " · "+st.sa+" h después del entreno" : " · al terminar"),
+    dL: st.ll>0? a.d : "", dS: st.sa>0? b.d : "",
+    fx: partes.join(" · ")
   };
+}
+function citaChipsHTML(lado, lista, cur, habilitado){
+  if(!habilitado) return '<p class="note" style="margin:4px 2px">Sin margen: llegas justo a la hora, no hay tiempo para ejercicios.</p>';
+  return '<div class="chips full" style="grid-template-columns:repeat(2,1fr)">'+lista.map(function(a){
+    return '<button class="chip'+(cur===a.id?' on':'')+'" onclick="citaElige(\''+lado+'\',\''+a.id+'\')">'+esc(a.n)+'</button>';
+  }).join("")+'</div>';
 }
 function citaMisterHTML(){
   if(!S.contrato || S.lesion>0) return "";
   if(S.puntualSem===S.jornada) return "";
-  var e=estiloMister(), V=citaVentana(), st=citaEstado();
-  var llegada=V.llamada-st.ll, salida=V.fin+st.sa, t=citaTxt(V, st.ll, st.sa), span=V.fin2-V.ini;
+  var e=estiloMister(), V=citaVentana(), st=citaEstado(), T=citaTextos(V,st);
+  var llegada=V.llamada-st.ll, salida=V.fin+st.sa;
   var H='<div class="card" id="cita-card" style="border-color:var(--gold)"><div class="eyebrow">La cita del míster</div>'
     +'<p class="note" style="margin:2px 2px 10px">'+esc(e.n)+' quiere a todos a las <b>'+horaFmt(V.llamada)+'</b> para el entreno'
     +(V.doble?' — hoy toca <b>doble sesión</b>.':'.')
     +(faseVicio("noche")>=1?' <span style="color:var(--bad)">Anoche saliste. El cuerpo lo sabe.</span>':'')+'</p>';
-  H+='<div style="position:relative;height:16px;border-radius:8px;background:rgba(255,255,255,.08);margin:4px 2px 12px;overflow:hidden">'
-    +'<div style="position:absolute;top:0;bottom:0;left:'+citaPct(V.llamada,V)+'%;width:'+(citaPct(V.fin,V)-citaPct(V.llamada,V))+'%;background:rgba(255,194,75,.35)"></div>'
-    +'<div id="cita-pres" style="position:absolute;top:4px;bottom:4px;left:'+citaPct(llegada,V)+'%;width:'+(citaPct(salida,V)-citaPct(llegada,V))+'%;background:var(--gold);border-radius:6px"></div></div>';
+  H+='<div style="position:relative;height:18px;border-radius:9px;background:rgba(255,255,255,.06);margin:4px 2px 4px;overflow:hidden">'
+    +'<div id="cita-s1" style="position:absolute;top:0;bottom:0;background:#4FA3FF;left:'+citaPct(llegada,V)+'%;width:'+(citaPct(V.llamada,V)-citaPct(llegada,V))+'%"></div>'
+    +'<div id="cita-s2" style="position:absolute;top:0;bottom:0;background:#FFC24B;left:'+citaPct(V.llamada,V)+'%;width:'+(citaPct(V.fin,V)-citaPct(V.llamada,V))+'%"></div>'
+    +'<div id="cita-s3" style="position:absolute;top:0;bottom:0;background:#4ADE80;left:'+citaPct(V.fin,V)+'%;width:'+(citaPct(salida,V)-citaPct(V.fin,V))+'%"></div></div>';
+  H+='<div class="note" style="display:flex;justify-content:space-between;font-size:11px;margin:0 2px 10px">'
+    +'<span style="color:#4FA3FF">■ llegada</span><span style="color:#FFC24B">■ entreno</span><span style="color:#4ADE80">■ salida</span></div>';
   H+='<div class="srow"><label class="slb">Llegada</label>'
     +'<input id="cita-ll" class="sl" type="range" min="'+V.ini+'" max="'+V.llamada+'" step="0.5" value="'+llegada+'" '
     +'oninput="citaMueve(\'llegada\',this.value)" onchange="citaMueve(\'llegada\',this.value)" style="--p:'+Math.round((llegada-V.ini)/(V.llamada-V.ini)*100)+'%">'
-    +'<span class="sval" id="cita-llv" style="min-width:150px;font-size:12px">'+t.ll+'</span></div>';
+    +'<span class="sval" id="cita-llv" style="min-width:150px;font-size:12px">'+T.ll+'</span></div>';
   H+='<div class="srow"><label class="slb">Salida</label>'
     +'<input id="cita-sa" class="sl" type="range" min="'+V.fin+'" max="'+V.fin2+'" step="0.5" value="'+salida+'" '
     +'oninput="citaMueve(\'salida\',this.value)" onchange="citaMueve(\'salida\',this.value)" style="--p:'+Math.round((salida-V.fin)/(V.fin2-V.fin)*100)+'%">'
-    +'<span class="sval" id="cita-sav" style="min-width:150px;font-size:12px">'+t.sa+'</span></div>';
-  H+='<p class="note" id="cita-fx" style="margin:8px 2px 10px">'+esc(t.fx)+'</p>';
+    +'<span class="sval" id="cita-sav" style="min-width:150px;font-size:12px">'+T.sa+'</span></div>';
+  H+='<div class="eyebrow" style="margin-top:10px;color:#4FA3FF">Antes del entreno</div>'
+    +'<div id="cita-actL">'+citaChipsHTML("L", CITA_ACT_LLEGADA, st.aL, st.ll>0)+'</div>'
+    +'<p class="note" id="cita-dL" style="margin:4px 2px 10px">'+esc(T.dL)+'</p>';
+  H+='<div class="eyebrow" style="color:#4ADE80">Después del entreno</div>'
+    +'<div id="cita-actS">'+citaChipsHTML("S", CITA_ACT_SALIDA, st.aS, st.sa>0)+'</div>'
+    +'<p class="note" id="cita-dS" style="margin:4px 2px 10px">'+esc(T.dS)+'</p>';
+  H+='<p class="note" id="cita-fx" style="margin:6px 2px 10px">'+esc(T.fx)+'</p>';
   H+='<button class="gold-btn" onclick="elegirCita()">Confirmar la cita</button>';
   return H+'</div>';
 }
 function citaMueve(quien, v){
   var V=citaVentana(), st=citaEstado(), x=+v;
-  if(quien==="llegada") st.ll=Math.max(0, Math.min(4, Math.round((V.llamada-x)*2)/2));
-  else st.sa=Math.max(0, Math.min(3, Math.round((x-V.fin)*2)/2));
+  if(quien==="llegada"){ st.ll=Math.max(0, Math.min(4, Math.round((V.llamada-x)*2)/2)); if(!st.ll) st.aL="nada"; }
+  else { st.sa=Math.max(0, Math.min(3, Math.round((x-V.fin)*2)/2)); if(!st.sa) st.aS="nada"; }
+  citaPinta();
+}
+function citaElige(lado, id){
+  var st=citaEstado();
+  if(lado==="L"){ if(st.ll>0) st.aL=id; } else { if(st.sa>0) st.aS=id; }
   citaPinta();
 }
 function citaPinta(){
   var card=document.getElementById("cita-card"); if(!card) return;
-  var V=citaVentana(), st=citaEstado(), t=citaTxt(V, st.ll, st.sa);
-  var llegada=V.llamada-st.ll, salida=V.fin+st.sa, pres=document.getElementById("cita-pres");
-  if(pres){ pres.style.left=citaPct(llegada,V)+"%"; pres.style.width=(citaPct(salida,V)-citaPct(llegada,V))+"%"; }
-  var a=document.getElementById("cita-llv"), b=document.getElementById("cita-sav"), f=document.getElementById("cita-fx");
-  if(a) a.textContent=t.ll; if(b) b.textContent=t.sa; if(f) f.textContent=t.fx;
+  var V=citaVentana(), st=citaEstado(), T=citaTextos(V,st);
+  var llegada=V.llamada-st.ll, salida=V.fin+st.sa;
+  citaSeg("cita-s1", llegada, V.llamada, V);
+  citaSeg("cita-s2", V.llamada, V.fin, V);
+  citaSeg("cita-s3", V.fin, salida, V);
+  var set=function(id, txt){ var el=document.getElementById(id); if(el) el.textContent=txt; };
+  set("cita-llv", T.ll); set("cita-sav", T.sa); set("cita-fx", T.fx); set("cita-dL", T.dL); set("cita-dS", T.dS);
+  var cl=document.getElementById("cita-actL"); if(cl) cl.innerHTML=citaChipsHTML("L", CITA_ACT_LLEGADA, st.aL, st.ll>0);
+  var cs=document.getElementById("cita-actS"); if(cs) cs.innerHTML=citaChipsHTML("S", CITA_ACT_SALIDA, st.aS, st.sa>0);
 }
 function elegirCita(){
   if(!S || S.puntualSem===S.jornada || S.lesion>0) return;
-  var V=citaVentana(), st=citaEstado(), ll=st.ll, sa=st.sa;
-  var c=citaCuenta(ll, sa, V.doble);
+  var V=citaVentana(), st=citaEstado();
+  var c=citaCuenta(st.ll, st.sa, V.doble, st.aL, st.aS);
   var noche=faseVicio("noche");
   var penaliza = noche>=1 && c.ded>=1;
   if(penaliza){
     var extra=1.6+noche*0.35;
-    S.forma=clamp((S.forma===undefined?70:S.forma)-Math.round(c.coste*extra),20,100);
-    S.mister=clamp(S.mister-Math.round(2*c.ded),5,95);
+    S.forma=clamp((S.forma===undefined?70:S.forma)-Math.round(c.coste*extra)+c.act,20,100);
+    S.mister=clamp(S.mister-Math.round(2*c.ded)+c.mister,5,95);
     S.avisoMercado="Llegas con la noche todavía encima. "+(c.ded>=3?"El míster no dice nada, pero lo apunta.":"Cuesta más de lo que pensabas.");
     S.puntualBonus=0;
   } else {
-    S.forma=clamp((S.forma===undefined?70:S.forma)-c.coste,20,100);
-    if(c.ded>0) S.mister=clamp(S.mister+Math.round(c.ded*1.5),5,95);
-    if(sa>0) tocarEje("companerismo", 1.2);
+    S.forma=clamp((S.forma===undefined?70:S.forma)-c.coste+c.act,20,100);
+    S.mister=clamp(S.mister+(c.ded>0?Math.round(c.ded*1.5):0)+c.mister,5,95);
+    if(st.sa>0) tocarEje("companerismo", 1.2);
     if(c.ded>=3) tocarEje("disciplina", 1.4);
     S.puntualBonus=c.ded;
     S.avisoMercado = c.ded===0? "Cumples justo lo que toca." : "El cuerpo técnico se fija en quién llega distinto.";
   }
+  c.ejes.forEach(function(x){ tocarEje(x.k, x.v); });
+  if(c.fama) S.fama=clamp((S.fama||30)+c.fama,0,100);
   S.rachaExtra = c.ded>=2? (S.rachaExtra||0)+1 : 0;
   S.puntualSem=S.jornada;
-  regSemana("puntualidad", "llegada-"+ll+"-salida-"+sa);
-  CITA_UI={jor:-1, ll:0, sa:0};
+  regSemana("puntualidad", "llegada-"+st.ll+"-"+st.aL+"-salida-"+st.sa+"-"+st.aS);
+  CITA_UI={jor:-1, ll:0, sa:0, aL:"nada", aS:"nada"};
   guardar();
   irSub("equipo","entreno");
 }

@@ -25,11 +25,23 @@ function __ok(c,m){ if(c) __o++; else { __f++; console.log("✘ "+m); } }
   var c=citaCuenta(2,1.5,V.doble), f0=S.forma;
   elegirCita();
   __ok(S.puntualSem===S.jornada, "confirmar marca la jornada");
-  __ok(S.forma===clamp(f0-c.coste,20,100), "confirmar cobra la forma ("+f0+" → "+S.forma+", coste "+c.coste+")");
+  __ok(S.forma===clamp(f0-c.coste+c.act,20,100), "confirmar cobra la forma ("+f0+" → "+S.forma+", coste "+c.coste+", ejercicios "+c.act+")");
   __ok(S.puntualBonus===c.ded, "bonus de puntualidad = "+c.ded);
   var f1=S.forma; elegirCita();
   __ok(S.forma===f1, "no se puede confirmar dos veces en la misma jornada");
   __ok(citaMisterHTML()==="", "con la cita hecha, la tarjeta desaparece");
+  /* ejercicios: el gimnasio antes y el hielo después cambian la forma según las horas */
+  S.jornada=6; S.puntualSem=undefined; S.forma=80; S.mister=50; S.puntualBonus=0; CITA_UI={jor:-1,ll:0,sa:0,aL:"nada",aS:"nada"};
+  var V2=citaVentana();
+  citaMueve("llegada", String(V2.llamada-2)); citaElige("L","gym");
+  citaMueve("salida", String(V2.fin+1)); citaElige("S","hielo");
+  var h2=citaMisterHTML();
+  __ok(h2.indexOf("Gimnasio de fuerza")>0 && h2.indexOf('id="cita-s1"')>0 && h2.indexOf('id="cita-s3"')>0, "la cita ofrece ejercicios antes y después y pinta tres tramos");
+  __ok(CITA_UI.aL==="gym" && CITA_UI.aS==="hielo", "los ejercicios elegidos se guardan");
+  var c2=citaCuenta(2,1,V2.doble,"gym","hielo");
+  __ok(c2.act===Math.round(-3*2)+Math.round(3*1), "el gimnasio (2 h) resta y el hielo (1 h) suma: act="+c2.act);
+  elegirCita();
+  __ok(S.forma===clamp(80-c2.coste+c2.act,20,100), "la forma incluye los ejercicios (forma="+S.forma+")");
 })();
 (function(){
   /* avisos: partido abierto → espera; cerrado → sale */

@@ -18,7 +18,8 @@ Lee esto primero en una sesión nueva. Resume todo lo hecho hasta v4.69.0. Detal
 | 4.67.1 | telemetría activa (solo URL+clave+versión) | `4d6145017f0aaf47e79ae8a13a1c8ffd` |
 | 4.68.0 | Goatmaker · códigos canjeables · reportes | `805cb15cd621717aaf6feb45b37a5b04` |
 | 4.69.0 | contenido editable desde el panel · reloj de decisiones | `69a14479d52ecf78f8385bd2162cb405` |
-| **4.69.1** | **cita del míster como barra con dos sliders · avisos y mesas fuera del partido · reportes con más tiempo** | `4093e4ec2fb533ce818f57be929bf788` |
+| 4.69.1 | cita del míster como barra con dos sliders · avisos y mesas fuera del partido · reportes con más tiempo | `4093e4ec2fb533ce818f57be929bf788` |
+| **4.69.2** | cita con barra de tres tramos y ejercicios antes/después del entreno | `11700e3c0736738e45c2a29cbb2e0ea8` |
 
 Repo: `github.com/Sentinelio/goatmaker`, rama main, GitHub Pages en `https://sentinelio.github.io/goatmaker/` (misma origin que otra app de Manu, otra ruta). Commit 4.67.1: `b828c51`. Guardado del jugador: `localStorage` con prefijo `lap1-` (clave `lap1-save`), por navegador: cada amigo juega su partida sin ver la de otro.
 
