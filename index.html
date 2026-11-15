@@ -768,7 +768,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.69.3";
+var VERSION="4.69.4";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   var val=JSON.stringify(v);
@@ -1932,19 +1932,19 @@ function citaMisterHTML(){
     +'<p class="note" style="margin:2px 2px 8px">'+esc(e.n)+' quiere a todos a las <b>'+horaFmt(V.llamada)+'</b> para el entreno'
     +(V.doble?' — hoy toca <b>doble sesión</b>.':'.')
     +(faseVicio("noche")>=1?' <span style="color:var(--bad)">Anoche saliste. El cuerpo lo sabe.</span>':'')+'</p>';
-  H+='<div id="cita-bar" style="position:relative;height:44px;margin:4px 2px 2px;border-radius:12px;background:rgba(255,255,255,.05);overflow:hidden">'
-    +'<div style="position:absolute;top:0;bottom:0;left:0;width:35%;background:rgba(79,163,255,.14)"></div>'
-    +'<div style="position:absolute;top:0;bottom:0;left:35%;width:30%;background:rgba(255,194,75,.32)"></div>'
-    +'<div style="position:absolute;top:0;bottom:0;left:65%;width:35%;background:rgba(74,222,128,.14)"></div>'
-    +'<div id="cita-pres" style="position:absolute;top:0;bottom:0;left:'+citaPos(llegada,V)+'%;width:'+(citaPos(salida,V)-citaPos(llegada,V))+'%;background:rgba(255,255,255,.10);border-top:3px solid var(--gold);border-bottom:3px solid var(--gold)"></div>'
+  H+='<div id="cita-bar" style="position:relative;height:8px;margin:14px 11px 8px;border-radius:4px;background:rgba(255,255,255,.06)">'
+    +'<div style="position:absolute;top:0;bottom:0;left:0;width:35%;border-radius:4px 0 0 4px;background:#4FA3FF;opacity:.6"></div>'
+    +'<div style="position:absolute;top:0;bottom:0;left:35%;width:30%;background:#FFC24B;opacity:.85"></div>'
+    +'<div style="position:absolute;top:0;bottom:0;left:65%;width:35%;border-radius:0 4px 4px 0;background:#4ADE80;opacity:.6"></div>'
+    +'<div id="cita-pres" style="position:absolute;top:0;bottom:0;left:'+citaPos(llegada,V)+'%;width:'+(citaPos(salida,V)-citaPos(llegada,V))+'%;background:rgba(255,255,255,.22)"></div>'
     +'<input id="cita-ll" class="sl" type="range" min="'+V.ini+'" max="'+V.llamada+'" step="0.5" value="'+llegada+'" '
     +'oninput="citaMueve(\'llegada\',this.value)" onchange="citaMueve(\'llegada\',this.value)" '
-    +'style="position:absolute;top:11px;left:0;width:35%;height:22px;margin:0;background:none">'
+    +'style="position:absolute;top:-7px;left:0;width:35%;height:22px;margin:0;background:none">'
     +'<input id="cita-sa" class="sl" type="range" min="'+V.fin+'" max="'+V.fin2+'" step="0.5" value="'+salida+'" '
     +'oninput="citaMueve(\'salida\',this.value)" onchange="citaMueve(\'salida\',this.value)" '
-    +'style="position:absolute;top:11px;left:65%;width:35%;height:22px;margin:0;background:none">'
+    +'style="position:absolute;top:-7px;left:65%;width:35%;height:22px;margin:0;background:none">'
     +'</div>';
-  H+='<div style="display:flex;font-size:12px;margin:0 0 12px;line-height:1.35">'
+  H+='<div style="display:flex;font-size:12px;margin:0 11px 12px;line-height:1.35">'
     +'<div id="cita-llv" style="width:35%;color:#4FA3FF;padding-left:2px">'+esc(T.ll)+'</div>'
     +'<div id="cita-ent" style="width:30%;text-align:center;color:#FFC24B">'+esc(T.ent)+'</div>'
     +'<div id="cita-sav" style="width:35%;text-align:right;color:#4ADE80;padding-right:2px">'+esc(T.sa)+'</div></div>';
@@ -9861,7 +9861,7 @@ function repEnviar(){
     REP.busy=false;
     if(r.ok && r.j && r.j.ok){ REP.texto=""; REP.msg={c:"ok", t:"<b>Enviado, gracias.</b> Lo leeré."}; irSub("ajustes","reportar"); }
     else if(r.aborto){ say("mal","La subida tardó demasiado y se cortó. Tu texto sigue aquí: prueba otra vez, o desmarca «Adjuntar mi partida»."); }
-    else if(r.sinRed){ say("mal","No hay conexión con el servidor de Goatmaker; tu texto sigue aquí. Inténtalo en un rato."); }
+    else if(r.sinRed){ say("mal","No hay conexión con el servidor de Goatmaker; tu texto sigue aquí. Inténtalo en un rato. <span style=\"opacity:.7;font-size:11px\">(detalle: "+esc(r.motivo||"sin detalle")+")</span>"); }
     else if(r.status===429){ say("mal","Has enviado varios reportes seguidos. Prueba de nuevo en una hora."); }
     else if(r.status===413){ say("mal","El reporte es demasiado grande: desmarca «Adjuntar mi partida» e inténtalo otra vez."); }
     else say("mal","No se pudo enviar ("+(r.status||"sin respuesta")+"). Tu texto sigue aquí.");
@@ -11302,7 +11302,7 @@ var TELE=(function(){
     var ac=(typeof AbortController!=="undefined")? new AbortController() : null, to=ac? setTimeout(function(){ try{ ac.abort(); }catch(e){} },(tiempo||20000)) : 0;
     return fetch(base+"/tele",{method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(obj), signal:ac? ac.signal : undefined})
       .then(function(r){ clearTimeout(to); return r.json().then(function(j){ return {ok:r.ok,status:r.status,j:j}; },function(){ return {ok:r.ok,status:r.status,j:null}; }); },
-            function(e){ clearTimeout(to); return {ok:false,status:0,j:null,sinRed:true,aborto:!!(e&&e.name==="AbortError")}; });
+            function(e){ clearTimeout(to); return {ok:false,status:0,j:null,sinRed:true,aborto:!!(e&&e.name==="AbortError"),motivo:String((e&&(e.name+": "+e.message))||"sin detalle").slice(0,160)}; });
   }
   return { post:post, ev:ev, flush:flush, alGuardar:alGuardar, err:err, resumen:resumen, install:install, sid:sid, cola:function(){ return q.length; }, enviados:function(){ return nSent; }, vivo:function(){ return !dead && !!url(); } };
 })();
