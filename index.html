@@ -768,7 +768,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.69.2";
+var VERSION="4.69.3";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   var val=JSON.stringify(v);
@@ -1848,75 +1848,79 @@ function horaFmt(h){
   var hh=Math.floor(h), mm=Math.round((h-hh)*60);
   return (hh<0? (24+hh):hh)+":"+(mm<10?"0":"")+mm;
 }
-/* La cita del míster: tres tramos en una barra (llegada · entreno · salida).
-   Antes y después del entreno eliges un ejercicio; su efecto crece con las horas que le dedicas. */
+/* La cita del míster: una barra del día con tres zonas fijas.
+   Izquierda 35 % = llegada (el control de la izquierda elige a qué hora llegas).
+   Centro 30 % = entreno (fijo). Derecha 35 % = salida (el control de la derecha).
+   Cada hora antes o después da derecho a un ejercicio, con un máximo de 4 por lado. */
+var CITA_LIM=4, CITA_ZONA={izq:35, cen:30, der:35};
 var CITA_ACT_LLEGADA=[
- {id:"nada",   n:"Nada especial",              d:"Llegas, te cambias y ya."},
  {id:"estira", n:"Movilidad y estiramientos",  d:"Recuperas forma poco a poco.", forma:2},
  {id:"gym",    n:"Gimnasio de fuerza",         d:"Más carga: cuesta forma, pero el trabajo cuenta.", forma:-3, eje:"disciplina", ej:1},
  {id:"video",  n:"Vídeo con el cuerpo técnico",d:"Entiendes el plan. El míster lo nota.", mister:1, eje:"disciplina", ej:0.5},
  {id:"charla", n:"Charla con los compañeros",  d:"Vestuario antes que pizarra.", eje:"companerismo", ej:1}
 ];
 var CITA_ACT_SALIDA=[
- {id:"nada",    n:"Ducha y a casa",          d:"Sin más."},
  {id:"hielo",   n:"Hielo y piscina",         d:"Descanso activo.", forma:3},
  {id:"remates", n:"Remates extra",           d:"Trabajo de área tras el entreno.", forma:-3, eje:"disciplina", ej:1},
  {id:"mister",  n:"Charla con el míster",    d:"Lo que no se dijo en el campo.", mister:2},
  {id:"prensa",  n:"Ruedas de prensa",        d:"Hablas con los periodistas: sube tu fama, el míster lo mira raro.", fama:2, mister:-1}
 ];
-var CITA_UI={jor:-1, ll:0, sa:0, aL:"nada", aS:"nada"};
+var CITA_UI={jor:-1, ll:0, sa:0, eL:[], eS:[]};
 function citaVentana(){
   var e=estiloMister(), fin=e.entradaH+(e.doble?6:3);
-  return {llamada:e.entradaH, fin:fin, doble:!!e.doble, ini:e.entradaH-4, fin2:fin+3};
+  return {llamada:e.entradaH, fin:fin, doble:!!e.doble, ini:e.entradaH-CITA_LIM, fin2:fin+CITA_LIM};
 }
 function citaEstado(){
-  if(CITA_UI.jor!==S.jornada) CITA_UI={jor:S.jornada, ll:0, sa:0, aL:"nada", aS:"nada"};
+  if(CITA_UI.jor!==S.jornada) CITA_UI={jor:S.jornada, ll:0, sa:0, eL:[], eS:[]};
   return CITA_UI;
 }
-function citaActo(lista, id){ return lista.filter(function(a){ return a.id===id; })[0] || lista[0]; }
-function citaCuenta(ll, sa, doble, aL, aS){
-  var pen=doble?1.3:1, a=citaActo(CITA_ACT_LLEGADA, aL), b=citaActo(CITA_ACT_SALIDA, aS);
+/* posición 0-100 de una hora dentro de la barra (tramos fijos: 35 · 30 · 35) */
+function citaPos(h, V){
+  if(h<=V.llamada) return CITA_ZONA.izq*(h-V.ini)/(V.llamada-V.ini);
+  if(h<=V.fin)     return CITA_ZONA.izq+CITA_ZONA.cen*(h-V.llamada)/(V.fin-V.llamada);
+  return CITA_ZONA.izq+CITA_ZONA.cen+CITA_ZONA.der*(h-V.fin)/(V.fin2-V.fin);
+}
+function citaActo(lista, id){ return lista.filter(function(a){ return a.id===id; })[0] || null; }
+function citaElegidos(lista, ids, n){
+  return (ids||[]).slice(0, n).map(function(id){ return citaActo(lista, id); }).filter(Boolean);
+}
+function citaCuenta(ll, sa, doble, eL, eS){
+  var pen=doble?1.3:1;
   var dA=Math.min(3, Math.round(ll*0.75)), cA=Math.round(ll*1.5*pen);
   var dB=Math.round(sa*2/3),               cB=Math.round(sa*5/3*pen);
-  var ejes=[];
-  if(ll>0 && a.eje) ejes.push({k:a.eje, v:a.ej*ll});
-  if(sa>0 && b.eje) ejes.push({k:b.eje, v:b.ej*sa});
-  return {
-    ded: dA+dB,                                   /* puntualidad: sube lo que ganas en el entreno */
-    coste: cA+cB,                                  /* forma que cuesta estar ahí */
-    act: Math.round((a.forma||0)*ll)+Math.round((b.forma||0)*sa),   /* efecto del ejercicio en la forma */
-    mister: Math.round((a.mister||0)*ll)+Math.round((b.mister||0)*sa),
-    fama: Math.round((a.fama||0)*ll)+Math.round((b.fama||0)*sa),
-    ejes: ejes
-  };
+  var lis=citaElegidos(CITA_ACT_LLEGADA, eL, Math.floor(ll)).concat(citaElegidos(CITA_ACT_SALIDA, eS, Math.floor(sa)));
+  var ejes=[], act=0, mis=0, fama=0;
+  lis.forEach(function(a){
+    act+=(a.forma||0); mis+=(a.mister||0); fama+=(a.fama||0);
+    if(a.eje) ejes.push({k:a.eje, v:a.ej});
+  });
+  return {ded:dA+dB, coste:cA+cB, act:act, mister:mis, fama:fama, ejes:ejes};
 }
-function citaPct(h, V){ return (h-V.ini)/(V.fin2-V.ini)*100; }
-function citaSeg(id, a, b, V){
-  var el=document.getElementById(id); if(!el) return;
-  el.style.left=citaPct(a,V)+"%"; el.style.width=(citaPct(b,V)-citaPct(a,V))+"%";
-}
+function citaSigno(n){ return (n>0?"+":n<0?"−":"")+Math.abs(n); }
 function citaTextos(V, st){
-  var c=citaCuenta(st.ll, st.sa, V.doble, st.aL, st.aS), noche=faseVicio("noche");
+  var c=citaCuenta(st.ll, st.sa, V.doble, st.eL, st.eS), noche=faseVicio("noche");
   var mis=c.mister+(c.ded>0? Math.round(c.ded*1.5) : 0);
-  var partes=[];
-  var net=c.act-c.coste;
-  partes.push("Forma "+(net>0?"+":net<0?"−":"")+Math.abs(net));
-  if(mis) partes.push("Míster "+(mis>0?"+":"−")+Math.abs(mis));
+  var partes=["Forma "+citaSigno(c.act-c.coste)];
+  if(mis) partes.push("Míster "+citaSigno(mis));
   if(c.fama) partes.push("Fama +"+c.fama);
   if(c.ded>0) partes.push("el míster lo apunta a tu favor");
   if(noche>=1 && c.ded>=1) partes.push("con la noche encima, pesa más");
-  var a=citaActo(CITA_ACT_LLEGADA, st.aL), b=citaActo(CITA_ACT_SALIDA, st.aS);
+  var nL=Math.floor(st.ll), nS=Math.floor(st.sa);
   return {
-    ll: horaFmt(V.llamada-st.ll)+(st.ll? " · "+st.ll+" h antes del entreno" : " · a la hora"),
-    sa: horaFmt(V.fin+st.sa)+(st.sa? " · "+st.sa+" h después del entreno" : " · al terminar"),
-    dL: st.ll>0? a.d : "", dS: st.sa>0? b.d : "",
+    ll: st.ll? "Llegas a las "+horaFmt(V.llamada-st.ll)+" · "+st.ll+" h antes" : "Llegas a la hora ("+horaFmt(V.llamada)+")",
+    sa: st.sa? "Te vas a las "+horaFmt(V.fin+st.sa)+" · "+st.sa+" h después" : "Te vas al terminar ("+horaFmt(V.fin)+")",
+    ent: "Entreno "+horaFmt(V.llamada)+"–"+horaFmt(V.fin),
+    hL: nL? "Antes del entreno · "+st.eL.length+" de "+nL+" ejercicios" : "Antes del entreno · sin tiempo",
+    hS: nS? "Después del entreno · "+st.eS.length+" de "+nS+" ejercicios" : "Después del entreno · sin tiempo",
     fx: partes.join(" · ")
   };
 }
-function citaChipsHTML(lado, lista, cur, habilitado){
-  if(!habilitado) return '<p class="note" style="margin:4px 2px">Sin margen: llegas justo a la hora, no hay tiempo para ejercicios.</p>';
+function citaChipsHTML(lado, lista, st){
+  var ids = lado==="L"? st.eL : st.eS, n = lado==="L"? Math.floor(st.ll) : Math.floor(st.sa);
+  if(!n) return '<p class="note" style="margin:4px 2px">Sin margen: no hay tiempo para ejercicios.</p>';
   return '<div class="chips full" style="grid-template-columns:repeat(2,1fr)">'+lista.map(function(a){
-    return '<button class="chip'+(cur===a.id?' on':'')+'" onclick="citaElige(\''+lado+'\',\''+a.id+'\')">'+esc(a.n)+'</button>';
+    var on=ids.indexOf(a.id)>=0, lleno=!on && ids.length>=n;
+    return '<button class="chip'+(on?' on':'')+'"'+(lleno?' disabled style="opacity:.4"':'')+' title="'+esc(a.d)+'" onclick="citaToggle(\''+lado+'\',\''+a.id+'\')">'+esc(a.n)+'</button>';
   }).join("")+'</div>';
 }
 function citaMisterHTML(){
@@ -1925,60 +1929,65 @@ function citaMisterHTML(){
   var e=estiloMister(), V=citaVentana(), st=citaEstado(), T=citaTextos(V,st);
   var llegada=V.llamada-st.ll, salida=V.fin+st.sa;
   var H='<div class="card" id="cita-card" style="border-color:var(--gold)"><div class="eyebrow">La cita del míster</div>'
-    +'<p class="note" style="margin:2px 2px 10px">'+esc(e.n)+' quiere a todos a las <b>'+horaFmt(V.llamada)+'</b> para el entreno'
+    +'<p class="note" style="margin:2px 2px 8px">'+esc(e.n)+' quiere a todos a las <b>'+horaFmt(V.llamada)+'</b> para el entreno'
     +(V.doble?' — hoy toca <b>doble sesión</b>.':'.')
     +(faseVicio("noche")>=1?' <span style="color:var(--bad)">Anoche saliste. El cuerpo lo sabe.</span>':'')+'</p>';
-  H+='<div style="position:relative;height:18px;border-radius:9px;background:rgba(255,255,255,.06);margin:4px 2px 4px;overflow:hidden">'
-    +'<div id="cita-s1" style="position:absolute;top:0;bottom:0;background:#4FA3FF;left:'+citaPct(llegada,V)+'%;width:'+(citaPct(V.llamada,V)-citaPct(llegada,V))+'%"></div>'
-    +'<div id="cita-s2" style="position:absolute;top:0;bottom:0;background:#FFC24B;left:'+citaPct(V.llamada,V)+'%;width:'+(citaPct(V.fin,V)-citaPct(V.llamada,V))+'%"></div>'
-    +'<div id="cita-s3" style="position:absolute;top:0;bottom:0;background:#4ADE80;left:'+citaPct(V.fin,V)+'%;width:'+(citaPct(salida,V)-citaPct(V.fin,V))+'%"></div></div>';
-  H+='<div class="note" style="display:flex;justify-content:space-between;font-size:11px;margin:0 2px 10px">'
-    +'<span style="color:#4FA3FF">■ llegada</span><span style="color:#FFC24B">■ entreno</span><span style="color:#4ADE80">■ salida</span></div>';
-  H+='<div class="srow"><label class="slb">Llegada</label>'
+  H+='<div id="cita-bar" style="position:relative;height:44px;margin:4px 2px 2px;border-radius:12px;background:rgba(255,255,255,.05);overflow:hidden">'
+    +'<div style="position:absolute;top:0;bottom:0;left:0;width:35%;background:rgba(79,163,255,.14)"></div>'
+    +'<div style="position:absolute;top:0;bottom:0;left:35%;width:30%;background:rgba(255,194,75,.32)"></div>'
+    +'<div style="position:absolute;top:0;bottom:0;left:65%;width:35%;background:rgba(74,222,128,.14)"></div>'
+    +'<div id="cita-pres" style="position:absolute;top:0;bottom:0;left:'+citaPos(llegada,V)+'%;width:'+(citaPos(salida,V)-citaPos(llegada,V))+'%;background:rgba(255,255,255,.10);border-top:3px solid var(--gold);border-bottom:3px solid var(--gold)"></div>'
     +'<input id="cita-ll" class="sl" type="range" min="'+V.ini+'" max="'+V.llamada+'" step="0.5" value="'+llegada+'" '
-    +'oninput="citaMueve(\'llegada\',this.value)" onchange="citaMueve(\'llegada\',this.value)" style="--p:'+Math.round((llegada-V.ini)/(V.llamada-V.ini)*100)+'%">'
-    +'<span class="sval" id="cita-llv" style="min-width:150px;font-size:12px">'+T.ll+'</span></div>';
-  H+='<div class="srow"><label class="slb">Salida</label>'
+    +'oninput="citaMueve(\'llegada\',this.value)" onchange="citaMueve(\'llegada\',this.value)" '
+    +'style="position:absolute;top:11px;left:0;width:35%;height:22px;margin:0;background:none">'
     +'<input id="cita-sa" class="sl" type="range" min="'+V.fin+'" max="'+V.fin2+'" step="0.5" value="'+salida+'" '
-    +'oninput="citaMueve(\'salida\',this.value)" onchange="citaMueve(\'salida\',this.value)" style="--p:'+Math.round((salida-V.fin)/(V.fin2-V.fin)*100)+'%">'
-    +'<span class="sval" id="cita-sav" style="min-width:150px;font-size:12px">'+T.sa+'</span></div>';
-  H+='<div class="eyebrow" style="margin-top:10px;color:#4FA3FF">Antes del entreno</div>'
-    +'<div id="cita-actL">'+citaChipsHTML("L", CITA_ACT_LLEGADA, st.aL, st.ll>0)+'</div>'
-    +'<p class="note" id="cita-dL" style="margin:4px 2px 10px">'+esc(T.dL)+'</p>';
-  H+='<div class="eyebrow" style="color:#4ADE80">Después del entreno</div>'
-    +'<div id="cita-actS">'+citaChipsHTML("S", CITA_ACT_SALIDA, st.aS, st.sa>0)+'</div>'
-    +'<p class="note" id="cita-dS" style="margin:4px 2px 10px">'+esc(T.dS)+'</p>';
-  H+='<p class="note" id="cita-fx" style="margin:6px 2px 10px">'+esc(T.fx)+'</p>';
+    +'oninput="citaMueve(\'salida\',this.value)" onchange="citaMueve(\'salida\',this.value)" '
+    +'style="position:absolute;top:11px;left:65%;width:35%;height:22px;margin:0;background:none">'
+    +'</div>';
+  H+='<div style="display:flex;font-size:12px;margin:0 0 12px;line-height:1.35">'
+    +'<div id="cita-llv" style="width:35%;color:#4FA3FF;padding-left:2px">'+esc(T.ll)+'</div>'
+    +'<div id="cita-ent" style="width:30%;text-align:center;color:#FFC24B">'+esc(T.ent)+'</div>'
+    +'<div id="cita-sav" style="width:35%;text-align:right;color:#4ADE80;padding-right:2px">'+esc(T.sa)+'</div></div>';
+  H+='<div class="eyebrow" id="cita-hL" style="color:#4FA3FF">'+esc(T.hL)+'</div>'
+    +'<div id="cita-actL">'+citaChipsHTML("L", CITA_ACT_LLEGADA, st)+'</div>';
+  H+='<div class="eyebrow" id="cita-hS" style="color:#4ADE80;margin-top:10px">'+esc(T.hS)+'</div>'
+    +'<div id="cita-actS">'+citaChipsHTML("S", CITA_ACT_SALIDA, st)+'</div>';
+  H+='<p class="note" id="cita-fx" style="margin:8px 2px 10px">'+esc(T.fx)+'</p>';
   H+='<button class="gold-btn" onclick="elegirCita()">Confirmar la cita</button>';
   return H+'</div>';
 }
 function citaMueve(quien, v){
   var V=citaVentana(), st=citaEstado(), x=+v;
-  if(quien==="llegada"){ st.ll=Math.max(0, Math.min(4, Math.round((V.llamada-x)*2)/2)); if(!st.ll) st.aL="nada"; }
-  else { st.sa=Math.max(0, Math.min(3, Math.round((x-V.fin)*2)/2)); if(!st.sa) st.aS="nada"; }
+  if(quien==="llegada"){
+    st.ll=Math.max(0, Math.min(CITA_LIM, Math.round((V.llamada-x)*2)/2));
+    st.eL=st.eL.slice(0, Math.floor(st.ll));          /* si acortas, sobran ejercicios: se quitan */
+  } else {
+    st.sa=Math.max(0, Math.min(CITA_LIM, Math.round((x-V.fin)*2)/2));
+    st.eS=st.eS.slice(0, Math.floor(st.sa));
+  }
   citaPinta();
 }
-function citaElige(lado, id){
-  var st=citaEstado();
-  if(lado==="L"){ if(st.ll>0) st.aL=id; } else { if(st.sa>0) st.aS=id; }
+function citaToggle(lado, id){
+  var st=citaEstado(), ids=(lado==="L")? st.eL : st.eS, n=(lado==="L")? Math.floor(st.ll) : Math.floor(st.sa);
+  var i=ids.indexOf(id);
+  if(i>=0) ids.splice(i,1); else if(ids.length<n) ids.push(id);
   citaPinta();
 }
 function citaPinta(){
   var card=document.getElementById("cita-card"); if(!card) return;
   var V=citaVentana(), st=citaEstado(), T=citaTextos(V,st);
-  var llegada=V.llamada-st.ll, salida=V.fin+st.sa;
-  citaSeg("cita-s1", llegada, V.llamada, V);
-  citaSeg("cita-s2", V.llamada, V.fin, V);
-  citaSeg("cita-s3", V.fin, salida, V);
+  var llegada=V.llamada-st.ll, salida=V.fin+st.sa, pres=document.getElementById("cita-pres");
+  if(pres){ pres.style.left=citaPos(llegada,V)+"%"; pres.style.width=(citaPos(salida,V)-citaPos(llegada,V))+"%"; }
   var set=function(id, txt){ var el=document.getElementById(id); if(el) el.textContent=txt; };
-  set("cita-llv", T.ll); set("cita-sav", T.sa); set("cita-fx", T.fx); set("cita-dL", T.dL); set("cita-dS", T.dS);
-  var cl=document.getElementById("cita-actL"); if(cl) cl.innerHTML=citaChipsHTML("L", CITA_ACT_LLEGADA, st.aL, st.ll>0);
-  var cs=document.getElementById("cita-actS"); if(cs) cs.innerHTML=citaChipsHTML("S", CITA_ACT_SALIDA, st.aS, st.sa>0);
+  set("cita-llv", T.ll); set("cita-ent", T.ent); set("cita-sav", T.sa);
+  set("cita-hL", T.hL); set("cita-hS", T.hS); set("cita-fx", T.fx);
+  var cl=document.getElementById("cita-actL"); if(cl) cl.innerHTML=citaChipsHTML("L", CITA_ACT_LLEGADA, st);
+  var cs=document.getElementById("cita-actS"); if(cs) cs.innerHTML=citaChipsHTML("S", CITA_ACT_SALIDA, st);
 }
 function elegirCita(){
   if(!S || S.puntualSem===S.jornada || S.lesion>0) return;
   var V=citaVentana(), st=citaEstado();
-  var c=citaCuenta(st.ll, st.sa, V.doble, st.aL, st.aS);
+  var c=citaCuenta(st.ll, st.sa, V.doble, st.eL, st.eS);
   var noche=faseVicio("noche");
   var penaliza = noche>=1 && c.ded>=1;
   if(penaliza){
@@ -1999,8 +2008,8 @@ function elegirCita(){
   if(c.fama) S.fama=clamp((S.fama||30)+c.fama,0,100);
   S.rachaExtra = c.ded>=2? (S.rachaExtra||0)+1 : 0;
   S.puntualSem=S.jornada;
-  regSemana("puntualidad", "llegada-"+st.ll+"-"+st.aL+"-salida-"+st.sa+"-"+st.aS);
-  CITA_UI={jor:-1, ll:0, sa:0, aL:"nada", aS:"nada"};
+  regSemana("puntualidad", "llegada-"+st.ll+"["+st.eL.join("+")+"]-salida-"+st.sa+"["+st.eS.join("+")+"]");
+  CITA_UI={jor:-1, ll:0, sa:0, eL:[], eS:[]};
   guardar();
   irSub("equipo","entreno");
 }

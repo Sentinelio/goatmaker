@@ -1,9 +1,8 @@
-/* ===== TEST · cita del míster (barra con dos sliders) y avisos fuera del partido — v4.69.1 =====
-   Uso: dis/correr.sh T_CITA_AVISOS.js   (carga el juego en Node con el arnés)
-   CITA: la cita se pinta con dos sliders; mover uno cambia el otro intervalo; confirmar cobra forma/míster,
-         marca la jornada y no se puede confirmar dos veces.
-   AVISOS: con un partido abierto, un aviso se espera; al cerrar el partido sale; con la semana en curso se espera;
-         una mesa de negociación pedida fuera de menú también se espera. */
+/* ===== TEST · cita del míster (barra del día con dos controles) y avisos fuera del partido — v4.69.3 =====
+   Uso: HTML=/ruta/index.html dis/correr.sh T_CITA_AVISOS.js
+   CITA: la barra tiene 35 % llegada · 30 % entreno · 35 % salida; cada hora da un ejercicio (máx. 4 por lado);
+         al acortar la hora se quitan los ejercicios sobrantes; confirmar cobra forma/míster/fama una vez.
+   AVISOS: con un partido abierto, un aviso se espera; al cerrar sale; con la semana en curso o una mesa abierta, también espera. */
 var __f=0, __o=0;
 function __ok(c,m){ if(c) __o++; else { __f++; console.log("✘ "+m); } }
 (function(){
@@ -11,37 +10,39 @@ function __ok(c,m){ if(c) __o++; else { __f++; console.log("✘ "+m); } }
   S.contrato=S.contrato||{salario:900000,anos:3,exige:60};
   S.lesion=0; S.jornada=5; S.puntualSem=undefined; S.forma=80; S.mister=50; S.puntualBonus=0;
   var V=citaVentana();
-  CITA_UI={jor:-1,ll:0,sa:0};
+  CITA_UI={jor:-1,ll:0,sa:0,eL:[],eS:[]};
+  /* geometría: 35 · 30 · 35 */
+  __ok(citaPos(V.ini,V)===0 && Math.abs(citaPos(V.llamada,V)-35)<1e-9 && Math.abs(citaPos(V.fin,V)-65)<1e-9 && Math.abs(citaPos(V.fin2,V)-100)<1e-9, "la barra reparte 35 · 30 · 35");
   var h=citaMisterHTML();
-  __ok(h.indexOf('id="cita-ll"')>0 && h.indexOf('id="cita-sa"')>0, "la cita pinta los dos sliders");
-  __ok(h.indexOf('onclick="elegirPuntualidad')<0, "ya no quedan botones de la cita antigua");
+  __ok(h.indexOf('id="cita-bar"')>0 && h.indexOf('id="cita-ll"')>0 && h.indexOf('id="cita-sa"')>0, "los dos controles están dentro de la barra");
+  __ok(h.indexOf("elegirPuntualidad")<0 && h.indexOf("cita-s1")<0, "ya no quedan los restos de la versión anterior");
+  /* horas y ejercicios: 1 ejercicio por hora */
   citaMueve("llegada", String(V.llamada-2));
-  __ok(CITA_UI.ll===2, "el slider de llegada fija 2 h antes (ll="+CITA_UI.ll+")");
-  citaMueve("salida", String(V.fin+1.5));
-  __ok(CITA_UI.sa===1.5, "el slider de salida fija 1,5 h después (sa="+CITA_UI.sa+")");
-  citaMueve("llegada", String(V.llamada+3));   /* fuera de rango: se clava en la hora de la llamada */
-  __ok(CITA_UI.ll===0, "llegar después de la llamada se clava en 0 (ll="+CITA_UI.ll+")");
-  citaMueve("llegada", String(V.llamada-2));
-  var c=citaCuenta(2,1.5,V.doble), f0=S.forma;
+  __ok(CITA_UI.ll===2, "llegada 2 h antes (ll="+CITA_UI.ll+")");
+  citaToggle("L","gym"); citaToggle("L","video"); citaToggle("L","charla");
+  __ok(CITA_UI.eL.length===2, "con 2 h solo caben 2 ejercicios antes (eL="+CITA_UI.eL.length+")");
+  citaMueve("llegada", String(V.llamada-1));
+  __ok(CITA_UI.eL.length===1, "al acortar a 1 h se quita el sobrante (eL="+CITA_UI.eL.length+")");
+  citaMueve("llegada", String(V.llamada-2)); citaToggle("L","charla");
+  citaMueve("salida", String(V.fin+4));
+  __ok(CITA_UI.sa===4, "salida 4 h después (sa="+CITA_UI.sa+")");
+  citaToggle("S","hielo"); citaToggle("S","remates"); citaToggle("S","mister"); citaToggle("S","prensa");
+  __ok(CITA_UI.eS.length===4, "4 h después admiten 4 ejercicios (eS="+CITA_UI.eS.length+")");
+  citaToggle("S","hielo");
+  __ok(CITA_UI.eS.length===3, "quitar uno libera un hueco");
+  citaMueve("salida", String(V.fin+1));
+  __ok(CITA_UI.eS.length===1, "al acortar a 1 h quedan 1 ejercicio");
+  citaMueve("salida", String(V.fin+3)); citaToggle("S","mister");
+  var h2=citaMisterHTML();
+  __ok(h2.indexOf("Charla con los compañeros")>0 && h2.indexOf("Charla con el míster")>0, "las listas muestran los ejercicios de cada lado");
+  var c=citaCuenta(CITA_UI.ll, CITA_UI.sa, V.doble, CITA_UI.eL, CITA_UI.eS), f0=S.forma;
   elegirCita();
   __ok(S.puntualSem===S.jornada, "confirmar marca la jornada");
-  __ok(S.forma===clamp(f0-c.coste+c.act,20,100), "confirmar cobra la forma ("+f0+" → "+S.forma+", coste "+c.coste+", ejercicios "+c.act+")");
+  __ok(S.forma===clamp(f0-c.coste+c.act,20,100), "confirmar cobra la forma incluidos los ejercicios (forma="+S.forma+", coste "+c.coste+", ejercicios "+c.act+")");
   __ok(S.puntualBonus===c.ded, "bonus de puntualidad = "+c.ded);
   var f1=S.forma; elegirCita();
   __ok(S.forma===f1, "no se puede confirmar dos veces en la misma jornada");
   __ok(citaMisterHTML()==="", "con la cita hecha, la tarjeta desaparece");
-  /* ejercicios: el gimnasio antes y el hielo después cambian la forma según las horas */
-  S.jornada=6; S.puntualSem=undefined; S.forma=80; S.mister=50; S.puntualBonus=0; CITA_UI={jor:-1,ll:0,sa:0,aL:"nada",aS:"nada"};
-  var V2=citaVentana();
-  citaMueve("llegada", String(V2.llamada-2)); citaElige("L","gym");
-  citaMueve("salida", String(V2.fin+1)); citaElige("S","hielo");
-  var h2=citaMisterHTML();
-  __ok(h2.indexOf("Gimnasio de fuerza")>0 && h2.indexOf('id="cita-s1"')>0 && h2.indexOf('id="cita-s3"')>0, "la cita ofrece ejercicios antes y después y pinta tres tramos");
-  __ok(CITA_UI.aL==="gym" && CITA_UI.aS==="hielo", "los ejercicios elegidos se guardan");
-  var c2=citaCuenta(2,1,V2.doble,"gym","hielo");
-  __ok(c2.act===Math.round(-3*2)+Math.round(3*1), "el gimnasio (2 h) resta y el hielo (1 h) suma: act="+c2.act);
-  elegirCita();
-  __ok(S.forma===clamp(80-c2.coste+c2.act,20,100), "la forma incluye los ejercicios (forma="+S.forma+")");
 })();
 (function(){
   /* avisos: partido abierto → espera; cerrado → sale */
@@ -53,7 +54,7 @@ function __ok(c,m){ if(c) __o++; else { __f++; console.log("✘ "+m); } }
   __ok(OVSEM && OVSEM.t==="aviso A" && OVSEM_COLA.length===0, "al cerrar el partido el aviso sale");
   elegirSemana(0);
   OVSEM=null;
-  /* semana en curso: cola, luego se vacía con run */
+  /* semana en curso: la mesa y el aviso esperan; luego sale la mesa y después el aviso */
   M=null; SEMANA_CORRE=true; var ran=0;
   alMenu(function(){ ran++; });
   ovSemana({t:"aviso B", x:"x", ops:[{l:"ok", fx:function(){}}]});
