@@ -417,7 +417,8 @@ textarea{background:var(--raise);border:1px solid var(--hair);color:var(--ink);b
 .autobar{height:3px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:4px;padding:8px 0;box-sizing:content-box;background-clip:content-box;touch-action:none;cursor:pointer}
 .autobar i{display:block;height:100%;background:#7D8699;width:0;animation:fill var(--dur,2600ms) linear forwards}
 .mbody > .mpanel.mp-corto{flex:1 1 auto;min-height:0;max-height:none;overflow:hidden}
-.mbody > .mpanel.mp-corto > *{flex:none;max-height:34vh;overflow-y:auto}
+.mbody > .mpanel.mp-corto > .pnav,.mbody > .mpanel.mp-corto > .chips{flex:none}
+.mbody > .mpanel.mp-corto > *:not(.pnav):not(.chips){flex:1 1 auto;min-height:0;max-height:none;overflow-y:auto}
 .mbody > .mpanel.mp-corto .plista{max-height:none;overflow:visible}
 .avisodec{margin:0 0 6px}
 .rolx{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:800;margin-top:4px}
@@ -781,7 +782,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.69.17";
+var VERSION="4.69.18";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -3864,7 +3865,7 @@ function renderFlashSiguiente(){
   $("ov-match").onclick=saltarAuto;
   /* los momentos importantes duran más y no se saltan en el primer segundo */
   var grande=(f.tipo==="gol"||f.tipo==="roja"||f.tipo==="lesion"||f.tipo==="var");
-  autoAvance(grande?3200:2200, function(){ $("ov-match").onclick=null; flashSeguir(); }, grande?1100:500);
+  autoAvance(grande?3200:2200, function(){ $("ov-match").onclick=null; flashSeguir(); }, grande?0:500);
 }
 function flashSeguir(){
   if(!M) return;
@@ -6368,10 +6369,6 @@ function panelHTML(){
     var hl=hDeM();
     var media2=S.yo.notaN? (S.yo.notaSum/S.yo.notaN):0;
     return H+'<div class="presumen">'+numsPartidoHTML(hl, M.fase!=="cierre", true)
-      +'<div class="mline" style="margin-top:10px"><span>Tu temporada</span></div>'
-      +'<div class="row2"><span>Media · partidos</span><b>'+(S.yo.notaN? media2.toFixed(2):"—")+' · '+S.yo.pj+'</b></div>'
-      +'<div class="row2"><span>'+(S.pos==="POR"?"Paradas":"Goles · Asistencias")+'</span><b>'+(S.pos==="POR"?S.yo.paradas:S.yo.g+" · "+S.yo.a)+'</b></div>'
-      +'<div class="row2"><span>Forma · Ánimo</span><b>'+Math.round(S.forma===undefined?70:S.forma)+' · '+Math.round(S.animo===undefined?65:S.animo)+'</b></div>'
       +'</div>';
   }
   if(pid==="dec"){ return H+decisionesCardsHTML(full); }
@@ -6699,13 +6696,13 @@ function numsPartidoHTML(h, enVivo, enPanel){
     '<div class="row2"><span>Tiros · conversión</span><b>'+tirosN+(tirosN&&yoX? ' · '+Math.round((yoX.g||0)/tirosN*100)+'%':'')+'</b></div>'
     +'<div class="row2"><span>Pases de peligro → asistencias</span><b>'+pasesN+' → '+((yoX&&yoX.a)||0)+'</b></div>'
     +'<div class="row2"><span>Acciones defensivas</span><b>'+nK(["d"],"ok")+' resueltas · '+nK(["d"],"ko")+' superado</b></div>')
-    +'<div class="row2"><span>Jugadas al límite</span><b>'+nK(["r"],"ok")+' de '+limN+' salieron bien</b></div>'
+    +(enPanel?'':'<div class="row2"><span>Jugadas al límite</span><b>'+nK(["r"],"ok")+' de '+limN+' salieron bien</b></div>')
     +((nK(["x"]))? '<div class="row2"><span>Indecisiones</span><b style="color:var(--bad)">'+nK(["x"])+'</b></div>':'')
-    +'<div class="row2"><span>Impacto de tus decisiones</span><b style="color:'+(sumD>=0?"var(--ok)":"var(--bad)")+'">'+(sumD>=0?"+":"")+(sumD/100).toFixed(2)+' pts</b></div>'
+    +(enPanel?'':'<div class="row2"><span>Impacto de tus decisiones</span><b style="color:'+(sumD>=0?"var(--ok)":"var(--bad)")+'">'+(sumD>=0?"+":"")+(sumD/100).toFixed(2)+' pts</b></div>')
     +((sumV)? '<div class="row2"><span>· de vestuario y banquillo</span><b>'+(sumV>=0?"+":"")+(sumV/100).toFixed(2)+'</b></div>':'')
     +((yoX&&(yoX.ta||yoX.tr))? '<div class="row2"><span>Tarjetas</span><b>'+(yoX.ta?"🟨 ":"")+(yoX.tr?"🟥":"")+'</b></div>':'');
   var zk=Object.keys(zonasP);
-  if(zk.length) H2+='<div class="row2"><span>Zonas pisadas</span><b class="note" style="text-align:right">'+zk.map(function(z){return ZNOMBRE[z];}).join(" · ")+'</b></div>';
+  if(zk.length && !enPanel) H2+='<div class="row2"><span>Zonas pisadas</span><b class="note" style="text-align:right">'+zk.map(function(z){return ZNOMBRE[z];}).join(" · ")+'</b></div>';
   return H2;
 }
 function minutosAhora(){
