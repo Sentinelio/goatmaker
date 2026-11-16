@@ -4557,7 +4557,30 @@ function elegirSituacion(){
 }
 function mostrarSituacion(sit, fase){
   M.sitAct=sit; M.faseAct=fase;
+  fijarOpciones(sit);
   renderMatch(sit);
+}
+/* Opciones que se enseñan en esta situación. Si hay más de 3 válidas, se eligen 3 al azar
+   y se fijan para toda la situación (no cambian al repintar). Devuelve índices de sit.o. */
+function opcionesValidas(sit){
+  var ids=[];
+  sit.o.forEach(function(o,i){
+    if(o.cond && !o.cond(M)) return;
+    if(o.skill && !tieneSkill(o.skill)) return;
+    ids.push(i);
+  });
+  if(ids.length<=3) return ids;
+  var pool=ids.slice(), out=[];
+  while(out.length<3){ out.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]); }
+  return out.sort(function(a,b){ return a-b; });
+}
+function fijarOpciones(sit){
+  M.sitOpcId=sit.id;
+  M.sitOpc=opcionesValidas(sit);
+}
+function opcionesMostradas(sit){
+  if(!M.sitOpc || M.sitOpcId!==sit.id) fijarOpciones(sit);
+  return M.sitOpc;
 }
 /* Puntos de valoración que aporta una opción según cómo acabe.
    Lo usan el motor y el panel de debug: no pueden discrepar. */
@@ -5193,7 +5216,8 @@ function tejerPista(xTxt, plan){
 function pistaDe(sit){
   if(!sit || !sit.o || !sit.o.length) return null;
   var mejor=-1, sc=-1e9;
-  for(var i=0;i<sit.o.length;i++){
+  var ids=(M.sitOpcId===sit.id && M.sitOpc)? M.sitOpc : sit.o.map(function(_,k){ return k; });
+  for(var k=0;k<ids.length;k++){ var i=ids[k];
     if(sit.o[i].cond && !sit.o[i].cond(M)) continue;
     var s2=scoreOpcion(sit.o[i]);
     if(s2>sc){ sc=s2; mejor=i; }
@@ -5220,6 +5244,7 @@ function elegirOpcion(i){
   pararReloj();
   if(!M || !M.sitAct || !M.sitAct.o || !M.sitAct.o[i]) return;   /* doble toque o llamada huérfana */
   var sit=M.sitAct, o=sit.o[i];
+  if(M.sitOpcId===sit.id && M.sitOpc && M.sitOpc.indexOf(i)<0) return;   /* opción no mostrada en esta situación */
   if(o.cond && !o.cond(M)) return;
   var txt="", cls="mid";
   DBGLOG=[];
@@ -6272,9 +6297,8 @@ function renderMatch(sit, tras){
     cuerpo+='<div class="sit-lee"><h3 class="sit-t">'+esc(sit.t)+'</h3><p class="sit-x">'
       +(_pi&&_pi.plan? tejerPista(_xTxt,_pi.plan) : esc(_xTxt))+'</p></div>';
     cuerpo+=dbgEstado(sit);
-    sit.o.forEach(function(o,i){
-      if(o.cond && !o.cond(M)) return;
-      if(o.skill && !tieneSkill(o.skill)) return;
+    opcionesMostradas(sit).forEach(function(i){
+      var o=sit.o[i];
       var marca = o.skill? '<span class="skmark">★</span> ':'';
       var iconoDbg = dbgOn()? '<span class="dbg-i" onmousedown="dbgHold(event,'+i+')" ontouchstart="dbgHold(event,'+i+')" onmouseup="dbgSuelta(event)" onmouseleave="dbgSuelta(event)" ontouchend="dbgSuelta(event)" ontouchcancel="dbgSuelta(event)">i</span>' : '';
       pie+='<button class="opt'+(o.skill?' opt-sk':'')+'" onclick="elegirOpcion('+i+')">'+marca+esc(typeof o.l==="function"?o.l():o.l)+iconoDbg+'</button>';
@@ -11689,7 +11713,7 @@ function contAplicar(P){
     if(typeof p.id!=="string" || !/^ct-[a-z0-9][a-z0-9_-]{0,26}$/.test(p.id) || SITS.concat(SITS_BANQUILLO).some(function(x){ return x.id===p.id; })){ rech.push(ruta+": id no válido o repetido (debe empezar por ct-)"); return; }
     var t=txt(p.t,R.txt.t,ruta+".t"), x=txt(p.x,R.txt.x,ruta+".x"), ps=p.pos===undefined? null : posOk(p.pos,ruta+".pos");
     if(t===null || x===null || ps===undefined) return;
-    if(!Array.isArray(p.o) || p.o.length<1 || p.o.length>4){ rech.push(ruta+".o: entre 1 y 4 opciones"); return; }
+    if(!Array.isArray(p.o) || p.o.length<1 || p.o.length>6){ rech.push(ruta+".o: entre 1 y 6 opciones"); return; }
     var os=[], bien=true;
     p.o.forEach(function(po,i){ var r3=ruta+".o."+i; if(!esObj(po)){ bien=false; rech.push(r3+": no es un objeto"); return; }
       var l=txt(po.l,R.txt.l,r3+".l"); if(l===null){ bien=false; return; }
