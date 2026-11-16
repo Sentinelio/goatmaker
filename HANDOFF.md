@@ -27,6 +27,7 @@ Lee esto primero en una sesión nueva. Resume todo lo hecho hasta v4.69.0. Detal
 | **4.69.7** | baja de usuario: si el admin borra a un jugador, su navegador borra la partida y empieza de cero (tabla `tl_bajas` en el servidor) | `d3afe241c17e4bf2e9fd479e0bd31d20` |
 | **4.69.8** | telemetría: el estado del jugador incluye la versión de contenido que tiene (`cont`), para verla en el admin | `ceb6fd11ecdc14467e6293999283e061` |
 | **4.69.9** | partido: barras de lectura grises (un toque salta, mantenerlas pausa), la naranja de decisión pausa al mantenerla, cada decisión con su caja de aviso bajo la narración (también tras un gol o tarjeta y en el cierre), titular/suplente en la cabecera, tarjetas del jugador solo por decisiones, cronología compacta | `b60633a0e409ccf510e38c08bb0a36d6` |
+| **4.69.10** | partido: las últimas 3 acciones van a la base de la pantalla, con una línea vacía sobre ellas y la caja de resumen/cronología/decisiones arriba | `d353f40dd288ac2de8e758c676d198fe` |
 
 Repo: `github.com/Sentinelio/goatmaker`, rama main, GitHub Pages en `https://sentinelio.github.io/goatmaker/` (misma origin que otra app de Manu, otra ruta). Commit 4.67.1: `b828c51`. Guardado del jugador: `localStorage` con prefijo `lap1-` (clave `lap1-save`), por navegador: cada amigo juega su partida sin ver la de otro.
 

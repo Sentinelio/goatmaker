@@ -466,6 +466,9 @@ textarea{background:var(--raise);border:1px solid var(--hair);color:var(--ink);b
 .tick{position:relative;z-index:1;display:flex;flex-direction:column;justify-content:flex-end;
   min-height:100%;padding:14px 2px 6px}
 .tick-bajo{min-height:0;height:auto;padding:6px 2px 2px;justify-content:flex-end;overflow:hidden;flex:none}
+/* las últimas acciones van a la base de la pantalla, con una línea vacía sobre ellas */
+.mbody > .tick-bajo{margin-top:auto}
+.mbody > .tick-bajo::before{content:"";display:block;height:1.5em}
 .mpanel{position:relative;z-index:1;background:rgba(255,255,255,.035);border:1px solid var(--hair);
   border-radius:16px;padding:10px 12px 12px;margin-top:6px}
 .pnav{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -773,7 +776,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.69.9";
+var VERSION="4.69.10";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
