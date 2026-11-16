@@ -36,7 +36,7 @@ const SEED = `(function(){var a=3*2654435761>>>0;Math.random=function(){a|=0;a=a
   await a.goto('file://' + ADM); await a.fill('#l-url', BASE); await a.fill('#l-mail', 'a@t.local'); await a.fill('#l-pass', 'testpass1234'); await a.click('#l-go');
   await a.waitForSelector('#nav button', { timeout: 8000 }); await a.waitForTimeout(600);
   const navT = await a.$$eval('#nav button', b => b.map(x => x.innerText.trim()));
-  ok(navT.some(x => /^Códigos/.test(x)) && navT.some(x => /^Reportes/.test(x)), 'P0 el menú tiene Códigos y Reportes (' + navT.join('|') + ')');
+  ok(navT.some(x => /^Códigos/.test(x)) && navT.some(x => /^Bandeja de reportes/.test(x)), 'P0 el menú tiene Códigos y Bandeja de reportes (' + navT.join('|') + ')');
   ok(!/Pro\b/.test(await a.title()) && !/ Pro /.test(await a.innerText('.brand')), 'P0b el panel ya no dice «Pro» (' + await a.title() + ')');
 
   /* catálogo del panel == registro del juego */
@@ -100,7 +100,7 @@ const SEED = `(function(){var a=3*2654435761>>>0;Math.random=function(){a|=0;a=a
   await g.click('#sec-body .chip:has-text("Fallo")'); await g.fill('#rep-tx', 'Al fichar por el Huesca el dinero sale negativo'); await g.click('button:has-text("Enviar")'); await g.waitForTimeout(900);
   await g.click('#sec-body .chip:has-text("Idea")'); await g.fill('#rep-tx', 'Que se pueda elegir dorsal al fichar'); await g.uncheck('#sec-body input[type=checkbox]'); await g.click('button:has-text("Enviar")'); await g.waitForTimeout(900);
   await a.click('#refresh'); await a.waitForTimeout(1000);
-  ok(/Reportes\s*2/.test((await a.$$eval('#nav button', b => b.map(x => x.innerText.replace(/\s+/g, ' ').trim()))).join('|')), 'R0 el menú muestra «Reportes 2» (nuevos)');
+  ok(/Bandeja de reportes\s*2/.test((await a.$$eval('#nav button', b => b.map(x => x.innerText.replace(/\s+/g, ' ').trim()))).join('|')), 'R0 el menú muestra «Bandeja de reportes 2» (nuevos)');
   await a.click('nav button[data-t=reportes]'); await a.waitForTimeout(300); t = await a.innerText('#main');
   ok((t.match(/con partida/g) || []).length === 1, 'R1b solo el reporte que adjuntó la partida lleva «con partida»');
   ok(/dinero sale negativo/.test(t) && /elegir dorsal/.test(t) && /con partida/.test(t) && /Nuevo \(2\)/.test(t), 'R1 los dos reportes salen, uno con partida, y el filtro «Nuevo (2)"');

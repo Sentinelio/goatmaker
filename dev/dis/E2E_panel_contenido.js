@@ -31,7 +31,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   await a.waitForSelector('#nav button', { timeout: 8000 }); await a.waitForTimeout(500);
   const setf = async (sel, v) => { await a.fill(sel, String(v)); await a.dispatchEvent(sel, 'change'); await a.waitForTimeout(80); };
   const chk = async (sel, on) => { await a.setChecked(sel, on); await a.waitForTimeout(80); };
-  ok((await a.$$eval('#nav button', b => b.map(x => x.innerText.trim()))).some(x => /^Contenido/.test(x)), 'P0 el menú tiene Contenido');
+  ok((await a.$$eval('#nav button', b => b.map(x => x.innerText.trim()))).some(x => /^Publicación/.test(x)), 'P0 el menú tiene Publicación (Contenido)');
   /* la base del panel == contenido de fábrica del juego */
   const g0 = await jugador();
   const baseJuego = await g0.g.evaluate(() => JSON.stringify(contExportarBase()));

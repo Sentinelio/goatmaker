@@ -71,6 +71,8 @@ nav.side button{display:flex;margin:0 0 2px;padding:6px 10px}
 .side h4{margin:10px 0 3px;padding:6px 10px;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--mut)}
 .side button{display:flex;align-items:center;gap:9px;width:100%;padding:6px 10px;border:0;border-radius:8px;background:none;color:#b9bed2;cursor:pointer;font:inherit;font-weight:550;text-align:left}
 .side button:hover{background:var(--card)}
+.side button.off{opacity:.35;cursor:not-allowed}
+.side button.off:hover{background:none}
 .side button.on{background:var(--card2);color:var(--tx);box-shadow:inset 2px 0 0 var(--gold)}
 .side button em{margin-left:auto;font-style:normal;font-size:11px;background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:0 7px}
 .side button em.hot{background:var(--gold);color:#241800;border-color:var(--gold);font-weight:700}
@@ -120,7 +122,16 @@ function h(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return(
 function club(id){return CLUBES[id]||id||"—"}
 var ST={url:"",tok:"",players:[],sessions:[],events:[],snaps:[],codes:[],canjes:[],reports:[],tab:"resumen",sel:null,sort:{k:"last_t",d:-1},fEv:{},at:0};
 var TABS=[["resumen","Resumen"],["jugadores","Jugadores"],["codigos","Códigos"],["reportes","Reportes"],["contenido","Contenido"],["errores","Errores"],["balance","Balance"]];
-var SIDE=[["Portal",["resumen","balance"]],["Usuarios",["jugadores","codigos","reportes","errores"]],["Juego",["contenido"]]];
+var SIDE=[
+ ["Portal",[["resumen","Resumen","resumen"],["analitica","Analítica","balance"],["avisos","Avisos y mensajes",""],["publicacion","Publicación","contenido:pub"],["pruebas","Banco de pruebas",""],["servidor","Servidor y datos",""]]],
+ ["Usuarios",[["jugadores","Usuarios","jugadores"],["grupos","Grupos",""],["codigos","Códigos y regalos","codigos"],["reportes","Bandeja de reportes","reportes"],["errores","Bandeja de errores","errores"]]],
+ ["Juego · Mundo",[["mundo","Mundo",""]]],
+ ["Juego · Contenido",[["situaciones","Situaciones","contenido:sit"],["talentos","Talentos","contenido:tal"],["entrenos","Entrenamientos","contenido:ent"],["entrenadores","Entrenadores",""],["tienda","Vida y tienda","contenido:tie"],["patrocinios","Patrocinios",""],["agentes","Agentes y maniobras",""]]],
+ ["Juego · Pantallas",[["pantallas","Pantallas",""],["mapa","Mapa de pantallas",""]]],
+ ["Herramientas",[["tracker","Tracker",""]]],
+ ["Juego · Reglas globales",[["eloreal","Elo",""],["personaje","Personaje",""],["piramide","Pirámide y edades",""],["reloj","Reloj y probabilidades","contenido:reloj"],["economia","Economía",""],["textos","Textos generales",""],["motor","Motor",""]]],
+ ["Otros",[["prioridades","Prioridades",""]]]
+];
 
 /* ---------- utilidades ---------- */
 function ago(t){if(!t)return"—";var s=Math.max(0,(Date.now()-t)/1000);if(s<90)return"ahora";if(s<3600)return Math.round(s/60)+" min";if(s<86400)return Math.round(s/3600)+" h";return Math.round(s/86400)+" d"}
@@ -169,7 +180,14 @@ function nom(p){return p.label||(p.estado&&p.estado.nombre)||p.install.slice(0,8
 /* ---------- vistas ---------- */
 function render(){
   var nNuevos=ST.reports.filter(function(r){return r.estado==="nuevo"}).length;
-  $("nav").innerHTML=SIDE.map(function(g){return'<h4>'+g[0]+'</h4>'+g[1].map(function(k){var t=TABS.filter(function(x){return x[0]===k})[0];return'<button data-t="'+t[0]+'" class="'+((ST.tab===t[0]&&!ST.sel)?"on":"")+'">'+t[1]+(t[0]==="reportes"&&nNuevos?'<em class="hot">'+nNuevos+'</em>':'')+'</button>'}).join("")}).join("");
+  $("nav").innerHTML=SIDE.map(function(g){return'<h4>'+g[0]+'</h4>'+g[1].map(function(i){
+    var tg=i[2];
+    if(!tg) return '<button disabled class="off" title="No integrado todavía">'+i[1]+'</button>';
+    var p=tg.split(":"), tab=p[0], sub=p[1]||"";
+    var on=(ST.tab===tab && !ST.sel && (!sub || CE.sub===sub));
+    var badge=(tab==="reportes"&&nNuevos)?'<em class="hot">'+nNuevos+'</em>':'';
+    return '<button data-t="'+tab+'"'+(sub?' data-sub="'+sub+'"':'')+' class="'+(on?"on":"")+'">'+i[1]+badge+'</button>';
+  }).join("")}).join("");
   $("upd").textContent="Actualizado "+new Date(ST.at).toLocaleTimeString("es-ES");
   if(ST.sel)return detalle(ST.sel);
   ({resumen:vResumen,jugadores:vJugadores,codigos:vCodigos,reportes:vReportes,contenido:vContenido,errores:vErrores,balance:vBalance})[ST.tab]()
@@ -592,7 +610,7 @@ document.addEventListener("click",async function(ev){var t=ev.target,c=t.closest
 
 /* ---------- eventos de la interfaz ---------- */
 document.addEventListener("click",async function(ev){
-  var t=ev.target,n=t.closest&&t.closest("[data-t]");if(n&&n.parentNode.id==="nav"){ST.tab=n.dataset.t;ST.sel=null;$("shell").classList.remove("menu");return render()}
+  var t=ev.target,n=t.closest&&t.closest("[data-t]");if(n&&n.parentNode.id==="nav"){ST.tab=n.dataset.t;ST.sel=null;if(n.dataset.sub)CE.sub=n.dataset.sub;$("shell").classList.remove("menu");return render()}
   var rfc=t.closest&&t.closest("[data-rf]");if(rfc){ST.rf[rfc.dataset.rf]=rfc.dataset.v;return render()}
   var ba=t.closest&&t.closest("[data-a]");if(ba)return accionCodigo(ba.dataset.a,ba.dataset.id);
   var bra=t.closest&&t.closest("[data-ra]");if(bra)return accionReporte(bra.dataset.ra,bra.dataset.id);
