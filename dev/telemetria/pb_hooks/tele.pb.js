@@ -30,6 +30,12 @@ routerAdd("POST", "/tele", (e) => {
       return e.json(200, { ok: true, n: n, pack: pack, modo: modo });
     } catch (err) { return e.json(500, { ok: false, err: String(err).slice(0, 120) }); }
   }
+  // jugador dado de baja por el admin: el juego borra su partida y no vuelve a crear el jugador aquí
+  if (/^[A-Za-z0-9_-]{8,64}$/.test(install)) {
+    let baja = false;
+    try { baja = $app.countRecords("tl_bajas", $dbx.exp("install = {:i}", { i: install })) > 0; } catch (_) {}
+    if (baja) return e.json(200, { ok: true, baja: true });
+  }
   if (op === "canje" || op === "reporte") {
     if (!/^[A-Za-z0-9_-]{8,64}$/.test(install)) return e.json(400, { ok: false, err: "id" });
     const ahora = Date.now();

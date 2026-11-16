@@ -78,6 +78,13 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     const evs = await (await fetch(BASE + '/api/collections/tl_events/records?filter=' + encodeURIComponent("install='inst-borrar-2222'"), { headers: H })).json();
     ok(evs.totalItems === 0, 'Borrado: sus eventos se borran');
     ok(await p.getByText('Borrame').count() === 0, 'Borrado: ya no aparece en la lista');
+    // baja: el juego de ese navegador recibe {baja:true} y el servidor no vuelve a crear al jugador
+    const tb = await (await fetch(BASE + '/tele', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ k: 'k-test', install: 'inst-borrar-2222', sid: 'sess-borrar-01', ctx: { active_s: 5 }, events: [{ tipo: 'x', t: now }] }) })).json();
+    ok(tb.baja === true, 'Baja: /tele responde baja:true al jugador borrado');
+    const pq = await (await fetch(BASE + '/api/collections/tl_players/records?filter=' + encodeURIComponent("install='inst-borrar-2222'"), { headers: H })).json();
+    ok(pq.totalItems === 0, 'Baja: el servidor no recrea al jugador borrado');
+    const tv = await (await fetch(BASE + '/tele', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ k: 'k-test', install: 'inst-vivo-4444', sid: 'sess-vivo-0001', ctx: { active_s: 5 }, events: [] }) })).json();
+    ok(tv.ok === true && !tv.baja, 'Baja: un jugador no borrado sigue funcionando');
     ok(errs.length === 0, 'sin errores de página: ' + errs.join(' | '));
     await br.close();
   } catch (e) { fails.push('EXCEPCIÓN: ' + e.message.split('\n')[0]); } finally { try { if (br) await br.close(); } catch (e) {} srv.kill(); }

@@ -1151,6 +1151,7 @@ var CAT=[
 /* ===== ADAPTACIÓN AL SERVIDOR REAL (Goatmaker) =====
    Sustituye los datos de ejemplo por PocketBase. Lo que no está integrado queda atenuado (clase .off, deshabilitado). */
 var PB_URL="https://server-pc.tail3b4002.ts.net:8447";
+CUR_VER="4.69.7";   /* versión actual del juego: el filtro «Versión antigua» compara con esto */
 var CUR_VER="4.69.6";
 var OK_NAV=["jugadores","codigos","reportes"];
 var PB={tok:"",byInst:{},raw:{pl:[],cod:[],can:[],rep:[]}};
@@ -1318,6 +1319,9 @@ async function pbBorra(ids){
       var cols=["tl_events","tl_sessions","tl_snapshots"];
       for(var c=0;c<cols.length;c++){ var rs=await pbAll(cols[c],f); for(var x=0;x<rs.length;x++) await pbApi("/api/collections/"+cols[c]+"/records/"+rs[x].id,{method:"DELETE"}); }
       var pl=PB.raw.pl.find(function(p){return p.install===id}); if(pl) await pbApi("/api/collections/tl_players/records/"+pl.id,{method:"DELETE"});
+      // baja: la partida del jugador se borra al volver a entrar en el juego (ver tl_bajas en /tele)
+      var ya=await pbAll("tl_bajas",f);
+      if(!ya.length) await pbApi("/api/collections/tl_bajas/records",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({install:id,t:Date.now()})});
     }
   }catch(e){ m.textContent="No se pudo borrar: "+e.message; return; }
   ST.chk={}; if(ST.sel) ST.sel.jug=null;
