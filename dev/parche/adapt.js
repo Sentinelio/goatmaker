@@ -355,6 +355,12 @@ function pbAtribFicha(J){
   if(!s||!s.attr) return '<p class="mut">Sin partida guardada todavía.</p>';
   return Object.keys(ATR).map(function(k){ return '<div class="diff"><span class="p">'+ATR[k]+'</span><b>'+(s.attr[k]!=null? Math.round(s.attr[k]) : "—")+'</b></div>'; }).join("");
 }
+function pbArq(J){
+  var s=pbSave(J); if(!s) return "—";
+  var c=s.car||{};
+  var a=pbArqDe(c.disciplina||0, c.ego||0, c.temperamento!=null? c.temperamento : undefined);
+  return a? a.n : "—";
+}
 function pbTabVida(J){
   var D=PB.det[J.id]; var s=pbSave(J);
   if(!s){ return D&&D.ok? card("Vida y tienda",'<p class="mut">Este jugador todavía no tiene partida guardada en el servidor.</p>') : pbPend(); }
@@ -369,9 +375,10 @@ function pbTabVida(J){
   var c=s.contrato;
   var contrato=c? fila("Salario", eur(c.salario||0))+fila("Años", c.anos||"—")+fila("Cláusula", c.clausula? eur(c.clausula) : "—")+fila("Firmado en", c.firmadoT||"—") : '<p class="mut">Sin contrato.</p>';
   var tal=0; Object.keys(s.talentos||{}).forEach(function(r){ Object.keys(s.talentos[r]||{}).forEach(function(k){ tal+=(+s.talentos[r][k]||0); }); });
-  var estado=fila("Club", (J.eq&&CLI[J.eq])? CLI[J.eq].n : "—")+fila("División", s.division||"—")+fila("Dinero", eur(s.dinero||0))+fila("Ánimo", s.animo!=null? Math.round(s.animo) : "—")+fila("Fama", s.fama!=null? Math.round(s.fama) : "—")+fila("Prensa", s.prensa!=null? Math.round(s.prensa) : "—")+fila("Talentos desbloqueados", tal);
+  var estado=fila("Club", (J.eq&&CLI[J.eq])? CLI[J.eq].n : "—")+fila("División", s.division||"—")+fila("Dinero", eur(s.dinero||0))+fila("Ánimo", s.animo!=null? Math.round(s.animo) : "—")+fila("Fama", s.fama!=null? Math.round(s.fama) : "—")+fila("Prensa", s.prensa!=null? Math.round(s.prensa) : "—")+fila("Talentos desbloqueados", tal)+fila("Confianza", s.conf!=null? Math.round(s.conf) : "—");
+  var talList=[]; Object.keys(G_TALENTOS).forEach(function(r){ (G_TALENTOS[r].nodes||[]).forEach(function(nd){ var k=(s.talentos&&s.talentos[r]&&s.talentos[r][nd.id])||0; if(k>0) talList.push(G_TALENTOS[r].name+" · "+nd.n+" "+k+"/"+nd.rank); }); });
   var diario=(s.vidaLog||[]).slice(-60).reverse();
   return '<div class="grid g2">'+card("Carrera ahora",estado)+card("Atributos",attr)+card("Contrato",contrato)+card("Vida personal",vida)+
     card("Inventario · bienes ("+own.length+")",lista(own,"Nada comprado todavía."))+card("Servicios activos ("+serv.length+")",lista(serv,"Sin servicios activos."))+
-    card("Decisiones de vida · últimas 60",lista(diario,"Sin movimientos todavía."))+'</div>';
+    card("Talentos · "+tal,lista(talList,"Ningún talento desbloqueado todavía."))+card("Decisiones de vida · últimas 60",lista(diario,"Sin movimientos todavía."))+'</div>';
 }

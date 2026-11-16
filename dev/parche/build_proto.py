@@ -11,7 +11,7 @@ def bloque_juego(inicio, fin, nuevo):
     while GAMEF[j]!=fin: j+=1
     txt='\n'.join(GAMEF[i:j+1])
     return nuevo+txt[len(inicio):]
-gdat=bloque_juego('var POS=','};','var G_POS=')+'\n'+bloque_juego('var TIENDA_CATS=','];','var G_TCATS=')+'\n'
+gdat=bloque_juego('var POS=','};','var G_POS=')+'\n'+bloque_juego('var TIENDA_CATS=','];','var G_TCATS=')+'\n'+bloque_juego('var TALENTOS = {','};','var G_TALENTOS = {')+'\n'+bloque_juego('var ARQUETIPOS={','};','var G_ARQ={')+'\n'+bloque_juego('function arquetipoDe(','}','function pbArqDe(').replace('ARQUETIPOS.','G_ARQ.')+'\n'
 cat='\n'.join(old[273:285])  # var CAT=[ ... ]; (líneas 274-285)
 assert old[273].startswith('var CAT=[') and old[284].strip()=='];', (old[273][:20], old[284][:20])
 def rep(a,b,count=1):
@@ -94,7 +94,8 @@ rep('btn("Borrar",T("Reporte borrado"),"red")','btn("Borrar",function(){reAcc("b
 # 8b · interruptores del prototipo (no integrados): se muestran atenuados
 rep('function flagsBar(){','function flagsBarOrig(){')
 
-rep('eur(J.din)','pbDinero(J)')  # dinero no es dato de telemetría
+rep('eur(J.din)','pbDinero(J)')
+rep("'+J.arq+'","'+pbArq(J)+'")  # dinero no es dato de telemetría
 
 # 8c · columna de identificador de jugador (entre Jugador y Grupo)
 rep("'<th>Grupo</th>","'<th>ID</th><th>Grupo</th>")

@@ -685,7 +685,7 @@ V.jugadores=function(){
 };
 function jugDet(J){
   var t=tabs("jd",["Ficha","Vida y tienda","Línea de tiempo","Partidas","Regalos y mensajes","Reportes y errores","Dispositivo"]), tb=ST.tab.jd, b, e=J.eq&&CLI[J.eq];
-  if(tb==="Ficha") b='<div class="grid g3">'+card("Carrera",'<div class="diff"><span class="p">Club</span><b>'+(e?esc(e.n):"—")+'</b></div><div class="diff"><span class="p">Puesto</span><b>'+pbPuesto(J)+'</b></div><div class="diff"><span class="p">Edad</span><b>'+pbEdad(J)+'</b></div><div class="diff"><span class="p">Temporada · jornada</span><b>'+J.temp+' · '+J.jor+'</b></div><div class="diff"><span class="p">Nivel</span><b>'+J.niv+'</b></div><div class="diff"><span class="p">Media</span><b>'+(J.med||"—")+'</b></div><div class="diff"><span class="p">Dinero</span><b>'+pbDinero(J)+'</b></div><div class="diff"><span class="p">Arquetipo</span><b>'+J.arq+'</b></div>')+
+  if(tb==="Ficha") b='<div class="grid g3">'+card("Carrera",'<div class="diff"><span class="p">Club</span><b>'+(e?esc(e.n):"—")+'</b></div><div class="diff"><span class="p">Puesto</span><b>'+pbPuesto(J)+'</b></div><div class="diff"><span class="p">Edad</span><b>'+pbEdad(J)+'</b></div><div class="diff"><span class="p">Temporada · jornada</span><b>'+J.temp+' · '+J.jor+'</b></div><div class="diff"><span class="p">Nivel</span><b>'+J.niv+'</b></div><div class="diff"><span class="p">Media</span><b>'+(J.med||"—")+'</b></div><div class="diff"><span class="p">Dinero</span><b>'+pbDinero(J)+'</b></div><div class="diff"><span class="p">Arquetipo</span><b>'+pbArq(J)+'</b></div>')+
     card("Atributos",pbAtribFicha(J))+
     card("Actividad",'<div class="diff"><span class="p">Horas jugadas</span><b>'+nf(J.h,1)+'</b></div><div class="diff"><span class="p">Sesiones</span><b>'+J.ses+'</b></div><div class="diff"><span class="p">Primera vez</span><b>'+(J.first?pbFecha(J.first):"—")+'</b></div><div class="diff"><span class="p">Última vez</span><b>'+J.last+'</b></div><div class="diff"><span class="p">Versión del juego</span><b>'+J.ver+'</b></div><div class="diff"><span class="p">Contenido</span><b>'+pbContenido(J)+'</b></div>'+spark(pbDias(J),"#60a5fa")+'<div class="small mut">Sesiones por día · 14 días</div>')+'</div>'+
     card("Datos del admin",'<div class="f"><label>Nombre</label><input type="text" value="'+esc(J.n)+'" onchange="'+on(function(x){pbDatoAdm(J,"label",x)})+'"><div class="fab">solo lo ves tú</div></div><div class="f"><label>Grupo</label><select onchange="'+on(function(x){pbCambiaGrupo(J,x)})+'">'+[""].concat(GRP.map(function(g){return g.n})).map(function(g){return '<option'+(g===J.g?" selected":"")+'>'+g+'</option>'}).join("")+'</select><div class="fab"></div></div><div class="f"><label>Nota privada</label><textarea rows="2" onchange="'+on(function(x){pbDatoAdm(J,"adm_nota",x)})+'">'+esc(J.nota)+'</textarea><div class="fab"></div></div>',"","mt")+
@@ -1234,6 +1234,114 @@ var G_TCATS=[
   modelos:[["Conductor de confianza","Acompañante en salidas","Chequeo de entornos"],["Escolta en eventos","Conductor + seguridad","Control de accesos personal"],
            ["Escolta dedicado","Equipo de dos","Avanzadas y rutas seguras"],["Jefe de seguridad propio","Equipo completo 24/7","Protección de perfil alto"]]}
 ];
+var G_TALENTOS = {
+  defensa:{ name:"Defensa", nodes:[
+    {id:"duelo",   row:1, rank:3, lvl:8,  req:null, n:"Duelo limpio", fx:{golR:0.93}, d:"Ganas el cuerpo a cuerpo sin necesidad de la entrada sucia. Más eficacia en cada duelo defensivo."},
+    {id:"antic",   row:1, rank:3, lvl:8,  req:null, n:"Anticipación", fx:{golR:0.94}, d:"Lees el pase antes de que salga. Más intercepciones, menos ocasiones concedidas."},
+    {id:"sinmiedo",row:2, rank:3, lvl:18, req:"duelo", n:"Sin miedo", fx:{ta:0.85}, d:"Te tiras a por todo. Menos tarjeta en las decisiones de contención más arriesgadas."},
+    {id:"lectpas", row:2, rank:3, lvl:18, req:"antic", n:"Lectura de pase", fx:{golR:0.92}, d:"No corres detrás del balón, llegas antes que él."},
+    {id:"cazador", row:3, rank:2, lvl:32, req:["sinmiedo","lectpas"], n:"Cazador implacable", fx:{golR:0.88,ta:0.90}, d:"El cuerpo y la lectura ya son la misma cosa: nadie te gana el balón, lo veas venir o no."},
+    {id:"cap",     row:4, rank:1, lvl:48, req:"cazador", n:"Intratable", cap:true, fx:{golR:0.78}, d:"Defendiendo una ventaja mínima en el tramo final, tu probabilidad de intervención decisiva se dispara."},
+  ]},
+  fisico:{ name:"Físico", nodes:[
+    {id:"motor",   row:1, rank:3, lvl:8,  req:null, n:"Motor", fxForma:{recupera:1.20}, d:"Corres el partido entero sin pagarlo. Menos desgaste de forma en el ejercicio físico."},
+    {id:"explo",   row:1, rank:3, lvl:8,  req:null, n:"Explosividad", fxEntreno:{FIS:1.15}, d:"El primer paso es tuyo siempre. Tu físico pesa más en cada arrancada y cada duelo."},
+    {id:"aguante", row:1, rank:3, lvl:8,  req:null, n:"Aguante", fxForma:{desgaste:0.85}, d:"El minuto 88 te encuentra igual que el minuto 8. Menos fatiga en el tramo final."},
+    {id:"pulmon",  row:2, rank:2, lvl:18, req:"motor", n:"Pulmón de acero", fxForma:{recupera:1.15}, d:"Motor reforzado: el desgaste ya casi no te alcanza."},
+    {id:"veloc",   row:2, rank:2, lvl:18, req:["explo","aguante"], n:"Velocidad de resistencia", fxEntreno:{FIS:1.12}, fxForma:{desgaste:0.90}, d:"Explosivo al principio, explosivo al final: la fatiga ya no frena tu chispa."},
+    {id:"indestr", row:3, rank:2, lvl:32, req:"pulmon", n:"Indestructible", fxForma:{riesgo:0.75}, d:"El cuerpo aguanta lo que antes te habría dejado en la enfermería."},
+    {id:"motorcomp",row:3,rank:2, lvl:32, req:"veloc", n:"Motor de competición", fxForma:{desgaste:0.85}, d:"Rápido al principio, rápido al final — el desgaste no te define."},
+    {id:"cap",     row:4, rank:1, lvl:48, req:["indestr","motorcomp"], n:"Motor inagotable", cap:true, fx:{gol:1.10,asis:1.08}, d:"En el descuento, tu probabilidad de intervención decisiva se dispara."},
+  ]},
+  centro:{ name:"Centro", nodes:[
+    {id:"buenpie", row:1, rank:3, lvl:8,  req:null, n:"Buen pie", fx:{asis:1.06}, d:"El balón te busca a ti. Más asistencia en las decisiones de pase."},
+    {id:"vision",  row:1, rank:3, lvl:8,  req:null, n:"Visión", fx:{asis:1.07}, d:"Ves el hueco un segundo antes que los demás. Mejora el desenlace del último pase."},
+    {id:"presion", row:1, rank:3, lvl:8,  req:null, n:"Bajo presión", fxEntreno:{TEC:1.10}, d:"Con el rival encima, tú sigues jugando igual. Mantienes el control aunque te aprieten."},
+    {id:"orient",  row:2, rank:2, lvl:18, req:"buenpie", n:"Cambio de orientación", fx:{asis:1.05}, d:"Rompes el partido de un lado a otro sin pensarlo dos veces."},
+    {id:"letal",   row:2, rank:2, lvl:18, req:"vision", n:"Último pase letal", fx:{asis:1.10}, d:"Tu pase ya no solo llega, decide partidos."},
+    {id:"nuca",    row:2, rank:2, lvl:18, req:"presion", n:"Ojos en la nuca", fxEntreno:{TAC:1.10}, d:"Nunca te pillan de espaldas."},
+    {id:"completo",row:3, rank:1, lvl:30, req:["orient","letal","nuca"], n:"El repartidor completo", fx:{asis:1.08,lider:1.10}, d:"Pase, visión y temple ya son una sola cosa: el mediocentro que un equipo entero necesita."},
+    {id:"metro",   row:4, rank:2, lvl:44, req:"completo", n:"Metrónomo", fx:{lider:1.15}, d:"Si el equipo va perdiendo, tú marcas el ritmo de la remontada."},
+    {id:"controla",row:4, rank:2, lvl:44, req:"completo", n:"Control absoluto", fx:{asis:1.06}, d:"Con el rival encima, tú sigues jugando exactamente igual."},
+    {id:"cap",     row:5, rank:1, lvl:58, req:["metro","controla"], n:"El que manda el partido", cap:true, fx:{asis:1.20,gol:1.05}, d:"Recibes con espacio; el resultado depende casi solo de tu técnica, no del azar."},
+  ]},
+  ataque:{ name:"Ataque", nodes:[
+    {id:"instinto",row:1, rank:3, lvl:8,  req:null, n:"Instinto de gol", fx:{gol:1.08}, d:"No lo piensas, lo metes. Más gol en decisiones ofensivas."},
+    {id:"ultpase", row:1, rank:3, lvl:8,  req:null, n:"Último pase", fx:{asis:1.08}, d:"Ves al compañero libre antes que nadie. Más asistencia."},
+    {id:"aereo",   row:1, rank:3, lvl:8,  req:null, n:"Juego aéreo", fxEntreno:{FIS:1.10}, d:"Ganas la posición antes de que el balón llegue. Base de lo que se juega por arriba."},
+    {id:"defin",   row:2, rank:3, lvl:16, req:"instinto", n:"Definición fría", fx:{gol:1.10}, d:"Cuanto más importa el momento, más frío te quedas. Menos castigo cuando un tiro sale mal."},
+    {id:"visarea", row:2, rank:3, lvl:16, req:"ultpase", n:"Visión de área", fx:{asis:1.10}, d:"El último pase ya no es al compañero libre — es al que va a rematar mejor."},
+    {id:"domin",   row:2, rank:3, lvl:16, req:"aereo", n:"Dominador aéreo", fx:{gol:1.06}, d:"Córners y centros al área son terreno tuyo."},
+    {id:"racha",   row:3, rank:2, lvl:25, req:"defin", n:"En racha", fx:{gol:1.10}, d:"Tras marcar, el gol siguiente pesa menos. Subes el resto del partido."},
+    {id:"dobleam", row:3, rank:2, lvl:25, req:"visarea", n:"Doble amenaza", fx:{asis:1.10,gol:1.04}, d:"El rival no sabe si marcarte a ti o vigilar al que llega detrás."},
+    {id:"reyareap",row:3, rank:2, lvl:25, req:"domin", n:"Rey del área pequeña", fx:{gol:1.08}, d:"Nadie te gana la posición en el segundo palo."},
+    {id:"killer",  row:4, rank:2, lvl:36, req:"racha", n:"Killer en racha", fx:{gol:1.15}, d:"Con dos goles seguidos ya no hay quien te pare esta noche."},
+    {id:"amenazat",row:4, rank:2, lvl:36, req:["dobleam","reyareap"], n:"Amenaza total", fx:{gol:1.08,asis:1.08}, d:"Pases, remates o cabeceas: sea cual sea el plan, tú eres el problema."},
+    {id:"penal",   row:5, rank:1, lvl:48, req:"killer", n:"Sangre fría en los once metros", fx:{gol:1.12}, d:"El penalti ya está decidido antes de que pite el árbitro."},
+    {id:"especial",row:5, rank:1, lvl:48, req:"amenazat", n:"Especialista de área", fx:{gol:1.12,asis:1.06}, d:"Dentro del área rival, todo lo que tocas se convierte en ocasión."},
+    {id:"cap",     row:6, rank:1, lvl:62, req:["penal","especial"], n:"Instinto asesino", cap:true, fx:{gol:1.25}, d:"Con 2+ goles o asistencias en tus últimos 3 partidos, se desbloquea la ocasión más clara que vas a tener."},
+  ]},
+  mental:{ name:"Mental", nodes:[
+    {id:"sfria",   row:1, rank:3, lvl:8,  req:null, n:"Sangre fría", fx:{ta:0.90}, d:"La presión no te encuentra nunca temblando. Mejora el desenlace en decisiones de máxima tensión."},
+    {id:"lider",   row:1, rank:3, lvl:8,  req:null, n:"Liderazgo", fx:{lider:1.15}, d:"El equipo te mira cuando las cosas se ponen difíciles. Empuje base al conjunto."},
+    {id:"concent", row:1, rank:3, lvl:8,  req:null, n:"Concentración", fx:{golR:0.95}, d:"El error no forzado deja de ser tuyo. Menos fallos por despiste."},
+    {id:"nonerv",  row:2, rank:2, lvl:16, req:"sfria", n:"El que no se pone nervioso", fx:{ta:0.85}, d:"Cuanto más se juega, más tranquilo te quedas tú."},
+    {id:"inqueb",  row:2, rank:2, lvl:16, req:["lider","concent"], n:"Inquebrantable", fx:{lider:1.20,resil:0.85}, d:"Mando y templanza ya son la misma cosa: nada te saca de tu sitio."},
+    {id:"friatot", row:3, rank:1, lvl:27, req:["nonerv","inqueb"], n:"Frialdad total", fx:{ta:0.80,resil:0.80}, d:"No existe el momento del partido que te pueda contra ti."},
+    {id:"referente",row:4,rank:1, lvl:40, req:"friatot", n:"Referente del vestuario", fx:{lider:1.25}, d:"El equipo entero se apoya en cómo tú llevas la presión."},
+    {id:"alma",    row:5, rank:1, lvl:52, req:"referente", n:"Alma del equipo", fx:{resil:0.75}, d:"El vestuario entero respira al ritmo que tú marcas."},
+    {id:"cap",     row:6, rank:1, lvl:65, req:"alma", n:"El líder nato", cap:true, fx:{lider:1.35}, d:"Una vez por partido, si el equipo lo necesita, arengas y subes el empuje de todos de golpe."},
+  ]},
+  tactica:{ name:"Táctica", nodes:[
+    {id:"colocado",row:1, rank:3, lvl:8,  req:null, n:"Bien colocado", fx:{golR:0.94}, d:"Estás donde el partido va a estar, no donde ya estuvo. Mejor posicionamiento base."},
+    {id:"lectriv", row:1, rank:3, lvl:8,  req:null, n:"Lectura del rival", fx:{golR:0.93}, d:"Sabes lo que va a intentar antes que él mismo. Mejora decisiones reactivas."},
+    {id:"poliv",   row:1, rank:3, lvl:8,  req:null, n:"Polivalencia", fxEntreno:{TAC:1.10}, d:"Cualquier puesto que pisas, lo entiendes rápido. Mejor rendimiento en tus posiciones secundarias."},
+    {id:"visespac",row:2, rank:2, lvl:18, req:"colocado", n:"Visión de espacios", fx:{asis:1.06}, d:"Ves el hueco que se va a abrir, no el que ya está abierto."},
+    {id:"cerebrosom",row:2,rank:1, lvl:18, req:["lectriv","poliv"], n:"El cerebro en la sombra", fx:{lider:1.10,golR:0.93}, d:"Organizas sin que se note quién está organizando."},
+    {id:"vismaes", row:3, rank:2, lvl:30, req:"visespac", n:"Visión maestra", fx:{asis:1.10}, d:"El desmarque que nadie ve, tú ya lo estás preparando."},
+    {id:"controlp",row:3, rank:2, lvl:30, req:"cerebrosom", n:"Control del partido", fx:{golR:0.90}, d:"El plan del rival se estrella contigo antes incluso de empezar."},
+    {id:"anticp",  row:3, rank:2, lvl:30, req:"cerebrosom", n:"Anticipación total", fx:{golR:0.90}, d:"El mismo cerebro que organiza en la sombra, ahora también corta el peligro antes de que nazca."},
+    {id:"estratega",row:4,rank:1, lvl:45, req:["vismaes","controlp","anticp"], n:"El estratega", fx:{golR:0.85,asis:1.08}, d:"Posición, mando y anticipación ya son una sola jugada: nada del rival te sorprende."},
+    {id:"cap",     row:5, rank:1, lvl:58, req:"estratega", n:"El cerebro táctico", cap:true, fx:{golR:0.80}, d:"Una vez por partido, anticipas y neutralizas el patrón de ataque del rival en el tramo que más pesa."},
+  ]},
+};
+var G_ARQ={
+ crack:   {id:"crack",   n:"La estrella",      d:"El equipo gira a tu alrededor y todos lo aceptan… mientras rindas.", col:"#FFC24B"},
+ capitan: {id:"capitan", n:"El capitán",       d:"Ejemplo dentro y fuera. El vestuario te sigue sin que levantes la voz.", col:"#4FA3FF"},
+ soldado: {id:"soldado", n:"El soldado",       d:"Nunca fallas, nunca sobras. El míster te pondría con una pierna rota.", col:"#3DDC97"},
+ showman: {id:"showman", n:"El showman",       d:"Juegas para la grada y para la cámara. El fútbol como espectáculo.", col:"#FF9E3D"},
+ genio:   {id:"genio",   n:"El genio rebelde", d:"Insoportable e imprescindible. Ganas partidos que nadie más gana.", col:"#B45CFF"},
+ problema:{id:"problema",n:"El problema",      d:"Talento y titulares, en ese orden. Los despachos te temen.", col:"#FF5470"},
+ guerrero:{id:"guerrero",n:"El guerrero",     d:"Profesional en la semana, bestia el domingo. Te temen y te quieren de su lado.", col:"#FF6B4A"},
+ peon:    {id:"peon",    n:"Uno más",          d:"Todavía sin sello propio. Tus decisiones dirán quién eres.", col:"#8891AA"}
+};
+function pbArqDe(dis, ego, temp){
+  /* el temperamento manda cuando es extremo: el guerrero existe en cualquier banda */
+  if(temp!==undefined && temp>=74 && dis>=-35 && ego<55) return G_ARQ.guerrero;
+  if(dis>=45){
+    if(ego>=45) return G_ARQ.crack;
+    if(ego<=-40) return G_ARQ.soldado;
+    return G_ARQ.capitan;
+  }
+  if(dis>=15){
+    if(ego>=35) return G_ARQ.crack;
+    if(ego<=-25) return G_ARQ.soldado;
+    return G_ARQ.capitan;
+  }
+  if(dis>=-29){
+    if(ego>=60) return G_ARQ.showman;
+    if(ego>=30) return G_ARQ.crack;
+    if(ego<=-25) return G_ARQ.soldado;
+    return G_ARQ.peon;
+  }
+  if(dis>=-44){
+    if(ego>=55) return G_ARQ.showman;
+    if(ego>=30) return G_ARQ.crack;
+    return G_ARQ.problema;
+  }
+  if(ego>=45) return G_ARQ.genio;
+  return G_ARQ.problema;
+}
 /* catálogo de efectos del panel (mismo que el juego) */
 var CAT=[
   {k:"dinero",n:"Dinero",u:"€",def:50000,min:1,max:1000000000,fmt:function(v){return"+"+Number(v).toLocaleString("es-ES")+" €"}},
@@ -1604,6 +1712,12 @@ function pbAtribFicha(J){
   if(!s||!s.attr) return '<p class="mut">Sin partida guardada todavía.</p>';
   return Object.keys(ATR).map(function(k){ return '<div class="diff"><span class="p">'+ATR[k]+'</span><b>'+(s.attr[k]!=null? Math.round(s.attr[k]) : "—")+'</b></div>'; }).join("");
 }
+function pbArq(J){
+  var s=pbSave(J); if(!s) return "—";
+  var c=s.car||{};
+  var a=pbArqDe(c.disciplina||0, c.ego||0, c.temperamento!=null? c.temperamento : undefined);
+  return a? a.n : "—";
+}
 function pbTabVida(J){
   var D=PB.det[J.id]; var s=pbSave(J);
   if(!s){ return D&&D.ok? card("Vida y tienda",'<p class="mut">Este jugador todavía no tiene partida guardada en el servidor.</p>') : pbPend(); }
@@ -1618,11 +1732,12 @@ function pbTabVida(J){
   var c=s.contrato;
   var contrato=c? fila("Salario", eur(c.salario||0))+fila("Años", c.anos||"—")+fila("Cláusula", c.clausula? eur(c.clausula) : "—")+fila("Firmado en", c.firmadoT||"—") : '<p class="mut">Sin contrato.</p>';
   var tal=0; Object.keys(s.talentos||{}).forEach(function(r){ Object.keys(s.talentos[r]||{}).forEach(function(k){ tal+=(+s.talentos[r][k]||0); }); });
-  var estado=fila("Club", (J.eq&&CLI[J.eq])? CLI[J.eq].n : "—")+fila("División", s.division||"—")+fila("Dinero", eur(s.dinero||0))+fila("Ánimo", s.animo!=null? Math.round(s.animo) : "—")+fila("Fama", s.fama!=null? Math.round(s.fama) : "—")+fila("Prensa", s.prensa!=null? Math.round(s.prensa) : "—")+fila("Talentos desbloqueados", tal);
+  var estado=fila("Club", (J.eq&&CLI[J.eq])? CLI[J.eq].n : "—")+fila("División", s.division||"—")+fila("Dinero", eur(s.dinero||0))+fila("Ánimo", s.animo!=null? Math.round(s.animo) : "—")+fila("Fama", s.fama!=null? Math.round(s.fama) : "—")+fila("Prensa", s.prensa!=null? Math.round(s.prensa) : "—")+fila("Talentos desbloqueados", tal)+fila("Confianza", s.conf!=null? Math.round(s.conf) : "—");
+  var talList=[]; Object.keys(G_TALENTOS).forEach(function(r){ (G_TALENTOS[r].nodes||[]).forEach(function(nd){ var k=(s.talentos&&s.talentos[r]&&s.talentos[r][nd.id])||0; if(k>0) talList.push(G_TALENTOS[r].name+" · "+nd.n+" "+k+"/"+nd.rank); }); });
   var diario=(s.vidaLog||[]).slice(-60).reverse();
   return '<div class="grid g2">'+card("Carrera ahora",estado)+card("Atributos",attr)+card("Contrato",contrato)+card("Vida personal",vida)+
     card("Inventario · bienes ("+own.length+")",lista(own,"Nada comprado todavía."))+card("Servicios activos ("+serv.length+")",lista(serv,"Sin servicios activos."))+
-    card("Decisiones de vida · últimas 60",lista(diario,"Sin movimientos todavía."))+'</div>';
+    card("Talentos · "+tal,lista(talList,"Ningún talento desbloqueado todavía."))+card("Decisiones de vida · últimas 60",lista(diario,"Sin movimientos todavía."))+'</div>';
 }
 
 go();
