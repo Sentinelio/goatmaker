@@ -423,6 +423,7 @@ textarea{background:var(--raise);border:1px solid var(--hair);color:var(--ink);b
 html:has(#ov-match:not(.hidden)){overflow:hidden}
 #ov-match ::-webkit-scrollbar{display:none}
 .mbody > .mpanel.mp-corto .plista{max-height:none;overflow:visible}
+.mbody > .mpanel.mp-corto > .presumen{padding-bottom:18px;scrollbar-width:thin}
 .mbody > .mpanel.mp-corto > .tlhead,.mbody > .mpanel.mp-corto > .tlnota{flex:none !important}
 .tlnota{text-align:center;margin:16px 0 10px;font-size:14px;font-weight:600;color:var(--ink)}
 .avisodec{margin:0 0 6px}
@@ -6161,11 +6162,11 @@ function avisoDecHTML(l){
 /* situación del jugador en el partido: titular, suplente o fuera */
 function rolPartido(){
   var r=M && M.convRol;
-  if(r==="titular") return M.enCampo? ["Titular","tit"] : ["Titular · has salido del campo","fue"];
+  if(r==="titular") return M.enCampo? ["En el campo","tit"] : ["Has salido del campo","fue"];
   if(r==="suplente"){
-    if(M.enCampo) return ["Suplente · ya en el campo","sup"];
-    if(M.entraEn) return ["Suplente · en el banquillo","sup"];
-    return ["Suplente · hoy no juegas","fue"];
+    if(M.enCampo) return ["Ya en el campo","sup"];
+    if(M.entraEn) return ["En el banquillo","sup"];
+    return ["Hoy no juegas","fue"];
   }
   return ["Fuera de la convocatoria","fue"];
 }
@@ -6368,7 +6369,7 @@ function decisionesCardsHTML(full){
       +(typeof d.dn==="number"? (function(){ var v=(M&&M.prueba)? Math.round(d.dn*0.46*100)/100 : d.dn;
           return ' <i class="dnmini" style="font-style:normal;font-size:10px;color:'+(v>0?"var(--ok)":v<0?"var(--bad)":"var(--dim)")+'">'+(v>0?"+":"")+v.toFixed(2)+'</i>'; })():'')+'</span></div>'
       +'<div class="pdtxt">'+esc(d.txt)+'</div>'
-      +(d.efe&&d.efe.length? '<div class="pdefe">'+d.efe.map(function(x){return esc(x.t);}).join(" · ")+'</div>':'')
+      +(d.efe&&d.efe.length? '<div class="pdefe">'+d.efe.map(function(x){ var col=x.b===undefined?"var(--bloom)":(x.b?"var(--ok)":"var(--bad)"); return '<span style="color:'+col+'">'+esc(x.t)+'</span>'; }).join(' <span style="color:var(--dim)">·</span> ')+'</div>':'')
       +'</div>';
   });
   var ok=D.filter(function(d){return d.cls==="ok";}).length;

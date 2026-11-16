@@ -46,7 +46,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     const altoBarra = await p.evaluate(() => document.querySelector('.autobar i').getBoundingClientRect().height);
     ok(altoBarra > 0, 'La barra de lectura se ve (alto del relleno ' + altoBarra + ' px)');
     const rol = await p.evaluate(() => { const e = document.querySelector('.rolx'); return e ? e.textContent : ''; });
-    ok(/Titular|Suplente|Fuera/.test(rol), 'Cabecera: se ve si eres titular o suplente (' + rol + ')');
+    ok(/En el campo|Has salido|Ya en el campo|En el banquillo|Hoy no juegas|Fuera de la convocatoria/.test(rol), 'Cabecera: muestra el estado sin titular/suplente (' + rol + ')');
 
     // un toque en la barra gris salta el contenido al momento
     const antes = await p.evaluate(() => (document.querySelector('.tick') || {}).textContent || '');
