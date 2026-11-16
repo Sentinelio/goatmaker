@@ -841,13 +841,20 @@ V.partido=function(){
   if(tb==="Situaciones"){
     var grupos=[["En juego",G.SITS,"si.j"],["Banquillo",G.SITS_BANQUILLO,"si.b"],["Te cambian",G.SITS_CAMBIO,"si.c"],["Momento decisivo",G.SITS_CLUTCH,"si.k"]], items=[], cur=null, q=(ST.sel.sq||"").toLowerCase();
     var todas=[]; grupos.forEach(function(g){ g[1].forEach(function(x){ todas.push({x:x,pre:g[2],grp:g[0]}); var tt0=isFn(x.t)?x.id:x.t; reg(g[2]+"."+x.id+".off",false,tt0+" · fuera de catálogo"); }); });
+    var selE=null; todas.forEach(function(e){ if(e.x.id===(ST.sel.si||"por-salida")) selE=e; });
+    if(selE) cur=[selE.x,selE.pre,selE.grp];
+    var catSel=selE? catSit(selE.x.id,selE.grp) : "Ataque";
+    if(SIT_CAT_ORDEN.indexOf(ST.tab.sc)<0 || (!ST.tab.sc)) ST.tab.sc=catSel;
+    var sc=ST.tab.sc;
+    var tabsCat='<div class="tabs" style="flex-wrap:wrap">'+SIT_CAT_ORDEN.map(function(c){ var n=todas.filter(function(e){ return catSit(e.x.id,e.grp)===c; }).length; return '<button class="'+(sc===c?"on":"")+'" onclick="'+on(function(){ST.tab.sc=c;go()})+'">'+esc(c)+(n?' · '+n:'')+'</button>'; }).join("")+'</div>';
+    var nota=(sc==="Previa")?"La genera el juego al empezar el partido. No se edita aquí.":(sc==="Post partido")?"La genera el juego al terminar el partido. No se edita aquí.":"";
     SIT_CAT_ORDEN.forEach(function(cat){
-      if(cat==="Previa"){ items.push({gh:"Previa · la genera el juego al empezar el partido"}); return; }
-      if(cat==="Post partido"){ items.push({gh:"Post partido · la genera el juego al terminar"}); return; }
+      if(cat==="Previa"||cat==="Post partido") return;
+      if(!q && cat!==sc) return;
       var miembros=todas.filter(function(e){ return catSit(e.x.id,e.grp)===cat; });
       if(!miembros.length) return;
-      items.push({gh:cat+" · "+miembros.length});
-      miembros.forEach(function(e){ var x=e.x, tt=isFn(x.t)?x.id:x.t; if(q && (tt+x.id).toLowerCase().indexOf(q)<0) return; items.push({id:x.id,n:tt,rt:x.pos?x.pos.join(" "):"",ch:chgPre(e.pre+"."+x.id+"."),off:val(e.pre+"."+x.id+".off")}); if(x.id===(ST.sel.si||"por-salida")) cur=[x,e.pre,e.grp]; });
+      if(q) items.push({gh:cat});
+      miembros.forEach(function(e){ var x=e.x, tt=isFn(x.t)?x.id:x.t; if(q && (tt+x.id).toLowerCase().indexOf(q)<0) return; items.push({id:x.id,n:tt,rt:x.pos?x.pos.join(" "):"",ch:chgPre(e.pre+"."+x.id+"."),off:val(e.pre+"."+x.id+".off")}); });
     });
     if(!cur) cur=[G.SITS[0],"si.j","En juego"];
     var x=cur[0], pre=cur[1]+"."+x.id, L=isFn(x.t)?x.id:x.t;
@@ -861,7 +868,7 @@ V.partido=function(){
       x.o.map(function(o,i){ var po=pre+".o"+i, Lo=L+" · opción "+(i+1); return '<div class="opt"><div class="row" style="margin-bottom:6px"><b>Opción '+(i+1)+'</b><span class="sp"></span>'+btn("✕",T("Quita la opción"),"sm")+'</div>'+fld(po+".l","Botón",o.l,{full:Lo+" · botón"})+'<div class="f"><label>Efectos</label>'+fxEd(po+".fx",o.fx,G.CONT_R.sitfx,Lo)+'<div class="fab"></div></div>'+(o.ok!==undefined?fld(po+".ok","Si sale bien",o.ok,{type:"area",full:Lo+" · si sale bien"}):"")+(o.mid!==undefined?fld(po+".mid","Si no pasa nada",o.mid,{type:"area",full:Lo+" · si no pasa nada"}):"")+(o.ko!==undefined&&o.ko!==""?fld(po+".ko","Si sale mal",o.ko,{type:"area",full:Lo+" · si sale mal"}):"")+'</div>'; }).join("")+
       (x.o.length<4?'<div style="margin-top:10px">'+btn("+ Opción",T("Añade una opción (máximo 4)"),"sm")+'</div>':""),
       '<span class="tag">'+cur[2]+'</span> '+btn("Duplicar",T("Crea una situación nueva a partir de esta"),"sm")+" "+btn("Probar",T("Abre el juego con esta situación forzada"),"sm"));
-    return h+t+'<div class="split">'+lst(items,x.id,function(id){ST.sel.si=id;go()},{top:'<input type="text" placeholder="Filtrar situaciones" value="'+esc(ST.sel.sq||"")+'" style="margin:2px 0 6px" onchange="'+on(function(v){ST.sel.sq=v;go()})+'">'})+det+'</div>';
+    return h+t+tabsCat+'<div class="split">'+lst(items,x.id,function(id){ST.sel.si=id;go()},{top:'<input type="text" placeholder="Filtrar situaciones" value="'+esc(ST.sel.sq||"")+'" style="margin:2px 0 6px" onchange="'+on(function(v){ST.sel.sq=v;go()})+'">'+(!q&&nota?'<p class="small mut" style="margin:6px 0">'+nota+'</p>':'')})+det+'</div>';
   }
   if(tb==="Reloj"){ var R=G.RELOJ, rr=G.CONT_R.reloj, ej=function(n){ return nf(clamp(val("rl.base")+n*val("rl.letra"),val("rl.min"),val("rl.max"))*val("rl.factor")/1000,1); };
     var hh=fld("rl.base","Tiempo base (ms)",R.base,{type:"range",min:rr.base[0],max:20000,step:100,full:"Reloj · base"})+fld("rl.letra","Por letra (ms)",R.letra,{type:"range",min:rr.letra[0],max:rr.letra[1],step:1,full:"Reloj · por letra",d:"Los textos largos dan más tiempo."})+fld("rl.min","Mínimo (ms)",R.min,{type:"range",min:rr.min[0],max:30000,step:100,full:"Reloj · mínimo"})+fld("rl.max","Máximo (ms)",R.max,{type:"range",min:rr.max[0],max:60000,step:100,full:"Reloj · máximo"})+fld("rl.fuera","Fuera del partido ×",R.fuera,{type:"range",min:rr.fuera[0],max:rr.fuera[1],step:0.05,full:"Reloj · fuera del partido",d:"Banquillo y descanso."})+fld("rl.factor","Factor general ×",R.factor,{type:"range",min:rr.factor[0],max:rr.factor[1],step:0.05,full:"Reloj · factor general"});
