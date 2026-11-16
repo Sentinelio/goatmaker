@@ -152,7 +152,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const r3 = await fetch(BASE + '/tele', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ k: KEY, op: 'contenido', install: 'x', have: 0 }) }); ok(r3.status === 400, 'P35 op contenido con id malo → 400');
   /* —— móvil sin desborde horizontal —— */
   const mctx = await browser.newContext({ viewport: { width: 390, height: 844 } }); const m = await mctx.newPage(); mon(m);
-  await m.goto('file://' + ADM); await m.fill('#l-url', BASE); await m.fill('#l-mail', 'a@t.local'); await m.fill('#l-pass', 'testpass1234'); await m.click('#l-go'); await m.waitForSelector('#nav button'); await m.click('nav button[data-t=contenido]'); await m.waitForSelector('[data-cs=pub]');
+  await m.goto('file://' + ADM); await m.fill('#l-url', BASE); await m.fill('#l-mail', 'a@t.local'); await m.fill('#l-pass', 'testpass1234'); await m.click('#l-go'); await m.waitForSelector('#nav button'); await m.click('#bmenu'); await m.click('nav button[data-t=contenido]'); await m.waitForSelector('[data-cs=pub]');
   for (const s of ['pub', 'reloj', 'ent', 'tal', 'tie', 'sit']) { await m.click('[data-cs=' + s + ']'); await m.waitForTimeout(100); const w = await m.evaluate(() => document.documentElement.scrollWidth); ok(w <= 392, 'P36 móvil sin desborde en ' + s + ' (' + w + ' px)'); }
   ok(errs.length === 0, 'sin errores de consola: ' + errs.slice(0, 3).join(' | '));
   await browser.close(); srv.kill();

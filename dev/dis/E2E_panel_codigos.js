@@ -126,7 +126,7 @@ const SEED = `(function(){var a=3*2654435761>>>0;Math.random=function(){a|=0;a=a
   /* móvil */
   const mctx = await browser.newContext({ viewport: { width: 390, height: 844 } }); const m = await mctx.newPage(); mon(m);
   await m.goto('file://' + ADM); await m.fill('#l-url', BASE); await m.fill('#l-mail', 'a@t.local'); await m.fill('#l-pass', 'testpass1234'); await m.click('#l-go'); await m.waitForSelector('#nav button'); await m.waitForTimeout(700);
-  for (const tab of ['codigos', 'reportes']) { await m.click('nav button[data-t=' + tab + ']'); await m.waitForTimeout(300); const w = await m.evaluate(() => document.documentElement.scrollWidth); ok(w <= 391, 'M ' + tab + ' sin desborde horizontal en móvil (' + w + ')'); }
+  for (const tab of ['codigos', 'reportes']) { await m.click('#bmenu'); await m.click('nav button[data-t=' + tab + ']'); await m.waitForTimeout(300); const w = await m.evaluate(() => document.documentElement.scrollWidth); ok(w <= 391, 'M ' + tab + ' sin desborde horizontal en móvil (' + w + ')'); }
   await m.screenshot({ path: '/tmp/tele/adm_reportes_movil.png' });
   await a.click('nav button[data-t=codigos]'); await a.waitForTimeout(250); await a.screenshot({ path: '/tmp/tele/adm_codigos.png', fullPage: true });
 

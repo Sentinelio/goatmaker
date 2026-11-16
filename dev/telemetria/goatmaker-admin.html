@@ -59,6 +59,31 @@ input.f:focus,select.f:focus,textarea.f:focus{outline:0;border-color:#34395a}
 .cf.ch input.f,.cf.ch textarea.f{border-color:var(--gold)}td .cf span{display:none}
 button:disabled{opacity:.45;cursor:default}
 @media(max-width:700px){.ce-sg{grid-template-columns:1fr!important}.g2{grid-template-columns:1fr}.tl .t{width:84px}}
+
+/* ---- carcasa nueva: cabecera + barra lateral (estilo del prototipo) ---- */
+.shell{display:grid;grid-template-columns:232px 1fr;grid-template-rows:54px 1fr;height:100vh}
+.shell .top{grid-column:1/3;display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--line);background:#0b0d16;position:relative;z-index:6}
+.shell .brand{width:208px;flex:none;font-size:17px}
+.shell .sp{flex:1}
+.side{background:#0b0d16;border-right:1px solid var(--line);overflow:auto;padding:6px 8px 30px}
+nav.side{display:block;gap:0;flex-wrap:nowrap}
+nav.side button{display:flex;margin:0 0 2px;padding:6px 10px}
+.side h4{margin:10px 0 3px;padding:6px 10px;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--mut)}
+.side button{display:flex;align-items:center;gap:9px;width:100%;padding:6px 10px;border:0;border-radius:8px;background:none;color:#b9bed2;cursor:pointer;font:inherit;font-weight:550;text-align:left}
+.side button:hover{background:var(--card)}
+.side button.on{background:var(--card2);color:var(--tx);box-shadow:inset 2px 0 0 var(--gold)}
+.side button em{margin-left:auto;font-style:normal;font-size:11px;background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:0 7px}
+.side button em.hot{background:var(--gold);color:#241800;border-color:var(--gold);font-weight:700}
+.shell .main{overflow:auto;padding:20px 24px 90px;min-width:0}
+#bmenu{display:none}
+@media(max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .shell .main{padding:14px 14px 60px}
+  #bmenu{display:inline-block}
+  .side{position:fixed;top:54px;bottom:0;left:0;width:260px;z-index:18;transform:translateX(-100%);transition:transform .18s;box-shadow:12px 0 40px #000}
+  .shell.menu .side{transform:none}
+}
+@media(max-width:560px){.shell .brand{display:none}}
 </style>
 </head>
 <body>
@@ -73,14 +98,18 @@ button:disabled{opacity:.45;cursor:default}
 </div>
 
 <div id="app" class="hide">
-<header><div class="hd">
-  <div class="brand">Goatmaker · <b>Admin</b></div>
-  <nav id="nav"></nav><div class="sp"></div>
-  <span class="small mut" id="upd"></span>
-  <button class="b" id="refresh">↻ Actualizar</button>
-  <button class="b" id="logout">Salir</button>
-</div></header>
-<div class="wrap" id="main"></div>
+<div class="shell" id="shell">
+  <div class="top">
+    <button class="b" id="bmenu" title="Menú">☰</button>
+    <div class="brand">Goatmaker · <b>Admin</b></div>
+    <div class="sp"></div>
+    <span class="small mut" id="upd"></span>
+    <button class="b" id="refresh">↻ Actualizar</button>
+    <button class="b" id="logout">Salir</button>
+  </div>
+  <nav class="side" id="nav"></nav>
+  <main class="main" id="main"></main>
+</div>
 </div>
 
 <script>
@@ -91,6 +120,7 @@ function h(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return(
 function club(id){return CLUBES[id]||id||"—"}
 var ST={url:"",tok:"",players:[],sessions:[],events:[],snaps:[],codes:[],canjes:[],reports:[],tab:"resumen",sel:null,sort:{k:"last_t",d:-1},fEv:{},at:0};
 var TABS=[["resumen","Resumen"],["jugadores","Jugadores"],["codigos","Códigos"],["reportes","Reportes"],["contenido","Contenido"],["errores","Errores"],["balance","Balance"]];
+var SIDE=[["Portal",["resumen","balance"]],["Usuarios",["jugadores","codigos","reportes","errores"]],["Juego",["contenido"]]];
 
 /* ---------- utilidades ---------- */
 function ago(t){if(!t)return"—";var s=Math.max(0,(Date.now()-t)/1000);if(s<90)return"ahora";if(s<3600)return Math.round(s/60)+" min";if(s<86400)return Math.round(s/3600)+" h";return Math.round(s/86400)+" d"}
@@ -139,7 +169,7 @@ function nom(p){return p.label||(p.estado&&p.estado.nombre)||p.install.slice(0,8
 /* ---------- vistas ---------- */
 function render(){
   var nNuevos=ST.reports.filter(function(r){return r.estado==="nuevo"}).length;
-  $("nav").innerHTML=TABS.map(function(t){return'<button data-t="'+t[0]+'" class="'+((ST.tab===t[0]&&!ST.sel)?"on":"")+'">'+t[1]+(t[0]==="reportes"&&nNuevos?' <span class="tag gold">'+nNuevos+'</span>':'')+'</button>'}).join("");
+  $("nav").innerHTML=SIDE.map(function(g){return'<h4>'+g[0]+'</h4>'+g[1].map(function(k){var t=TABS.filter(function(x){return x[0]===k})[0];return'<button data-t="'+t[0]+'" class="'+((ST.tab===t[0]&&!ST.sel)?"on":"")+'">'+t[1]+(t[0]==="reportes"&&nNuevos?'<em class="hot">'+nNuevos+'</em>':'')+'</button>'}).join("")}).join("");
   $("upd").textContent="Actualizado "+new Date(ST.at).toLocaleTimeString("es-ES");
   if(ST.sel)return detalle(ST.sel);
   ({resumen:vResumen,jugadores:vJugadores,codigos:vCodigos,reportes:vReportes,contenido:vContenido,errores:vErrores,balance:vBalance})[ST.tab]()
@@ -562,7 +592,7 @@ document.addEventListener("click",async function(ev){var t=ev.target,c=t.closest
 
 /* ---------- eventos de la interfaz ---------- */
 document.addEventListener("click",async function(ev){
-  var t=ev.target,n=t.closest&&t.closest("[data-t]");if(n&&n.parentNode.id==="nav"){ST.tab=n.dataset.t;ST.sel=null;return render()}
+  var t=ev.target,n=t.closest&&t.closest("[data-t]");if(n&&n.parentNode.id==="nav"){ST.tab=n.dataset.t;ST.sel=null;$("shell").classList.remove("menu");return render()}
   var rfc=t.closest&&t.closest("[data-rf]");if(rfc){ST.rf[rfc.dataset.rf]=rfc.dataset.v;return render()}
   var ba=t.closest&&t.closest("[data-a]");if(ba)return accionCodigo(ba.dataset.a,ba.dataset.id);
   var bra=t.closest&&t.closest("[data-ra]");if(bra)return accionReporte(bra.dataset.ra,bra.dataset.id);
@@ -582,7 +612,7 @@ document.addEventListener("change",async function(ev){var t=ev.target;
   if(t.dataset&&t.dataset.fk){t.closest("label").classList.toggle("on",t.checked);return}
   if(t.dataset&&(t.dataset.re||t.dataset.rn)){var id=t.dataset.re||t.dataset.rn,patch=t.dataset.re?{estado:t.value}:{nota_admin:t.value.trim().slice(0,2000)};try{await api("/api/collections/tl_reports/records/"+id,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(patch)});var r=ST.reports.find(function(x){return x.id===id});if(r)Object.assign(r,patch);t.style.borderColor="var(--ok)";setTimeout(function(){t.style.borderColor=""},800);if(t.dataset.re)setTimeout(render,250)}catch(e){alert("No se pudo guardar: "+e.message)}return}
 if(t.classList&&t.classList.contains("lab")){try{await api("/api/collections/tl_players/records/"+t.dataset.l,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({label:t.value.trim().slice(0,80)})});var p=ST.players.find(function(x){return x.id===t.dataset.l});if(p)p.label=t.value.trim();t.style.borderColor="var(--ok)";setTimeout(function(){t.style.borderColor=""},800)}catch(e){alert("No se pudo guardar: "+e.message)}}});
-$("l-go").onclick=login;$("l-pass").addEventListener("keydown",function(e){if(e.key==="Enter")login()});
+$("l-go").onclick=login;$("bmenu").onclick=function(){$("shell").classList.toggle("menu")};$("l-pass").addEventListener("keydown",function(e){if(e.key==="Enter")login()});
 setInterval(function(){if(ST.tok&&!document.hidden&&ST.tab!=="contenido"&&Date.now()-ST.at>60000&&!ST.sel&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))load()},30000);
 (function init(){try{$("l-url").value=/^https?:$/.test(location.protocol)?location.origin:(localStorage.getItem("gm-adm-url")||"");var s=JSON.parse(sessionStorage.getItem("gm-adm")||"null");if(s&&s.t){ST.url=s.u;ST.tok=s.t;$("login").classList.add("hide");$("app").classList.remove("hide");load()}}catch(e){}})();
 </script>
