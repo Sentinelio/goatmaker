@@ -30,6 +30,7 @@ Lee esto primero en una sesión nueva. Resume todo lo hecho hasta v4.69.0. Detal
 | **4.69.10** | partido: las últimas 3 acciones van a la base de la pantalla, con una línea vacía sobre ellas y la caja de resumen/cronología/decisiones arriba | `d353f40dd288ac2de8e758c676d198fe` |
 | **4.69.11** | partido: la caja de resumen/cronología/decisiones ocupa todo el espacio libre sobre las últimas acciones (con scroll), en vez de quedar encogida | `4c9b645f6f98e20dfe9ec1e3841e19a2` |
 | **4.69.12** | partido: las flechas y pestañas de la caja vuelven a su tamaño; solo el contenido ocupa el espacio libre | `2b3475f57716c6b518ec0218b8d1c996` |
+| **4.69.13** | partido: vuelta a la maquetación de 4.69.9 (flechas, pestañas y textos sin cambios); solo la caja de contenido ocupa el espacio libre y las últimas acciones van abajo, con una línea vacía sobre ellas | `5b2fc1fb141855db5a10c175ed6d8612` |
 
 Repo: `github.com/Sentinelio/goatmaker`, rama main, GitHub Pages en `https://sentinelio.github.io/goatmaker/` (misma origin que otra app de Manu, otra ruta). Commit 4.67.1: `b828c51`. Guardado del jugador: `localStorage` con prefijo `lap1-` (clave `lap1-save`), por navegador: cada amigo juega su partida sin ver la de otro.
 
