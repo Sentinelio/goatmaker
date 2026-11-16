@@ -786,7 +786,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.69.20";
+var VERSION="4.69.21";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -5639,7 +5639,7 @@ function renderCierre(){
   else if(M.miTR) cuerpo+='<p class="note" style="text-align:center;margin-top:8px;padding:9px 11px;border-radius:12px;background:rgba(255,84,112,.12);color:var(--ink)">🟥 Expulsado: sanción de un partido.</p>';
   M.resumenHTML=cuerpo;
   pintarMatch('<div id="mpanel" class="mpanel">'+panelHTML()+'</div>',
-    (M.postAviso||'')+'<button class="gold-btn" onclick="cerrarJornada()">Continuar</button>');
+    (M.postAviso||'')+extraNemesis()+'<button class="gold-btn" onclick="cerrarJornada()">Continuar</button>');
   activarSwipe();
 }
 function cerrarJornada(){
@@ -6131,7 +6131,7 @@ function rolPartido(){
   if(r==="titular") return M.enCampo? ["Titular","tit"] : ["Titular · has salido del campo","fue"];
   if(r==="suplente"){
     if(M.enCampo) return ["Suplente · ya en el campo","sup"];
-    if(M.entraEn) return ["Suplente · entras hacia el "+M.entraEn+"′","sup"];
+    if(M.entraEn) return ["Suplente · en el banquillo","sup"];
     return ["Suplente · hoy no juegas","fue"];
   }
   return ["Fuera de la convocatoria","fue"];
@@ -6204,13 +6204,32 @@ function jugadorFuera(){
 function btnTerminar(){
   return jugadorFuera()? '<button class="gold-btn" style="margin-top:10px;width:100%" onclick="simularResto()">Terminar el partido</button>' : '';
 }
+/* preguntar por tu archienemigo: en la previa si eres titular, al final si eres suplente */
+function extraNemesis(){
+  if(!M || !M.nemesisHoy || !S.nemesis) return '';
+  var h='';
+  if(M.nemTxt) h+='<div class="avisobanca bien"><p class="abtxt">'+esc(M.nemTxt)+'</p></div>';
+  var pre=(M.faseAct==="previa" && M.convRol==="titular");
+  var post=(M.fase==="cierre" && M.convRol!=="titular");
+  if((pre||post) && !M.nemPreguntado) h+='<button class="ghost" style="width:100%;margin-top:8px" onclick="preguntarNemesis()">Preguntar por '+esc(S.nemesis.nombre)+'</button>';
+  return h;
+}
+function preguntarNemesis(){
+  if(!M || M.nemPreguntado || !S.nemesis) return;
+  M.nemPreguntado=true;
+  M.nemTxt=S.nemesis.nombre+" te devuelve la mirada y no contesta.";
+  sumarTension(S.nemesis.nombre, M.rival, S.nemesis.pos, 1, "Le preguntaste por lo suyo. No le hizo gracia.");
+  if(M.fase==="cierre") renderCierre(); else renderMatch(null,true);
+}
+function irAlFinalTl(){ var t=document.querySelector("#ov-match .tl"); if(t) t.scrollTop=t.scrollHeight; }
 function pintarMatch(cuerpo, pie){
   if(!M) return;   /* si el partido ya acabó, nada puede volver a taparlo todo */
   $("ov-match-inner").innerHTML='<div class="matchcard" style="position:relative">'+btnsPausa()+cabeceraMatch()
     +'<div class="mbody">'+cuerpo+'</div>'
-    +'<div class="mfoot">'+(pie||"")+btnTerminar()+'</div></div>';
+    +'<div class="mfoot">'+(pie||"")+extraNemesis()+btnTerminar()+'</div></div>';
   $("ov-match").classList.remove("hidden");
   activaMantenerEnPartido();
+  irAlFinalTl();
   vigilaGifs();
 }
 /* mantener en cualquier punto de la pantalla del partido (salvo los controles) pausa la barra activa */
@@ -6237,6 +6256,7 @@ function renderMatch(sit, tras){
       :M.faseAct==="post"?"Partido terminado · sala de prensa"
       :M.faseAct==="banquillo"?"Minuto "+M.min+" · desde el banquillo"
       :"Minuto "+M.min)+'</span></div>';
+    if(M.faseAct==="previa" || (M.faseAct==="banquillo" && M.min<=5)) cuerpo+='<p class="note" style="text-align:center;margin:4px 0 8px">'+(M.convRol==="titular"? "Eres titular. Sales en el once." : "Eres suplente. Empiezas en el banquillo.")+'</p>';
     M.pistas=M.pistas||{};
     if(PISTAS_ON && M.pistas[sit.id]===undefined && M.faseAct==="juego" && M.enCampo){
       var _p0=pistaDe(sit);
@@ -6302,6 +6322,7 @@ function panelIr(i){
   if(!M) return;
   PANEL=clamp(i,0,panelesDe().length-1);
   var el=$("mpanel"); if(el) el.innerHTML=panelHTML();
+  irAlFinalTl();
   vigilaGifs();
 }
 /* lista de decisiones: la usa la pestaña Yo, bajo la línea «Cómo se movió» */
@@ -6334,16 +6355,17 @@ function panelHTML(){
     +'</div>';
   if(pid==="res") return H+'<div class="presumen">'+(M.resumenHTML||"")+'</div>';
   if(pid==="tl"){
-    var C=(M.crono||[]).slice().sort(function(a,b){ return b.m-a.m; });
+    var C=(M.crono||[]).slice().sort(function(a,b){ return a.m-b.m; });
     function sep(txt, marca){ return '<div class="tlsep">'+txt+(marca? ' · <b>'+marca+'</b>':'')+'</div>'; }
     var g45=[0,0];
     (M.goles||[]).forEach(function(g){ if((g.m||0)<=45){ if(!!g.mio===!!M.casa) g45[0]++; else g45[1]++; } });
     var m45=(M.est1 && M.est1.golA!==undefined)? M.est1.golA+"–"+M.est1.golB : g45[0]+"–"+g45[1];
     var esCierre=(M.fase==="cierre"), pasado45=esCierre||M.tramo>=3||M.min>45, hayDescuento=C.some(function(e){return e.m>90;})||M.min>90;
     if(!C.length) return H
-      +(esCierre? sep("Final", M.sc[0]+"–"+M.sc[1]):"")
+      +sep("Previa","")
+      +((M.convRol==="suplente" && !M.yaJugado)? '<p class="note" style="text-align:center;margin:10px 0 0">Eres suplente. Empiezas en el banquillo.</p>':'')
       +'<p class="note" style="text-align:center;margin:14px 0">Todavía no ha pasado nada reseñable.</p>'
-      +(pasado45? sep("Descanso", m45):"")+sep("Previa","");
+      +(pasado45? sep("Descanso", m45):"")+(esCierre? sep("Final", M.sc[0]+"–"+M.sc[1]):"");
     var ICO={gol:"⚽", ta:'<b class="tcard tam"></b>', roja:'<b class="tcard tro"></b>', cambio:"", lesion:"🚑"};
     var FILAS=[];
     C.forEach(function(ev){
@@ -6363,15 +6385,13 @@ function panelHTML(){
         +'</div>');
     });
     /* fronteras del partido, leyendo de nuevo a viejo */
-    var cuerpoTl=(esCierre? sep("Final", M.sc[0]+"–"+M.sc[1]):"");
-    var prev=null;
+    var cuerpoTl=sep("Previa",""), desc=false;
     C.forEach(function(ev,i){
-      if(prev!==null && prev>45 && ev.m<=45) cuerpoTl+=sep("Descanso", m45);
+      if(!desc && ev.m>45 && pasado45){ cuerpoTl+=sep("Descanso", m45); desc=true; }
       cuerpoTl+=FILAS[i];
-      prev=ev.m;
     });
-    if(pasado45 && (prev===null || prev>45)) cuerpoTl+=sep("Descanso", m45);
-    cuerpoTl+=sep("Previa","");
+    if(pasado45 && !desc) cuerpoTl+=sep("Descanso", m45);
+    cuerpoTl+=(esCierre? sep("Final", M.sc[0]+"–"+M.sc[1]):"");
     return H+'<div class="tlhead"><b>'+esc(casaN.c)+'</b><span></span><b>'+esc(visN.c)+'</b></div>'
       +'<div class="tl'+full+'">'+cuerpoTl+'</div>';
   }
