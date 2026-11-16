@@ -11588,6 +11588,32 @@ function contExportarBase(){
   return {v:1, ver:VERSION, entrenos:contPlano(CONT_ORIG.entrenos), talentos:contPlano(CONT_ORIG.talentos), tienda:contPlano(CONT_ORIG.tienda), cats:contPlano(CONT_ORIG.cats),
     sits:contPlano(CONT_ORIG.sits), banq:contPlano(CONT_ORIG.banq), reloj:contClon(CONT_ORIG.reloj), partido:contClon(PARTIDO_FAB), orden:TALENTO_ORDEN.slice(), rangos:CONT_R};
 }
+/* «Cuándo sale» como lista: cada regla es {p, op, v}. Todas tienen que cumplirse, además de la condición del código. */
+var COND_PROPS={ min:"num", dif:"num", goles:"num", casa:"bool", marcador:"txt", azar:"pct" };
+var COND_OPS=[">=","<=",">","<","="];
+var COND_TXT=["ganas","empatas","pierdes"];
+function condListaErr(L){
+  if(!Array.isArray(L)) return "no es una lista";
+  for(var i=0;i<L.length;i++){ var r=L[i];
+    if(!r || typeof r!=="object" || !COND_PROPS.hasOwnProperty(r.p)) return "regla "+i+": propiedad no válida";
+    var t=COND_PROPS[r.p];
+    if(t==="num" && (COND_OPS.indexOf(r.op)<0 || typeof r.v!=="number")) return "regla "+i+": operador o número no válido";
+    if(t==="bool" && typeof r.v!=="boolean") return "regla "+i+": debe ser sí o no";
+    if(t==="txt" && COND_TXT.indexOf(r.v)<0) return "regla "+i+": valor no válido";
+    if(t==="pct" && (typeof r.v!=="number" || r.v<1 || r.v>100)) return "regla "+i+": porcentaje entre 1 y 100";
+  }
+  return null;
+}
+function condListaFn(L){
+  if(!L || !L.length) return null;
+  var get={ min:function(c){ return c.min; }, dif:function(c){ return c.sc[0]-c.sc[1]; }, goles:function(c){ return c.miGol||0; }, casa:function(c){ return !!c.casa; }, marcador:function(c,t){ return t.gano?"ganas":(t.empate?"empatas":"pierdes"); } };
+  function cmp(a,op,b){ return op===">="?a>=b: op==="<="?a<=b: op===">"?a>b: op==="<"?a<b: a===b; }
+  return function(c,t){ t=t||{}; return L.every(function(r){
+    if(r.p==="azar") return rnd()*100 < r.v;
+    var a=get[r.p](c,t);
+    if(COND_PROPS[r.p]==="num") return cmp(a,r.op,r.v);
+    return a===r.v; }); };
+}
 function contAplicar(P){
   contRestaurar();
   var rech=CONT.rech;
@@ -11707,6 +11733,7 @@ function contAplicar(P){
     var p=P.sits[id], s=TODAS.filter(function(x){ return x.id===id; })[0], ruta="sits."+id;
     if(!s){ rech.push(ruta+": situación que no existe"); return; } if(!esObj(p)){ rech.push(ruta+": no es un objeto"); return; }
     if(p.off===true){ s.off=true; s.cond=function(){ return false; }; }
+    if(p.cuando!==undefined){ var ce=condListaErr(p.cuando); if(ce) rech.push(ruta+".cuando: "+ce); else { var extra=condListaFn(p.cuando); if(extra){ var base=s.cond; s.cond=function(c,t){ return base(c,t) && extra(c,t); }; } } }
     if(p.t!==undefined){ if(typeof s.t!=="string") rech.push(ruta+".t: el título de esta situación lo calcula el juego"); else { var t=txt(p.t,R.txt.t,ruta+".t"); if(t!==null) s.t=t; } }
     if(p.x!==undefined){ if(typeof s.x!=="string") rech.push(ruta+".x: el texto de esta situación lo calcula el juego"); else { var x=txt(p.x,R.txt.x,ruta+".x"); if(x!==null) s.x=x; } }
     if(p.pos!==undefined){ var ps=posOk(p.pos,ruta+".pos"); if(ps!==undefined) s.pos=ps; }

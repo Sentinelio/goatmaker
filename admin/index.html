@@ -830,7 +830,40 @@ V.talentosEd=function(){
    Formato = bloque «sits» del paquete de contenido del juego: {v:1, sits:{id:{t,x,pos,off,o:{i:{l,ok,mid,ko,fx}}}}}.
    Importar no toca nada hasta pulsar Guardar; Guardar valida todo antes de aplicar (si hay un error, no aplica nada).
    Guardar deja los cambios en el borrador; Publicar los manda al juego. */
-OK_BTN.push("Copiar esta","Copiar todas","Importar","Pegar del portapapeles","Revisar","Guardar","Cerrar importación");
+OK_BTN.push("Copiar esta","Copiar todas","Importar","Pegar del portapapeles","Revisar","Guardar","Cerrar importación","+ condición");
+/* «Cuándo sale»: reglas que se suman a la condición del código. Mismo formato que el juego. */
+var COND_PROPS=[["min","Minuto","num"],["dif","Diferencia de goles (tú − rival)","num"],["goles","Tus goles","num"],["casa","Juegas en casa","bool"],["marcador","Marcador ahora","txt",["ganas","empatas","pierdes"],["vas ganando","empatas","vas perdiendo"]],["azar","Probabilidad (%)","pct"]];
+var COND_OPS=[">=","<=",">","<","="];
+function condErr(L){
+  if(!Array.isArray(L)) return "no es una lista";
+  for(var i=0;i<L.length;i++){ var r=L[i], d=COND_PROPS.filter(function(q){ return q[0]===r.p; })[0];
+    if(!d) return "regla "+(i+1)+": propiedad no válida";
+    if(d[2]==="num" && (COND_OPS.indexOf(r.op)<0 || typeof r.v!=="number")) return "regla "+(i+1)+": operador o número no válido";
+    if(d[2]==="bool" && typeof r.v!=="boolean") return "regla "+(i+1)+": debe ser sí o no";
+    if(d[2]==="txt" && d[3].indexOf(r.v)<0) return "regla "+(i+1)+": valor no válido";
+    if(d[2]==="pct" && (typeof r.v!=="number"||r.v<1||r.v>100)) return "regla "+(i+1)+": porcentaje entre 1 y 100"; }
+  return null; }
+function condEditor(pre,x){
+  reg(pre+".cuando",[],"Cuándo sale · reglas extra");
+  var L=val(pre+".cuando")||[];
+  var up=function(c2){ set(pre+".cuando", c2); };
+  var filas=L.map(function(r,i){
+    var d=COND_PROPS.filter(function(q){ return q[0]===r.p; })[0]||COND_PROPS[0], valor="";
+    var sel='<select onchange="'+on(function(v){ var d2=COND_PROPS.filter(function(q){ return q[0]===v; })[0]; var nr=d2[2]==="num"?{p:v,op:">=",v:0}:d2[2]==="bool"?{p:v,v:true}:d2[2]==="txt"?{p:v,v:d2[3][0]}:{p:v,v:50}; var c2=L.slice(); c2[i]=nr; up(c2); })+'">'
+      +COND_PROPS.map(function(q){ return '<option value="'+q[0]+'"'+(q[0]===r.p?' selected':'')+'>'+esc(q[1])+'</option>'; }).join("")+'</select>';
+    var setV=function(nr){ var c2=L.slice(); c2[i]=nr; up(c2); };
+    if(d[2]==="num") valor='<select onchange="'+on(function(v){ setV(Object.assign({},r,{op:v})); })+'">'+COND_OPS.map(function(o){ return '<option'+(o===r.op?' selected':'')+'>'+o+'</option>'; }).join("")+'</select>'
+      +' <input type="number" step="1" value="'+r.v+'" style="width:70px" onchange="'+on(function(v){ setV(Object.assign({},r,{v:Number(v)})); })+'">';
+    else if(d[2]==="bool") valor='<select onchange="'+on(function(v){ setV(Object.assign({},r,{v:v==="sí"})); })+'">'+["sí","no"].map(function(o){ return '<option'+((r.v?"sí":"no")===o?' selected':'')+'>'+o+'</option>'; }).join("")+'</select>';
+    else if(d[2]==="txt") valor='<select onchange="'+on(function(v){ setV(Object.assign({},r,{v:v})); })+'">'+d[3].map(function(o,k){ return '<option value="'+o+'"'+(o===r.v?' selected':'')+'>'+d[4][k]+'</option>'; }).join("")+'</select>';
+    else valor='<input type="number" min="1" max="100" value="'+r.v+'" style="width:70px" onchange="'+on(function(v){ setV(Object.assign({},r,{v:Number(v)})); })+'"> %';
+    return '<div class="row" style="gap:6px;margin-bottom:6px;flex-wrap:wrap">'+sel+valor+'<span class="sp"></span>'+btn("✕",function(){ var c2=L.slice(); c2.splice(i,1); up(c2); },"sm")+'</div>'; }).join("");
+  return '<div class="f"><label>Cuándo sale</label><div>'
+    +(x.cond? '<p class="small mut" style="margin:0 0 8px">Además sale solo si se cumple su condición fija del código (no se edita). <details style="display:inline"><summary style="cursor:pointer">ver código</summary><div class="code" style="margin-top:6px">'+esc(String(x.cond).replace(/^function\s*\([^)]*\)\s*\{\s*return\s*/,"").replace(/;\s*\}\s*$/,""))+'</div></details></p>':'')
+    +(filas || '<p class="small mut" style="margin:0 0 8px">Sin reglas extra: sale según el código.</p>')
+    +btn("+ condición",function(){ up(L.concat([{p:"min",op:">=",v:20}])); },"sm")
+    +'</div><div class="fab"></div></div>'; }
+
 function sitLista(){ var out=[]; [["si.j",G.SITS],["si.b",G.SITS_BANQUILLO],["si.c",G.SITS_CAMBIO],["si.k",G.SITS_CLUTCH]].forEach(function(g){ g[1].forEach(function(x){ out.push({x:x,pre:g[0]}); }); }); return out; }
 function vv(p,fab){ reg(p,fab,"Situación · "+p.split(".").slice(2).join(".")); return val(p); }
 function sitFxLeer(base,fx){ var out={}; Object.keys(fx||{}).forEach(function(k){ var v=fx[k], p=base+"."+k;
@@ -841,6 +874,7 @@ function sitObj(e){ var x=e.x, pre=e.pre+"."+x.id, o={};
   if(!isFn(x.x)) o.x=vv(pre+".x",x.x);
   o.pos=vv(pre+".pos",x.pos||null);
   o.off=vv(pre+".off",false);
+  var cu=vv(pre+".cuando",[]); if(cu && cu.length) o.cuando=JSON.parse(JSON.stringify(cu));
   o.o={};
   x.o.forEach(function(op,i){ var po=pre+".o"+i, r={};
     if(!isFn(op.l)) r.l=vv(po+".l",op.l);
@@ -880,6 +914,7 @@ function sitRevisar(txt){
     if(s2.x!==undefined){ if(isFn(x.x)) err("el texto lo calcula el juego"); else if(typeof s2.x!=="string"||!s2.x.trim()) err("texto vacío o no es texto"); else put(pre+".x",s2.x.trim()); }
     if(s2.pos!==undefined){ if(s2.pos!==null && (!Array.isArray(s2.pos)||!s2.pos.length||s2.pos.some(function(q){ return POSS.indexOf(q)<0; }))) err("puestos no válidos"); else put(pre+".pos",s2.pos); }
     if(s2.off!==undefined){ if(typeof s2.off!=="boolean") err("off debe ser sí/no"); else put(pre+".off",s2.off); }
+    if(s2.cuando!==undefined){ var ce=condErr(s2.cuando); if(ce) err("cuando: "+ce); else put(pre+".cuando",s2.cuando); }
     if(s2.o!==undefined){ if(!s2.o||typeof s2.o!=="object"||Array.isArray(s2.o)) err("o no es un objeto");
       else Object.keys(s2.o).forEach(function(i){
         var op=x.o[+i], r=s2.o[i], po=pre+".o"+i;
@@ -978,7 +1013,7 @@ V.partido=function(){
       (isFn(x.t)?'<div class="f"><label>Título</label><div>'+fn(x.t,"Texto que depende del momento del partido; se edita en el código.")+'</div><div class="fab"></div></div>':fld(pre+".t","Título",x.t,{full:L+" · título"}))+
       (isFn(x.x)?'<div class="f"><label>Texto</label><div>'+fn(x.x,"Texto que depende del momento del partido; se edita en el código.")+'</div><div class="fab"></div></div>':fld(pre+".x","Texto",x.x,{type:"area",rows:3,full:L+" · texto"}))+
       fld(pre+".pos","Puestos",x.pos||null,{type:"multi",opts:POSS,nullEmpty:true,full:L+" · puestos"})+
-      (x.cond?'<div class="f"><label>Cuándo sale</label><div>'+fn(x.cond,"Condición escrita en el código. No se edita desde el panel.")+'</div><div class="fab"></div></div>':"")+
+      condEditor(pre,x)+
       fld("rl.sit."+x.id,"Reloj propio (s)",0,{min:0,max:120,step:1,full:L+" · reloj propio",d:"0 = usa el reloj general."})+
       fld(pre+".off","Fuera de catálogo",false,{type:"tog",full:L+" · fuera de catálogo",si:"No sale nunca",no:"Puede salir"})+
       x.o.map(function(o,i){ var po=pre+".o"+i, Lo=L+" · opción "+(i+1); return '<div class="opt"><div class="row" style="margin-bottom:6px"><b>Opción '+(i+1)+'</b><span class="sp"></span>'+btn("✕",T("Quita la opción"),"sm")+'</div>'+fld(po+".l","Botón",o.l,{full:Lo+" · botón"})+'<div class="f"><label>Efectos</label>'+fxEd(po+".fx",o.fx,G.CONT_R.sitfx,Lo)+'<div class="fab"></div></div>'+(o.ok!==undefined?fld(po+".ok","Si sale bien",o.ok,{type:"area",full:Lo+" · si sale bien"}):"")+(o.mid!==undefined?fld(po+".mid","Si no pasa nada",o.mid,{type:"area",full:Lo+" · si no pasa nada"}):"")+(o.ko!==undefined&&o.ko!==""?fld(po+".ko","Si sale mal",o.ko,{type:"area",full:Lo+" · si sale mal"}):"")+'</div>'; }).join("")+
@@ -1597,7 +1632,7 @@ async function pbCarga(){
     var ps=ult.items&&ult.items[0]&&ult.items[0].pack&&ult.items[0].pack.sits;
     if(ps){ var byId={}; sitLista().forEach(function(e){ byId[e.x.id]=e; });
       Object.keys(ps).forEach(function(id){ var e=byId[id], sx=ps[id]; if(!e||!sx) return; var pre=e.pre+"."+id;
-        ["t","x","pos","off"].forEach(function(k){ if(sx[k]!==undefined) BASE[pre+"."+k]=sx[k]; });
+        ["t","x","pos","off","cuando"].forEach(function(k){ if(sx[k]!==undefined) BASE[pre+"."+k]=sx[k]; });
         Object.keys(sx.o||{}).forEach(function(i){ var r=sx.o[i], po=pre+".o"+i;
           ["l","ok","mid","ko"].forEach(function(k){ if(r[k]!==undefined) BASE[po+"."+k]=r[k]; });
           (function fx(base,f){ Object.keys(f||{}).forEach(function(k){ var v=f[k], q=base+"."+k; if(v&&typeof v==="object"&&!Array.isArray(v)) fx(q,v); else if(typeof v==="number"||typeof v==="boolean") BASE[q]=v; }); })(po+".fx", r.fx);
