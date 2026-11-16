@@ -634,7 +634,26 @@ V.interruptores=function(){
   return hd("Interruptores","Encienden o apagan partes del juego al momento, sin publicar versión. Cada uno admite excepciones por grupo o jugador.")+
   card("",FLAGS.map(function(f){ var ab=ST.sel.flag===f[0]; return '<div class="f"><label>'+f[1]+'<small>'+f[2]+'</small></label><div><div class="row">'+sw(f[3],function(){f[3]=!f[3];go();toast(f[1]+": "+(f[3]?"encendido":"apagado"))})+'<span class="small mut">'+(f[3]?"Encendido":"Apagado")+' para todos'+(f[0]==="pistas"?' · <b style="color:var(--tx)">1 excepción</b>':'')+'</span><span class="small mut">· '+f[4]+'</span></div>'+(ab?'<div class="opt"><div class="row"><select style="width:auto"><option>Grupo: Testers</option><option>Grupo: Amigos</option><option>Un jugador…</option></select><select style="width:auto"><option>Encendido</option><option>Apagado</option></select>'+btn("Añadir excepción",T("Excepción añadida"),"sm")+'</div>'+(f[0]==="pistas"?'<div class="diff" style="margin-top:8px"><span class="p">Grupo <b>Testers</b>: siempre encendido</span>'+btn("Quitar",T("Excepción quitada"),"sm")+'</div>':'')+'</div>':'')+'</div><div class="fab"><a onclick="'+on(function(){ST.sel.flag=ab?null:f[0];go()})+'">'+(ab?"cerrar":"excepciones")+'</a></div></div>'; }).join(""));
 };
-function publicar(){ var n=$("nota"); if(!n || !n.value.trim()){ toast("Escribe la nota de la versión"); return; } ST.ver++; VERS.unshift([ST.ver,"ahora",n.value,nCam()]); Object.keys(DRAFT).forEach(function(p){ BASE[p]=DRAFT[p]; }); DRAFT={}; go(); toast("Publicada la versión "+ST.ver); }
+function publicarLocal(){ var n=$("nota"); if(!n || !n.value.trim()){ toast("Escribe la nota de la versión"); return; } ST.ver++; VERS.unshift([ST.ver,"ahora",n.value,nCam()]); Object.keys(DRAFT).forEach(function(p){ BASE[p]=DRAFT[p]; }); DRAFT={}; go(); toast("Publicada la versión "+ST.ver); }
+/* los ajustes de partido llegan al juego: se publica una versión nueva de tl_content partiendo de la última
+   publicada (así no se pierde lo que ya haya publicado el admin antiguo) y solo cambia el bloque «partido» */
+function pbPublicaPartido(nota){
+  var mn=val("pj.min"), mx=val("pj.max");
+  return pbApi("/api/collections/tl_content/records?perPage=1&sort=-n&filter="+encodeURIComponent("(kind='ver')")).then(function(r){
+    var last=r.items&&r.items[0];
+    var pack=(last&&last.pack)? JSON.parse(JSON.stringify(last.pack)) : {v:1};
+    pack.v=1; pack.partido={min:mn,max:mx,previa:val("pj.previa"),post:val("pj.post")};
+    return pbApi("/api/collections/tl_content/records",{method:"POST",headers:PB_JSON,body:JSON.stringify({kind:"ver",n:(last?last.n:0)+1,pack:pack,nota:nota,t:Date.now(),ver_juego:CUR_VER})});
+  });
+}
+function publicar(){
+  var n=$("nota"); if(!n || !n.value.trim()){ toast("Escribe la nota de la versión"); return; }
+  var pj=Object.keys(DRAFT).some(function(p){ return p.indexOf("pj.")===0; });
+  if(!pj) return publicarLocal();
+  if(val("pj.min")>val("pj.max")){ toast("El máximo de situaciones no puede ser menor que el mínimo"); return; }
+  pbPublicaPartido(n.value.trim()).then(function(){ publicarLocal(); toast("Publicado en el juego"); },
+    function(e){ toast("No se publicó en el juego: "+(e.message||e)); });
+}
 V.publicacion=function(){
   var ks=Object.keys(DRAFT), porSec={};
   ks.forEach(function(p){ var s="otros"; Object.keys(PRE).forEach(function(k){ PRE[k].forEach(function(pre){ if(p.indexOf(pre)===0) s=k; }); }); (porSec[s]=porSec[s]||[]).push(p); });
