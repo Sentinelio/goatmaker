@@ -11096,6 +11096,11 @@ function pintarNegociacion(){
       return;
     }
   }
+  if(CONTRA.ultima && CONTRA.ultima.resp==="no"){
+    H+='<div class="card" style="border-color:var(--bad)"><div class="eyebrow">Tu última contraoferta</div>'
+      +'<p class="note" style="margin:6px 0 0">Presentaste '+txtPropuesta(CONTRA.ultima)+'. No la aceptaron.</p>'
+      +'<p class="note" style="margin:6px 0 0">Siguen con su oferta: '+txtPropuesta(c)+'. Paciencia del club: '+barraPac(CONTRA.pac!==undefined?CONTRA.pac:100)+'</p></div>';
+  }
   H+='<div class="card"><div class="eyebrow">Las cifras</div>'
     +sliderHTML("Salario anual","salario",CONTRA.salario,L.salMin,L.salMax,Math.max(1000,Math.round(c.salario*0.02)))
     +sliderHTML("Duración","anos",CONTRA.anos,L.anosMin,L.anosMax,1)
@@ -11126,6 +11131,8 @@ function sliderHTML(lb,k,v,min,max,step){
     +'oninput="setSlider(\''+k+'\',this.value)" onchange="setSlider(\''+k+'\',this.value)" style="--p:'+pct+'%">'
     +'<span class="sval" id="sv-'+k+'"></span></div>';
 }
+/* una propuesta en una línea: «1,5 M€/año · 4 temp · cláusula 4,0 M€» */
+function txtPropuesta(x){ return fmtDinero(x.salario)+"/año · "+x.anos+(x.anos===1?" temp":" temp")+" · cláusula "+fmtDinero(x.clausula); }
 function presentarContra(){
   if(!PICK || !PICK.tanda || !PICK.tanda[PICK.negIdx] || !CONTRA) return;
   var o=PICK.tanda[PICK.negIdx], eq=EQ[o.id];
@@ -11133,6 +11140,7 @@ function presentarContra(){
   var acepta=rnd()<pr;
   if(!acepta){ CONTRA.pac=Math.max(0, (CONTRA.pac!==undefined?CONTRA.pac:100) - (16+Math.round(exigencia(o.contrato)*2.2)) ); }
   var ofende=!acepta && (CONTRA.pac<=0 || (pr<0.16 && rnd()<0.4) || (CONTRA.pac<25 && rnd()<0.5));
+  CONTRA.ultima={salario:CONTRA.salario, anos:CONTRA.anos, clausula:CONTRA.clausula, resp: acepta?"si":(ofende?"retira":"no")};
   if(acepta){
     PICK.contraOK=JSON.parse(JSON.stringify(CONTRA));
     var ex=EXTRAS.filter(function(x){ return CONTRA.extras[x.id]; }).map(function(x){ return x.n.toLowerCase(); });
@@ -11143,7 +11151,8 @@ function presentarContra(){
   } else if(ofende){
     modal({ico:"🚪", t:"Oferta retirada", peligro:true,
       x:(CONTRA.pac<=0? "«Basta. Llevamos toda la mañana dando vueltas a lo mismo.» Al "+esc(eq.c)+" se le agota la paciencia y retira la oferta."
-                        : "«Si esto es lo que pides antes de debutar, mejor lo dejamos.» El "+esc(eq.c)+" se levanta de la mesa."),
+                        : "«Si esto es lo que pides antes de debutar, mejor lo dejamos.» El "+esc(eq.c)+" se levanta de la mesa.")
+                      +" Tu última propuesta era "+txtPropuesta(CONTRA)+".",
       okTxt:"Volver a las ofertas", cancelTxt:"Cerrar",
       onOk:function(){ PICK.tanda.splice(PICK.negIdx,1); CONTRA=null;
         if(!PICK.tanda.length){
@@ -11153,7 +11162,7 @@ function presentarContra(){
         restaurarOfertas(); }});
   } else {
     modal({ico:"📄", t:"No aceptan",
-      x:"«Eso se sale de nuestra escala.» Mantienen su oferta original sobre la mesa.",
+      x:"«Eso se sale de nuestra escala.» Tu propuesta ("+txtPropuesta(CONTRA)+") no les convence. Siguen con la suya: <b>"+txtPropuesta(o.contrato)+"</b>. Puedes bajar tus pretensiones o firmar la suya.",
       okTxt:"Bajar mis pretensiones", cancelTxt:"Firmar lo que ofrecen",
       onOk:function(){ pintarNegociacion(); },
       onCancel:function(){ PICK.contraOK=null; firmarPor(PICK.negIdx); }});
