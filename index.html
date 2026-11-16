@@ -669,10 +669,12 @@ body.conmenu{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
 .psrow{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;gap:6px;margin-top:9px}
 .psa{text-align:left;font-weight:700}.psb{text-align:right;font-weight:700}
 .psl{text-align:center;color:var(--muted);font-size:12px}
-.psbar{height:6px;border-radius:4px;background:rgba(122,162,255,.30);overflow:visible;margin-top:3px;position:relative}
-.psbar i{display:block;height:100%;background:var(--gold);border-radius:4px 0 0 4px}
-.psbar .pjb{position:absolute;top:0;height:100%;background:#4D8DFF;border-radius:4px;pointer-events:none}
-.psbar .psmark{position:absolute;top:-8px;transform:translateX(-50%);font-size:13px;line-height:1;color:var(--muted);pointer-events:none}
+.psbar{height:8px;border-radius:4px;background:rgba(122,162,255,.14);overflow:visible;margin-top:3px;position:relative}
+.psbar i{position:absolute;top:0;height:100%;display:block}
+.psbar i.pl{right:50%;background:var(--gold);border-radius:4px 0 0 4px}
+.psbar i.pr{left:50%;background:#4a5570;border-radius:0 4px 4px 0}
+.psbar .pjb{background:#4D8DFF;border-radius:4px;z-index:1;pointer-events:none}
+.psbar .psmark{position:absolute;top:-8px;left:50%;transform:translateX(-50%);font-size:13px;line-height:1;color:var(--muted);pointer-events:none}
 .reloj{position:relative}
 .pausatip{display:none;position:absolute;inset:0;align-items:center;justify-content:center;font-size:10px;color:var(--gold);background:rgba(10,12,18,.72);border-radius:6px}
 .reloj.pausa .pausatip{display:flex}
@@ -782,7 +784,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.69.18";
+var VERSION="4.69.19";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -6399,10 +6401,11 @@ function panelHTML(){
   var pos1=e1? e1.posA : e.posA, pos2=e.posA;
   var posV = PANEL_EST==="1"? pos1 : PANEL_EST==="2"? pos2 : (e1? Math.round((pos1+pos2)/2) : e.posA);
   function fila(lb, a, b, pj){   /* pj = {v: lo del jugador, izq: si su equipo está a la izquierda} */
-    var tot=(a+b)||1, pa=Math.round(a/tot*100), extra='';
-    if(pj && pj.v>0){ extra='<i class="pjb" style="'+(pj.izq?'left:0':'right:0')+';width:'+Math.min(100,Math.round(pj.v/tot*100))+'%"></i>'; }
+    /* barras desde el centro: el equipo de la izquierda crece a la izquierda, el de la derecha a la derecha */
+    var tot=(a+b)||1, wa=(a/tot*50).toFixed(2), wb=(b/tot*50).toFixed(2), extra='';
+    if(pj && pj.v>0){ var wp=Math.min(50,pj.v/tot*50).toFixed(2); extra='<i class="pjb" style="'+(pj.izq?'right:50%':'left:50%')+';width:'+wp+'%"></i>'; }
     return '<div class="psrow"><span class="psa mono">'+a+'</span><span class="psl">'+lb+'</span><span class="psb mono">'+b+'</span></div>'
-      +'<div class="psbar"><i style="width:'+pa+'%"></i>'+extra+'<b class="psmark" style="left:'+pa+'%">|</b></div>';
+      +'<div class="psbar"><i class="pl" style="width:'+wa+'%"></i><i class="pr" style="width:'+wb+'%"></i>'+extra+'<b class="psmark">|</b></div>';
   }
   var gA=golesN(true), gB=golesN(false);
   var tA=campo("tirosA"), tB=campo("tirosB"), pA2=campo("puertaA"), pB2=campo("puertaB");
