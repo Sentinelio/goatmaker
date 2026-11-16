@@ -53,8 +53,37 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     const dat = await (await fetch(BASE + '/api/collections/tl_players/records?filter=' + encodeURIComponent("install='inst-aaaa-1111'"), { headers: H })).json();
     ok(dat.items[0] && dat.items[0].label === 'Dani Ruiz', 'Datos admin: el nombre se guarda en el servidor');
     ok(dat.items[0] && dat.items[0].adm_nota === 'Nota de prueba', 'Datos admin: la nota se guarda en el servidor');
-    ok(await p.locator('select[disabled]').count() >= 1, 'Datos admin: Grupo deshabilitado');
-    await p.getByRole('button', { name: '← Volver a la lista' }).click(); await p.waitForTimeout(200);
+    // Grupos: crear desde su pantalla, asignar desde la ficha, filtrar en Usuarios y borrar
+    await p.locator('a:has-text("Grupos")').first().click();
+    await p.getByRole('button', { name: '+ Grupo' }).waitFor();
+    await p.getByRole('button', { name: '+ Grupo' }).click();
+    await p.locator('#gf-n').fill('Testers QA'); await p.locator('#gf-d').fill('Prueba');
+    await p.getByRole('button', { name: 'Guardar' }).click();
+    await p.locator('#gf-n').waitFor({ state: 'detached', timeout: 10000 }); // el modal se cierra cuando pbCarga ha terminado
+    const gr = await (await fetch(BASE + '/api/collections/tl_grupos/records?filter=' + encodeURIComponent("nombre='Testers QA'"), { headers: H })).json();
+    ok(gr.totalItems === 1, 'Grupos: se crea el grupo en el servidor');
+    const gid = gr.items[0] && gr.items[0].id;
+    // Dani: ficha desde la lista (si había una ficha abierta, primero se vuelve a la lista)
+    await p.locator('a:has-text("Usuarios")').first().click();
+    if (await p.locator('button', { hasText: 'Volver a la lista' }).count()) await p.locator('button', { hasText: 'Volver a la lista' }).click();
+    await p.getByText('Dani Ruiz').first().click();
+    const selG = p.locator('select').filter({ has: p.locator('option', { hasText: 'Testers QA' }) }).first();
+    await selG.waitFor(); await selG.selectOption('Testers QA');
+    await p.waitForFunction(() => JUG.some(j => j.n === 'Dani Ruiz' && j.g === 'Testers QA'));
+    const dg = await (await fetch(BASE + '/api/collections/tl_players/records?filter=' + encodeURIComponent("install='inst-aaaa-1111'"), { headers: H })).json();
+    ok(dg.items[0] && dg.items[0].adm_grupo === gid, 'Grupos: el jugador queda asignado en el servidor');
+    await p.locator('button', { hasText: 'Volver a la lista' }).click();
+    await p.locator('span.chip', { hasText: 'Testers QA' }).first().waitFor();
+    await p.locator('span.chip', { hasText: 'Testers QA' }).first().click(); await p.waitForTimeout(300);
+    ok(await p.getByText('Dani Ruiz').count() >= 1 && await p.getByText('Borrame').count() === 0, 'Filtro: el chip del grupo deja solo a sus miembros');
+    await p.locator('a:has-text("Grupos")').first().click();
+    await p.getByRole('button', { name: 'Borrar grupo' }).first().waitFor();
+    await p.getByRole('button', { name: 'Borrar grupo' }).first().click();
+    await p.getByRole('button', { name: 'Confirmar' }).waitFor();
+    await p.getByRole('button', { name: 'Confirmar' }).click();
+    await p.waitForFunction(() => GRP.length === 0);
+    const dg2 = await (await fetch(BASE + '/api/collections/tl_players/records?filter=' + encodeURIComponent("install='inst-aaaa-1111'"), { headers: H })).json();
+    ok(dg2.items[0] && !dg2.items[0].adm_grupo, 'Grupos: al borrar el grupo, sus miembros quedan sin grupo');
     // Códigos
     await p.click('#side a:has-text("Códigos y regalos")');
     await p.getByText('+ Código').click();
@@ -78,6 +107,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await p.screenshot({ path: '/tmp/parche/nuevo2_reportes.png' });
     // Borrado de usuario (selección + confirmación)
     await p.click('#side a:has-text("Usuarios")'); await p.waitForTimeout(300);
+    await p.click('#side a:has-text("Usuarios")'); await p.waitForTimeout(300);
+    if (await p.locator('button', { hasText: 'Volver a la lista' }).count()) { await p.locator('button', { hasText: 'Volver a la lista' }).click(); await p.waitForTimeout(300); }
     await p.locator('tr:has-text("Borrame") input[type=checkbox]').check(); await p.waitForTimeout(200);
     await p.getByRole('button', { name: 'Borrar datos' }).click(); await p.waitForTimeout(300);
     await p.locator('#bd-conf').fill('BORRAR'); await p.getByRole('button', { name: 'Confirmar' }).click(); await p.waitForTimeout(1200);
@@ -95,7 +126,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     ok(tv.ok === true && !tv.baja, 'Baja: un jugador no borrado sigue funcionando');
     ok(errs.length === 0, 'sin errores de página: ' + errs.join(' | '));
     await br.close();
-  } catch (e) { fails.push('EXCEPCIÓN: ' + e.message.split('\n')[0]); } finally { try { if (br) await br.close(); } catch (e) {} srv.kill(); }
+  } catch (e) { fails.push('EXCEPCIÓN: ' + e.message.slice(0, 900).replace(/\n/g, ' | ')); try { const pg = br && br.contexts()[0].pages()[0]; if (pg) await pg.screenshot({ path: '/tmp/parche/fallo_admin.png', fullPage: true }); } catch (x) {} } finally { try { if (br) await br.close(); } catch (e) {} srv.kill(); }
   console.log(fails.length ? 'FALLOS:\n- ' + fails.join('\n- ') : 'OK');
   console.log('comprobaciones OK: ' + oks);
   process.exit(fails.length ? 1 : 0);

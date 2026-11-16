@@ -269,7 +269,7 @@ var CL=G.EQUIPOS.map(function(e){e.d=1;return e}).concat(G.EQUIPOS2.map(function
 var CLI={}; CL.forEach(function(e){CLI[e.id]=e});
 var POSS=["POR","DFC","LAT","MCD","MC","MCO","EXT","DC"];
 var JUG=[];
-var GRP=[{n:"Amigos",d:"Juegan la versión publicada.",borr:false},{n:"Testers",d:"Reciben el borrador antes de publicar.",borr:true}];
+var GRP=[];
 var FLAGS=[
  ["tienda","Tienda","Compra de objetos, casa y coche.",true,"El juego ya tiene esta variable (TIENDA_ON)."],
  ["mercado","Mercado de fichajes","Ofertas de verano, agentes y traspasos.",true,"Ya existe (MERCADO_ON)."],
@@ -678,7 +678,7 @@ V.jugadores=function(){
   var ns=Object.keys(ST.chk).filter(function(k){return ST.chk[k]}).length;
   var th=function(l,k,r){ return '<th class="s'+(r?" r":"")+'" onclick="'+on(function(){ST.sort=k;go()})+'">'+l+(so===k?" ▾":"")+'</th>'; };
   return hd("Jugadores","Cada jugador es un navegador. Ponle nombre, agrúpalo, mándale algo o mira cómo le va.",btn("Exportar CSV",T("Exporta la lista filtrada")))+
-  '<div class="row" style="margin-bottom:12px"><input type="text" placeholder="Filtrar por nombre, id o club" value="'+esc(ST.sel.jq||"")+'" style="width:240px" onchange="'+on(function(x){ST.sel.jq=x;go()})+'">'+["Todos","Activos hoy","Amigos","Testers","Sin grupo","Versión antigua","Bloqueados"].map(function(t){return '<span class="chip '+(f===t?"on":"")+(OK_CHIP.indexOf(t)<0?" off":"")+'" style="margin-bottom:0" onclick="'+on(function(){ST.tab.jg=t;go()})+'">'+t+'</span>'}).join("")+'<span class="sp"></span><span class="small mut">'+L.length+' de '+JUG.length+'</span></div>'+
+  '<div class="row" style="margin-bottom:12px"><input type="text" placeholder="Filtrar por nombre, id o club" value="'+esc(ST.sel.jq||"")+'" style="width:240px" onchange="'+on(function(x){ST.sel.jq=x;go()})+'">'+["Todos","Activos hoy"].concat(GRP.map(function(g){return g.n}),["Sin grupo","Versión antigua","Bloqueados"]).map(function(t){return '<span class="chip '+(f===t?"on":"")+(OK_CHIP.indexOf(t)<0?" off":"")+'" style="margin-bottom:0" onclick="'+on(function(){ST.tab.jg=t;go()})+'">'+t+'</span>'}).join("")+'<span class="sp"></span><span class="small mut">'+L.length+' de '+JUG.length+'</span></div>'+
   (ns?'<div class="bulk row"><b>'+ns+' seleccionado'+(ns>1?"s":"")+'</b>'+btn("Regalar",function(){modal(regaloForm(ns+" jugadores"))},"sm")+btn("Mensaje",function(){modal(msgForm(ns+" jugadores"))},"sm")+btn("Mover a grupo",T("Elige el grupo"),"sm")+btn("Borrar datos",function(){modal(pbConfirmaBorrar(Object.keys(ST.chk).filter(function(k){return ST.chk[k]})))},"sm red")+'<span class="sp"></span>'+btn("Quitar selección",function(){ST.chk={};go()},"sm")+'</div>':'')+
   '<div class="card ox" style="padding:4px 8px"><table><tr><th></th>'+th("Jugador","n")+'<th>ID</th><th>Grupo</th><th>Club</th><th>Puesto</th>'+th("Nivel","niv",1)+th("Media","med",1)+'<th>Temp · Jor</th>'+th("Horas","h",1)+'<th>Versión</th>'+th("Visto","last")+'</tr>'+
   L.map(function(j){return '<tr class="cl" onclick="'+on(function(v,el,ev){ if(ev.target.type==="checkbox") return; ST.sel.jug=j.id; ST.tab.jd="Ficha"; go(); $("main").scrollTop=0; })+'"><td><input type="checkbox" class="ck" '+(ST.chk[j.id]?"checked":"")+' onchange="'+on(function(){ST.chk[j.id]=!ST.chk[j.id];go()})+'"></td><td>'+(j.st==="on"?'<span class="dot" style="margin-right:6px"></span>':'')+'<b>'+(esc(j.n)||'<span class="mut">sin nombre</span>')+'</b>'+(j.st==="blq"?' <span class="tag bad">bloqueado</span>':'')+'</td><td class="mono small">'+esc(j.id)+'</td><td>'+(j.g?'<span class="tag blue">'+j.g+'</span>':'<span class="mut">—</span>')+'</td><td>'+(j.eq?crest(CLI[j.eq])+" "+esc(CLI[j.eq].c):"—")+'</td><td>'+j.pos+'</td><td class="r">'+j.niv+'</td><td class="r">'+(j.med||"—")+'</td><td>T'+j.temp+' · J'+j.jor+'</td><td class="r">'+nf(j.h,1)+'</td><td><span class="tag '+(j.ver===CUR_VER?"ok":"gold")+'">'+j.ver+'</span></td><td class="mut">'+j.last+'</td></tr>'}).join("")+'</table></div>';
@@ -688,7 +688,7 @@ function jugDet(J){
   if(tb==="Ficha") b='<div class="grid g3">'+card("Carrera",'<div class="diff"><span class="p">Club</span><b>'+(e?esc(e.n):"—")+'</b></div><div class="diff"><span class="p">Puesto</span><b>'+J.pos+'</b></div><div class="diff"><span class="p">Edad</span><b>'+(J.edad||"—")+'</b></div><div class="diff"><span class="p">Temporada · jornada</span><b>'+J.temp+' · '+J.jor+'</b></div><div class="diff"><span class="p">Nivel</span><b>'+J.niv+'</b></div><div class="diff"><span class="p">Media</span><b>'+(J.med||"—")+'</b></div><div class="diff"><span class="p">Dinero</span><b>'+"—"+'</b></div><div class="diff"><span class="p">Arquetipo</span><b>'+J.arq+'</b></div>')+
     cardOff("Atributos",bars([["Técnica",J.med+4],["Físico",J.med-3],["Táctica",J.med+1],["Defensa",J.med-14],["Mentalidad",J.med-1]].map(function(x){return [x[0],Math.max(0,x[1])]}))+'<h3 style="margin-top:14px">Carácter</h3>'+[["Disciplina",62],["Ego",71],["Temperamento",38],["Compañerismo",55],["Liderazgo",47],["Resiliencia",60]].map(function(a){return '<div class="axis"><span>'+a[0]+'</span><div class="tr"><i style="left:'+a[1]+'%"></i></div><span class="mut">'+a[1]+'</span></div>'}).join(""))+
     cardOff("Actividad",'<div class="diff"><span class="p">Horas jugadas</span><b>'+nf(J.h,1)+'</b></div><div class="diff"><span class="p">Sesiones</span><b>'+J.ses+'</b></div><div class="diff"><span class="p">Primera vez</span><b>2 nov</b></div><div class="diff"><span class="p">Última vez</span><b>'+J.last+'</b></div><div class="diff"><span class="p">Versión del juego</span><b>'+J.ver+'</b></div><div class="diff"><span class="p">Contenido</span><b>'+(J.g==="Testers"?"borrador":"v"+ST.ver)+'</b></div>'+spark([1,0,2,3,1,0,0,2,4,3,1,2,5,3],"#60a5fa")+'<div class="small mut">Sesiones por día · 14 días</div>')+'</div>'+
-    card("Datos del admin",'<div class="f"><label>Nombre</label><input type="text" value="'+esc(J.n)+'" onchange="'+on(function(x){pbDatoAdm(J,"label",x)})+'"><div class="fab">solo lo ves tú</div></div><div class="f"><label>Grupo</label><select disabled title="Grupos: pantalla pendiente de integrar" onchange="'+on(function(x){J.g=x;go()})+'">'+[""].concat(GRP.map(function(g){return g.n})).map(function(g){return '<option'+(g===J.g?" selected":"")+'>'+g+'</option>'}).join("")+'</select><div class="fab"></div></div><div class="f"><label>Nota privada</label><textarea rows="2" onchange="'+on(function(x){pbDatoAdm(J,"adm_nota",x)})+'">'+esc(J.nota)+'</textarea><div class="fab"></div></div>',"","mt")+
+    card("Datos del admin",'<div class="f"><label>Nombre</label><input type="text" value="'+esc(J.n)+'" onchange="'+on(function(x){pbDatoAdm(J,"label",x)})+'"><div class="fab">solo lo ves tú</div></div><div class="f"><label>Grupo</label><select onchange="'+on(function(x){pbCambiaGrupo(J,x)})+'">'+[""].concat(GRP.map(function(g){return g.n})).map(function(g){return '<option'+(g===J.g?" selected":"")+'>'+g+'</option>'}).join("")+'</select><div class="fab"></div></div><div class="f"><label>Nota privada</label><textarea rows="2" onchange="'+on(function(x){pbDatoAdm(J,"adm_nota",x)})+'">'+esc(J.nota)+'</textarea><div class="fab"></div></div>',"","mt")+
     card("Zona delicada",'<div class="row">'+btn(J.st==="blq"?"Desbloquear":"Bloquear este navegador",function(){J.st=J.st==="blq"?"":"blq";go();toast(J.st==="blq"?"Bloqueado: /tele le responde 403":"Desbloqueado")},"red")+btn("Borrar todos sus datos",function(){modal(pbConfirmaBorrar([J.id]))},"red")+'<span class="small mut">Bloquear corta la telemetría, los códigos y el contenido editable; el juego le sigue funcionando con el contenido de fábrica.</span></div>',"","mt");
   else if(tb==="Línea de tiempo") b=card("Eventos",'<div class="row" style="margin-bottom:10px">'+["Todo","Partidos","Decisiones","Carrera","Pantallas","Errores"].map(function(x,i){return '<span class="chip '+(i===0?"on":"")+'" onclick="'+on(T("Filtra por "+x.toLowerCase()))+'">'+x+'</span>'}).join("")+'</div>'+tl([["hoy 01:03","<span class=\"tag ok\">partido</span> Betis 2-1 Celta · nota 7,8 · 1 gol"],["hoy 00:58","<span class=\"tag\">decisión</span> «Mano a mano en el descuento» → Definir cruzado · salió bien"],["hoy 00:51","<span class=\"tag\">decisión</span> «Centro medido» → Atacar el primer palo · sin consecuencias · 4,1 s"],["hoy 00:44","<span class=\"tag blue\">pantalla</span> Entreno → Técnica individual"],["hoy 00:40","<span class=\"tag blue\">sesión</span> Abre el juego · 4.69.0 · contenido v7"],["ayer 22:10","<span class=\"tag vio\">nivel</span> Sube al nivel 23"],["ayer 21:55","<span class=\"tag gold\">ventana</span> Oferta de patrocinio: Joma (botas)"],["12 nov","<span class=\"tag bad\">error</span> TypeError en vestuario()"],["11 nov","<span class=\"tag vio\">club</span> Ficha por el Real Betis · 6,2 M€"]],110)+'<div style="margin-top:10px">'+btn("Cargar más",T("Carga 200 eventos más"),"sm")+'</div>');
   else if(tb==="Partidas") b=card("Partidas guardadas · las 6 últimas",'<table><tr><th>Cuándo</th><th>Momento</th><th>Tamaño</th><th>Versión</th><th></th></tr>'+[["hoy 01:03","T3 · J14","61 kB"],["ayer 22:12","T3 · J12","60 kB"],["13 nov","T3 · J8","58 kB"],["11 nov","T3 · J1","44 kB"],["9 nov","T2 · J38","63 kB"],["7 nov","T2 · J30","61 kB"]].map(function(p){return '<tr><td>'+p[0]+'</td><td>'+p[1]+'</td><td class="mut">'+p[2]+'</td><td><span class="tag ok">'+J.ver+'</span></td><td class="r">'+btn("Descargar",T("Descarga el .json; se importa en el juego desde Ajustes"),"sm")+" "+btn("Abrir en el juego",T("Abre el juego con esta partida en una pestaña aparte"),"sm")+'</td></tr>'}).join("")+'</table><p class="small mut" style="margin:10px 0 0">«Abrir en el juego» carga la partida en tu navegador sin tocar la del jugador.</p>');
@@ -1152,8 +1152,7 @@ var CAT=[
    Sustituye los datos de ejemplo por PocketBase. Lo que no está integrado queda atenuado (clase .off, deshabilitado). */
 var PB_URL="https://server-pc.tail3b4002.ts.net:8447";
 CUR_VER="4.69.7";   /* versión actual del juego: el filtro «Versión antigua» compara con esto */
-var CUR_VER="4.69.6";
-var OK_NAV=["jugadores","codigos","reportes"];
+var OK_NAV=["jugadores","grupos","codigos","reportes"];
 var PB={tok:"",byInst:{},raw:{pl:[],cod:[],can:[],rep:[]}};
 var PB_RT={bug:["🐞","Fallo"],idea:["💡","Idea"],otro:["💬","Otro"]};
 
@@ -1182,7 +1181,7 @@ function pbAdapta(){
   PB.byInst={}; PB.raw.pl.forEach(function(p){ PB.byInst[p.install]=p; });
   JUG.length=0;
   PB.raw.pl.forEach(function(p){ var e=p.estado||{}, lt=p.last_t||0;
-    JUG.push({id:p.install,_rid:p.id,n:pbNombre(p),g:"",ver:p.ver||"—",eq:pbClub(e.club_n),pos:"—",niv:e.nivel||0,temp:e.temporada||0,jor:e.jornada||0,med:e.nota||0,edad:0,last:lt?pbFecha(lt):"—",lastN:lt?(now-lt)/36e5:9999,h:(p.active_s||0)/3600,ses:p.sessions||0,st:(lt&&now-lt<120000)?"on":"",din:0,arq:"—",dev:p.ua?pbDisp(p.ua):"—",tz:"—",nota:p.adm_nota||""});
+    JUG.push({id:p.install,_rid:p.id,n:pbNombre(p),g:pbGrupoNom(p.adm_grupo),ver:p.ver||"—",eq:pbClub(e.club_n),pos:"—",niv:e.nivel||0,temp:e.temporada||0,jor:e.jornada||0,med:e.nota||0,edad:0,last:lt?pbFecha(lt):"—",lastN:lt?(now-lt)/36e5:9999,h:(p.active_s||0)/3600,ses:p.sessions||0,st:(lt&&now-lt<120000)?"on":"",din:0,arq:"—",dev:p.ua?pbDisp(p.ua):"—",tz:"—",nota:p.adm_nota||""});
   });
   COD.length=0;
   PB.raw.cod.forEach(function(c){ COD.push({_rid:c.id,raw:c.code,c:pbCod(c.code),fx:(c.efectos||[]).map(function(x){return [x.k,x.v]}),u:c.usos||0,max:c.max_usos||0,cad:c.hasta?new Date(c.hasta).toISOString().slice(0,10):"",uno:!!c.una_por_jugador,on:!!c.activo,nota:c.nota||""}); });
@@ -1193,6 +1192,8 @@ function pbAdapta(){
 }
 async function pbCarga(){
   $("conn").innerHTML='<span class="dot on"></span>Conectado · servidor';
+  PB.raw.grp=await pbAll("tl_grupos","sort=nombre");
+  GRP.length=0; PB.raw.grp.forEach(function(g){ GRP.push({id:g.id,n:g.nombre,d:g.descripcion||"",borr:false}); if(OK_CHIP.indexOf(g.nombre)<0) OK_CHIP.push(g.nombre); });
   PB.raw.pl=await pbAll("tl_players","sort=-last_t");
   PB.raw.cod=await pbAll("tl_codes","sort=-created");
   PB.raw.can=await pbAll("tl_canjes","sort=-t");
@@ -1339,6 +1340,47 @@ async function pbDatoAdm(J,campo,x){
   }catch(e){ toast("No se pudo guardar: "+e.message); }
   go();
 }
+// ---- Grupos: tl_grupos + relación adm_grupo en tl_players ----
+OK_BTN.push("+ Grupo","Guardar","Borrar grupo");
+function pbGrupoNom(id){ var g=(PB.raw.grp||[]).find(function(x){return x.id===id}); return g?g.nombre:""; }
+async function pbGrupoGuarda(G,n,d){
+  n=String(n||"").trim().slice(0,40); d=String(d||"").trim().slice(0,200);
+  if(!n){ toast("Pon un nombre al grupo"); return false; }
+  try{
+    var o={nombre:n,descripcion:d};
+    if(G) await pbApi("/api/collections/tl_grupos/records/"+G.id,{method:"PATCH",headers:PB_JSON,body:JSON.stringify(o)});
+    else await pbApi("/api/collections/tl_grupos/records",{method:"POST",headers:PB_JSON,body:JSON.stringify(o)});
+    if(G&&ST.tab.jg===G.n) ST.tab.jg=n;   /* si el filtro de Usuarios estaba en el grupo renombrado, sigue en él */
+    await pbCarga(); toast("Grupo guardado"); return true;
+  }catch(e){ toast("No se pudo guardar: "+e.message); return false; }
+}
+async function pbGrupoBorra(G){
+  try{ await pbApi("/api/collections/tl_grupos/records/"+G.id,{method:"DELETE"}); modal(); if(ST.tab.jg===G.n) ST.tab.jg="Todos"; await pbCarga(); toast("Grupo borrado"); }
+  catch(e){ toast("No se pudo borrar: "+e.message); }
+}
+function grpBorraPregunta(G){ return function(){ return '<h2>Borrar el grupo «'+esc(G.n)+'»</h2><p class="mut">Sus miembros se quedan sin grupo. Los datos de los jugadores no se borran.</p><div class="row">'+btn("Confirmar",function(){pbGrupoBorra(G)},"red")+btn("Cancelar",function(){modal()})+'</div>'; }; }
+function grpForm(G){ return function(){ return '<h2>'+(G?"Editar grupo":"Grupo nuevo")+'</h2><div class="f"><label>Nombre</label><input id="gf-n" type="text" maxlength="40" value="'+esc(G?G.n:"")+'"><div class="fab"></div></div><div class="f"><label>Descripción</label><input id="gf-d" type="text" maxlength="200" value="'+esc(G?G.d:"")+'"><div class="fab"></div></div><div class="row">'+btn("Guardar",function(){ pbGrupoGuarda(G,$("gf-n").value,$("gf-d").value).then(function(ok){ if(ok) modal(); }); },"gold")+btn("Cancelar",function(){modal()})+'</div>'; }; }
+async function pbCambiaGrupo(J,nombre){
+  var G=GRP.filter(function(g){return g.n===nombre})[0];
+  try{
+    await pbApi("/api/collections/tl_players/records/"+J._rid,{method:"PATCH",headers:PB_JSON,body:JSON.stringify({adm_grupo:G?G.id:""})});
+    var p=PB.raw.pl.find(function(q){return q.id===J._rid}); if(p) p.adm_grupo=G?G.id:"";
+    J.g=nombre; toast(nombre?"Grupo: "+nombre:"Sin grupo"); go();
+  }catch(e){ toast("No se pudo cambiar: "+e.message); }
+}
+V.grupos=function(){
+  var cab=hd("Grupos","Sirven para filtrar a los usuarios. Cada jugador tiene como mucho un grupo.",btn("+ Grupo",function(){modal(grpForm(null))},"gold"));
+  if(!GRP.length) return cab+card("",'<p class="mut">Todavía no hay grupos. Crea el primero con «+ Grupo».</p>');
+  return cab+'<div class="grid g2">'+GRP.map(function(g){
+    var ms=JUG.filter(function(j){return j.g===g.n});
+    var cuerpo='<div class="f"><label>Nombre</label><input type="text" value="'+esc(g.n)+'" onchange="'+on(function(x){pbGrupoGuarda(g,x,g.d)})+'"><div class="fab"></div></div>'
+      +'<div class="f"><label>Descripción</label><input type="text" value="'+esc(g.d)+'" onchange="'+on(function(x){pbGrupoGuarda(g,g.n,x)})+'"><div class="fab"></div></div>'
+      +'<div class="f off"><label>Reciben el borrador</label><div class="row"><span class="small mut">Pendiente: el juego aún no lee los grupos</span></div><div class="fab"></div></div>'
+      +'<div class="f"><label>Miembros</label><div>'+(ms.length?ms.map(function(j){return '<span class="chip" onclick="'+on(function(){ST.sel.jug=j.id;nav("jugadores")})+'">'+esc(jNom(j))+'</span>'}).join(""):'<span class="mut small">ninguno</span>')+'</div><div class="fab"></div></div>'
+      +'<div class="row" style="margin-top:12px">'+btn("Borrar grupo",function(){modal(grpBorraPregunta(g))},"red")+'</div>';
+    return card(g.n,cuerpo);
+  }).join("")+'</div>';
+};
 
 go();
 </script>
