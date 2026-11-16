@@ -23,6 +23,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     const rp = await (await fetch(BASE + '/api/collections/tl_reports/records', { method: 'POST', headers: H, body: JSON.stringify({ install: 'inst-aaaa-1111', t: now, tipo: 'bug', texto: 'Se cuelga al fichar', ctx: { ver: '4.69.6', adjunta: false }, estado: 'nuevo', nota_admin: '' }) })).json();
     ok(!!rp.id, 'sembrar reporte: ' + JSON.stringify(rp).slice(0, 200));
 
+    const bp = await (await fetch(BASE + '/api/collections/tl_players/records', { method: 'POST', headers: H, body: JSON.stringify({ install: 'inst-borrar-2222', label: 'Borrame', last_t: now, active_s: 0, sessions: 1, ver: '4.69.6', estado: {} }) })).json();
+    await fetch(BASE + '/api/collections/tl_events/records', { method: 'POST', headers: H, body: JSON.stringify({ install: 'inst-borrar-2222', sid: 'sborrar', t: now, tipo: 'sesion', d: {}, ver: '4.69.6' }) });
     br = await chromium.launch({ executablePath: '/usr/bin/google-chrome' }).catch(() => chromium.launch());
     const ctx = await br.newContext({ viewport: { width: 1280, height: 860 }, permissions: ['clipboard-read', 'clipboard-write'] });
     const p = await ctx.newPage(); const errs = [];
@@ -66,6 +68,16 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     const nt = await (await fetch(BASE + '/api/collections/tl_reports/records/' + rp.id, { headers: H })).json();
     ok(nt.nota_admin === 'lo miro el lunes', 'Reportes: nota guardada');
     await p.screenshot({ path: '/tmp/parche/nuevo2_reportes.png' });
+    // Borrado de usuario (selección + confirmación)
+    await p.click('#side a:has-text("Usuarios")'); await p.waitForTimeout(300);
+    await p.locator('tr:has-text("Borrame") input[type=checkbox]').check(); await p.waitForTimeout(200);
+    await p.getByRole('button', { name: 'Borrar datos' }).click(); await p.waitForTimeout(300);
+    await p.locator('#bd-conf').fill('BORRAR'); await p.getByRole('button', { name: 'Confirmar' }).click(); await p.waitForTimeout(1200);
+    const gone = await (await fetch(BASE + '/api/collections/tl_players/records/' + bp.id, { headers: H })).status;
+    ok(gone === 404, 'Borrado: la fila del jugador desaparece del servidor (' + gone + ')');
+    const evs = await (await fetch(BASE + '/api/collections/tl_events/records?filter=' + encodeURIComponent("install='inst-borrar-2222'"), { headers: H })).json();
+    ok(evs.totalItems === 0, 'Borrado: sus eventos se borran');
+    ok(await p.getByText('Borrame').count() === 0, 'Borrado: ya no aparece en la lista');
     ok(errs.length === 0, 'sin errores de página: ' + errs.join(' | '));
     await br.close();
   } catch (e) { fails.push('EXCEPCIÓN: ' + e.message.split('\n')[0]); } finally { try { if (br) await br.close(); } catch (e) {} srv.kill(); }
