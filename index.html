@@ -414,7 +414,8 @@ textarea{background:var(--raise);border:1px solid var(--hair);color:var(--ink);b
 .autobar{height:3px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:4px;padding:8px 0;background-clip:content-box;touch-action:none;cursor:pointer}
 .autobar i{display:block;height:100%;background:#7D8699;width:0;animation:fill var(--dur,2600ms) linear forwards}
 .mbody > .mpanel.mp-corto{flex:1 1 auto;min-height:0;max-height:none;overflow:hidden}
-.mbody > .mpanel.mp-corto > *{flex:1 1 auto;min-height:0;max-height:none;overflow-y:auto}
+.mbody > .mpanel.mp-corto > .pnav,.mbody > .mpanel.mp-corto > .chips{flex:none;max-height:none;overflow:visible}
+.mbody > .mpanel.mp-corto > *:not(.pnav):not(.chips){flex:1 1 auto;min-height:0;max-height:none;overflow-y:auto}
 .avisodec{margin:0 0 6px}
 .rolx{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:800;margin-top:4px}
 .rolx.tit{color:var(--ok)} .rolx.sup{color:var(--gold)} .rolx.fue{color:var(--muted)}
@@ -775,7 +776,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.69.11";
+var VERSION="4.69.12";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
