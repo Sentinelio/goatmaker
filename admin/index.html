@@ -803,6 +803,22 @@ V.talentosEd=function(){
    card(esc(s.n)+' <span class="mono mut">'+s.id+'</span>',fld(pre+".n","Nombre",s.n,{full:L+" · nombre"})+fld(pre+".d","Descripción",s.d,{type:"area",full:L+" · descripción"})+fld(pre+".row","Fila",s.row,{type:"range",min:1,max:8,step:1,full:L+" · fila"})+fld(pre+".rank","Rangos",s.rank,{type:"range",min:1,max:5,step:1,full:L+" · rangos"})+fld(pre+".lvl","Nivel que pide",s.lvl,{type:"range",min:1,max:99,step:1,full:L+" · nivel"})+fld(pre+".req","Requisitos",s.req?String(s.req).split(","):[],{type:"multi",opts:Tt.nodes.filter(function(x){return x.id!==s.id && x.row<val(pre+".row")}).map(function(x){return x.id}),full:L+" · requisitos",d:"Talentos de filas anteriores."})+'<div class="f"><label>Efecto por rango</label>'+fxEd(pre+".fx",s.fx,Object.assign({},G.CONT_R.tfx,G.CONT_R.tforma),L)+'<div class="fab">rango 0,5 – 2</div></div>'+fld(pre+".off","Fuera de catálogo",false,{type:"tog",full:L+" · fuera de catálogo",si:"No se puede subir; quien lo tiene lo conserva",no:"Disponible"}))+'</div>'+
   card("Ritmo de la rama",fld("ta.tasa."+rama,"Tasa de experiencia",{defensa:0.55,fisico:1.0,centro:0.35,ataque:0.6,mental:0.5,tactica:0.5}[rama],{type:"range",min:0.1,max:2,step:0.05,full:Tt.name+" · tasa de experiencia",d:"Cuánto pesa esta rama al repartir la experiencia."}),"","mt");
 };
+/* categorías de las situaciones, solo para organizar el panel (no cambian nada del juego) */
+var SIT_CAT_ORDEN=["Previa","Ataque","Defensa","Portería","Medio campo","Balón parado","Mentalidad","Momento decisivo","Banquillo","Cambios","Post partido"];
+var SIT_CAT={
+ "por-salida":"Portería","por-mano-a-mano":"Portería","por-saque":"Portería","por-disparo-lejano":"Portería","por-corner-contra":"Portería",
+ "por-mando":"Portería","por-penalti":"Portería","por-ultimo-cornero":"Portería","por-saque-largo":"Portería","por-disparo-area":"Portería",
+ "def-ultimo-hombre":"Defensa","def-marca-crack":"Defensa","def-salida-balon":"Defensa","def-cruce":"Defensa",
+ "def-cabeza-area":"Balón parado","mc-falta-frontal":"Balón parado","del-penalti":"Balón parado","clutch-falta-ultima":"Balón parado","clutch-corner-subes":"Balón parado",
+ "del-area":"Ataque","del-mano-a-mano":"Ataque","del-sequia":"Ataque","ext-uno-contra-uno":"Ataque","lat-fondo":"Ataque","mc-desmarque":"Ataque",
+ "mc-conduccion":"Medio campo","mc-duelo-pivote":"Medio campo","mc-tapon":"Medio campo","com-balon-dividido":"Medio campo","com-presion-alta":"Medio campo","com-companero-error":"Medio campo",
+ "mis-mania":"Mentalidad","car-caño":"Mentalidad","car-celebracion":"Mentalidad","car-orden":"Mentalidad","car-noche":"Mentalidad","com-grada-canta":"Mentalidad",
+ "com-rival-provoca":"Mentalidad","com-arbitro":"Mentalidad","com-lesion":"Mentalidad","com-tangana":"Mentalidad","com-cambio-pide":"Mentalidad",
+ "com-final-apretado":"Momento decisivo","clutch-mano-90":"Momento decisivo","clutch-llegada-area":"Momento decisivo","clutch-remate-centro":"Momento decisivo",
+ "cambio-rendimiento":"Cambios","cambio-cansancio":"Cambios"
+};
+/* categoría de una situación: las de banquillo, cambio y momento decisivo tienen la suya por grupo */
+function catSit(id,grupo){ if(SIT_CAT[id]) return SIT_CAT[id]; return grupo==="Banquillo"?"Banquillo":grupo==="Te cambian"?"Cambios":grupo==="Momento decisivo"?"Momento decisivo":"Sin categoría"; }
 /* ajustes de partido: cuántas situaciones salen y con qué probabilidad hay previa o resumen */
 function partidoAjustes(){
   var grupos=[G.SITS,G.SITS_BANQUILLO,G.SITS_CAMBIO,G.SITS_CLUTCH], pref=["si.j","si.b","si.c","si.k"], disp=0, total=0;
@@ -824,7 +840,15 @@ V.partido=function(){
   if(tb==="Ajustes") return h+t+partidoAjustes();
   if(tb==="Situaciones"){
     var grupos=[["En juego",G.SITS,"si.j"],["Banquillo",G.SITS_BANQUILLO,"si.b"],["Te cambian",G.SITS_CAMBIO,"si.c"],["Momento decisivo",G.SITS_CLUTCH,"si.k"]], items=[], cur=null, q=(ST.sel.sq||"").toLowerCase();
-    grupos.forEach(function(g){ items.push({gh:g[0]+" · "+g[1].length}); g[1].forEach(function(x){ var tt=isFn(x.t)?x.id:x.t; reg(g[2]+"."+x.id+".off",false,tt+" · fuera de catálogo"); if(q && (tt+x.id).toLowerCase().indexOf(q)<0) return; items.push({id:x.id,n:tt,rt:x.pos?x.pos.join(" "):"",ch:chgPre(g[2]+"."+x.id+"."),off:val(g[2]+"."+x.id+".off")}); if(x.id===(ST.sel.si||"por-salida")) cur=[x,g[2],g[0]]; }); });
+    var todas=[]; grupos.forEach(function(g){ g[1].forEach(function(x){ todas.push({x:x,pre:g[2],grp:g[0]}); var tt0=isFn(x.t)?x.id:x.t; reg(g[2]+"."+x.id+".off",false,tt0+" · fuera de catálogo"); }); });
+    SIT_CAT_ORDEN.forEach(function(cat){
+      if(cat==="Previa"){ items.push({gh:"Previa · la genera el juego al empezar el partido"}); return; }
+      if(cat==="Post partido"){ items.push({gh:"Post partido · la genera el juego al terminar"}); return; }
+      var miembros=todas.filter(function(e){ return catSit(e.x.id,e.grp)===cat; });
+      if(!miembros.length) return;
+      items.push({gh:cat+" · "+miembros.length});
+      miembros.forEach(function(e){ var x=e.x, tt=isFn(x.t)?x.id:x.t; if(q && (tt+x.id).toLowerCase().indexOf(q)<0) return; items.push({id:x.id,n:tt,rt:x.pos?x.pos.join(" "):"",ch:chgPre(e.pre+"."+x.id+"."),off:val(e.pre+"."+x.id+".off")}); if(x.id===(ST.sel.si||"por-salida")) cur=[x,e.pre,e.grp]; });
+    });
     if(!cur) cur=[G.SITS[0],"si.j","En juego"];
     var x=cur[0], pre=cur[1]+"."+x.id, L=isFn(x.t)?x.id:x.t;
     var det=card(esc(L)+' <span class="mono mut">'+x.id+'</span>',
