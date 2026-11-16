@@ -6389,8 +6389,8 @@ function panelHTML(){
     var g45=[0,0];
     (M.goles||[]).forEach(function(g){ if((g.m||0)<=45){ if(!!g.mio===!!M.casa) g45[0]++; else g45[1]++; } });
     var m45=(M.est1 && M.est1.golA!==undefined)? M.est1.golA+"–"+M.est1.golB : g45[0]+"–"+g45[1];
-    var notaPrevia=(M.convRol==="titular")? '<p class="note tlnota">Eres titular. Sales en el once.</p>'
-      : (M.convRol==="suplente")? '<p class="note tlnota">'+(M.yaJugado? "Eres suplente. Entraste desde el banquillo.":"Eres suplente. Empiezas en el banquillo.")+'</p>' : '';
+    var notaPrevia=(M.convRol==="titular")? '<p class="note tlnota">⚽ Eres titular. Sales en el once. ⚽</p>'
+      : (M.convRol==="suplente")? (M.yaJugado? '<p class="note tlnota">⚽ Eres suplente. Entraste desde el banquillo. ⚽</p>' : '<p class="note tlnota">🪑 Eres suplente. Empiezas en el banquillo. 🪑</p>') : '';
     var esCierre=(M.fase==="cierre"), pasado45=esCierre||M.tramo>=3||M.min>45, hayDescuento=C.some(function(e){return e.m>90;})||M.min>90;
     if(!C.length) return H
       +notaPrevia+'<div class="tl'+full+' vacio">'
