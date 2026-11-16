@@ -667,6 +667,8 @@ body.conmenu:has(#ov-match:not(.hidden)) #topbar{display:none}
 #topbar .tbs{font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #topbar .tbbtn{width:36px;height:36px;border-radius:11px;background:rgba(255,255,255,.06);border:0;color:var(--ink);
   display:flex;align-items:center;justify-content:center;flex:none;font-size:17px}
+#topbar .tbbtn:disabled{opacity:.35}
+#topbar .tb{gap:10px}
 @media(min-width:980px){
   #topbar{max-width:520px;left:50%;right:auto;width:100%;transform:translateX(-50%);border-radius:0 0 18px 18px;border:1px solid var(--hair);border-top:0}
 }
@@ -10343,6 +10345,7 @@ function renderTopbar(){
     +'</svg><b>'+nv+'</b></div>'
     +'<div class="tbtxt"><div class="tbn">'+esc(S.nombre||"")+'</div>'
       +'<div class="tbs">'+esc(POS[S.pos]? POS[S.pos].n : "")+(club? ' · '+esc(club):'')+'</div></div>'
+    +'<button class="tbbtn" disabled aria-label="Notificaciones (próximamente)" title="Notificaciones (próximamente)">🔔</button>'
     +'<button class="tbbtn" aria-label="Ajustes" onclick="irSec(\'ajustes\')">⚙️</button>'
   +'</div>';
 }
