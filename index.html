@@ -11713,7 +11713,7 @@ function contAplicar(P){
     if(typeof p.id!=="string" || !/^ct-[a-z0-9][a-z0-9_-]{0,26}$/.test(p.id) || SITS.concat(SITS_BANQUILLO).some(function(x){ return x.id===p.id; })){ rech.push(ruta+": id no válido o repetido (debe empezar por ct-)"); return; }
     var t=txt(p.t,R.txt.t,ruta+".t"), x=txt(p.x,R.txt.x,ruta+".x"), ps=p.pos===undefined? null : posOk(p.pos,ruta+".pos");
     if(t===null || x===null || ps===undefined) return;
-    if(!Array.isArray(p.o) || p.o.length<1 || p.o.length>6){ rech.push(ruta+".o: entre 1 y 6 opciones"); return; }
+    if(!Array.isArray(p.o) || p.o.length<1 || p.o.length>10){ rech.push(ruta+".o: entre 1 y 10 opciones"); return; }
     var os=[], bien=true;
     p.o.forEach(function(po,i){ var r3=ruta+".o."+i; if(!esObj(po)){ bien=false; rech.push(r3+": no es un objeto"); return; }
       var l=txt(po.l,R.txt.l,r3+".l"); if(l===null){ bien=false; return; }
