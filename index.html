@@ -424,7 +424,7 @@ html:has(#ov-match:not(.hidden)){overflow:hidden}
 #ov-match ::-webkit-scrollbar{display:none}
 .mbody > .mpanel.mp-corto .plista{max-height:none;overflow:visible}
 .mbody > .mpanel.mp-corto > .tlhead,.mbody > .mpanel.mp-corto > .tlnota{flex:none !important}
-.tlnota{text-align:center;margin:0 0 6px;font-size:13px}
+.tlnota{text-align:center;margin:0 0 6px;font-size:14px;font-weight:600;color:var(--ink)}
 .avisodec{margin:0 0 6px}
 .rolx{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:800;margin-top:4px}
 .rolx.tit{color:var(--ok)} .rolx.sup{color:var(--gold)} .rolx.fue{color:var(--muted)}
@@ -497,6 +497,7 @@ html:has(#ov-match:not(.hidden)){overflow:hidden}
 .mpanel .presumen{max-height:60vh}
 .tl::-webkit-scrollbar{display:none}
 .tl::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.10)}
+.tl.vacio::before{display:none}
 .tlrow{display:grid;grid-template-columns:1fr 46px 1fr;align-items:center;padding:4px 0;position:relative}
 .tlL{display:flex;align-items:center;justify-content:flex-end;gap:7px;text-align:right;min-width:0}
 .tlR{display:flex;align-items:center;gap:7px;min-width:0}
@@ -6392,9 +6393,11 @@ function panelHTML(){
       : (M.convRol==="suplente")? '<p class="note tlnota">'+(M.yaJugado? "Eres suplente. Entraste desde el banquillo.":"Eres suplente. Empiezas en el banquillo.")+'</p>' : '';
     var esCierre=(M.fase==="cierre"), pasado45=esCierre||M.tramo>=3||M.min>45, hayDescuento=C.some(function(e){return e.m>90;})||M.min>90;
     if(!C.length) return H
-      +notaPrevia+sep("Previa","")
-      +'<p class="note" style="text-align:center;margin:14px 0">Todavía no ha pasado nada reseñable.</p>'
-      +(pasado45? sep("Descanso", m45):"")+(esCierre? sep("Final", M.sc[0]+"–"+M.sc[1]):"");
+      +notaPrevia+'<div class="tl'+full+' vacio">'
+      +sep("Previa","")
+      +'<p class="note" style="text-align:center;margin:4px 0 0">Todavía no ha pasado nada reseñable.</p>'
+      +(pasado45? sep("Descanso", m45):"")+(esCierre? sep("Final", M.sc[0]+"–"+M.sc[1]):"")
+      +'</div>';
     var ICO={gol:"⚽", ta:'<b class="tcard tam"></b>', roja:'<b class="tcard tro"></b>', cambio:"", lesion:"🚑"};
     var FILAS=[];
     C.forEach(function(ev){
