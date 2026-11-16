@@ -636,18 +636,40 @@ V.interruptores=function(){
 function publicarLocal(){ var n=$("nota"); if(!n || !n.value.trim()){ toast("Escribe la nota de la versión"); return; } ST.ver++; VERS.unshift([ST.ver,"ahora",n.value,nCam()]); Object.keys(DRAFT).forEach(function(p){ BASE[p]=DRAFT[p]; }); DRAFT={}; go(); toast("Publicada la versión "+ST.ver); }
 /* los ajustes de partido llegan al juego: se publica una versión nueva de tl_content partiendo de la última
    publicada (así no se pierde lo que ya haya publicado el admin antiguo) y solo cambia el bloque «partido» */
+/* el borrador de situaciones, en el mismo formato que el bloque «sits» del juego */
+function sitsDesdeBorrador(){
+  var out={};
+  Object.keys(DRAFT).forEach(function(p){
+    var m=p.match(/^si\.[jbck]\.([^.]+)\.(.+)$/); if(!m) return;
+    var id=m[1], parts=m[2].split("."), o=out[id]||(out[id]={}), cur=o;
+    if(/^o\d+$/.test(parts[0])){ cur.o=cur.o||{}; cur.o[parts[0].slice(1)]=cur.o[parts[0].slice(1)]||{}; cur=cur.o[parts[0].slice(1)]; parts.shift(); }
+    while(parts.length>1){ cur[parts[0]]=cur[parts[0]]||{}; cur=cur[parts[0]]; parts.shift(); }
+    cur[parts[0]]=DRAFT[p];
+    out[id]=o;
+  });
+  return out;
+}
+function mezclaProfunda(a,b){
+  Object.keys(b).forEach(function(k){
+    var v=b[k];
+    if(v && typeof v==="object" && !Array.isArray(v)) a[k]=mezclaProfunda(a[k]&&typeof a[k]==="object"&&!Array.isArray(a[k])? a[k] : {}, v);
+    else a[k]=v;
+  });
+  return a;
+}
 function pbPublicaPartido(nota){
   var mn=val("pj.min"), mx=val("pj.max");
   return pbApi("/api/collections/tl_content/records?perPage=1&sort=-n&filter="+encodeURIComponent("(kind='ver')")).then(function(r){
     var last=r.items&&r.items[0];
     var pack=(last&&last.pack)? JSON.parse(JSON.stringify(last.pack)) : {v:1};
     pack.v=1; pack.partido={min:mn,max:mx,previa:val("pj.previa"),post:val("pj.post")};
+    var cambiosSits=sitsDesdeBorrador(); if(Object.keys(cambiosSits).length) pack.sits=mezclaProfunda(pack.sits||{}, cambiosSits);
     return pbApi("/api/collections/tl_content/records",{method:"POST",headers:PB_JSON,body:JSON.stringify({kind:"ver",n:(last?last.n:0)+1,pack:pack,nota:nota,t:Date.now(),ver_juego:CUR_VER})});
   });
 }
 function publicar(){
   var n=$("nota"); if(!n || !n.value.trim()){ toast("Escribe la nota de la versión"); return; }
-  var pj=Object.keys(DRAFT).some(function(p){ return p.indexOf("pj.")===0; });
+  var pj=Object.keys(DRAFT).some(function(p){ return p.indexOf("pj.")===0 || /^si\.[jbck]\./.test(p); });
   if(!pj) return publicarLocal();
   if(val("pj.min")>val("pj.max")){ toast("El máximo de situaciones no puede ser menor que el mínimo"); return; }
   pbPublicaPartido(n.value.trim()).then(function(){ publicarLocal(); toast("Publicado en el juego"); },
@@ -803,6 +825,101 @@ V.talentosEd=function(){
   card("Ritmo de la rama",fld("ta.tasa."+rama,"Tasa de experiencia",{defensa:0.55,fisico:1.0,centro:0.35,ataque:0.6,mental:0.5,tactica:0.5}[rama],{type:"range",min:0.1,max:2,step:0.05,full:Tt.name+" · tasa de experiencia",d:"Cuánto pesa esta rama al repartir la experiencia."}),"","mt");
 };
 /* categorías de las situaciones, solo para organizar el panel (no cambian nada del juego) */
+
+/* ---- situaciones: exportar, importar y guardar ----
+   Formato = bloque «sits» del paquete de contenido del juego: {v:1, sits:{id:{t,x,pos,off,o:{i:{l,ok,mid,ko,fx}}}}}.
+   Importar no toca nada hasta pulsar Guardar; Guardar valida todo antes de aplicar (si hay un error, no aplica nada).
+   Guardar deja los cambios en el borrador; Publicar los manda al juego. */
+OK_BTN.push("Copiar esta","Copiar todas","Importar","Pegar del portapapeles","Revisar","Guardar","Cerrar importación");
+function sitLista(){ var out=[]; [["si.j",G.SITS],["si.b",G.SITS_BANQUILLO],["si.c",G.SITS_CAMBIO],["si.k",G.SITS_CLUTCH]].forEach(function(g){ g[1].forEach(function(x){ out.push({x:x,pre:g[0]}); }); }); return out; }
+function vv(p,fab){ reg(p,fab,"Situación · "+p.split(".").slice(2).join(".")); return val(p); }
+function sitFxLeer(base,fx){ var out={}; Object.keys(fx||{}).forEach(function(k){ var v=fx[k], p=base+"."+k;
+  if(v && typeof v==="object" && !Array.isArray(v)){ out[k]=sitFxLeer(p,v); return; }
+  if(typeof v==="number"||typeof v==="boolean") out[k]=vv(p,v); }); return out; }
+function sitObj(e){ var x=e.x, pre=e.pre+"."+x.id, o={};
+  if(!isFn(x.t)) o.t=vv(pre+".t",x.t);
+  if(!isFn(x.x)) o.x=vv(pre+".x",x.x);
+  o.pos=vv(pre+".pos",x.pos||null);
+  o.off=vv(pre+".off",false);
+  o.o={};
+  x.o.forEach(function(op,i){ var po=pre+".o"+i, r={};
+    if(!isFn(op.l)) r.l=vv(po+".l",op.l);
+    ["ok","mid","ko"].forEach(function(k){ if(typeof op[k]==="string") r[k]=vv(po+"."+k,op[k]); });
+    r.fx=sitFxLeer(po+".fx",op.fx||{});
+    o.o[i]=r; });
+  return o; }
+function sitExportar(lista){ var S2={}; lista.forEach(function(e){ S2[e.x.id]=sitObj(e); }); return JSON.stringify({v:1,sits:S2},null,2); }
+function sitCopiar(todas){
+  var lista=sitLista(), txt;
+  if(todas) txt=sitExportar(lista);
+  else { var sel=lista.filter(function(e){ return e.x.id===(ST.sel.si||"por-salida"); })[0]; if(!sel){ toast("No hay situación seleccionada"); return; } txt=sitExportar([sel]); }
+  ST.sel.impTxt=txt; ST.tab.imp=true; ST.sel.impRes=null;
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(function(){ toast(todas? "Copiadas todas las situaciones":"Situación copiada"); }, function(){ toast("No se pudo copiar: está en el cuadro de importar"); }); }
+  else toast("Copia el texto del cuadro de importar");
+  go(); }
+function sitFxAplicar(base,nuevo,fab,put,err){
+  Object.keys(nuevo).forEach(function(k){ var v=nuevo[k], p=base+"."+k;
+    if(!fab || !fab.hasOwnProperty(k)){ err("efecto desconocido «"+k+"»"); return; }
+    if(v && typeof v==="object" && !Array.isArray(v)){ sitFxAplicar(p,v,fab[k],put,err); return; }
+    if(typeof fab[k]!=="number" || typeof v!=="number"){ err("«"+k+"» debe ser un número"); return; }
+    put(p,v); }); }
+function sitRevisar(txt){
+  var P; try{ P=JSON.parse(txt); }catch(e){ return {err:"No es JSON válido ("+e.message+")."}; }
+  if(!P || typeof P!=="object" || !P.sits || typeof P.sits!=="object" || Array.isArray(P.sits)) return {err:"Falta el bloque «sits». Usa el formato de Copiar."};
+  var byId={}; sitLista().forEach(function(e){ byId[e.x.id]=e; });
+  var cambios=[], errores=[], tocadas={};
+  Object.keys(P.sits).forEach(function(id){
+    var s2=P.sits[id], e=byId[id];
+    if(!e){ errores.push(id+": esa situación no existe"); return; }
+    if(!s2 || typeof s2!=="object"){ errores.push(id+": no es un objeto"); return; }
+    sitObj(e);   /* registra los valores de fábrica de esta situación para comparar */
+    var pre=e.pre+"."+id, n0=cambios.length, x=e.x;
+    var err=function(m){ errores.push(id+": "+m); };
+    var put=function(p,v){ if(!same(val(p),v)) cambios.push([p,v]); };
+    if(s2.t!==undefined){ if(isFn(x.t)) err("el título lo calcula el juego"); else if(typeof s2.t!=="string"||!s2.t.trim()) err("título vacío o no es texto"); else put(pre+".t",s2.t.trim()); }
+    if(s2.x!==undefined){ if(isFn(x.x)) err("el texto lo calcula el juego"); else if(typeof s2.x!=="string"||!s2.x.trim()) err("texto vacío o no es texto"); else put(pre+".x",s2.x.trim()); }
+    if(s2.pos!==undefined){ if(s2.pos!==null && (!Array.isArray(s2.pos)||!s2.pos.length||s2.pos.some(function(q){ return POSS.indexOf(q)<0; }))) err("puestos no válidos"); else put(pre+".pos",s2.pos); }
+    if(s2.off!==undefined){ if(typeof s2.off!=="boolean") err("off debe ser sí/no"); else put(pre+".off",s2.off); }
+    if(s2.o!==undefined){ if(!s2.o||typeof s2.o!=="object"||Array.isArray(s2.o)) err("o no es un objeto");
+      else Object.keys(s2.o).forEach(function(i){
+        var op=x.o[+i], r=s2.o[i], po=pre+".o"+i;
+        if(!op){ err("la opción "+i+" no existe"); return; }
+        if(!r||typeof r!=="object"){ err("opción "+i+" no es un objeto"); return; }
+        if(r.l!==undefined){ if(isFn(op.l)) err("botón "+i+" lo calcula el juego"); else if(typeof r.l!=="string"||!r.l.trim()) err("botón "+i+" vacío"); else put(po+".l",r.l.trim()); }
+        ["ok","mid","ko"].forEach(function(k){ if(r[k]===undefined) return; if(typeof op[k]!=="string" && op[k]!==undefined) return err("«"+k+"» de la opción "+i+" lo calcula el juego"); if(typeof r[k]!=="string") return err("«"+k+"» de la opción "+i+" no es texto"); put(po+"."+k,r[k]); });
+        if(r.fx!==undefined){ if(!r.fx||typeof r.fx!=="object"||Array.isArray(r.fx)) err("fx de la opción "+i+" no es un objeto"); else sitFxAplicar(po+".fx",r.fx,op.fx||{},put,function(m){ err("opción "+i+": "+m); }); }
+      }); }
+    if(cambios.length>n0) tocadas[id]=1;
+  });
+  return {cambios:cambios, errores:errores, tocadas:Object.keys(tocadas).length};
+}
+function sitGuardar(){
+  var r=sitRevisar(ST.sel.impTxt||"");
+  ST.sel.impRes=r;
+  if(r.err){ toast(r.err); go(); return; }
+  if(r.errores.length){ toast("Hay "+r.errores.length+" error(es). No se ha guardado nada."); go(); return; }
+  if(!r.cambios.length){ toast("No hay cambios que guardar"); go(); return; }
+  r.cambios.forEach(function(c){ var p=c[0], v=c[1]; if(same(v,BASE[p])) delete DRAFT[p]; else DRAFT[p]=v; });
+  topbar(); toast("Guardado en borrador: "+r.cambios.length+" cambio(s). Publica para llevarlo al juego.");
+  ST.tab.imp=false; go(); }
+function importCard(){
+  var res=ST.sel.impRes, txt=ST.sel.impTxt||"";
+  var resumen="";
+  if(res){ if(res.err) resumen='<p class="err small" style="margin:8px 0 0">'+esc(res.err)+'</p>';
+    else { resumen= res.errores.length? '<p class="small" style="margin:8px 0 0"><span class="err"><b>'+res.errores.length+'</b> error(es): no se guardará nada.</span></p>' : '<p class="small" style="margin:8px 0 0"><b>'+res.tocadas+'</b> situación(es) con <b>'+res.cambios.length+'</b> cambio(s) listos para guardar.</p>';
+      if(res.errores.length) resumen+='<ul class="small err" style="margin:6px 0 0 16px">'+res.errores.slice(0,8).map(function(m){ return '<li>'+esc(m)+'</li>'; }).join("")+'</ul>';
+      if(res.cambios.length && !res.errores.length) resumen+='<ul class="small mut" style="margin:6px 0 0 16px">'+res.cambios.slice(0,8).map(function(c){ return '<li>'+esc(c[0])+' → '+esc(JSON.stringify(c[1])).slice(0,60)+'</li>'; }).join("")+(res.cambios.length>8?'<li>…</li>':'')+'</ul>'; } }
+  return card("Importar situaciones",
+    '<textarea rows="8" style="width:100%;font-family:monospace;font-size:12px" placeholder="Pega aquí el texto copiado (formato Copiar) y pulsa Revisar" onchange="'+on(function(v){ ST.sel.impTxt=v; ST.sel.impRes=null; go(); })+'">'+esc(txt)+'</textarea>'
+    +resumen
+    +'<div class="row" style="margin-top:10px;gap:8px">'
+      +btn("Pegar del portapapeles",function(){ if(!navigator.clipboard||!navigator.clipboard.readText){ toast("Pega el texto a mano en el cuadro"); return; } navigator.clipboard.readText().then(function(t){ ST.sel.impTxt=t; ST.sel.impRes=null; go(); }, function(){ toast("El navegador no deja leer el portapapeles: pégalo a mano"); }); },"sm")
+      +btn("Revisar",function(){ ST.sel.impRes=sitRevisar(ST.sel.impTxt||""); go(); },"sm")
+      +'<span class="sp"></span>'
+      +btn("Cerrar importación",function(){ ST.tab.imp=false; go(); },"sm")
+      +btn("Guardar",sitGuardar,"sm gold")
+    +'</div>');
+}
 var SIT_CAT_ORDEN=["Previa","Ataque","Defensa","Portería","Medio campo","Balón parado","Mentalidad","Momento decisivo","Banquillo","Cambios","Post partido"];
 var SIT_CAT={
  "por-salida":"Portería","por-mano-a-mano":"Portería","por-saque":"Portería","por-disparo-lejano":"Portería","por-corner-contra":"Portería",
@@ -835,7 +952,7 @@ function partidoAjustes(){
     +'<div style="margin-top:14px">'+card("Situaciones disponibles", '<div class="diff"><span class="p">En juego y banquillo (sin fuera de catálogo)</span><b>'+disp+'</b></div><div class="diff"><span class="p">Total de fábrica</span><b>'+total+'</b></div><p class="small mut" style="margin:10px 0 0">El partido de ojeo de la pirámide no tiene situaciones: solo calcula una nota. Se configurará cuando exista como partido jugable.</p>')+'</div>';
 }
 V.partido=function(){
-  var t=tabs("pa",["Situaciones","Reloj","Probabilidades"]), tb=ST.tab.pa, h=hd("Partido","Las situaciones que el jugador decide, el reloj y la tabla de probabilidades.",tb==="Situaciones"?btn("+ Situación",T("Crea una situación nueva (1–10 opciones)")):"");
+  var t=tabs("pa",["Situaciones","Reloj","Probabilidades"]), tb=ST.tab.pa, h=hd("Partido","Las situaciones que el jugador decide, el reloj y la tabla de probabilidades.",tb==="Situaciones"?btn("+ Situación",T("Crea una situación nueva (1–10 opciones)"))+" "+btn("Copiar esta",function(){ sitCopiar(false); })+" "+btn("Copiar todas",function(){ sitCopiar(true); })+" "+btn("Importar",function(){ ST.tab.imp=!ST.tab.imp; ST.sel.impRes=null; go(); }):"");
   if(tb==="Ajustes") return h+t+partidoAjustes();
   if(tb==="Situaciones"){
     var grupos=[["En juego",G.SITS,"si.j"],["Banquillo",G.SITS_BANQUILLO,"si.b"],["Te cambian",G.SITS_CAMBIO,"si.c"],["Momento decisivo",G.SITS_CLUTCH,"si.k"]], items=[], cur=null, q=(ST.sel.sq||"").toLowerCase();
@@ -867,7 +984,7 @@ V.partido=function(){
       x.o.map(function(o,i){ var po=pre+".o"+i, Lo=L+" · opción "+(i+1); return '<div class="opt"><div class="row" style="margin-bottom:6px"><b>Opción '+(i+1)+'</b><span class="sp"></span>'+btn("✕",T("Quita la opción"),"sm")+'</div>'+fld(po+".l","Botón",o.l,{full:Lo+" · botón"})+'<div class="f"><label>Efectos</label>'+fxEd(po+".fx",o.fx,G.CONT_R.sitfx,Lo)+'<div class="fab"></div></div>'+(o.ok!==undefined?fld(po+".ok","Si sale bien",o.ok,{type:"area",full:Lo+" · si sale bien"}):"")+(o.mid!==undefined?fld(po+".mid","Si no pasa nada",o.mid,{type:"area",full:Lo+" · si no pasa nada"}):"")+(o.ko!==undefined&&o.ko!==""?fld(po+".ko","Si sale mal",o.ko,{type:"area",full:Lo+" · si sale mal"}):"")+'</div>'; }).join("")+
       (x.o.length<10?'<div style="margin-top:10px">'+btn("+ Opción",T("Añade una opción (máximo 10)"),"sm")+'</div>':"")+(x.o.length>3?'<p class="small mut" style="margin:8px 0 0">Con más de 3 opciones, el juego enseña 3 al azar.</p>':""),
       '<span class="tag">'+cur[2]+'</span> '+btn("Duplicar",T("Crea una situación nueva a partir de esta"),"sm")+" "+btn("Probar",T("Abre el juego con esta situación forzada"),"sm"));
-    return h+t+tabsCat+'<div class="split">'+lst(items,x.id,function(id){ST.sel.si=id;go()},{top:'<input type="text" placeholder="Filtrar situaciones" value="'+esc(ST.sel.sq||"")+'" style="margin:2px 0 6px" onchange="'+on(function(v){ST.sel.sq=v;go()})+'">'+(!q&&nota?'<p class="small mut" style="margin:6px 0">'+nota+'</p>':'')})+det+'</div>';
+    return h+t+(ST.tab.imp? importCard():"")+tabsCat+'<div class="split">'+lst(items,x.id,function(id){ST.sel.si=id;go()},{top:'<input type="text" placeholder="Filtrar situaciones" value="'+esc(ST.sel.sq||"")+'" style="margin:2px 0 6px" onchange="'+on(function(v){ST.sel.sq=v;go()})+'">'+(!q&&nota?'<p class="small mut" style="margin:6px 0">'+nota+'</p>':'')})+det+'</div>';
   }
   if(tb==="Reloj"){ var R=G.RELOJ, rr=G.CONT_R.reloj, ej=function(n){ return nf(clamp(val("rl.base")+n*val("rl.letra"),val("rl.min"),val("rl.max"))*val("rl.factor")/1000,1); };
     var hh=fld("rl.base","Tiempo base (ms)",R.base,{type:"range",min:rr.base[0],max:20000,step:100,full:"Reloj · base"})+fld("rl.letra","Por letra (ms)",R.letra,{type:"range",min:rr.letra[0],max:rr.letra[1],step:1,full:"Reloj · por letra",d:"Los textos largos dan más tiempo."})+fld("rl.min","Mínimo (ms)",R.min,{type:"range",min:rr.min[0],max:30000,step:100,full:"Reloj · mínimo"})+fld("rl.max","Máximo (ms)",R.max,{type:"range",min:rr.max[0],max:60000,step:100,full:"Reloj · máximo"})+fld("rl.fuera","Fuera del partido ×",R.fuera,{type:"range",min:rr.fuera[0],max:rr.fuera[1],step:0.05,full:"Reloj · fuera del partido",d:"Banquillo y descanso."})+fld("rl.factor","Factor general ×",R.factor,{type:"range",min:rr.factor[0],max:rr.factor[1],step:0.05,full:"Reloj · factor general"});
@@ -1477,6 +1594,14 @@ async function pbCarga(){
   try{
     var ult=await pbApi("/api/collections/tl_content/records?perPage=1&sort=-n&filter="+encodeURIComponent("(kind='ver')"));
     var pp=ult.items&&ult.items[0]&&ult.items[0].pack&&ult.items[0].pack.partido;
+    var ps=ult.items&&ult.items[0]&&ult.items[0].pack&&ult.items[0].pack.sits;
+    if(ps){ var byId={}; sitLista().forEach(function(e){ byId[e.x.id]=e; });
+      Object.keys(ps).forEach(function(id){ var e=byId[id], sx=ps[id]; if(!e||!sx) return; var pre=e.pre+"."+id;
+        ["t","x","pos","off"].forEach(function(k){ if(sx[k]!==undefined) BASE[pre+"."+k]=sx[k]; });
+        Object.keys(sx.o||{}).forEach(function(i){ var r=sx.o[i], po=pre+".o"+i;
+          ["l","ok","mid","ko"].forEach(function(k){ if(r[k]!==undefined) BASE[po+"."+k]=r[k]; });
+          (function fx(base,f){ Object.keys(f||{}).forEach(function(k){ var v=f[k], q=base+"."+k; if(v&&typeof v==="object"&&!Array.isArray(v)) fx(q,v); else if(typeof v==="number"||typeof v==="boolean") BASE[q]=v; }); })(po+".fx", r.fx);
+        }); }); }
     if(pp){ if(pp.min!=null) BASE["pj.min"]=pp.min; if(pp.max!=null) BASE["pj.max"]=pp.max; if(pp.previa!=null) BASE["pj.previa"]=pp.previa; if(pp.post!=null) BASE["pj.post"]=pp.post; }
   }catch(e){}
   PB.det={}; pbAdapta(); go();
