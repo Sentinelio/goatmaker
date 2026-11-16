@@ -350,6 +350,11 @@ function pbExportaCSV(){
 }
 
 // pestaña «Vida y tienda»: todo lo que sale de la partida guardada (inventario, compras, decisiones de vida, contrato, atributos)
+function pbAtribFicha(J){
+  var s=pbSave(J); var ATR={TEC:"Técnica",FIS:"Físico",TAC:"Táctica",DEF:"Defensa",MEN:"Mentalidad"};
+  if(!s||!s.attr) return '<p class="mut">Sin partida guardada todavía.</p>';
+  return Object.keys(ATR).map(function(k){ return '<div class="diff"><span class="p">'+ATR[k]+'</span><b>'+(s.attr[k]!=null? Math.round(s.attr[k]) : "—")+'</b></div>'; }).join("");
+}
 function pbTabVida(J){
   var D=PB.det[J.id]; var s=pbSave(J);
   if(!s){ return D&&D.ok? card("Vida y tienda",'<p class="mut">Este jugador todavía no tiene partida guardada en el servidor.</p>') : pbPend(); }

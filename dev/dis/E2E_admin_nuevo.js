@@ -47,7 +47,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     ok(await p.getByText('Carrera').count() >= 1, 'Ficha: se abre');
     const ops = await p.evaluate(() => [...document.querySelectorAll('.off')].map(e => getComputedStyle(e).opacity + ' ' + (e.textContent || '').slice(0, 14)));
     console.log('OPACIDADES', JSON.stringify(ops));
-    ok(ops.some(o => /ATRIBUTOS|Atributos/i.test(o) && parseFloat(o) < 0.5), 'Ficha: Atributos atenuado');
+    ok(!ops.some(o => /ATRIBUTOS|Atributos/i.test(o)), 'Ficha: Atributos integrado (no atenuado)');
     ok(await p.locator('button[disabled]', { hasText: 'Mensaje' }).count() >= 1, 'Ficha: Mensaje desactivado');
     await p.screenshot({ path: '/tmp/parche/nuevo2_ficha.png' });
     // Datos del admin: nombre y nota se guardan en el servidor; Grupo queda deshabilitado
@@ -116,6 +116,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     const tab = t => p.locator('.tabs button', { hasText: t }).first();
     await tab('Ficha').click(); await p.waitForTimeout(400);
     ok(await p.getByText('Delantero').count() >= 1, 'Ficha: puesto real (Delantero)');
+    ok(await p.getByText('13,48').count() === 0, 'Ficha: sin valores de maqueta en Atributos');
+    ok(await p.getByText('61', { exact: true }).count() >= 1, 'Ficha: Atributos reales (TEC 61)');
     ok(await p.getByText('v3', { exact: true }).count() >= 1, 'Ficha: versión de contenido real (v3)');
     ok(await p.getByText('1,23 M€').count() >= 1, 'Ficha: dinero real');
     await tab('Línea de tiempo').click();

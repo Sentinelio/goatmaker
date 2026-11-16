@@ -68,8 +68,7 @@ rep('j.ver!=="4.69.0"','j.ver!==CUR_VER')
 rep('j.ver==="4.69.0"?"ok":"gold"','j.ver===CUR_VER?"ok":"gold"')
 rep('j.ver==="4.69.0"','j.ver===CUR_VER',count=0) if s.count('j.ver==="4.69.0"')==0 else None
 # tarjetas de la ficha que no están integradas
-for t in ['"Atributos"','"Actividad"']:
-    rep('card('+t+',','cardOff('+t+',')
+# Atributos y Actividad ya están integradas: sin atenuar (Atributos se reemplaza abajo por valores reales)
 # Datos del admin: Nombre y Nota guardan en el servidor; Grupo queda deshabilitado (depende de la pantalla Grupos, sin integrar)
 rep('on(function(x){J.n=x;go()})','on(function(x){pbDatoAdm(J,"label",x)})')
 rep('on(function(x){J.nota=x})','on(function(x){pbDatoAdm(J,"adm_nota",x)})')
@@ -108,6 +107,9 @@ rep('btn("Borrar datos",function(){modal(confirmar("Borrar los datos de "+ns+" j
 rep('btn("Borrar todos sus datos",function(){modal(confirmar("Borrar los datos de "+jNom(J),"BORRAR","Datos borrados"))},"red")',
     'btn("Borrar todos sus datos",function(){modal(pbConfirmaBorrar([J.id]))},"red")')
 
+# Atributos de la ficha: valores reales de la partida guardada (sustituye la maqueta del prototipo)
+ini=s.index('    card("Atributos",bars('); fin=s.index('    card("Actividad",', ini)
+s=s[:ini]+'    card("Atributos",pbAtribFicha(J))+\n'+s[fin:]
 # 8e · pestañas de la ficha integradas (datos reales): cada línea del prototipo se sustituye entera
 def rep_linea(prefijo, nueva):
     global s

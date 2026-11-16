@@ -686,8 +686,8 @@ V.jugadores=function(){
 function jugDet(J){
   var t=tabs("jd",["Ficha","Vida y tienda","Línea de tiempo","Partidas","Regalos y mensajes","Reportes y errores","Dispositivo"]), tb=ST.tab.jd, b, e=J.eq&&CLI[J.eq];
   if(tb==="Ficha") b='<div class="grid g3">'+card("Carrera",'<div class="diff"><span class="p">Club</span><b>'+(e?esc(e.n):"—")+'</b></div><div class="diff"><span class="p">Puesto</span><b>'+pbPuesto(J)+'</b></div><div class="diff"><span class="p">Edad</span><b>'+pbEdad(J)+'</b></div><div class="diff"><span class="p">Temporada · jornada</span><b>'+J.temp+' · '+J.jor+'</b></div><div class="diff"><span class="p">Nivel</span><b>'+J.niv+'</b></div><div class="diff"><span class="p">Media</span><b>'+(J.med||"—")+'</b></div><div class="diff"><span class="p">Dinero</span><b>'+pbDinero(J)+'</b></div><div class="diff"><span class="p">Arquetipo</span><b>'+J.arq+'</b></div>')+
-    cardOff("Atributos",bars([["Técnica",J.med+4],["Físico",J.med-3],["Táctica",J.med+1],["Defensa",J.med-14],["Mentalidad",J.med-1]].map(function(x){return [x[0],Math.max(0,x[1])]}))+'<h3 style="margin-top:14px">Carácter</h3>'+[["Disciplina",62],["Ego",71],["Temperamento",38],["Compañerismo",55],["Liderazgo",47],["Resiliencia",60]].map(function(a){return '<div class="axis"><span>'+a[0]+'</span><div class="tr"><i style="left:'+a[1]+'%"></i></div><span class="mut">'+a[1]+'</span></div>'}).join(""))+
-    cardOff("Actividad",'<div class="diff"><span class="p">Horas jugadas</span><b>'+nf(J.h,1)+'</b></div><div class="diff"><span class="p">Sesiones</span><b>'+J.ses+'</b></div><div class="diff"><span class="p">Primera vez</span><b>'+(J.first?pbFecha(J.first):"—")+'</b></div><div class="diff"><span class="p">Última vez</span><b>'+J.last+'</b></div><div class="diff"><span class="p">Versión del juego</span><b>'+J.ver+'</b></div><div class="diff"><span class="p">Contenido</span><b>'+pbContenido(J)+'</b></div>'+spark(pbDias(J),"#60a5fa")+'<div class="small mut">Sesiones por día · 14 días</div>')+'</div>'+
+    card("Atributos",pbAtribFicha(J))+
+    card("Actividad",'<div class="diff"><span class="p">Horas jugadas</span><b>'+nf(J.h,1)+'</b></div><div class="diff"><span class="p">Sesiones</span><b>'+J.ses+'</b></div><div class="diff"><span class="p">Primera vez</span><b>'+(J.first?pbFecha(J.first):"—")+'</b></div><div class="diff"><span class="p">Última vez</span><b>'+J.last+'</b></div><div class="diff"><span class="p">Versión del juego</span><b>'+J.ver+'</b></div><div class="diff"><span class="p">Contenido</span><b>'+pbContenido(J)+'</b></div>'+spark(pbDias(J),"#60a5fa")+'<div class="small mut">Sesiones por día · 14 días</div>')+'</div>'+
     card("Datos del admin",'<div class="f"><label>Nombre</label><input type="text" value="'+esc(J.n)+'" onchange="'+on(function(x){pbDatoAdm(J,"label",x)})+'"><div class="fab">solo lo ves tú</div></div><div class="f"><label>Grupo</label><select onchange="'+on(function(x){pbCambiaGrupo(J,x)})+'">'+[""].concat(GRP.map(function(g){return g.n})).map(function(g){return '<option'+(g===J.g?" selected":"")+'>'+g+'</option>'}).join("")+'</select><div class="fab"></div></div><div class="f"><label>Nota privada</label><textarea rows="2" onchange="'+on(function(x){pbDatoAdm(J,"adm_nota",x)})+'">'+esc(J.nota)+'</textarea><div class="fab"></div></div>',"","mt")+
     card("Zona delicada",'<div class="row">'+btn(J.st==="blq"?"Desbloquear":"Bloquear este navegador",function(){pbBloquea(J,J.st!=="blq")},"red")+btn("Borrar todos sus datos",function(){modal(pbConfirmaBorrar([J.id]))},"red")+'<span class="small mut">Bloquear corta la telemetría, los códigos y el contenido editable; el juego le sigue funcionando con el contenido de fábrica.</span></div>',"","mt");
   else if(tb==="Vida y tienda") b=pbTabVida(J);
@@ -1599,6 +1599,11 @@ function pbExportaCSV(){
 }
 
 // pestaña «Vida y tienda»: todo lo que sale de la partida guardada (inventario, compras, decisiones de vida, contrato, atributos)
+function pbAtribFicha(J){
+  var s=pbSave(J); var ATR={TEC:"Técnica",FIS:"Físico",TAC:"Táctica",DEF:"Defensa",MEN:"Mentalidad"};
+  if(!s||!s.attr) return '<p class="mut">Sin partida guardada todavía.</p>';
+  return Object.keys(ATR).map(function(k){ return '<div class="diff"><span class="p">'+ATR[k]+'</span><b>'+(s.attr[k]!=null? Math.round(s.attr[k]) : "—")+'</b></div>'; }).join("");
+}
 function pbTabVida(J){
   var D=PB.det[J.id]; var s=pbSave(J);
   if(!s){ return D&&D.ok? card("Vida y tienda",'<p class="mut">Este jugador todavía no tiene partida guardada en el servidor.</p>') : pbPend(); }
