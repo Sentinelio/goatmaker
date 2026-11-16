@@ -14,6 +14,12 @@ routerAdd("POST", "/tele", (e) => {
   if (String(b.k || "") !== KEY) return e.json(403, { ok: false, err: "clave" });
   const install = String(b.install || "").slice(0, 64), sid = String(b.sid || "").slice(0, 64);
   const op = String(b.op || "");
+  // navegador bloqueado desde el admin: 403 para todo (el juego deja de enviar y usa el contenido de fábrica)
+  if (/^[A-Za-z0-9_-]{8,64}$/.test(install)) {
+    let bloqueado = false;
+    try { const P = $app.findFirstRecordByData("tl_players", "install", install); bloqueado = !!P.get("adm_bloqueado"); } catch (_) {}
+    if (bloqueado) return e.json(403, { ok: false, err: "bloqueado" });
+  }
   if (op === "contenido") {
     // el juego pregunta qué contenido editable le toca. modo vivo = el borrador al momento (n = 1000000 + rev); modo publicado = la última versión (n = su número).
     // have = lo que ya tiene; si coincide, same. Sin nada publicado devuelve n:0 y pack:null (el juego vuelve a su contenido de fábrica).

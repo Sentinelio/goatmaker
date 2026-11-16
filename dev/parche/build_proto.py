@@ -100,6 +100,27 @@ rep('btn("Borrar datos",function(){modal(confirmar("Borrar los datos de "+ns+" j
 rep('btn("Borrar todos sus datos",function(){modal(confirmar("Borrar los datos de "+jNom(J),"BORRAR","Datos borrados"))},"red")',
     'btn("Borrar todos sus datos",function(){modal(pbConfirmaBorrar([J.id]))},"red")')
 
+# 8e · pestañas de la ficha integradas (datos reales): cada línea del prototipo se sustituye entera
+def rep_linea(prefijo, nueva):
+    global s
+    assert s.count(prefijo)==1, (s.count(prefijo), prefijo[:60])
+    i=s.index(prefijo); a=s.rfind('\n',0,i)+1; b=s.index('\n',i)+1
+    s=s[:a]+nueva+'\n'+s[b:]
+rep_linea('  else if(tb==="Línea de tiempo") b=card(', '  else if(tb==="Línea de tiempo") b=pbTabEventos(J);')
+rep_linea('  else if(tb==="Partidas") b=card(', '  else if(tb==="Partidas") b=pbTabPartidas(J);')
+rep_linea('  else if(tb==="Regalos y mensajes") b=', '  else if(tb==="Regalos y mensajes") b=pbTabRegalos(J);')
+rep_linea('  else if(tb==="Reportes y errores") b=', '  else if(tb==="Reportes y errores") b=pbTabReportes(J);')
+rep_linea('  else b=card("Dispositivo"', '  else b=pbTabDispositivo(J);')
+# Actividad: sesiones por día reales y primera vez; contenido sin dato propio
+rep('spark([1,0,2,3,1,0,0,2,4,3,1,2,5,3],"#60a5fa")','spark(pbDias(J),"#60a5fa")')
+rep('<span class="p">Primera vez</span><b>2 nov</b>','<span class="p">Primera vez</span><b>\'+(J.first?pbFecha(J.first):"—")+\'</b>')
+rep('(J.g==="Testers"?"borrador":"v"+ST.ver)','"—"')
+# Zona delicada: bloquear real y borrado con pestañas
+rep('function(){J.st=J.st==="blq"?"":"blq";go();toast(J.st==="blq"?"Bloqueado: /tele le responde 403":"Desbloqueado")}','function(){pbBloquea(J,J.st!=="blq")}')
+# cabecera y barra superior
+rep('btn("Última partida",T("Descarga su última partida"))','btn("Última partida",function(){pbDescargaUltima(J)})')
+rep('btn("Exportar CSV",T("Exporta la lista filtrada"))','btn("Exportar CSV",pbExportaCSV)')
+
 # 9 · estilos de lo no integrado, login y utilidades
 css='''
 .off{opacity:.35;pointer-events:none;cursor:not-allowed}

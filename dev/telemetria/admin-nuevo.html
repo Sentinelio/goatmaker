@@ -677,7 +677,7 @@ V.jugadores=function(){
   var so=ST.sort; L.sort(function(a,b){ return so==="last"? a.lastN-b.lastN : so==="n"? jNom(a).localeCompare(jNom(b)) : b[so]-a[so]; });
   var ns=Object.keys(ST.chk).filter(function(k){return ST.chk[k]}).length;
   var th=function(l,k,r){ return '<th class="s'+(r?" r":"")+'" onclick="'+on(function(){ST.sort=k;go()})+'">'+l+(so===k?" ▾":"")+'</th>'; };
-  return hd("Jugadores","Cada jugador es un navegador. Ponle nombre, agrúpalo, mándale algo o mira cómo le va.",btn("Exportar CSV",T("Exporta la lista filtrada")))+
+  return hd("Jugadores","Cada jugador es un navegador. Ponle nombre, agrúpalo, mándale algo o mira cómo le va.",btn("Exportar CSV",pbExportaCSV))+
   '<div class="row" style="margin-bottom:12px"><input type="text" placeholder="Filtrar por nombre, id o club" value="'+esc(ST.sel.jq||"")+'" style="width:240px" onchange="'+on(function(x){ST.sel.jq=x;go()})+'">'+["Todos","Activos hoy"].concat(GRP.map(function(g){return g.n}),["Sin grupo","Versión antigua","Bloqueados"]).map(function(t){return '<span class="chip '+(f===t?"on":"")+(OK_CHIP.indexOf(t)<0?" off":"")+'" style="margin-bottom:0" onclick="'+on(function(){ST.tab.jg=t;go()})+'">'+t+'</span>'}).join("")+'<span class="sp"></span><span class="small mut">'+L.length+' de '+JUG.length+'</span></div>'+
   (ns?'<div class="bulk row"><b>'+ns+' seleccionado'+(ns>1?"s":"")+'</b>'+btn("Regalar",function(){modal(regaloForm(ns+" jugadores"))},"sm")+btn("Mensaje",function(){modal(msgForm(ns+" jugadores"))},"sm")+btn("Mover a grupo",T("Elige el grupo"),"sm")+btn("Borrar datos",function(){modal(pbConfirmaBorrar(Object.keys(ST.chk).filter(function(k){return ST.chk[k]})))},"sm red")+'<span class="sp"></span>'+btn("Quitar selección",function(){ST.chk={};go()},"sm")+'</div>':'')+
   '<div class="card ox" style="padding:4px 8px"><table><tr><th></th>'+th("Jugador","n")+'<th>ID</th><th>Grupo</th><th>Club</th><th>Puesto</th>'+th("Nivel","niv",1)+th("Media","med",1)+'<th>Temp · Jor</th>'+th("Horas","h",1)+'<th>Versión</th>'+th("Visto","last")+'</tr>'+
@@ -687,15 +687,15 @@ function jugDet(J){
   var t=tabs("jd",["Ficha","Línea de tiempo","Partidas","Regalos y mensajes","Reportes y errores","Dispositivo"]), tb=ST.tab.jd, b, e=J.eq&&CLI[J.eq];
   if(tb==="Ficha") b='<div class="grid g3">'+card("Carrera",'<div class="diff"><span class="p">Club</span><b>'+(e?esc(e.n):"—")+'</b></div><div class="diff"><span class="p">Puesto</span><b>'+J.pos+'</b></div><div class="diff"><span class="p">Edad</span><b>'+(J.edad||"—")+'</b></div><div class="diff"><span class="p">Temporada · jornada</span><b>'+J.temp+' · '+J.jor+'</b></div><div class="diff"><span class="p">Nivel</span><b>'+J.niv+'</b></div><div class="diff"><span class="p">Media</span><b>'+(J.med||"—")+'</b></div><div class="diff"><span class="p">Dinero</span><b>'+"—"+'</b></div><div class="diff"><span class="p">Arquetipo</span><b>'+J.arq+'</b></div>')+
     cardOff("Atributos",bars([["Técnica",J.med+4],["Físico",J.med-3],["Táctica",J.med+1],["Defensa",J.med-14],["Mentalidad",J.med-1]].map(function(x){return [x[0],Math.max(0,x[1])]}))+'<h3 style="margin-top:14px">Carácter</h3>'+[["Disciplina",62],["Ego",71],["Temperamento",38],["Compañerismo",55],["Liderazgo",47],["Resiliencia",60]].map(function(a){return '<div class="axis"><span>'+a[0]+'</span><div class="tr"><i style="left:'+a[1]+'%"></i></div><span class="mut">'+a[1]+'</span></div>'}).join(""))+
-    cardOff("Actividad",'<div class="diff"><span class="p">Horas jugadas</span><b>'+nf(J.h,1)+'</b></div><div class="diff"><span class="p">Sesiones</span><b>'+J.ses+'</b></div><div class="diff"><span class="p">Primera vez</span><b>2 nov</b></div><div class="diff"><span class="p">Última vez</span><b>'+J.last+'</b></div><div class="diff"><span class="p">Versión del juego</span><b>'+J.ver+'</b></div><div class="diff"><span class="p">Contenido</span><b>'+(J.g==="Testers"?"borrador":"v"+ST.ver)+'</b></div>'+spark([1,0,2,3,1,0,0,2,4,3,1,2,5,3],"#60a5fa")+'<div class="small mut">Sesiones por día · 14 días</div>')+'</div>'+
+    cardOff("Actividad",'<div class="diff"><span class="p">Horas jugadas</span><b>'+nf(J.h,1)+'</b></div><div class="diff"><span class="p">Sesiones</span><b>'+J.ses+'</b></div><div class="diff"><span class="p">Primera vez</span><b>'+(J.first?pbFecha(J.first):"—")+'</b></div><div class="diff"><span class="p">Última vez</span><b>'+J.last+'</b></div><div class="diff"><span class="p">Versión del juego</span><b>'+J.ver+'</b></div><div class="diff"><span class="p">Contenido</span><b>'+"—"+'</b></div>'+spark(pbDias(J),"#60a5fa")+'<div class="small mut">Sesiones por día · 14 días</div>')+'</div>'+
     card("Datos del admin",'<div class="f"><label>Nombre</label><input type="text" value="'+esc(J.n)+'" onchange="'+on(function(x){pbDatoAdm(J,"label",x)})+'"><div class="fab">solo lo ves tú</div></div><div class="f"><label>Grupo</label><select onchange="'+on(function(x){pbCambiaGrupo(J,x)})+'">'+[""].concat(GRP.map(function(g){return g.n})).map(function(g){return '<option'+(g===J.g?" selected":"")+'>'+g+'</option>'}).join("")+'</select><div class="fab"></div></div><div class="f"><label>Nota privada</label><textarea rows="2" onchange="'+on(function(x){pbDatoAdm(J,"adm_nota",x)})+'">'+esc(J.nota)+'</textarea><div class="fab"></div></div>',"","mt")+
-    card("Zona delicada",'<div class="row">'+btn(J.st==="blq"?"Desbloquear":"Bloquear este navegador",function(){J.st=J.st==="blq"?"":"blq";go();toast(J.st==="blq"?"Bloqueado: /tele le responde 403":"Desbloqueado")},"red")+btn("Borrar todos sus datos",function(){modal(pbConfirmaBorrar([J.id]))},"red")+'<span class="small mut">Bloquear corta la telemetría, los códigos y el contenido editable; el juego le sigue funcionando con el contenido de fábrica.</span></div>',"","mt");
-  else if(tb==="Línea de tiempo") b=card("Eventos",'<div class="row" style="margin-bottom:10px">'+["Todo","Partidos","Decisiones","Carrera","Pantallas","Errores"].map(function(x,i){return '<span class="chip '+(i===0?"on":"")+'" onclick="'+on(T("Filtra por "+x.toLowerCase()))+'">'+x+'</span>'}).join("")+'</div>'+tl([["hoy 01:03","<span class=\"tag ok\">partido</span> Betis 2-1 Celta · nota 7,8 · 1 gol"],["hoy 00:58","<span class=\"tag\">decisión</span> «Mano a mano en el descuento» → Definir cruzado · salió bien"],["hoy 00:51","<span class=\"tag\">decisión</span> «Centro medido» → Atacar el primer palo · sin consecuencias · 4,1 s"],["hoy 00:44","<span class=\"tag blue\">pantalla</span> Entreno → Técnica individual"],["hoy 00:40","<span class=\"tag blue\">sesión</span> Abre el juego · 4.69.0 · contenido v7"],["ayer 22:10","<span class=\"tag vio\">nivel</span> Sube al nivel 23"],["ayer 21:55","<span class=\"tag gold\">ventana</span> Oferta de patrocinio: Joma (botas)"],["12 nov","<span class=\"tag bad\">error</span> TypeError en vestuario()"],["11 nov","<span class=\"tag vio\">club</span> Ficha por el Real Betis · 6,2 M€"]],110)+'<div style="margin-top:10px">'+btn("Cargar más",T("Carga 200 eventos más"),"sm")+'</div>');
-  else if(tb==="Partidas") b=card("Partidas guardadas · las 6 últimas",'<table><tr><th>Cuándo</th><th>Momento</th><th>Tamaño</th><th>Versión</th><th></th></tr>'+[["hoy 01:03","T3 · J14","61 kB"],["ayer 22:12","T3 · J12","60 kB"],["13 nov","T3 · J8","58 kB"],["11 nov","T3 · J1","44 kB"],["9 nov","T2 · J38","63 kB"],["7 nov","T2 · J30","61 kB"]].map(function(p){return '<tr><td>'+p[0]+'</td><td>'+p[1]+'</td><td class="mut">'+p[2]+'</td><td><span class="tag ok">'+J.ver+'</span></td><td class="r">'+btn("Descargar",T("Descarga el .json; se importa en el juego desde Ajustes"),"sm")+" "+btn("Abrir en el juego",T("Abre el juego con esta partida en una pestaña aparte"),"sm")+'</td></tr>'}).join("")+'</table><p class="small mut" style="margin:10px 0 0">«Abrir en el juego» carga la partida en tu navegador sin tocar la del jugador.</p>');
-  else if(tb==="Regalos y mensajes") b='<div class="grid g2">'+card("Regalos",'<table><tr><th>Regalo</th><th>Enviado</th><th>Estado</th></tr><tr><td>+50.000 €</td><td class="mut">14 nov 23:12</td><td><span class="tag ok">recibido</span></td></tr></table>',btn("Regalar",function(){modal(regaloForm(jNom(J)))},"sm gold"))+card("Mensajes",'<table><tr><th>Mensaje</th><th>Enviado</th><th>Estado</th></tr><tr><td class="w">Gracias por el reporte del bazar, lo miro.</td><td class="mut">14 nov 23:14</td><td><span class="tag ok">leído</span></td></tr></table>',btn("Mensaje",function(){modal(msgForm(jNom(J)))},"sm gold"))+card("Códigos canjeados",'<table><tr><th>Código</th><th>Cuándo</th></tr><tr><td class="mono">BIENVENIDO</td><td class="mut">2 nov</td></tr></table>')+'</div>';
-  else if(tb==="Reportes y errores") b='<div class="grid g2">'+card("Sus reportes",REP.filter(function(r){return r.de===J.n}).map(function(r){return '<div class="diff"><span>'+r.ic+'</span><span class="p">'+esc(r.x)+'</span><span class="tag">'+r.est+'</span></div>'}).join("")||'<p class="mut">Ninguno.</p>')+card("Sus errores",ERR.filter(function(r){return r.j.indexOf(J.n)>=0}).map(function(r){return '<div class="diff"><span class="p mono small">'+esc(r.m)+'</span><span class="tag">'+r.n+' veces</span></div>'}).join("")||'<p class="mut">Ninguno.</p>')+'</div>';
-  else b=card("Dispositivo",'<div class="diff"><span class="p">Navegador y pantalla</span><b>'+esc(J.dev)+'</b></div><div class="diff"><span class="p">Zona horaria</span><b>'+J.tz+'</b></div><div class="diff"><span class="p">Idioma</span><b>es-ES</b></div><div class="diff"><span class="p">Id del navegador</span><b class="mono">'+J.id+'</b></div><div class="diff"><span class="p">Carga del juego</span><b>640 ms</b></div><p class="small mut" style="margin:10px 0 0">Si la misma persona juega en dos dispositivos, salen como dos jugadores. Se pueden unir con «Fusionar».</p>'+btn("Fusionar con otro jugador",T("Elige el otro navegador de la misma persona"),"sm"));
-  return miga(esc(jNom(J)))+'<div class="row" style="margin-bottom:6px">'+btn("← Volver a la lista",function(){ST.sel.jug=null;go()},"sm")+(function(){ var i=JUG.indexOf(J); return btn("‹ Anterior",function(){ST.sel.jug=JUG[(i-1+JUG.length)%JUG.length].id;go()},"sm")+btn("Siguiente ›",function(){ST.sel.jug=JUG[(i+1)%JUG.length].id;go()},"sm"); })()+'</div><div class="row" style="align-items:flex-start"><div style="flex:1"><h1>'+(J.st==="on"?'<span class="dot"></span>':'')+esc(jNom(J))+(J.g?' <span class="tag blue">'+J.g+'</span>':'')+(J.st==="blq"?' <span class="tag bad">bloqueado</span>':'')+'</h1><p class="sub mono small">'+J.id+'</p></div>'+btn("Regalar",function(){modal(regaloForm(jNom(J)))},"gold")+btn("Mensaje",function(){modal(msgForm(jNom(J)))})+btn("Última partida",T("Descarga su última partida"))+'</div>'+t+b;
+    card("Zona delicada",'<div class="row">'+btn(J.st==="blq"?"Desbloquear":"Bloquear este navegador",function(){pbBloquea(J,J.st!=="blq")},"red")+btn("Borrar todos sus datos",function(){modal(pbConfirmaBorrar([J.id]))},"red")+'<span class="small mut">Bloquear corta la telemetría, los códigos y el contenido editable; el juego le sigue funcionando con el contenido de fábrica.</span></div>',"","mt");
+  else if(tb==="Línea de tiempo") b=pbTabEventos(J);
+  else if(tb==="Partidas") b=pbTabPartidas(J);
+  else if(tb==="Regalos y mensajes") b=pbTabRegalos(J);
+  else if(tb==="Reportes y errores") b=pbTabReportes(J);
+  else b=pbTabDispositivo(J);
+  return miga(esc(jNom(J)))+'<div class="row" style="margin-bottom:6px">'+btn("← Volver a la lista",function(){ST.sel.jug=null;go()},"sm")+(function(){ var i=JUG.indexOf(J); return btn("‹ Anterior",function(){ST.sel.jug=JUG[(i-1+JUG.length)%JUG.length].id;go()},"sm")+btn("Siguiente ›",function(){ST.sel.jug=JUG[(i+1)%JUG.length].id;go()},"sm"); })()+'</div><div class="row" style="align-items:flex-start"><div style="flex:1"><h1>'+(J.st==="on"?'<span class="dot"></span>':'')+esc(jNom(J))+(J.g?' <span class="tag blue">'+J.g+'</span>':'')+(J.st==="blq"?' <span class="tag bad">bloqueado</span>':'')+'</h1><p class="sub mono small">'+J.id+'</p></div>'+btn("Regalar",function(){modal(regaloForm(jNom(J)))},"gold")+btn("Mensaje",function(){modal(msgForm(jNom(J)))})+btn("Última partida",function(){pbDescargaUltima(J)})+'</div>'+t+b;
 }
 V.grupos=function(){
   return hd("Grupos","Sirven para filtrar, avisar y decidir quién recibe el borrador y qué interruptores tiene.",btn("+ Grupo",T("Crea un grupo nuevo"),"gold"))+'<div class="grid g2">'+GRP.map(function(g){ var ms=JUG.filter(function(j){return j.g===g.n}); return card(g.n,'<div class="f"><label>Nombre</label><input type="text" value="'+esc(g.n)+'"><div class="fab"></div></div><div class="f"><label>Descripción</label><input type="text" value="'+esc(g.d)+'"><div class="fab"></div></div><div class="f"><label>Reciben el borrador</label><div class="row">'+sw(g.borr,function(){g.borr=!g.borr;go()})+'<span class="small mut">'+(g.borr?"Sí, antes de publicar":"No, lo publicado")+'</span></div><div class="fab"></div></div><div class="f"><label>Interruptores propios</label><div>'+(g.borr?'<span class="tag">Pistas: siempre encendido</span>':'<span class="mut small">ninguno</span>')+'</div><div class="fab"><a onclick="'+on(function(){nav("resumen")})+'">editar</a></div></div><div class="f"><label>Miembros</label><div>'+ms.map(function(j){return '<span class="chip" onclick="'+on(function(){ST.sel.jug=j.id;nav("jugadores")})+'">'+esc(jNom(j))+'</span>'}).join("")+'</div><div class="fab"><a onclick="'+on(T("Elige jugadores"))+'">añadir</a></div></div><div class="row" style="margin-top:10px">'+btn("Avisar al grupo",function(){modal(avisoForm(null))},"sm")+btn("Regalar al grupo",function(){modal(regaloForm("el grupo "+g.n))},"sm")+btn("Borrar grupo",T("Los jugadores se quedan sin grupo"),"sm red")+'</div>','<span class="tag blue">'+ms.length+' jugadores</span>'); }).join("")+'</div>';
@@ -1181,13 +1181,13 @@ function pbAdapta(){
   PB.byInst={}; PB.raw.pl.forEach(function(p){ PB.byInst[p.install]=p; });
   JUG.length=0;
   PB.raw.pl.forEach(function(p){ var e=p.estado||{}, lt=p.last_t||0;
-    JUG.push({id:p.install,_rid:p.id,n:pbNombre(p),g:pbGrupoNom(p.adm_grupo),ver:p.ver||"—",eq:pbClub(e.club_n),pos:"—",niv:e.nivel||0,temp:e.temporada||0,jor:e.jornada||0,med:e.nota||0,edad:0,last:lt?pbFecha(lt):"—",lastN:lt?(now-lt)/36e5:9999,h:(p.active_s||0)/3600,ses:p.sessions||0,st:(lt&&now-lt<120000)?"on":"",din:0,arq:"—",dev:p.ua?pbDisp(p.ua):"—",tz:"—",nota:p.adm_nota||""});
+    JUG.push({id:p.install,_rid:p.id,n:pbNombre(p),g:pbGrupoNom(p.adm_grupo),ver:p.ver||"—",eq:pbClub(e.club_n),pos:"—",niv:e.nivel||0,temp:e.temporada||0,jor:e.jornada||0,med:e.nota||0,edad:0,last:lt?pbFecha(lt):"—",lastN:lt?(now-lt)/36e5:9999,h:(p.active_s||0)/3600,ses:p.sessions||0,st:p.adm_bloqueado?"blq":((lt&&now-lt<120000)?"on":""),din:0,arq:"—",dev:p.ua?pbDisp(p.ua):"—",tz:p.tz||"—",first:p.first_t||0,lang:p.lang||"—",scr:p.scr||"—",ua:p.ua||"",nota:p.adm_nota||""});
   });
   COD.length=0;
   PB.raw.cod.forEach(function(c){ COD.push({_rid:c.id,raw:c.code,c:pbCod(c.code),fx:(c.efectos||[]).map(function(x){return [x.k,x.v]}),u:c.usos||0,max:c.max_usos||0,cad:c.hasta?new Date(c.hasta).toISOString().slice(0,10):"",uno:!!c.una_por_jugador,on:!!c.activo,nota:c.nota||""}); });
   REP.length=0;
   PB.raw.rep.forEach(function(r){ var p=PB.byInst[r.install],T=PB_RT[r.tipo]||PB_RT.otro,cx=r.ctx||{},e=cx.estado||{};
-    REP.push({_rid:r.id,ic:T[0],tipo:T[1],de:pbNombre(p)||r.install.slice(0,8),x:r.texto||"",est:r.estado||"nuevo",t:pbFecha(r.t),ctx:(cx.ver?"v"+cx.ver:"v?")+(e.club_n?" · "+e.club_n+" · T"+(e.temporada||0)+" J"+(e.jornada||0):""),save:!!cx.adjunta,nota:r.nota_admin||""});
+    REP.push({_rid:r.id,inst:r.install,ic:T[0],tipo:T[1],de:pbNombre(p)||r.install.slice(0,8),x:r.texto||"",est:r.estado||"nuevo",t:pbFecha(r.t),ctx:(cx.ver?"v"+cx.ver:"v?")+(e.club_n?" · "+e.club_n+" · T"+(e.temporada||0)+" J"+(e.jornada||0):""),save:!!cx.adjunta,nota:r.nota_admin||""});
   });
 }
 async function pbCarga(){
@@ -1198,7 +1198,7 @@ async function pbCarga(){
   PB.raw.cod=await pbAll("tl_codes","sort=-created");
   PB.raw.can=await pbAll("tl_canjes","sort=-t");
   PB.raw.rep=await pbAll("tl_reports","sort=-t&fields="+encodeURIComponent("id,install,t,tipo,texto,ctx,estado,nota_admin"));
-  pbAdapta(); go();
+  PB.det={}; pbAdapta(); go();
 }
 async function pbEntra(){
   $("l-err").textContent="";
@@ -1305,19 +1305,19 @@ $("l-pass").addEventListener("keydown",function(e){ if(e.key==="Enter") pbEntra(
 function flagsBar(){ return '<div class="off">'+flagsBarOrig()+'</div>'; }
 
 /* borrado de usuarios: sus datos del servidor (sesiones, eventos, partidas guardadas y fila de jugador) */
-function pbConfirmaBorrar(ids){ return function(){ return '<h2>Borrar datos de '+ids.length+' usuario'+(ids.length===1?'':'s')+'</h2>'+
-  '<p class="mut">Se borran del servidor sus sesiones, eventos, partidas guardadas y su fila de jugador. Los reportes y los canjes se conservan. No se puede deshacer.</p>'+
+function pbConfirmaBorrar(ids,todo){ return function(){ return '<h2>'+(todo?'Borrar todos los datos de '+esc(ids.length===1&&JUG.find(function(j){return j.id===ids[0]})?JUG.find(function(j){return j.id===ids[0]}).n:ids.length+' usuarios'):'Borrar datos de '+ids.length+' usuario'+(ids.length===1?'':'s'))+'</h2>'+
+  (todo?'<p class="mut">Se borra todo lo del jugador: sesiones, eventos, partidas guardadas, reportes, canjes y su fila de jugador. No se puede deshacer.</p>':'<p class="mut">Se borran del servidor sus sesiones, eventos, partidas guardadas y su fila de jugador. Los reportes y los canjes se conservan. No se puede deshacer.</p>')+
   '<p class="mut small">El progreso de la carrera vive en el navegador del jugador y no se borra. Si ese navegador vuelve a jugar, aparecerá como usuario nuevo.</p>'+
   '<div class="f"><label>Escribe BORRAR para confirmar</label><input type="text" id="bd-conf" placeholder="BORRAR"><div class="fab"></div></div>'+
   '<p class="small errt" id="bd-msg"></p>'+
-  '<div class="row" style="justify-content:flex-end;margin-top:14px">'+btn("Cancelar",function(){modal()})+btn("Confirmar",function(){pbBorra(ids)},"red")+'</div>'; }; }
-async function pbBorra(ids){
+  '<div class="row" style="justify-content:flex-end;margin-top:14px">'+btn("Cancelar",function(){modal()})+btn("Confirmar",function(){pbBorra(ids,todo)},"red")+'</div>'; }; }
+async function pbBorra(ids,todo){
   var m=$("bd-msg"); m.textContent="";
   if(($("bd-conf").value||"").trim().toUpperCase()!=="BORRAR"){ m.textContent="Escribe BORRAR para confirmar."; return; }
   try{
     for(var k=0;k<ids.length;k++){
       var id=ids[k], f="fields=id&filter="+encodeURIComponent("install='"+id+"'");
-      var cols=["tl_events","tl_sessions","tl_snapshots"];
+      var cols=["tl_events","tl_sessions","tl_snapshots"].concat(todo?["tl_reports","tl_canjes","tl_intentos"]:[]);
       for(var c=0;c<cols.length;c++){ var rs=await pbAll(cols[c],f); for(var x=0;x<rs.length;x++) await pbApi("/api/collections/"+cols[c]+"/records/"+rs[x].id,{method:"DELETE"}); }
       var pl=PB.raw.pl.find(function(p){return p.install===id}); if(pl) await pbApi("/api/collections/tl_players/records/"+pl.id,{method:"DELETE"});
       // baja: la partida del jugador se borra al volver a entrar en el juego (ver tl_bajas en /tele)
@@ -1381,6 +1381,88 @@ V.grupos=function(){
     return card(g.n,cuerpo);
   }).join("")+'</div>';
 };
+// ---- Ficha del jugador: pestañas con datos reales (eventos, partidas, canjes, reportes, dispositivo) ----
+OK_TAB.push("Línea de tiempo","Partidas","Regalos y mensajes","Reportes y errores","Dispositivo");
+OK_BTN.push("Cargar más","Última partida","Exportar CSV","Desbloquear","Bloquear este navegador");
+PB.det={};
+async function pbCargaDet(id,masEv){
+  var D=PB.det[id]||(PB.det[id]={evN:200,loading:false});
+  if(masEv) D.evN+=200;
+  if(D.loading) return; D.loading=true;
+  var f="filter="+encodeURIComponent("install='"+id+"'");
+  try{
+    var ev=await pbApi("/api/collections/tl_events/records?perPage="+D.evN+"&sort=-t&"+f);
+    var sn=await pbApi("/api/collections/tl_snapshots/records?perPage=6&sort=-t&fields=id,t,bytes,ver&"+f);
+    var cn=await pbApi("/api/collections/tl_canjes/records?perPage=100&sort=-t&"+f);
+    var se=await pbApi("/api/collections/tl_sessions/records?perPage=500&sort=-start_t&fields=start_t&"+f);
+    var dias=[0,0,0,0,0,0,0,0,0,0,0,0,0,0], hoy=new Date(); hoy.setHours(0,0,0,0);
+    se.items.forEach(function(s){ var d=Math.round((hoy-new Date(s.start_t).setHours(0,0,0,0))/864e5); if(d>=0&&d<14) dias[13-d]++; });
+    Object.assign(D,{ev:ev,snap:sn.items,can:cn.items,dias:dias,ok:true});
+  }catch(e){ toast("No se pudieron cargar los datos del jugador: "+e.message); }
+  D.loading=false; go();
+}
+function pbDet(J){ var D=PB.det[J.id]; if(D&&D.ok) return D; if(!(D&&D.loading)) pbCargaDet(J.id); return null; }
+function pbPend(){ return card("Cargando",'<p class="mut">Leyendo los datos del jugador…</p>'); }
+function pbResumen(d){ if(d==null) return ""; var s=typeof d==="string"?d:JSON.stringify(d); return s.length>110?s.slice(0,110)+"…":s; }
+function pbDias(J){ var D=pbDet(J); return D?D.dias:[0,0,0,0,0,0,0,0,0,0,0,0,0,0]; }
+function pbTabEventos(J){
+  var D=pbDet(J); if(!D) return pbPend();
+  var tipos=[]; D.ev.items.forEach(function(x){ if(tipos.indexOf(x.tipo)<0) tipos.push(x.tipo); });
+  var f=ST.tab.evf||"Todo";
+  var L=D.ev.items.filter(function(x){ return f==="Todo"||x.tipo===f; });
+  var chips='<div class="row" style="margin-bottom:10px">'+["Todo"].concat(tipos).map(function(t){return '<span class="chip '+(f===t?"on":"")+'" onclick="'+on(function(){ST.tab.evf=t;go()})+'">'+esc(t)+'</span>'}).join("")+'</div>';
+  var rows=L.map(function(x){ return [pbFecha(x.t), '<span class="tag">'+esc(x.tipo)+'</span> '+esc(pbResumen(x.d))]; });
+  var mas=D.ev.totalItems>D.ev.items.length? '<div style="margin-top:10px">'+btn("Cargar más",function(){pbCargaDet(J.id,true)},"sm")+'</div>' : '';
+  return card("Eventos",chips+(rows.length?tl(rows,110):'<p class="mut">Sin eventos.</p>')+mas);
+}
+function pbTabPartidas(J){
+  var D=pbDet(J); if(!D) return pbPend();
+  if(!D.snap.length) return card("Partidas guardadas",'<p class="mut">Ninguna partida guardada.</p>');
+  var filas=D.snap.map(function(s){ return '<tr><td>'+pbFecha(s.t)+'</td><td class="mut">'+(s.bytes?Math.round(s.bytes/1024)+' kB':'—')+'</td><td><span class="tag ok">'+esc(s.ver||"—")+'</span></td><td class="r">'+btn("Descargar",function(){pbDescargaSnap(J.id,s.id)},"sm")+'</td></tr>'; }).join("");
+  return card("Partidas guardadas · las 6 últimas",'<table><tr><th>Cuándo</th><th>Tamaño</th><th>Versión</th><th></th></tr>'+filas+'</table><p class="small mut" style="margin:10px 0 0">El .json es la partida tal como la guardó el juego.</p>');
+}
+async function pbDescargaSnap(id,sid){
+  try{
+    var r=await pbApi("/api/collections/tl_snapshots/records/"+sid);
+    var blob=new Blob([JSON.stringify(r.save||{},null,1)],{type:"application/json"});
+    var a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="partida-"+id+"-"+r.t+".json";
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href)},2000);
+  }catch(e){ toast("No se pudo descargar: "+e.message); }
+}
+function pbDescargaUltima(J){
+  var D=PB.det[J.id];
+  if(!D||!D.ok){ pbCargaDet(J.id); toast("Cargando partidas…"); return; }
+  if(!D.snap.length){ toast("Sin partidas guardadas"); return; }
+  pbDescargaSnap(J.id,D.snap[0].id);
+}
+function pbTabRegalos(J){
+  var D=pbDet(J); if(!D) return pbPend();
+  var canj=D.can.length? '<table><tr><th>Código</th><th>Cuándo</th></tr>'+D.can.map(function(c){return '<tr><td class="mono">'+esc(c.code)+'</td><td class="mut">'+pbFecha(c.t)+'</td></tr>'}).join("")+'</table>' : '<p class="mut">Ningún código canjeado.</p>';
+  return '<div class="grid g2">'+cardOff("Regalos",'<p class="mut">Los regalos enviados todavía no se guardan en el servidor.</p>')+cardOff("Mensajes",'<p class="mut">El juego todavía no recibe mensajes del admin.</p>')+card("Códigos canjeados",canj)+'</div>';
+}
+function pbTabReportes(J){
+  var D=pbDet(J); if(!D) return pbPend();
+  var mios=REP.filter(function(r){return r.inst===J.id});
+  var errs=D.ev.items.filter(function(x){return x.tipo==="error"});
+  return '<div class="grid g2">'+card("Sus reportes", mios.map(function(r){return '<div class="diff"><span>'+r.ic+'</span><span class="p">'+esc(r.x)+'</span><span class="tag">'+r.est+'</span></div>'}).join("")||'<p class="mut">Ninguno.</p>')+card("Sus errores", errs.map(function(x){return '<div class="diff"><span class="p mono small">'+esc(pbResumen(x.d))+'</span><span class="tag">'+pbFecha(x.t)+'</span></div>'}).join("")||'<p class="mut">Ninguno.</p>')+'</div>';
+}
+function pbTabDispositivo(J){
+  return card("Dispositivo",'<div class="diff"><span class="p">Navegador y sistema</span><b>'+esc(J.dev)+'</b></div><div class="diff"><span class="p">Pantalla</span><b>'+esc(J.scr)+'</b></div><div class="diff"><span class="p">Zona horaria</span><b>'+esc(J.tz)+'</b></div><div class="diff"><span class="p">Idioma</span><b>'+esc(J.lang)+'</b></div><div class="diff"><span class="p">Id del navegador</span><b class="mono">'+esc(J.id)+'</b></div><p class="small mut" style="margin:10px 0 0">Si la misma persona juega en dos dispositivos, salen como dos jugadores.</p>'+btn("Fusionar con otro jugador",function(){},"sm"));
+}
+async function pbBloquea(J,v){
+  try{
+    await pbApi("/api/collections/tl_players/records/"+J._rid,{method:"PATCH",headers:PB_JSON,body:JSON.stringify({adm_bloqueado:!!v})});
+    toast(v?"Bloqueado: ese navegador deja de enviar datos":"Desbloqueado");
+    await pbCarga();
+  }catch(e){ toast("No se pudo cambiar: "+e.message); }
+}
+function pbExportaCSV(){
+  var cols=["id","nombre","grupo","club","nivel","temporada","jornada","horas","sesiones","version","ultima_vez"];
+  var filas=JUG.map(function(j){ var e=j.eq&&CLI[j.eq]; return [j.id,j.n,j.g,e?e.n:"",j.niv,j.temp,j.jor,(j.h||0).toFixed(1).replace(".",","),j.ses,j.ver,j.last]; });
+  var csv=[cols].concat(filas).map(function(r){ return r.map(function(v){ v=String(v==null?"":v); return /[";\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }).join(";"); }).join("\n");
+  var a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv"})); a.download="usuarios-goatmaker.csv";
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href)},2000);
+}
 
 go();
 </script>

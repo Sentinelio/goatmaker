@@ -31,13 +31,13 @@ function pbAdapta(){
   PB.byInst={}; PB.raw.pl.forEach(function(p){ PB.byInst[p.install]=p; });
   JUG.length=0;
   PB.raw.pl.forEach(function(p){ var e=p.estado||{}, lt=p.last_t||0;
-    JUG.push({id:p.install,_rid:p.id,n:pbNombre(p),g:pbGrupoNom(p.adm_grupo),ver:p.ver||"—",eq:pbClub(e.club_n),pos:"—",niv:e.nivel||0,temp:e.temporada||0,jor:e.jornada||0,med:e.nota||0,edad:0,last:lt?pbFecha(lt):"—",lastN:lt?(now-lt)/36e5:9999,h:(p.active_s||0)/3600,ses:p.sessions||0,st:(lt&&now-lt<120000)?"on":"",din:0,arq:"—",dev:p.ua?pbDisp(p.ua):"—",tz:"—",nota:p.adm_nota||""});
+    JUG.push({id:p.install,_rid:p.id,n:pbNombre(p),g:pbGrupoNom(p.adm_grupo),ver:p.ver||"—",eq:pbClub(e.club_n),pos:"—",niv:e.nivel||0,temp:e.temporada||0,jor:e.jornada||0,med:e.nota||0,edad:0,last:lt?pbFecha(lt):"—",lastN:lt?(now-lt)/36e5:9999,h:(p.active_s||0)/3600,ses:p.sessions||0,st:p.adm_bloqueado?"blq":((lt&&now-lt<120000)?"on":""),din:0,arq:"—",dev:p.ua?pbDisp(p.ua):"—",tz:p.tz||"—",first:p.first_t||0,lang:p.lang||"—",scr:p.scr||"—",ua:p.ua||"",nota:p.adm_nota||""});
   });
   COD.length=0;
   PB.raw.cod.forEach(function(c){ COD.push({_rid:c.id,raw:c.code,c:pbCod(c.code),fx:(c.efectos||[]).map(function(x){return [x.k,x.v]}),u:c.usos||0,max:c.max_usos||0,cad:c.hasta?new Date(c.hasta).toISOString().slice(0,10):"",uno:!!c.una_por_jugador,on:!!c.activo,nota:c.nota||""}); });
   REP.length=0;
   PB.raw.rep.forEach(function(r){ var p=PB.byInst[r.install],T=PB_RT[r.tipo]||PB_RT.otro,cx=r.ctx||{},e=cx.estado||{};
-    REP.push({_rid:r.id,ic:T[0],tipo:T[1],de:pbNombre(p)||r.install.slice(0,8),x:r.texto||"",est:r.estado||"nuevo",t:pbFecha(r.t),ctx:(cx.ver?"v"+cx.ver:"v?")+(e.club_n?" · "+e.club_n+" · T"+(e.temporada||0)+" J"+(e.jornada||0):""),save:!!cx.adjunta,nota:r.nota_admin||""});
+    REP.push({_rid:r.id,inst:r.install,ic:T[0],tipo:T[1],de:pbNombre(p)||r.install.slice(0,8),x:r.texto||"",est:r.estado||"nuevo",t:pbFecha(r.t),ctx:(cx.ver?"v"+cx.ver:"v?")+(e.club_n?" · "+e.club_n+" · T"+(e.temporada||0)+" J"+(e.jornada||0):""),save:!!cx.adjunta,nota:r.nota_admin||""});
   });
 }
 async function pbCarga(){
@@ -48,7 +48,7 @@ async function pbCarga(){
   PB.raw.cod=await pbAll("tl_codes","sort=-created");
   PB.raw.can=await pbAll("tl_canjes","sort=-t");
   PB.raw.rep=await pbAll("tl_reports","sort=-t&fields="+encodeURIComponent("id,install,t,tipo,texto,ctx,estado,nota_admin"));
-  pbAdapta(); go();
+  PB.det={}; pbAdapta(); go();
 }
 async function pbEntra(){
   $("l-err").textContent="";
@@ -155,19 +155,19 @@ $("l-pass").addEventListener("keydown",function(e){ if(e.key==="Enter") pbEntra(
 function flagsBar(){ return '<div class="off">'+flagsBarOrig()+'</div>'; }
 
 /* borrado de usuarios: sus datos del servidor (sesiones, eventos, partidas guardadas y fila de jugador) */
-function pbConfirmaBorrar(ids){ return function(){ return '<h2>Borrar datos de '+ids.length+' usuario'+(ids.length===1?'':'s')+'</h2>'+
-  '<p class="mut">Se borran del servidor sus sesiones, eventos, partidas guardadas y su fila de jugador. Los reportes y los canjes se conservan. No se puede deshacer.</p>'+
+function pbConfirmaBorrar(ids,todo){ return function(){ return '<h2>'+(todo?'Borrar todos los datos de '+esc(ids.length===1&&JUG.find(function(j){return j.id===ids[0]})?JUG.find(function(j){return j.id===ids[0]}).n:ids.length+' usuarios'):'Borrar datos de '+ids.length+' usuario'+(ids.length===1?'':'s'))+'</h2>'+
+  (todo?'<p class="mut">Se borra todo lo del jugador: sesiones, eventos, partidas guardadas, reportes, canjes y su fila de jugador. No se puede deshacer.</p>':'<p class="mut">Se borran del servidor sus sesiones, eventos, partidas guardadas y su fila de jugador. Los reportes y los canjes se conservan. No se puede deshacer.</p>')+
   '<p class="mut small">El progreso de la carrera vive en el navegador del jugador y no se borra. Si ese navegador vuelve a jugar, aparecerá como usuario nuevo.</p>'+
   '<div class="f"><label>Escribe BORRAR para confirmar</label><input type="text" id="bd-conf" placeholder="BORRAR"><div class="fab"></div></div>'+
   '<p class="small errt" id="bd-msg"></p>'+
-  '<div class="row" style="justify-content:flex-end;margin-top:14px">'+btn("Cancelar",function(){modal()})+btn("Confirmar",function(){pbBorra(ids)},"red")+'</div>'; }; }
-async function pbBorra(ids){
+  '<div class="row" style="justify-content:flex-end;margin-top:14px">'+btn("Cancelar",function(){modal()})+btn("Confirmar",function(){pbBorra(ids,todo)},"red")+'</div>'; }; }
+async function pbBorra(ids,todo){
   var m=$("bd-msg"); m.textContent="";
   if(($("bd-conf").value||"").trim().toUpperCase()!=="BORRAR"){ m.textContent="Escribe BORRAR para confirmar."; return; }
   try{
     for(var k=0;k<ids.length;k++){
       var id=ids[k], f="fields=id&filter="+encodeURIComponent("install='"+id+"'");
-      var cols=["tl_events","tl_sessions","tl_snapshots"];
+      var cols=["tl_events","tl_sessions","tl_snapshots"].concat(todo?["tl_reports","tl_canjes","tl_intentos"]:[]);
       for(var c=0;c<cols.length;c++){ var rs=await pbAll(cols[c],f); for(var x=0;x<rs.length;x++) await pbApi("/api/collections/"+cols[c]+"/records/"+rs[x].id,{method:"DELETE"}); }
       var pl=PB.raw.pl.find(function(p){return p.install===id}); if(pl) await pbApi("/api/collections/tl_players/records/"+pl.id,{method:"DELETE"});
       // baja: la partida del jugador se borra al volver a entrar en el juego (ver tl_bajas en /tele)
@@ -231,3 +231,85 @@ V.grupos=function(){
     return card(g.n,cuerpo);
   }).join("")+'</div>';
 };
+// ---- Ficha del jugador: pestañas con datos reales (eventos, partidas, canjes, reportes, dispositivo) ----
+OK_TAB.push("Línea de tiempo","Partidas","Regalos y mensajes","Reportes y errores","Dispositivo");
+OK_BTN.push("Cargar más","Última partida","Exportar CSV","Desbloquear","Bloquear este navegador");
+PB.det={};
+async function pbCargaDet(id,masEv){
+  var D=PB.det[id]||(PB.det[id]={evN:200,loading:false});
+  if(masEv) D.evN+=200;
+  if(D.loading) return; D.loading=true;
+  var f="filter="+encodeURIComponent("install='"+id+"'");
+  try{
+    var ev=await pbApi("/api/collections/tl_events/records?perPage="+D.evN+"&sort=-t&"+f);
+    var sn=await pbApi("/api/collections/tl_snapshots/records?perPage=6&sort=-t&fields=id,t,bytes,ver&"+f);
+    var cn=await pbApi("/api/collections/tl_canjes/records?perPage=100&sort=-t&"+f);
+    var se=await pbApi("/api/collections/tl_sessions/records?perPage=500&sort=-start_t&fields=start_t&"+f);
+    var dias=[0,0,0,0,0,0,0,0,0,0,0,0,0,0], hoy=new Date(); hoy.setHours(0,0,0,0);
+    se.items.forEach(function(s){ var d=Math.round((hoy-new Date(s.start_t).setHours(0,0,0,0))/864e5); if(d>=0&&d<14) dias[13-d]++; });
+    Object.assign(D,{ev:ev,snap:sn.items,can:cn.items,dias:dias,ok:true});
+  }catch(e){ toast("No se pudieron cargar los datos del jugador: "+e.message); }
+  D.loading=false; go();
+}
+function pbDet(J){ var D=PB.det[J.id]; if(D&&D.ok) return D; if(!(D&&D.loading)) pbCargaDet(J.id); return null; }
+function pbPend(){ return card("Cargando",'<p class="mut">Leyendo los datos del jugador…</p>'); }
+function pbResumen(d){ if(d==null) return ""; var s=typeof d==="string"?d:JSON.stringify(d); return s.length>110?s.slice(0,110)+"…":s; }
+function pbDias(J){ var D=pbDet(J); return D?D.dias:[0,0,0,0,0,0,0,0,0,0,0,0,0,0]; }
+function pbTabEventos(J){
+  var D=pbDet(J); if(!D) return pbPend();
+  var tipos=[]; D.ev.items.forEach(function(x){ if(tipos.indexOf(x.tipo)<0) tipos.push(x.tipo); });
+  var f=ST.tab.evf||"Todo";
+  var L=D.ev.items.filter(function(x){ return f==="Todo"||x.tipo===f; });
+  var chips='<div class="row" style="margin-bottom:10px">'+["Todo"].concat(tipos).map(function(t){return '<span class="chip '+(f===t?"on":"")+'" onclick="'+on(function(){ST.tab.evf=t;go()})+'">'+esc(t)+'</span>'}).join("")+'</div>';
+  var rows=L.map(function(x){ return [pbFecha(x.t), '<span class="tag">'+esc(x.tipo)+'</span> '+esc(pbResumen(x.d))]; });
+  var mas=D.ev.totalItems>D.ev.items.length? '<div style="margin-top:10px">'+btn("Cargar más",function(){pbCargaDet(J.id,true)},"sm")+'</div>' : '';
+  return card("Eventos",chips+(rows.length?tl(rows,110):'<p class="mut">Sin eventos.</p>')+mas);
+}
+function pbTabPartidas(J){
+  var D=pbDet(J); if(!D) return pbPend();
+  if(!D.snap.length) return card("Partidas guardadas",'<p class="mut">Ninguna partida guardada.</p>');
+  var filas=D.snap.map(function(s){ return '<tr><td>'+pbFecha(s.t)+'</td><td class="mut">'+(s.bytes?Math.round(s.bytes/1024)+' kB':'—')+'</td><td><span class="tag ok">'+esc(s.ver||"—")+'</span></td><td class="r">'+btn("Descargar",function(){pbDescargaSnap(J.id,s.id)},"sm")+'</td></tr>'; }).join("");
+  return card("Partidas guardadas · las 6 últimas",'<table><tr><th>Cuándo</th><th>Tamaño</th><th>Versión</th><th></th></tr>'+filas+'</table><p class="small mut" style="margin:10px 0 0">El .json es la partida tal como la guardó el juego.</p>');
+}
+async function pbDescargaSnap(id,sid){
+  try{
+    var r=await pbApi("/api/collections/tl_snapshots/records/"+sid);
+    var blob=new Blob([JSON.stringify(r.save||{},null,1)],{type:"application/json"});
+    var a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="partida-"+id+"-"+r.t+".json";
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href)},2000);
+  }catch(e){ toast("No se pudo descargar: "+e.message); }
+}
+function pbDescargaUltima(J){
+  var D=PB.det[J.id];
+  if(!D||!D.ok){ pbCargaDet(J.id); toast("Cargando partidas…"); return; }
+  if(!D.snap.length){ toast("Sin partidas guardadas"); return; }
+  pbDescargaSnap(J.id,D.snap[0].id);
+}
+function pbTabRegalos(J){
+  var D=pbDet(J); if(!D) return pbPend();
+  var canj=D.can.length? '<table><tr><th>Código</th><th>Cuándo</th></tr>'+D.can.map(function(c){return '<tr><td class="mono">'+esc(c.code)+'</td><td class="mut">'+pbFecha(c.t)+'</td></tr>'}).join("")+'</table>' : '<p class="mut">Ningún código canjeado.</p>';
+  return '<div class="grid g2">'+cardOff("Regalos",'<p class="mut">Los regalos enviados todavía no se guardan en el servidor.</p>')+cardOff("Mensajes",'<p class="mut">El juego todavía no recibe mensajes del admin.</p>')+card("Códigos canjeados",canj)+'</div>';
+}
+function pbTabReportes(J){
+  var D=pbDet(J); if(!D) return pbPend();
+  var mios=REP.filter(function(r){return r.inst===J.id});
+  var errs=D.ev.items.filter(function(x){return x.tipo==="error"});
+  return '<div class="grid g2">'+card("Sus reportes", mios.map(function(r){return '<div class="diff"><span>'+r.ic+'</span><span class="p">'+esc(r.x)+'</span><span class="tag">'+r.est+'</span></div>'}).join("")||'<p class="mut">Ninguno.</p>')+card("Sus errores", errs.map(function(x){return '<div class="diff"><span class="p mono small">'+esc(pbResumen(x.d))+'</span><span class="tag">'+pbFecha(x.t)+'</span></div>'}).join("")||'<p class="mut">Ninguno.</p>')+'</div>';
+}
+function pbTabDispositivo(J){
+  return card("Dispositivo",'<div class="diff"><span class="p">Navegador y sistema</span><b>'+esc(J.dev)+'</b></div><div class="diff"><span class="p">Pantalla</span><b>'+esc(J.scr)+'</b></div><div class="diff"><span class="p">Zona horaria</span><b>'+esc(J.tz)+'</b></div><div class="diff"><span class="p">Idioma</span><b>'+esc(J.lang)+'</b></div><div class="diff"><span class="p">Id del navegador</span><b class="mono">'+esc(J.id)+'</b></div><p class="small mut" style="margin:10px 0 0">Si la misma persona juega en dos dispositivos, salen como dos jugadores.</p>'+btn("Fusionar con otro jugador",function(){},"sm"));
+}
+async function pbBloquea(J,v){
+  try{
+    await pbApi("/api/collections/tl_players/records/"+J._rid,{method:"PATCH",headers:PB_JSON,body:JSON.stringify({adm_bloqueado:!!v})});
+    toast(v?"Bloqueado: ese navegador deja de enviar datos":"Desbloqueado");
+    await pbCarga();
+  }catch(e){ toast("No se pudo cambiar: "+e.message); }
+}
+function pbExportaCSV(){
+  var cols=["id","nombre","grupo","club","nivel","temporada","jornada","horas","sesiones","version","ultima_vez"];
+  var filas=JUG.map(function(j){ var e=j.eq&&CLI[j.eq]; return [j.id,j.n,j.g,e?e.n:"",j.niv,j.temp,j.jor,(j.h||0).toFixed(1).replace(".",","),j.ses,j.ver,j.last]; });
+  var csv=[cols].concat(filas).map(function(r){ return r.map(function(v){ v=String(v==null?"":v); return /[";\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }).join(";"); }).join("\n");
+  var a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv"})); a.download="usuarios-goatmaker.csv";
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href)},2000);
+}

@@ -105,6 +105,37 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     const nt = await (await fetch(BASE + '/api/collections/tl_reports/records/' + rp.id, { headers: H })).json();
     ok(nt.nota_admin === 'lo miro el lunes', 'Reportes: nota guardada');
     await p.screenshot({ path: '/tmp/parche/nuevo2_reportes.png' });
+    // Pestañas reales de la ficha y bloqueo de navegador (ida y vuelta)
+    await fetch(BASE + '/api/collections/tl_events/records', { method: 'POST', headers: H, body: JSON.stringify({ install: 'inst-aaaa-1111', sid: 'sess-dani-01', t: now, tipo: 'partido', d: {}, ver: '4.69.6' }) });
+    const sn = await (await fetch(BASE + '/api/collections/tl_snapshots/records', { method: 'POST', headers: H, body: JSON.stringify({ install: 'inst-aaaa-1111', sid: 'sess-dani-01', t: now, bytes: 2048, ver: '4.69.6', save: { prueba: 1 } }) })).json();
+    ok(!!sn.id, 'sembrar partida de Dani');
+    await p.click('#side a:has-text("Usuarios")'); await p.waitForTimeout(300);
+    if (await p.locator('button', { hasText: 'Volver a la lista' }).count()) { await p.locator('button', { hasText: 'Volver a la lista' }).click(); await p.waitForTimeout(300); }
+    await p.getByText('Dani Ruiz').first().click(); await p.waitForTimeout(300);
+    const tab = t => p.locator('.tabs button', { hasText: t }).first();
+    await tab('Línea de tiempo').click();
+    await p.waitForSelector('.tag:has-text("partido")', { timeout: 8000 }).catch(() => {});
+    ok(await p.locator('.tag:has-text("partido")').count() >= 1, 'Línea de tiempo: muestra el evento real');
+    await tab('Partidas').click(); await p.waitForTimeout(400);
+    ok(await p.getByText('2 kB').count() >= 1, 'Partidas: muestra la partida real');
+    await tab('Reportes y errores').click(); await p.waitForTimeout(400);
+    ok(await p.getByText('Se cuelga al fichar').count() >= 1, 'Reportes y errores: muestra el reporte del jugador');
+    await tab('Dispositivo').click(); await p.waitForTimeout(300);
+    ok(await p.getByText('Zona horaria').count() >= 1, 'Dispositivo: muestra la ficha técnica');
+    await tab('Ficha').click(); await p.waitForTimeout(300);
+    await p.locator('button', { hasText: 'Bloquear este navegador' }).first().click(); await p.waitForTimeout(1200);
+    const bl = await (await fetch(BASE + '/api/collections/tl_players/records?filter=' + encodeURIComponent("install='inst-aaaa-1111'"), { headers: H })).json();
+    ok(bl.items[0] && bl.items[0].adm_bloqueado === true, 'Bloquear: el servidor marca el navegador');
+    const t403 = await fetch(BASE + '/tele', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ k: 'k-test', install: 'inst-aaaa-1111', sid: 'sess-dani-01', ctx: { active_s: 5 }, events: [] }) });
+    ok(t403.status === 403, 'Bloquear: /tele responde 403 a ese navegador (' + t403.status + ')');
+    ok(await p.locator('button', { hasText: 'Desbloquear' }).count() >= 1, 'Bloquear: el botón pasa a Desbloquear');
+    await p.locator('button', { hasText: 'Desbloquear' }).first().click(); await p.waitForTimeout(1200);
+    const ub = await (await fetch(BASE + '/api/collections/tl_players/records?filter=' + encodeURIComponent("install='inst-aaaa-1111'"), { headers: H })).json();
+    ok(ub.items[0] && ub.items[0].adm_bloqueado === false, 'Desbloquear: el servidor libera el navegador');
+    const t200 = await fetch(BASE + '/tele', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ k: 'k-test', install: 'inst-aaaa-1111', sid: 'sess-dani-01', ctx: { active_s: 5 }, events: [] }) });
+    ok(t200.status === 200, 'Desbloquear: /tele vuelve a responder (' + t200.status + ')');
+    await p.locator('button', { hasText: 'Volver a la lista' }).click(); await p.waitForTimeout(300);
+
     // Borrado de usuario (selección + confirmación)
     await p.click('#side a:has-text("Usuarios")'); await p.waitForTimeout(300);
     await p.click('#side a:has-text("Usuarios")'); await p.waitForTimeout(300);
