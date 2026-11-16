@@ -10368,21 +10368,6 @@ function renderHub(){
   var ROLCOL={titular:"var(--ok)", suplente:"var(--gold)", fuera:"var(--bad)", lesion:"var(--bad)", sancion:"var(--bad)"};
   var BOTON={titular:"⚽ Saltar al campo", suplente:"Continuar", fuera:"Continuar",
              lesion:"Continuar", sancion:"Continuar"};
-  if(p){
-    L+=cardUltimoPartido();
-    L+='<div class="nextcard">'
-      +'<div class="tagline">Jornada '+(S.jornada+1)+' de 38 · '+esc(casa?yo.est:EQ[rival].est)+'</div>'
-      +'<div class="vsrow">'
-      +'<div class="vsteam">'+crestSVG(casa?yo.id:rival,44)+'<div class="tn">'+esc(casa?yo.c:EQ[rival].c)+'</div></div>'
-      +'<div class="vsmid">VS</div>'
-      +'<div class="vsteam">'+crestSVG(casa?rival:yo.id,44)+'<div class="tn">'+esc(casa?EQ[rival].c:yo.c)+'</div></div>'
-      +'</div>'
-      +'<div class="convrow" style="border-color:'+ROLCOL[c.rol]+'">'
-        +'<b style="color:'+ROLCOL[c.rol]+'">'+esc(c.txt)+'</b>'
-        +'<span>'+esc(c.det)+'</span></div>'
-      +'<button class="gold-btn" onclick="iniciarJornada()">'+BOTON[c.rol]+'</button>'
-      +'</div>';
-  }
   /* tu estado en una línea */
   var Y=S.yo, med=Y.notaN?(Y.notaSum/Y.notaN):0;
   L+='<div class="card"><div class="eyebrow">'+esc(yo.c)+' · '+pos+'º · '+esc(mister().n)+'</div>'
@@ -10396,6 +10381,27 @@ function renderHub(){
     var ult=S.racha.slice(-5); while(ult.length<5) ult.unshift(null);
     return ult.map(function(v){ return '<div class="fdot '+(v?("f"+v):"f-")+'">'+(v||"·")+'</div>'; }).join("");
   })()+'</div></div>';
+  if(p){
+    L+='<div class="nextcard">'
+      +'<div class="tagline">Jornada '+(S.jornada+1)+' de 38 · '+esc(casa?yo.est:EQ[rival].est)+'</div>'
+      +'<div class="vsrow">'
+      +'<div class="vsteam">'+crestSVG(casa?yo.id:rival,44)+'<div class="tn">'+esc(casa?yo.c:EQ[rival].c)+'</div></div>'
+      +'<div class="vsmid">VS</div>'
+      +'<div class="vsteam">'+crestSVG(casa?rival:yo.id,44)+'<div class="tn">'+esc(casa?EQ[rival].c:yo.c)+'</div></div>'
+      +'</div>'
+      +'<div class="convrow" style="border-color:'+ROLCOL[c.rol]+'">'
+        +'<b style="color:'+ROLCOL[c.rol]+'">'+esc(c.txt)+'</b>'
+        +'<span>'+esc(c.det)+'</span></div>'
+      +'<button class="gold-btn" onclick="iniciarJornada()">'+BOTON[c.rol]+'</button>'
+      +'</div>';
+    L+=cardUltimoPartido();
+  }
+  /* aviso si tienes cosas pendientes esta semana */
+  var E=entrenoEstado(), libres=3-E.hechos.filter(function(h){return !h.extra;}).length;
+  var pend=[];
+  if(S.lesion<=0 && libres>0) pend.push(libres+" sesión(es) de entrenamiento sin usar");
+  if(S.semanaHecha!==S.jornada) pend.push("la semana personal sin decidir");
+  if(pend.length) L+='<div class="card" style="border-color:rgba(255,194,75,.35)"><div class="eyebrow" style="color:var(--gold)">Pendiente</div><p class="note" style="margin:0">Te queda '+esc(pend.join(" y "))+'.</p></div>';
   var mensajes=diaADia();
   mensajes.forEach(function(m){
     L+='<div class="msgcard" style="border-left-color:'+m.col+'">'
@@ -10481,21 +10487,6 @@ function renderHub(){
       +'<p class="note" style="margin:6px 0 0">Contigo, de entrada: <b style="color:'+fraseMister().col+'">'
       +(encajeMister()>=0.5?"le encajas":encajeMister()<=-0.5?"no eres su perfil":"está por ver")+'</b>. Todo vuelve a empezar.</p></div>';
     S.misterNuevo=null;
-  }
-  /* aviso si tienes cosas pendientes esta semana */
-  var E=entrenoEstado(), libres=3-E.hechos.filter(function(h){return !h.extra;}).length;
-  var pend=[];
-  if(S.lesion<=0 && libres>0) pend.push(libres+" sesión(es) de entrenamiento sin usar");
-  if(S.semanaHecha!==S.jornada) pend.push("la semana personal sin decidir");
-  if(pend.length) L+='<div class="card" style="border-color:rgba(255,194,75,.35)"><div class="eyebrow" style="color:var(--gold)">Pendiente</div><p class="note" style="margin:0">Te queda '+esc(pend.join(" y "))+'.</p></div>';
-  /* último partido */
-  var h=S.hist[S.hist.length-1];
-  if(h){
-    L+='<div class="card"><div class="eyebrow">Última jornada</div>'
-      +'<p class="mono" style="margin:0;font-size:14px">'+esc(EQ[S.equipo].c)+' '+h.sc[0]+'–'+h.sc[1]+' '+esc(EQ[h.rival].c)+(h.casa?"":" (fuera)")+'</p>';
-    if(h.yo) L+='<p class="note" style="margin:4px 0 0;color:'+notaColor(h.yo.nota)+'">Tu nota: '+h.yo.nota.toFixed(1)+(h.yo.g?" · "+h.yo.g+"G":"")+(h.yo.a?" · "+h.yo.a+"A":"")+'</p>';
-    else if(h.sinTi) L+='<p class="note" style="margin:4px 0 0">Te lo perdiste por '+esc(h.sinTi)+'.</p>';
-    L+='</div>';
   }
   $("hub-left").innerHTML=L;
   $("hub-right").innerHTML="";
