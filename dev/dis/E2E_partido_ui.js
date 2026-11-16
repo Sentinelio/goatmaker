@@ -53,6 +53,19 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await p.locator('.autobar').first().click({ position: { x: 20, y: 4 } }); await sleep(120);
     const despues = await p.evaluate(() => (document.querySelector('.tick') || {}).textContent || '');
     ok(despues !== antes, 'Toque en la barra gris: salta al momento');
+    // tocar en cualquier punto de la pantalla (barra gris) también salta; mantener en cualquier punto pausa
+    await sleep(400);
+    const antesCualq = await p.evaluate(() => (document.querySelector('.tick') || {}).textContent || '');
+    const mb = await p.locator('.mbody').first().boundingBox();
+    await p.mouse.click(mb.x + mb.width / 2, mb.y + 6); await sleep(150);
+    const despuesCualq = await p.evaluate(() => (document.querySelector('.tick') || {}).textContent || '');
+    ok(despuesCualq !== antesCualq || !(await p.locator('.autobar').count()), 'Tocar en cualquier punto salta la lectura gris');
+    if (await p.locator('.autobar').count()) {
+      await p.mouse.move(mb.x + 40, mb.y + 40); await p.mouse.down(); await sleep(450);
+      const pCualq = await p.evaluate(() => { const b = document.querySelector('.autobar i'); return b ? b.style.animationPlayState : 'none'; });
+      await p.mouse.up(); await sleep(120);
+      ok(pCualq === 'paused' || pCualq === 'none', 'Mantener en cualquier punto pausa la lectura (' + pCualq + ')');
+    }
 
     // mantener la barra gris pausa la lectura; al soltar sigue y no salta
     const bar = await p.locator('.autobar').first().boundingBox();
