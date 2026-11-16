@@ -775,7 +775,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.69.14";
+var VERSION="4.69.15";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -8428,8 +8428,8 @@ function conversacionMister(){
   }
   return {t:"Charla de pasillo", x:"«"+e.n.split(" ")[0]+" se sienta a tu lado en el autobús.» "+pick(["Habla del rival del sábado, sin más.","Te pregunta por el vestuario, cómo lo ves.","Comenta la mania de siempre: "+esc(e.mania||pick(e.manias)).toLowerCase()+"."]),
     ops:[
-      {l:"Seguirle la conversación", fx:function(){ S.mister=clamp(S.mister+1.5,5,95); tocarEje("companerismo",0.8); regSemana("mister","charla"); }},
-      {l:"Responder con monosílabos", fx:function(){ regSemana("mister","distante"); }}
+      {l:"Seguirle la conversación", fx:function(){ S.mister=clamp(S.mister+3,5,95); tocarEje("companerismo",0.8); S.avisoMercado="Se anima con tus preguntas. Lo anota a tu favor."; regSemana("mister","charla"); }},
+      {l:"Responder con monosílabos", fx:function(){ S.mister=clamp(S.mister-3,5,95); S.avisoMercado="Te despide con un gesto seco. Lo anota en contra."; regSemana("mister","distante"); }}
     ]};
 }
 function tocaConversacionMister(){
