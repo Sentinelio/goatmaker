@@ -114,13 +114,12 @@ input:focus,textarea:focus,select:focus{border-color:#3a4068}textarea{resize:ver
 <div class="app hide" id="app">
   <div class="top">
     <button class="b nb" id="bmenu" title="Menú">☰</button>
-    <div class="brand"><b>Goat</b>maker <small>Admin</small></div>
+    <div class="brand"><b>Goat</b>maker <small>Admin</small><span id="gver" style="display:block;font-size:11px;letter-spacing:3px;color:var(--gold);font-weight:700;line-height:1.2"></span></div>
     <button class="b nb" id="bback" title="Atrás (Alt+←)">←</button><button class="b nb" id="bfwd" title="Adelante (Alt+→)">→</button>
     <div class="sbox"><input class="search off" id="q" disabled placeholder="Buscar jugador, club, situación, ajuste…  (Ctrl+K)" autocomplete="off"><div id="sres"></div></div>
     <span class="pill" id="conn"><span class="dot"></span>Sin conectar</span>
     <span class="sp"></span>
     <span class="pill"><span class="dot"></span>Servidor en línea</span>
-    <span class="pill" id="gver" style="color:var(--gold);font-weight:700"></span>
     <span class="pill" id="modo"></span>
     <button class="b" id="bcam"></button>
     <button class="b gold" id="bpub">Publicar</button>
@@ -211,7 +210,7 @@ function topbar(){
   var n=nCam();
   $("bcam").innerHTML= n? '<b style="color:var(--gold)">'+n+'</b> cambio'+(n>1?"s":"")+' sin publicar' : 'Sin cambios';
   $("bpub").disabled=!n;
-  $("gver").textContent="Juego v"+CUR_VER;
+  $("gver").textContent="v"+CUR_VER;
   $("modo").innerHTML='<span class="dot '+(ST.modo==="vivo"?"gold":"")+'"></span>'+(ST.modo==="vivo"?"En vivo":"Publicado · v"+ST.ver);
 }
 var HIST=[], HP=-1;
@@ -1511,7 +1510,7 @@ function side(){
 function topbar(){
   $("bcam").innerHTML='Sin cambios'; $("bcam").disabled=true;
   $("bpub").disabled=true; $("bpub").classList.add("off");
-  $("gver").textContent="Juego v"+CUR_VER;
+  $("gver").textContent="v"+CUR_VER;
   $("modo").innerHTML='<span class="dot"></span>Datos en vivo';
 }
 
