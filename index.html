@@ -787,7 +787,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.69.22";
+var VERSION="4.69.23";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -4058,6 +4058,7 @@ function iniciarJornada(){
   var REPARTO=[[2,0.30],[3,0.34],[4,0.22],[5,0.11],[6,0.03]];
   var rr=rnd(), acc=0, nDec=3;
   for(var ri=0; ri<REPARTO.length; ri++){ acc+=REPARTO[ri][1]; if(rr<acc){ nDec=REPARTO[ri][0]; break; } }
+  nDec=clamp(nDec, PARTIDO.min, PARTIDO.max);   /* el panel fija el mínimo y el máximo de situaciones por partido */
   var _decMax=nDec;
   var tramosDec=[];
   var candidatos=[0,1,2,3,4,5];
@@ -4069,7 +4070,7 @@ function iniciarJornada(){
          lam[1]*estiloMister().estilo.opp*estiloFactores(rival).opp*(0.92+rnd()*0.2)], sc:[0,0], min:0, tramo:0,
     tramosDec:tramosDec, decHechas:0, decMax:_decMax, usadas:{},
     dec:[], modOwn:1, modOpp:1, goles:[], log:null, fase:"pre",
-    conPrevia:rnd()<0.4, conPost:rnd()<0.35, morDelta:0,
+    conPrevia:rnd()*100<PARTIDO.previa, conPost:rnd()*100<PARTIDO.post, morDelta:0,
     rojaPropia:false,
     nota:6.2, miGol:0, miAsis:0, paradas:0, miTA:0, miTR:0, miLesion:0,
     finAnticipado:false, eventos:[], flash:[], golesTramo:[],
@@ -11501,6 +11502,9 @@ setTimeout(function(){
      tienda:{fijos:{id:{n,d,precio}}, cats:{id:{n,base,ic,fx:{},modelos:[[nombres por nivel]]}}},
      sits:{id:{off,t,x,pos,o:{"0":{l,fx:{},ok,mid,ko}}}}, nuevas:[{id:"ct-…",pos,t,x,banquillo,o:[{l,fx,ok,mid,ko}]}] } */
 var RELOJ={base:3800, letra:38, min:5000, max:13000, fuera:1.35, factor:1, porSit:{}};
+/* partido: cuántas situaciones de decisión (min–max) y la probabilidad de previa y de resumen tras el partido (%). De fábrica = lo de siempre */
+var PARTIDO_FAB={min:2, max:6, previa:40, post:35};
+var PARTIDO=contClon(PARTIDO_FAB);
 function msReloj(sit,texto){
   var fijo=RELOJ.porSit && sit && RELOJ.porSit[sit.id];
   var ms=Math.round(fijo? fijo*1000 : clamp(RELOJ.base+texto.length*RELOJ.letra, RELOJ.min, RELOJ.max));
@@ -11520,6 +11524,7 @@ var CONT_R={
   cfx:{regen:[0,2],modLes:[-0.5,0],conf:[0,2],ego:[0,5],seg:[0,500],robo:[0,5],vicio:[0,1],seguro:[0,1],confYa:[-20,20],formaYa:[-20,20],segYa:[0,500],misterYa:[-20,20],afinYa:[-20,20],egoYa:[-10,10],misterSem:[0,3],amortMister:[0,1],vicioMod:[-3,0]},
   cmult:[0,0.2], base:[10,5000000], precio:[1000,100000000],
   reloj:{base:[1000,60000],letra:[0,300],min:[1000,60000],max:[1000,120000],fuera:[0.5,5],factor:[0.25,5],seg:[2,120]},
+  partido:{min:[2,6],max:[2,6],previa:[0,100],post:[0,100]},
   pos:["POR","DFC","LAT","MCD","MC","MCO","EXT","DC"],
   txt:{n:60,d:200,x:600,ok:400,l:80,t:80}
 };
@@ -11530,12 +11535,12 @@ function contRestaurar(){
   var arr=function(dst,src){ dst.length=0; contClon(src).forEach(function(x){ dst.push(x); }); };
   var obj=function(dst,src){ Object.keys(dst).forEach(function(k){ delete dst[k]; }); var c=contClon(src); Object.keys(c).forEach(function(k){ dst[k]=c[k]; }); };
   arr(ENTRENOS,CONT_ORIG.entrenos); obj(TALENTOS,CONT_ORIG.talentos); obj(TIENDA,CONT_ORIG.tienda); arr(TIENDA_CATS,CONT_ORIG.cats);
-  arr(SITS,CONT_ORIG.sits); arr(SITS_BANQUILLO,CONT_ORIG.banq); obj(RELOJ,CONT_ORIG.reloj);
+  arr(SITS,CONT_ORIG.sits); arr(SITS_BANQUILLO,CONT_ORIG.banq); obj(RELOJ,CONT_ORIG.reloj); obj(PARTIDO,PARTIDO_FAB);
   tiendaItems._c=null; _SIT_MAPA=null; CONT.rech=[]; CONT.aplicado=false;
 }
 function contExportarBase(){
   return {v:1, ver:VERSION, entrenos:contPlano(CONT_ORIG.entrenos), talentos:contPlano(CONT_ORIG.talentos), tienda:contPlano(CONT_ORIG.tienda), cats:contPlano(CONT_ORIG.cats),
-    sits:contPlano(CONT_ORIG.sits), banq:contPlano(CONT_ORIG.banq), reloj:contClon(CONT_ORIG.reloj), orden:TALENTO_ORDEN.slice(), rangos:CONT_R};
+    sits:contPlano(CONT_ORIG.sits), banq:contPlano(CONT_ORIG.banq), reloj:contClon(CONT_ORIG.reloj), partido:contClon(PARTIDO_FAB), orden:TALENTO_ORDEN.slice(), rangos:CONT_R};
 }
 function contAplicar(P){
   contRestaurar();
@@ -11564,6 +11569,14 @@ function contAplicar(P){
       if(P.reloj.porSit!==undefined){ if(!esObj(P.reloj.porSit)){ rech.push("reloj.porSit: no es un objeto"); mal=true; } else { nr.porSit={}; Object.keys(P.reloj.porSit).forEach(function(id){ var v=num(P.reloj.porSit[id],R.reloj.seg,"reloj.porSit."+id); if(v!==null) nr.porSit[id]=v; }); } }
       if(nr.max<nr.min){ rech.push("reloj: el máximo no puede ser menor que el mínimo"); mal=true; }
       if(!mal) Object.keys(nr).forEach(function(k){ RELOJ[k]=nr[k]; }); }
+  }
+  /* —— partido: situaciones por partido y porcentajes de previa y resumen —— */
+  if(P.partido!==undefined){
+    if(!esObj(P.partido)) rech.push("partido: no es un objeto");
+    else { var np=contClon(PARTIDO), malp=false;
+      ["min","max","previa","post"].forEach(function(k){ if(P.partido[k]===undefined) return; var v=num(P.partido[k],R.partido[k],"partido."+k); if(v===null) malp=true; else np[k]=v; });
+      if(np.max<np.min){ rech.push("partido: el máximo no puede ser menor que el mínimo"); malp=true; }
+      if(!malp) Object.keys(np).forEach(function(k){ PARTIDO[k]=np[k]; }); }
   }
   /* —— entrenamientos —— */
   if(esObj(P.entrenos)) Object.keys(P.entrenos).forEach(function(id){

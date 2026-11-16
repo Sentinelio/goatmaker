@@ -147,7 +147,8 @@ const FAKE = 'http://127.0.0.1:9';   /* nadie escucha: las respuestas las da pag
   /* ---- 8 · exportación de base para el panel ---- */
   ({ page, errs, ctx } = await nueva());
   const eb = await page.evaluate(() => { const b = contExportarBase(); return { k: Object.keys(b), ne: b.entrenos.length, sit: b.sits.length, fn: JSON.stringify(b).indexOf('"$fn"') >= 0, ver: b.ver, nodos: Object.keys(b.talentos).length, rg: Object.keys(b.rangos).sort().join() === Object.keys(CONT_R).sort().join() && b.rangos.sitfx.nota[1] === 6 }; });
-  ok(eb.ne === base.ne && eb.sit === base.ns && eb.fn && eb.ver === '4.69.0' && eb.nodos === 6 && eb.rg, 'contExportarBase: lo que verá el panel');
+  const verJuego = await page.evaluate(() => VERSION);
+  ok(eb.ne === base.ne && eb.sit === base.ns && eb.fn && eb.ver === verJuego && eb.nodos === 6 && eb.rg && eb.k.indexOf('partido') >= 0, 'contExportarBase: lo que verá el panel (incluye partido)');
   await browser.close();
   console.log(fails.length ? 'FALLOS (' + fails.length + '):\n - ' + fails.join('\n - ') : 'OK');
   console.log('comprobaciones OK:', oks);
