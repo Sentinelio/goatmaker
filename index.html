@@ -420,6 +420,7 @@ textarea{background:var(--raise);border:1px solid var(--hair);color:var(--ink);b
 .mbody > .mpanel.mp-corto > .pnav,.mbody > .mpanel.mp-corto > .chips{flex:none}
 .mbody > .mpanel.mp-corto > *:not(.pnav):not(.chips){flex:1 1 auto;min-height:0;max-height:none;overflow-y:auto}
 #ov-match *{scrollbar-width:none}
+html:has(#ov-match:not(.hidden)){overflow:hidden}
 #ov-match ::-webkit-scrollbar{display:none}
 .mbody > .mpanel.mp-corto .plista{max-height:none;overflow:visible}
 .avisodec{margin:0 0 6px}
@@ -786,7 +787,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.69.21";
+var VERSION="4.69.22";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -6503,7 +6504,7 @@ function narrarSiguiente(){
   });
   if(!enCro) cuerpo+='</div>';
   var dur=Math.round(clamp(800+linea.t.length*24, 1000, 2300));
-  pintarMatch(cuerpo, (linea.cls? avisoDecHTML(linea):'')+autoBarHTML(dur));
+  pintarMatch(cuerpo, autoBarHTML(dur));   /* sin caja de consecuencias bajo la lectura: la decisión ya sale en la narración */
   (function(){
     var el2=scrollPanelEl(); if(!el2) return;
     try{

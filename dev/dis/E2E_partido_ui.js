@@ -31,7 +31,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       window.__av = { cajas: 0, enPie: 0, textos: [] };
       const orig = pintarMatch;
       pintarMatch = function (c, pie) {
-        if (/avisodec/.test(pie || '')) { window.__av.cajas++; window.__av.enPie++; const m = /abtxt">([^<]*)/.exec(pie); window.__av.textos.push(m ? m[1].slice(0, 40) : '?'); }
+        if (/avisodec/.test(pie || '') && !(M && M.fase === 'cierre')) { window.__av.cajas++; window.__av.enPie++; const m = /abtxt">([^<]*)/.exec(pie); window.__av.textos.push(m ? m[1].slice(0, 40) : '?'); }
         return orig.apply(this, arguments);
       };
     });
@@ -108,7 +108,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     }
     const av = await p.evaluate(() => ({ cajas: window.__av.cajas, decisiones: (M && M.decisiones ? M.decisiones.length : -1), textos: window.__av.textos, dec: (M && M.decisiones ? M.decisiones.map(d => (d.min + ' ' + d.cls + ' ' + (d.txt || '').slice(0, 40))) : []) }));
     if (av.cajas !== av.decisiones) console.log('DEBUG', JSON.stringify(av, null, 1));
-    ok(av.decisiones > 0 && av.cajas === av.decisiones, 'Cada decisión tiene su caja de aviso (' + av.cajas + ' cajas / ' + av.decisiones + ' decisiones)');
+    ok(av.decisiones > 0 && av.cajas === 0, 'Durante el partido no hay caja de consecuencias bajo la lectura (' + av.cajas + ' cajas / ' + av.decisiones + ' decisiones)');
     await p.screenshot({ path: '/tmp/parche/partido_ui.png' });
 
     // tarjetas del jugador: ninguna sin decisión (simular muchos tramos sin decidir nada)
