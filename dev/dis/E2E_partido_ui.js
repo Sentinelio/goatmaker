@@ -43,6 +43,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     ok(await p.locator('.autobar').count() >= 1, 'Partido: aparece la barra de lectura');
     const col = await p.evaluate(() => getComputedStyle(document.querySelector('.autobar i')).backgroundColor);
     ok(col === 'rgb(125, 134, 153)', 'Barra de lectura en gris (' + col + ')');
+    const altoBarra = await p.evaluate(() => document.querySelector('.autobar i').getBoundingClientRect().height);
+    ok(altoBarra > 0, 'La barra de lectura se ve (alto del relleno ' + altoBarra + ' px)');
     const rol = await p.evaluate(() => { const e = document.querySelector('.rolx'); return e ? e.textContent : ''; });
     ok(/Titular|Suplente|Fuera/.test(rol), 'Cabecera: se ve si eres titular o suplente (' + rol + ')');
 

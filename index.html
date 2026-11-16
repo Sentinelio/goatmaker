@@ -409,9 +409,9 @@ textarea{background:var(--raise);border:1px solid var(--hair);color:var(--ink);b
 .tlsep b{color:var(--muted)}
 .mbody::-webkit-scrollbar{display:none}
 .mfoot{flex:none;position:relative;z-index:2;padding-top:8px}
-.reloj{height:6px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:4px;padding:8px 0;background-clip:content-box;touch-action:none;cursor:pointer}
+.reloj{height:6px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:4px;padding:8px 0;box-sizing:content-box;background-clip:content-box;touch-action:none;cursor:pointer}
 .reloj i{display:block;height:100%;background:var(--gold);width:100%;transition:width .08s linear,background .3s}
-.autobar{height:3px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:4px;padding:8px 0;background-clip:content-box;touch-action:none;cursor:pointer}
+.autobar{height:3px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:4px;padding:8px 0;box-sizing:content-box;background-clip:content-box;touch-action:none;cursor:pointer}
 .autobar i{display:block;height:100%;background:#7D8699;width:0;animation:fill var(--dur,2600ms) linear forwards}
 .mbody > .mpanel.mp-corto{flex:1 1 auto;min-height:0;max-height:none;overflow:hidden}
 .mbody > .mpanel.mp-corto > *{flex:none;max-height:34vh;overflow-y:auto}
@@ -775,7 +775,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.69.13";
+var VERSION="4.69.14";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
