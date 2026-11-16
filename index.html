@@ -6224,7 +6224,7 @@ function preguntarNemesis(){
   sumarTension(S.nemesis.nombre, M.rival, S.nemesis.pos, 1, "Le preguntaste por lo suyo. No le hizo gracia.");
   if(M.fase==="cierre") renderCierre(); else renderMatch(null,true);
 }
-function irAlFinalTl(){ var t=document.querySelector("#ov-match .tl"); if(t) t.scrollTop=t.scrollHeight; }
+function irAlFinalTl(){ var t=document.querySelector("#ov-match .tl"); if(t) t.scrollTop=0; }   /* arriba: lo último, y lo antiguo baja */
 function pintarMatch(cuerpo, pie){
   if(!M) return;   /* si el partido ya acabó, nada puede volver a taparlo todo */
   $("ov-match-inner").innerHTML='<div class="matchcard" style="position:relative">'+btnsPausa()+cabeceraMatch()
@@ -6358,7 +6358,7 @@ function panelHTML(){
     +'</div>';
   if(pid==="res") return H+'<div class="presumen">'+(M.resumenHTML||"")+'</div>';
   if(pid==="tl"){
-    var C=(M.crono||[]).slice().sort(function(a,b){ return a.m-b.m; });
+    var C=(M.crono||[]).slice().sort(function(a,b){ return b.m-a.m; });   /* lo último arriba, el minuto 1 abajo */
     function sep(txt, marca){ return '<div class="tlsep">'+txt+(marca? ' · <b>'+marca+'</b>':'')+'</div>'; }
     var g45=[0,0];
     (M.goles||[]).forEach(function(g){ if((g.m||0)<=45){ if(!!g.mio===!!M.casa) g45[0]++; else g45[1]++; } });
@@ -6388,13 +6388,14 @@ function panelHTML(){
         +'</div>');
     });
     /* fronteras del partido, leyendo de nuevo a viejo */
-    var cuerpoTl=sep("Previa","")+notaPrevia, desc=false;
+    /* de arriba abajo: Final · minutos de la segunda parte · Descanso · minutos de la primera parte · Previa */
+    var cuerpoTl=(esCierre? sep("Final", M.sc[0]+"–"+M.sc[1]):""), desc=false;
     C.forEach(function(ev,i){
-      if(!desc && ev.m>45 && pasado45){ cuerpoTl+=sep("Descanso", m45); desc=true; }
+      if(!desc && ev.m<=45 && pasado45){ cuerpoTl+=sep("Descanso", m45); desc=true; }
       cuerpoTl+=FILAS[i];
     });
     if(pasado45 && !desc) cuerpoTl+=sep("Descanso", m45);
-    cuerpoTl+=(esCierre? sep("Final", M.sc[0]+"–"+M.sc[1]):"");
+    cuerpoTl+=sep("Previa","")+notaPrevia;
     return H+'<div class="tlhead"><b>'+esc(casaN.c)+'</b><span></span><b>'+esc(visN.c)+'</b></div>'
       +'<div class="tl'+full+'">'+cuerpoTl+'</div>';
   }
