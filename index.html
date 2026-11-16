@@ -768,7 +768,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.69.7";
+var VERSION="4.69.8";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -11285,7 +11285,7 @@ var TELE=(function(){
   function proj(){
     var y=S.yo||{};
     return { temporada:S.temporada, jornada:S.jornada, equipo:S.equipo, division:S.division, nivel:S.nivel||0, lesion:S.lesion||0, sancion:S.sancion||0, edad:S.edad,
-      pj:y.pj||0, min:y.min||0, g:y.g||0, a:y.a||0, ta:y.ta||0, tr:y.tr||0, ns:y.notaSum||0, nn:y.notaN||0, hist:(S.hist||[]).length };
+      pj:y.pj||0, min:y.min||0, g:y.g||0, a:y.a||0, ta:y.ta||0, tr:y.tr||0, ns:y.notaSum||0, nn:y.notaN||0, hist:(S.hist||[]).length, cont:CONT.n };
   }
   function alGuardar(){
     if(!url() || typeof S==="undefined" || !S) return;

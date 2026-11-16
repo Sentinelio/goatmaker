@@ -684,12 +684,13 @@ V.jugadores=function(){
   L.map(function(j){return '<tr class="cl" onclick="'+on(function(v,el,ev){ if(ev.target.type==="checkbox") return; ST.sel.jug=j.id; ST.tab.jd="Ficha"; go(); $("main").scrollTop=0; })+'"><td><input type="checkbox" class="ck" '+(ST.chk[j.id]?"checked":"")+' onchange="'+on(function(){ST.chk[j.id]=!ST.chk[j.id];go()})+'"></td><td>'+(j.st==="on"?'<span class="dot" style="margin-right:6px"></span>':'')+'<b>'+(esc(j.n)||'<span class="mut">sin nombre</span>')+'</b>'+(j.st==="blq"?' <span class="tag bad">bloqueado</span>':'')+'</td><td class="mono small">'+esc(j.id)+'</td><td>'+(j.g?'<span class="tag blue">'+j.g+'</span>':'<span class="mut">—</span>')+'</td><td>'+(j.eq?crest(CLI[j.eq])+" "+esc(CLI[j.eq].c):"—")+'</td><td>'+j.pos+'</td><td class="r">'+j.niv+'</td><td class="r">'+(j.med||"—")+'</td><td>T'+j.temp+' · J'+j.jor+'</td><td class="r">'+nf(j.h,1)+'</td><td><span class="tag '+(j.ver===CUR_VER?"ok":"gold")+'">'+j.ver+'</span></td><td class="mut">'+j.last+'</td></tr>'}).join("")+'</table></div>';
 };
 function jugDet(J){
-  var t=tabs("jd",["Ficha","Línea de tiempo","Partidas","Regalos y mensajes","Reportes y errores","Dispositivo"]), tb=ST.tab.jd, b, e=J.eq&&CLI[J.eq];
-  if(tb==="Ficha") b='<div class="grid g3">'+card("Carrera",'<div class="diff"><span class="p">Club</span><b>'+(e?esc(e.n):"—")+'</b></div><div class="diff"><span class="p">Puesto</span><b>'+J.pos+'</b></div><div class="diff"><span class="p">Edad</span><b>'+(J.edad||"—")+'</b></div><div class="diff"><span class="p">Temporada · jornada</span><b>'+J.temp+' · '+J.jor+'</b></div><div class="diff"><span class="p">Nivel</span><b>'+J.niv+'</b></div><div class="diff"><span class="p">Media</span><b>'+(J.med||"—")+'</b></div><div class="diff"><span class="p">Dinero</span><b>'+"—"+'</b></div><div class="diff"><span class="p">Arquetipo</span><b>'+J.arq+'</b></div>')+
+  var t=tabs("jd",["Ficha","Vida y tienda","Línea de tiempo","Partidas","Regalos y mensajes","Reportes y errores","Dispositivo"]), tb=ST.tab.jd, b, e=J.eq&&CLI[J.eq];
+  if(tb==="Ficha") b='<div class="grid g3">'+card("Carrera",'<div class="diff"><span class="p">Club</span><b>'+(e?esc(e.n):"—")+'</b></div><div class="diff"><span class="p">Puesto</span><b>'+pbPuesto(J)+'</b></div><div class="diff"><span class="p">Edad</span><b>'+pbEdad(J)+'</b></div><div class="diff"><span class="p">Temporada · jornada</span><b>'+J.temp+' · '+J.jor+'</b></div><div class="diff"><span class="p">Nivel</span><b>'+J.niv+'</b></div><div class="diff"><span class="p">Media</span><b>'+(J.med||"—")+'</b></div><div class="diff"><span class="p">Dinero</span><b>'+pbDinero(J)+'</b></div><div class="diff"><span class="p">Arquetipo</span><b>'+J.arq+'</b></div>')+
     cardOff("Atributos",bars([["Técnica",J.med+4],["Físico",J.med-3],["Táctica",J.med+1],["Defensa",J.med-14],["Mentalidad",J.med-1]].map(function(x){return [x[0],Math.max(0,x[1])]}))+'<h3 style="margin-top:14px">Carácter</h3>'+[["Disciplina",62],["Ego",71],["Temperamento",38],["Compañerismo",55],["Liderazgo",47],["Resiliencia",60]].map(function(a){return '<div class="axis"><span>'+a[0]+'</span><div class="tr"><i style="left:'+a[1]+'%"></i></div><span class="mut">'+a[1]+'</span></div>'}).join(""))+
-    cardOff("Actividad",'<div class="diff"><span class="p">Horas jugadas</span><b>'+nf(J.h,1)+'</b></div><div class="diff"><span class="p">Sesiones</span><b>'+J.ses+'</b></div><div class="diff"><span class="p">Primera vez</span><b>'+(J.first?pbFecha(J.first):"—")+'</b></div><div class="diff"><span class="p">Última vez</span><b>'+J.last+'</b></div><div class="diff"><span class="p">Versión del juego</span><b>'+J.ver+'</b></div><div class="diff"><span class="p">Contenido</span><b>'+"—"+'</b></div>'+spark(pbDias(J),"#60a5fa")+'<div class="small mut">Sesiones por día · 14 días</div>')+'</div>'+
+    cardOff("Actividad",'<div class="diff"><span class="p">Horas jugadas</span><b>'+nf(J.h,1)+'</b></div><div class="diff"><span class="p">Sesiones</span><b>'+J.ses+'</b></div><div class="diff"><span class="p">Primera vez</span><b>'+(J.first?pbFecha(J.first):"—")+'</b></div><div class="diff"><span class="p">Última vez</span><b>'+J.last+'</b></div><div class="diff"><span class="p">Versión del juego</span><b>'+J.ver+'</b></div><div class="diff"><span class="p">Contenido</span><b>'+pbContenido(J)+'</b></div>'+spark(pbDias(J),"#60a5fa")+'<div class="small mut">Sesiones por día · 14 días</div>')+'</div>'+
     card("Datos del admin",'<div class="f"><label>Nombre</label><input type="text" value="'+esc(J.n)+'" onchange="'+on(function(x){pbDatoAdm(J,"label",x)})+'"><div class="fab">solo lo ves tú</div></div><div class="f"><label>Grupo</label><select onchange="'+on(function(x){pbCambiaGrupo(J,x)})+'">'+[""].concat(GRP.map(function(g){return g.n})).map(function(g){return '<option'+(g===J.g?" selected":"")+'>'+g+'</option>'}).join("")+'</select><div class="fab"></div></div><div class="f"><label>Nota privada</label><textarea rows="2" onchange="'+on(function(x){pbDatoAdm(J,"adm_nota",x)})+'">'+esc(J.nota)+'</textarea><div class="fab"></div></div>',"","mt")+
     card("Zona delicada",'<div class="row">'+btn(J.st==="blq"?"Desbloquear":"Bloquear este navegador",function(){pbBloquea(J,J.st!=="blq")},"red")+btn("Borrar todos sus datos",function(){modal(pbConfirmaBorrar([J.id]))},"red")+'<span class="small mut">Bloquear corta la telemetría, los códigos y el contenido editable; el juego le sigue funcionando con el contenido de fábrica.</span></div>',"","mt");
+  else if(tb==="Vida y tienda") b=pbTabVida(J);
   else if(tb==="Línea de tiempo") b=pbTabEventos(J);
   else if(tb==="Partidas") b=pbTabPartidas(J);
   else if(tb==="Regalos y mensajes") b=pbTabRegalos(J);
@@ -1135,6 +1136,104 @@ $("bpub").onclick=function(){ nav("publicacion"); };
 window.addEventListener("hashchange",function(){ var h=location.hash.slice(1); if(esSec(h) && h!==ST.sec){ ST.sec=h; go(); } });
 function esSec(h){ return NAV.some(function(g){ return g[1].some(function(i){ return i[0]===h; }); }); }
 (function(){ var h=location.hash.slice(1); if(esSec(h)) ST.sec=h; })();
+/* datos del juego que usa el panel */
+var G_POS={
+ POR:{n:"Portero",       ab:"POR", x:50, y:90, d:"Mandas la defensa y decides solo, sin red."},
+ DFC:{n:"Central",       ab:"DFC", x:35, y:74, d:"Duelos, anticipación y la última palabra atrás."},
+ LAT:{n:"Lateral",       ab:"LAT", x:12, y:66, d:"Ochenta metros de banda, defender y atacar."},
+ MCD:{n:"Mediocentro defensivo", ab:"MCD", x:50, y:60, d:"El equilibrio del equipo pasa por ti."},
+ MC:{n:"Mediocentro",    ab:"MC",  x:35, y:47, d:"El partido pasa por tus botas: ritmo y último pase."},
+ MCO:{n:"Mediapunta",    ab:"MCO", x:50, y:35, d:"Entre líneas, donde se rompe todo."},
+ EXT:{n:"Extremo",       ab:"EXT", x:14, y:30, d:"Uno contra uno, desborde y centro."},
+ DC:{n:"Delantero",      ab:"DC",  x:50, y:16, d:"Vives del gol y de las dudas entre gol y gol."}
+};
+var G_TCATS=[
+ {id:"botas",   n:"Botas",             tipo:"bien", base:180,    ic:"👟", fx:{mult:{TEC:0.02}},
+  modelos:[["Adidas Copa Pure","Puma King","Joma Aguila"],["Nike Tiempo Legend","Adidas Predator Club","Mizuno Morelia"],
+           ["Nike Mercurial Vapor","Adidas X Crazyfast","Puma Ultra Match"],["Nike Phantom GX Elite","Adidas Predator Elite","Mizuno Morelia Neo IV"],
+           ["Nike Mercurial Superfly Elite","Adidas F50 Elite","Puma Future Ultimate"],["Nike Mercurial a medida","Adidas F50 edición jugador","Mizuno Made in Japan"]]},
+ {id:"recu",    n:"Recuperación",      tipo:"bien", base:900,    ic:"🧊", fx:{regen:0.5, modLes:-0.06},
+  modelos:[["Foam roller Blackroll","Compex SP 4.0","Pistola Xiaomi Massage"],["Theragun Prime","Hypervolt 2","Compex SP 8.0"],
+           ["Normatec 3 Legs","Theragun PRO","Game Ready básico"],["Hyperice suite completa","Game Ready GRPro 2.1","Normatec 3 Full Body"],
+           ["Baño de hielo CET","Cámara crio portátil °CRYO","Recovery room BTL"],["Cámara hiperbárica OxyHealth","Crio-sauna Vacuactivus","Suite recovery Technogym"]]},
+ {id:"sueno",   n:"Descanso",          tipo:"bien", base:1200,   ic:"🛏", fx:{regen:0.4},
+  modelos:[["Colchón Emma One","Almohada Tempur Original","Antifaz Manta Sleep"],["Colchón Tempur Pro","Purificador Dyson TP07","Cortinas opacas a medida"],
+           ["Tempur Ergo ajustable","Eight Sleep Pod Cover","Domótica de sueño Philips Hue"],["Eight Sleep Pod 4","Hästens entrada","Cabina de siesta Restworks"],
+           ["Hästens 2000T","Habitación insonorizada","Eight Sleep Pod 4 Ultra"],["Hästens Grand Vividus","Suite de sueño hipóxica","Dormitorio biohacking a medida"]]},
+ {id:"nutri",   n:"Cocina y nutrición",tipo:"bien", base:700,    ic:"🥦", fx:{regen:0.3, conf:0.2},
+  modelos:[["Batidora Nutribullet","Pack HSN 3 meses","Báscula Withings"],["Thermomix TM6","MyProtein premium anual","Analítica InsideTracker"],
+           ["Robot Cecotec + menú diseñado","Suplementación Indya","Plan nutricional trimestral"],["Cocina Miele renovada","Chef batch-cooking semanal","Nutrigenética completa"],
+           ["Cámara de maduración + despensa pro","Nevera de vinos EuroCave","Menú de temporada con nutricionista"],["Cocina Bulthaup a medida","Huerto ecológico con hortelano","Programa Human Performance"]]},
+ {id:"gym",     n:"Gimnasio en casa",  tipo:"bien", base:2500,   ic:"🏋️", fx:{mult:{FIS:0.03}},
+  modelos:[["Banco + mancuernas Decathlon","Esterilla y gomas Domyos","Comba Velites"],["Rack Kingsbox","Bicicleta Peloton","Remo Concept2"],
+           ["Multiestación Technogym","Cinta NordicTrack 2450","Assault Bike + kettlebells Eleiko"],["Sala Technogym completa","Skillmill + Skillrow","Plataformas de fuerza básicas"],
+           ["Technogym Artis line","Plataformas Keiser + VBT","Sala con espejo Tonal doble"],["Gimnasio Technogym Personal de diseño","Laboratorio de fuerza 1080 Motion","Sala réplica ciudad deportiva"]]},
+ {id:"reloj",   n:"Relojes",           tipo:"bien", base:9000,   ic:"⌚", fx:{ego:1, seg:60,  robo:1},
+  modelos:[["Tissot PRX","Seiko Presage","Longines Conquest"],["TAG Heuer Carrera","Omega Aqua Terra","Tudor Black Bay"],
+           ["Rolex Oyster Perpetual","Omega Speedmaster","Cartier Santos"],["Rolex Submariner","Rolex GMT Master II","IWC Portugieser"],
+           ["Rolex Daytona","Patek Philippe Aquanaut","Audemars Piguet Royal Oak"],["Patek Philippe Nautilus","Richard Mille RM 011","AP Royal Oak esqueleto"]]},
+ {id:"joyas",   n:"Joyería",           tipo:"bien", base:15000,  ic:"💎", fx:{ego:2, seg:110, robo:2},
+  modelos:[["Pulsera Tous oro","Cadena italiana 18k","Pendiente diamante 0,3ct"],["Cartier Love bracelet","Tiffany T","Cadena cubana maciza"],
+           ["Cartier Juste un Clou","Bulgari B.zero1 pavé","Solitario 1ct GIA"],["Van Cleef Alhambra","Cadena con colgante de diamantes","Reloj-joya Chopard"],
+           ["Collar riviere de diamantes","Tiffany Victoria alta joyería","Cartier alta joyería"],["Pieza única De Beers","Grafo Graff a medida","Alta joyería Bulgari Serpenti"]]},
+ {id:"moda",    n:"Vestuario de gala", tipo:"bien", base:1500,   ic:"🕴", fx:{seg:70},
+  modelos:[["Traje Massimo Dutti","Zapatos Lottusse","Camisas a medida básicas"],["Traje Hugo Boss","Sneakers Common Projects","Abrigo COS cashmere"],
+           ["Traje Armani","Loewe puzzle weekend","Zapatos Santoni"],["Zegna a medida","Loro Piana casual","Berluti patinados"],
+           ["Tom Ford black tie","Hermès sport-chic","Brunello Cucinelli total look"],["Alta sastrería Savile Row","Vestidor cápsula Loro Piana","Kiton bespoke"]]},
+ {id:"tec",     n:"Tecnología y ocio", tipo:"bien", base:800,    ic:"🎮", fx:{conf:0.3, vicio:1},
+  modelos:[["Nintendo Switch OLED","Airpods Pro 2","Monitor LG 27\""],["PS5 Pro + mando Edge","Meta Quest 3","iPad Pro"],
+           ["PC ROG 4080","LG OLED 77\"","Sonos surround"],["Simulador Fanatec DD+","Mac Studio + Pro Display","Home cinema JVC 4K"],
+           ["Sala arcade retro","Simulador de vuelo full","Bang & Olufsen Beolab 90"],["Simulador F1 motion pro","Sala IMAX privada","Setup streaming broadcast"]]},
+ {id:"arte",    n:"Arte y diseño",     tipo:"bien", base:20000,  ic:"🖼", fx:{seg:50, conf:0.2, robo:1},
+  modelos:[["Lámina firmada Okuda","Fotografía Chema Madoz ed.","Cerámica Sargadelos autor"],["Obra joven ARCO","Escultura pequeña bronce","Litografía Barceló"],
+           ["Litografía Miró numerada","Print Banksy autenticado","Obra media Juan Genovés"],["Óleo Equipo Crónica","Escultura Plensa pequeña","Tàpies obra gráfica mayor"],
+           ["Obra menor Picasso (grabado)","Chillida gravitación","Basquiat print raro"],["Óleo firmado histórico","Escultura Chillida acero","Pieza de museo en préstamo inverso"]]},
+ {id:"mascota", n:"Compañía",          tipo:"bien", base:600,    ic:"🐕", fx:{conf:0.5},
+  modelos:[["Adopción + kit completo","Acuario plantado","Gato europeo"],["Border Collie de trabajo","Golden Retriever","Gato Maine Coon"],
+           ["Bulldog francés","Pastor australiano","Educador canino 3 meses"],["Perro con adiestramiento élite","Segunda mascota + cuidador","Gato Bengala"],
+           ["Caballo de paseo + pupilaje","Perrera climatizada de diseño","Acuario marino profesional"],["Cuadra pequeña propia","Santuario particular","Halcón con cetrero"]]},
+ {id:"segur",   n:"Seguridad del hogar",tipo:"bien",base:4000,   ic:"🔐", fx:{seguro:1},
+  modelos:[["Ring completo + sensores","Cerradura inteligente Nuki","Caja fuerte Arregui"],["Alarma Securitas Direct","Cámaras Ajax perimetrales","Caja fuerte empotrada grado IV"],
+           ["Prosegur Alarms premium","Vallado + domótica de accesos","Búnker de valores"],["Seguridad integral con acuda","Sala del pánico","CCTV con analítica IA"]]},
+ {id:"coche",   n:"Coches",            tipo:"bien", base:16000,  ic:"🏎", fx:{ego:1, seg:80, robo:1},
+  modelos:[["Seat León FR","VW Golf GTI","Mini Cooper S"],["Audi S3","BMW M240i","Cupra Formentor VZ"],
+           ["Porsche 718 Cayman","BMW M3","Mercedes-AMG C63"],["Porsche 911 Carrera","Audi RS6 Avant","Mercedes-AMG GT"],
+           ["Lamborghini Huracán","Ferrari Roma","McLaren Artura"],["Ferrari SF90","Lamborghini Revuelto","Bugatti heredado de subasta"]]},
+ {id:"casa2",   n:"Vivienda",          tipo:"bien", base:220000, ic:"🏠", fx:{regen:0.3, conf:0.3, seguro:0},
+  modelos:[["Piso reformado en el centro","Apartamento junto a la ciudad deportiva","Loft de obra nueva"],["Ático con terraza","Adosado con jardín","Piso alto con vistas"],
+           ["Chalet en urbanización","Ático dúplex premium","Casa de diseño a las afueras"],["Villa con piscina y gym","Chalet con seguridad privada","Casa de arquitecto"],
+           ["Villa de lujo llave en mano","Finca con cuadras","Ático emblemático del skyline"],["Mansión con personal","Isla de calma: finca vallada total","Villa de portada de revista"]]},
+ {id:"viaje",   n:"Escapadas",         tipo:"cons", base:2500,   ic:"✈️", fx:{confYa:8, formaYa:-2, segYa:40},
+  modelos:[["Fin de semana en Lisboa","Escapada rural con encanto","San Sebastián gastronómico"],["Ibiza en temporada baja","París express","Roma + palco"],
+           ["Maldivas 5 noches","Safari corto en Kenia","Nueva York VIP"],["Polinesia overwater","Japón a medida","Patagonia privada"],
+           ["Vuelta al mundo exprés","Antártida expedición","Mónaco GP full access"],["Jet privado + isla alquilada","Aurora boreal en lodge de cristal","Espacio suborbital (lista de espera)"]]},
+ {id:"detalle", n:"Detalles a los tuyos",tipo:"cons",base:1200,  ic:"🎁", fx:{confYa:5},
+  modelos:[["Cena familiar en el asador","Entradas y camiseta firmada","Fin de semana para tus padres"],["iPhone para tu madre","Viaje sorpresa a los tuyos","Reforma del salón familiar"],
+           ["Coche nuevo para tu padre","Bodas de plata pagadas","Beca completa a tu hermano"],["Entrada de piso a tu hermana","Negocio familiar saneado","Jubilación adelantada de tu madre"],
+           ["Casa del pueblo restaurada","Deuda familiar a cero","Fondo para los sobrinos"],["Casa nueva para tus padres","Patrimonio familiar ordenado","Futuro de tres generaciones"]]},
+ {id:"caridad", n:"Causas y fundación",tipo:"cons", base:20000,  ic:"🤝", fx:{segYa:150, misterYa:4, afinYa:2, egoYa:-2},
+  modelos:[["Donación al banco de alimentos","Equipaciones al fútbol base","Campus becado del barrio"],["Beca deportiva anual","Reforma del campo del barrio","Furgoneta para la cantera humilde"],
+           ["Programa de comedores escolares","Torneo benéfico con tu nombre","Unidad móvil sanitaria"],["Fundación propia: arranque","Ala hospitalaria infantil","Pozos de agua: proyecto anual"],
+           ["Fundación a pleno rendimiento","Residencia deportiva social","Cátedra de deporte inclusivo"],["Legado: escuela deportiva completa","Hospital de campaña financiado","Dotación permanente de la fundación"]]},
+ {id:"fisio",   n:"Fisio personal",    tipo:"serv", base:1500,   ic:"🩺", fx:{modLes:-0.10, regen:0.2},
+  modelos:[["Fisio a domicilio 2 días","Recuperador colegiado","Quiromasajista deportivo"],["Fisio deportivo senior","Osteópata + fisio semanal","Readaptador funcional"],
+           ["Fisio ex-cantera profesional","Equipo fisio + podólogo","Recovery coach certificado"],["Fisio de élite dedicado","Ex-fisio de selección","Equipo médico privado ligero"]]},
+ {id:"chef",    n:"Chef a domicilio",  tipo:"serv", base:1100,   ic:"👨‍🍳", fx:{regen:0.5},
+  modelos:[["Cocinera de diario","Batch cooking premium","Menús de rendimiento"],["Chef privado 4 días","Chef + nutricionista","Cocina de temporada diaria"],
+           ["Chef con estrella de baja","Equipo cocina + compra","Chef especializado en deporte"],["Chef de élite dedicado","Brigada privada","Chef ex-Bulli para diario"]]},
+ {id:"mente",   n:"Coach mental",      tipo:"serv", base:1300,   ic:"🧠", fx:{misterSem:0.6, conf:0.3},
+  modelos:[["Psicólogo deportivo quincenal","Mindfulness guiado","Coach de hábitos"],["Psicólogo semanal","Preparador mental de club","Terapia de rendimiento"],
+           ["Mental coach de élite","Psicólogo + neurofeedback","Programa de presión y foco"],["Equipo mental dedicado","Ex-psicólogo de selección","Mental room a medida"]]},
+ {id:"estilo",  n:"Estilista",         tipo:"serv", base:900,    ic:"💇", fx:{seg:90},
+  modelos:[["Peluquero de confianza semanal","Asesor de imagen puntual","Barbería premium"],["Estilista de sesión","Personal shopper trimestral","Grooming completo"],
+           ["Estilista dedicado","Equipo imagen para eventos","Colaborador de moda fijo"],["Imagen integral 24/7","Estilista de celebrities","Dirección creativa personal"]]},
+ {id:"jprensa", n:"Jefe de prensa",    tipo:"serv", base:2200,   ic:"🗞", fx:{amortMister:0.5},
+  modelos:[["Community manager pro","Agencia de comunicación básica","Asesor de medios puntual"],["Jefe de prensa junior","Agencia con guardia de crisis","Media training incluido"],
+           ["Jefe de prensa senior","Agencia de primer nivel","Portavoz + monitorización"],["Director de comunicación","Ex-dircom de club grande","Gabinete de crisis dedicado"]]},
+ {id:"escolta", n:"Seguridad personal",tipo:"serv", base:1800,   ic:"🕶", fx:{vicioMod:-1, seguro:1},
+  modelos:[["Conductor de confianza","Acompañante en salidas","Chequeo de entornos"],["Escolta en eventos","Conductor + seguridad","Control de accesos personal"],
+           ["Escolta dedicado","Equipo de dos","Avanzadas y rutas seguras"],["Jefe de seguridad propio","Equipo completo 24/7","Protección de perfil alto"]]}
+];
 /* catálogo de efectos del panel (mismo que el juego) */
 var CAT=[
   {k:"dinero",n:"Dinero",u:"€",def:50000,min:1,max:1000000000,fmt:function(v){return"+"+Number(v).toLocaleString("es-ES")+" €"}},
@@ -1151,7 +1250,7 @@ var CAT=[
 /* ===== ADAPTACIÓN AL SERVIDOR REAL (Goatmaker) =====
    Sustituye los datos de ejemplo por PocketBase. Lo que no está integrado queda atenuado (clase .off, deshabilitado). */
 var PB_URL="https://server-pc.tail3b4002.ts.net:8447";
-CUR_VER="4.69.7";   /* versión actual del juego: el filtro «Versión antigua» compara con esto */
+CUR_VER="4.69.8";   /* versión actual del juego: el filtro «Versión antigua» compara con esto */
 var OK_NAV=["jugadores","grupos","codigos","reportes"];
 var PB={tok:"",byInst:{},raw:{pl:[],cod:[],can:[],rep:[]}};
 var PB_RT={bug:["🐞","Fallo"],idea:["💡","Idea"],otro:["💬","Otro"]};
@@ -1181,7 +1280,7 @@ function pbAdapta(){
   PB.byInst={}; PB.raw.pl.forEach(function(p){ PB.byInst[p.install]=p; });
   JUG.length=0;
   PB.raw.pl.forEach(function(p){ var e=p.estado||{}, lt=p.last_t||0;
-    JUG.push({id:p.install,_rid:p.id,n:pbNombre(p),g:pbGrupoNom(p.adm_grupo),ver:p.ver||"—",eq:pbClub(e.club_n),pos:"—",niv:e.nivel||0,temp:e.temporada||0,jor:e.jornada||0,med:e.nota||0,edad:0,last:lt?pbFecha(lt):"—",lastN:lt?(now-lt)/36e5:9999,h:(p.active_s||0)/3600,ses:p.sessions||0,st:p.adm_bloqueado?"blq":((lt&&now-lt<120000)?"on":""),din:0,arq:"—",dev:p.ua?pbDisp(p.ua):"—",tz:p.tz||"—",first:p.first_t||0,lang:p.lang||"—",scr:p.scr||"—",ua:p.ua||"",nota:p.adm_nota||""});
+    JUG.push({id:p.install,_rid:p.id,n:pbNombre(p),g:pbGrupoNom(p.adm_grupo),ver:p.ver||"—",eq:pbClub(e.club_n),pos:"—",niv:e.nivel||0,temp:e.temporada||0,jor:e.jornada||0,med:e.nota||0,edad:0,last:lt?pbFecha(lt):"—",lastN:lt?(now-lt)/36e5:9999,h:(p.active_s||0)/3600,ses:p.sessions||0,st:p.adm_bloqueado?"blq":((lt&&now-lt<120000)?"on":""),din:0,arq:"—",dev:p.ua?pbDisp(p.ua):"—",tz:p.tz||"—",first:p.first_t||0,lang:p.lang||"—",scr:p.scr||"—",ua:p.ua||"",nota:p.adm_nota||"",cont:p.estado&&p.estado.cont});
   });
   COD.length=0;
   PB.raw.cod.forEach(function(c){ COD.push({_rid:c.id,raw:c.code,c:pbCod(c.code),fx:(c.efectos||[]).map(function(x){return [x.k,x.v]}),u:c.usos||0,max:c.max_usos||0,cad:c.hasta?new Date(c.hasta).toISOString().slice(0,10):"",uno:!!c.una_por_jugador,on:!!c.activo,nota:c.nota||""}); });
@@ -1382,13 +1481,13 @@ V.grupos=function(){
   }).join("")+'</div>';
 };
 // ---- Ficha del jugador: pestañas con datos reales (eventos, partidas, canjes, reportes, dispositivo) ----
-OK_TAB.push("Línea de tiempo","Partidas","Regalos y mensajes","Reportes y errores","Dispositivo");
+OK_TAB.push("Vida y tienda","Línea de tiempo","Partidas","Regalos y mensajes","Reportes y errores","Dispositivo");
 OK_BTN.push("Cargar más","Última partida","Exportar CSV","Desbloquear","Bloquear este navegador");
 PB.det={};
 async function pbCargaDet(id,masEv){
   var D=PB.det[id]||(PB.det[id]={evN:200,loading:false});
   if(masEv) D.evN+=200;
-  if(D.loading) return; D.loading=true;
+  if(D.loading) return; D.loading=true; D.fallo=false;
   var f="filter="+encodeURIComponent("install='"+id+"'");
   try{
     var ev=await pbApi("/api/collections/tl_events/records?perPage="+D.evN+"&sort=-t&"+f);
@@ -1397,13 +1496,48 @@ async function pbCargaDet(id,masEv){
     var se=await pbApi("/api/collections/tl_sessions/records?perPage=500&sort=-start_t&fields=start_t&"+f);
     var dias=[0,0,0,0,0,0,0,0,0,0,0,0,0,0], hoy=new Date(); hoy.setHours(0,0,0,0);
     se.items.forEach(function(s){ var d=Math.round((hoy-new Date(s.start_t).setHours(0,0,0,0))/864e5); if(d>=0&&d<14) dias[13-d]++; });
-    Object.assign(D,{ev:ev,snap:sn.items,can:cn.items,dias:dias,ok:true});
-  }catch(e){ toast("No se pudieron cargar los datos del jugador: "+e.message); }
+    var ul=await pbApi("/api/collections/tl_snapshots/records?perPage=1&sort=-t&"+f);
+    Object.assign(D,{ev:ev,snap:sn.items,can:cn.items,dias:dias,save:(ul.items[0]&&ul.items[0].save)||null,ok:true,t:Date.now()});
+  }catch(e){ D.fallo=true; toast("No se pudieron cargar los datos del jugador: "+e.message); }
   D.loading=false; go();
 }
-function pbDet(J){ var D=PB.det[J.id]; if(D&&D.ok) return D; if(!(D&&D.loading)) pbCargaDet(J.id); return null; }
+function pbDet(J){ var D=PB.det[J.id]; if(D&&D.ok){ if(!D.loading && Date.now()-D.t>60000) pbCargaDet(J.id); return D; } if(!(D&&(D.loading||D.fallo))) pbCargaDet(J.id); return null; }
 function pbPend(){ return card("Cargando",'<p class="mut">Leyendo los datos del jugador…</p>'); }
 function pbResumen(d){ if(d==null) return ""; var s=typeof d==="string"?d:JSON.stringify(d); return s.length>110?s.slice(0,110)+"…":s; }
+function pbSave(J){ var D=pbDet(J); return D&&D.save? D.save : null; }
+function pbPuesto(J){ var s=pbSave(J); return s&&G_POS[s.pos]? G_POS[s.pos].n : "—"; }
+function pbEdad(J){ var s=pbSave(J); return s&&s.edad? s.edad : "—"; }
+function pbDinero(J){ var s=pbSave(J); return s&&s.dinero!=null? eur(s.dinero) : "—"; }
+function pbContenido(J){ var n=J.cont; if(n==null) return "—"; if(!n) return "de fábrica"; if(n>=1000000) return "borrador"; return "v"+n; }
+function pbNum(v){ return typeof v==="number"? String(Math.round(v*10)/10).replace(".",",") : (v==null||v===""? "—" : String(v)); }
+function pbPosNom(k){ return G_POS[k]? G_POS[k].n : (k||"—"); }
+function pbItemNom(id){
+  var p=String(id).split("-"), c=G_TCATS.filter(function(x){return x.id===p[0];})[0];
+  return (c && c.modelos && c.modelos[+p[1]] && c.modelos[+p[1]][+p[2]]) || id;
+}
+// texto legible de cada evento del juego (las claves son las que manda index.html)
+function pbEvTexto(x){
+  var d=x.d||{}, n=function(v){ return v==null||v===""? "—" : String(v); };
+  switch(x.tipo){
+    case "sesion": return "Abre el juego"+(d.ref? " desde "+d.ref : "");
+    case "pantalla": return "Pantalla: "+n(d.k);
+    case "modal": return "Aviso: «"+n(d.t)+"»";
+    case "decision": return "«"+n(d.l)+"»"+(d.m!=null? " · min. "+d.m : "")+(d.sc? " · "+d.sc[0]+"-"+d.sc[1] : "")+(d.f&&d.f!=="juego"? " · "+({post:"después del partido",previa:"antes del partido"}[d.f]||d.f) : "");
+    case "partido": return "vs "+n(d.rival)+(d.casa===true? " (en casa)" : d.casa===false? " (fuera)" : "")+(d.sc? " · "+d.sc[0]+"-"+d.sc[1] : "")+(d.nota!=null? " · nota "+pbNum(d.nota) : "")+(d.g? " · "+d.g+(d.g===1?" gol":" goles") : "")+(d.a? " · "+d.a+" asist." : "")+(d.ta? " · "+d.ta+" amarilla(s)" : "")+(d.tr? " · roja" : "")+(d.j? " · J"+d.j : "");
+    case "carrera": return "Carrera "+(d.motivo==="cambio"?"cambiada":"abierta")+" · T"+n(d.r&&d.r.temporada)+" J"+n(d.r&&d.r.jornada);
+    case "carrera_inicio": return "Empieza carrera"+(d.pos? " de "+pbPosNom(d.pos) : "")+(d.eq? " · "+d.eq : "");
+    case "traspaso_ui": return "Traspaso"+(d.pos? " como "+pbPosNom(d.pos) : "")+(d.eq? " · "+d.eq : "");
+    case "temporada_nueva": return "Temporada "+n(d.a)+" · "+n(d.pj)+" PJ · "+n(d.g)+" goles · "+n(d.asist)+" asist."+(d.nota!=null? " · nota media "+pbNum(d.nota) : "");
+    case "club": return "Ficha por "+n(d.a)+(d.de? " (venía de "+d.de+")" : "");
+    case "division": return "División "+n(d.de)+" → "+n(d.a);
+    case "lesion": return "Lesión de "+n(d.jornadas)+" jornadas";
+    case "sancion": return "Sanción de "+n(d.jornadas)+" jornadas";
+    case "nivel": return "Sube al nivel "+n(d.a);
+    case "fin_temporada": return "Fin de temporada · "+n(d.pos)+"º en "+n(d.div)+(d.pts!=null? " · "+d.pts+" pts" : "");
+    case "err": return "Error: "+n(d.msg);
+    default: var j=JSON.stringify(d); return j.length>110? j.slice(0,110)+"…" : j;
+  }
+}
 function pbDias(J){ var D=pbDet(J); return D?D.dias:[0,0,0,0,0,0,0,0,0,0,0,0,0,0]; }
 function pbTabEventos(J){
   var D=pbDet(J); if(!D) return pbPend();
@@ -1411,7 +1545,7 @@ function pbTabEventos(J){
   var f=ST.tab.evf||"Todo";
   var L=D.ev.items.filter(function(x){ return f==="Todo"||x.tipo===f; });
   var chips='<div class="row" style="margin-bottom:10px">'+["Todo"].concat(tipos).map(function(t){return '<span class="chip '+(f===t?"on":"")+'" onclick="'+on(function(){ST.tab.evf=t;go()})+'">'+esc(t)+'</span>'}).join("")+'</div>';
-  var rows=L.map(function(x){ return [pbFecha(x.t), '<span class="tag">'+esc(x.tipo)+'</span> '+esc(pbResumen(x.d))]; });
+  var rows=L.map(function(x){ return [pbFecha(x.t), '<span class="tag">'+esc(x.tipo)+'</span> '+esc(pbEvTexto(x))]; });
   var mas=D.ev.totalItems>D.ev.items.length? '<div style="margin-top:10px">'+btn("Cargar más",function(){pbCargaDet(J.id,true)},"sm")+'</div>' : '';
   return card("Eventos",chips+(rows.length?tl(rows,110):'<p class="mut">Sin eventos.</p>')+mas);
 }
@@ -1462,6 +1596,28 @@ function pbExportaCSV(){
   var csv=[cols].concat(filas).map(function(r){ return r.map(function(v){ v=String(v==null?"":v); return /[";\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }).join(";"); }).join("\n");
   var a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv"})); a.download="usuarios-goatmaker.csv";
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href)},2000);
+}
+
+// pestaña «Vida y tienda»: todo lo que sale de la partida guardada (inventario, compras, decisiones de vida, contrato, atributos)
+function pbTabVida(J){
+  var D=PB.det[J.id]; var s=pbSave(J);
+  if(!s){ return D&&D.ok? card("Vida y tienda",'<p class="mut">Este jugador todavía no tiene partida guardada en el servidor.</p>') : pbPend(); }
+  var fila=function(a,b){ return '<div class="diff"><span class="p">'+a+'</span><b>'+b+'</b></div>'; };
+  var lista=function(arr,vacio){ return arr.length? arr.map(function(t){ return '<div class="diff small"><span class="p">'+esc(t)+'</span></div>'; }).join("") : '<p class="mut">'+vacio+'</p>'; };
+  var ATR={TEC:"Técnica",FIS:"Físico",TAC:"Táctica",DEF:"Defensa",MEN:"Mentalidad"};
+  var attr=s.attr? Object.keys(ATR).map(function(k){ return fila(ATR[k], s.attr[k]!=null? Math.round(s.attr[k]) : "—"); }).join("") : '<p class="mut">Sin datos.</p>';
+  var own=Object.keys((s.tienda&&s.tienda.own)||{}).map(function(id){ return pbItemNom(id); });
+  var serv=Object.keys((s.tienda&&s.tienda.serv)||{}).map(function(id){ return pbItemNom(id)+" · desde la jornada "+(s.tienda.serv[id]); });
+  var v=s.vida||{};
+  var vida=fila("Fisio personal", v.fisio? "Sí" : "No")+fila("Preparador mental", v.mentor? "Sí" : "No")+fila("Donado a la grada", v.dona? eur(v.dona) : "—");
+  var c=s.contrato;
+  var contrato=c? fila("Salario", eur(c.salario||0))+fila("Años", c.anos||"—")+fila("Cláusula", c.clausula? eur(c.clausula) : "—")+fila("Firmado en", c.firmadoT||"—") : '<p class="mut">Sin contrato.</p>';
+  var tal=0; Object.keys(s.talentos||{}).forEach(function(r){ Object.keys(s.talentos[r]||{}).forEach(function(k){ tal+=(+s.talentos[r][k]||0); }); });
+  var estado=fila("Club", (J.eq&&CLI[J.eq])? CLI[J.eq].n : "—")+fila("División", s.division||"—")+fila("Dinero", eur(s.dinero||0))+fila("Ánimo", s.animo!=null? Math.round(s.animo) : "—")+fila("Fama", s.fama!=null? Math.round(s.fama) : "—")+fila("Prensa", s.prensa!=null? Math.round(s.prensa) : "—")+fila("Talentos desbloqueados", tal);
+  var diario=(s.vidaLog||[]).slice(-60).reverse();
+  return '<div class="grid g2">'+card("Carrera ahora",estado)+card("Atributos",attr)+card("Contrato",contrato)+card("Vida personal",vida)+
+    card("Inventario · bienes ("+own.length+")",lista(own,"Nada comprado todavía."))+card("Servicios activos ("+serv.length+")",lista(serv,"Sin servicios activos."))+
+    card("Decisiones de vida · últimas 60",lista(diario,"Sin movimientos todavía."))+'</div>';
 }
 
 go();

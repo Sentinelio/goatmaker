@@ -25,6 +25,7 @@ Lee esto primero en una sesión nueva. Resume todo lo hecho hasta v4.69.0. Detal
 | **4.69.5** | talentos: una pestaña por rama, progreso en pips como talentos.html, puntos libres calculados del presupuesto | `dfece86a27df800b6e05c09d81cf83fb` |
 | **4.69.6** | auditoría: fichajes del club con nombre, semillas de texto (agentes, marcas y precios del bazar ya no salen iguales), las mesas no se abren encima de un aviso, la cola se vacía al cambiar de carrera | `ae7f7a13ac739d5bc292848d19971c93` |
 | **4.69.7** | baja de usuario: si el admin borra a un jugador, su navegador borra la partida y empieza de cero (tabla `tl_bajas` en el servidor) | `d3afe241c17e4bf2e9fd479e0bd31d20` |
+| **4.69.8** | telemetría: el estado del jugador incluye la versión de contenido que tiene (`cont`), para verla en el admin | `ceb6fd11ecdc14467e6293999283e061` |
 
 Repo: `github.com/Sentinelio/goatmaker`, rama main, GitHub Pages en `https://sentinelio.github.io/goatmaker/` (misma origin que otra app de Manu, otra ruta). Commit 4.67.1: `b828c51`. Guardado del jugador: `localStorage` con prefijo `lap1-` (clave `lap1-save`), por navegador: cada amigo juega su partida sin ver la de otro.
 

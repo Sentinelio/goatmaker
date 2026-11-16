@@ -4,6 +4,14 @@ OLD='/home/claude/goatmaker/dev/telemetria/goatmaker-admin.html'
 OUT='/home/claude/goatmaker/dev/telemetria/admin-nuevo.html'
 s=open(PROTO,encoding='utf-8').read()
 old=open(OLD,encoding='utf-8').read().split('\n')
+GAMEF=open('/home/claude/goatmaker/index.html',encoding='utf-8').read().split('\n')
+def bloque_juego(inicio, fin, nuevo):
+    i=[k for k,l in enumerate(GAMEF) if l.startswith(inicio)]
+    assert len(i)==1,(inicio,i); i=i[0]; j=i
+    while GAMEF[j]!=fin: j+=1
+    txt='\n'.join(GAMEF[i:j+1])
+    return nuevo+txt[len(inicio):]
+gdat=bloque_juego('var POS=','};','var G_POS=')+'\n'+bloque_juego('var TIENDA_CATS=','];','var G_TCATS=')+'\n'
 cat='\n'.join(old[273:285])  # var CAT=[ ... ]; (líneas 274-285)
 assert old[273].startswith('var CAT=[') and old[284].strip()=='];', (old[273][:20], old[284][:20])
 def rep(a,b,count=1):
@@ -87,7 +95,7 @@ rep('btn("Borrar",T("Reporte borrado"),"red")','btn("Borrar",function(){reAcc("b
 # 8b · interruptores del prototipo (no integrados): se muestran atenuados
 rep('function flagsBar(){','function flagsBarOrig(){')
 
-rep('eur(J.din)','"—"')  # dinero no es dato de telemetría
+rep('eur(J.din)','pbDinero(J)')  # dinero no es dato de telemetría
 
 # 8c · columna de identificador de jugador (entre Jugador y Grupo)
 rep("'<th>Grupo</th>","'<th>ID</th><th>Grupo</th>")
@@ -111,10 +119,14 @@ rep_linea('  else if(tb==="Partidas") b=card(', '  else if(tb==="Partidas") b=pb
 rep_linea('  else if(tb==="Regalos y mensajes") b=', '  else if(tb==="Regalos y mensajes") b=pbTabRegalos(J);')
 rep_linea('  else if(tb==="Reportes y errores") b=', '  else if(tb==="Reportes y errores") b=pbTabReportes(J);')
 rep_linea('  else b=card("Dispositivo"', '  else b=pbTabDispositivo(J);')
+rep('tabs("jd",["Ficha","Línea de tiempo"','tabs("jd",["Ficha","Vida y tienda","Línea de tiempo"')
+rep('  else if(tb==="Línea de tiempo") b=pbTabEventos(J);','  else if(tb==="Vida y tienda") b=pbTabVida(J);\n  else if(tb==="Línea de tiempo") b=pbTabEventos(J);')
 # Actividad: sesiones por día reales y primera vez; contenido sin dato propio
 rep('spark([1,0,2,3,1,0,0,2,4,3,1,2,5,3],"#60a5fa")','spark(pbDias(J),"#60a5fa")')
 rep('<span class="p">Primera vez</span><b>2 nov</b>','<span class="p">Primera vez</span><b>\'+(J.first?pbFecha(J.first):"—")+\'</b>')
-rep('(J.g==="Testers"?"borrador":"v"+ST.ver)','"—"')
+rep('(J.g==="Testers"?"borrador":"v"+ST.ver)','pbContenido(J)')
+rep('(J.edad||"—")','pbEdad(J)')
+rep('<span class="p">Puesto</span><b>\'+J.pos+\'</b>','<span class="p">Puesto</span><b>\'+pbPuesto(J)+\'</b>')
 # Zona delicada: bloquear real y borrado con pestañas
 rep('function(){J.st=J.st==="blq"?"":"blq";go();toast(J.st==="blq"?"Bloqueado: /tele le responde 403":"Desbloqueado")}','function(){pbBloquea(J,J.st!=="blq")}')
 # cabecera y barra superior
@@ -135,7 +147,7 @@ rep('</style>', css+'</style>')
 
 # 10 · lógica adaptada, catálogo de efectos y arranque
 adapt=open('/tmp/parche/adapt.js',encoding='utf-8').read()
-rep('go();\n</script>\n</body>', '/* catálogo de efectos del panel (mismo que el juego) */\n'+cat+'\n'+adapt+'\ngo();\n</script>\n</body>')
+rep('go();\n</script>\n</body>', '/* datos del juego que usa el panel */\n'+gdat+'/* catálogo de efectos del panel (mismo que el juego) */\n'+cat+'\n'+adapt+'\ngo();\n</script>\n</body>')
 
 open(OUT,'w',encoding='utf-8').write(s)
 open('/home/claude/goatmaker/admin/index.html','w',encoding='utf-8').write(s)
