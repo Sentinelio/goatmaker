@@ -1311,7 +1311,7 @@ function pbConfirmaBorrar(ids){ return function(){ return '<h2>Borrar datos de '
   '<div class="row" style="justify-content:flex-end;margin-top:14px">'+btn("Cancelar",function(){modal()})+btn("Confirmar",function(){pbBorra(ids)},"red")+'</div>'; }; }
 async function pbBorra(ids){
   var m=$("bd-msg"); m.textContent="";
-  if(($("bd-conf").value||"").trim()!=="BORRAR"){ m.textContent="Escribe BORRAR para confirmar."; return; }
+  if(($("bd-conf").value||"").trim().toUpperCase()!=="BORRAR"){ m.textContent="Escribe BORRAR para confirmar."; return; }
   try{
     for(var k=0;k<ids.length;k++){
       var id=ids[k], f="fields=id&filter="+encodeURIComponent("install='"+id+"'");
