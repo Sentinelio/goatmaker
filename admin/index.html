@@ -798,7 +798,7 @@ function partidoAjustes(){
       +fld("pj.post","Resumen tras el partido (%)",35,{min:0,max:100,step:1,full:"Partido · resumen"})
       +'<p class="small mut">La previa solo sale si juegas de titular. El resumen también sale si ganas o pierdes por tres goles o más.</p>')
     +'</div>'
-    +card("Situaciones disponibles", '<div class="diff"><span class="p">En juego y banquillo (sin fuera de catálogo)</span><b>'+disp+'</b></div><div class="diff"><span class="p">Total de fábrica</span><b>'+total+'</b></div><p class="small mut" style="margin:10px 0 0">El partido de ojeo de la pirámide no tiene situaciones: solo calcula una nota. Se configurará cuando exista como partido jugable.</p>');
+    +'<div style="margin-top:14px">'+card("Situaciones disponibles", '<div class="diff"><span class="p">En juego y banquillo (sin fuera de catálogo)</span><b>'+disp+'</b></div><div class="diff"><span class="p">Total de fábrica</span><b>'+total+'</b></div><p class="small mut" style="margin:10px 0 0">El partido de ojeo de la pirámide no tiene situaciones: solo calcula una nota. Se configurará cuando exista como partido jugable.</p>')+'</div>';
 }
 V.partido=function(){
   var t=tabs("pa",["Situaciones","Reloj","Probabilidades"]), tb=ST.tab.pa, h=hd("Partido","Las situaciones que el jugador decide, el reloj y la tabla de probabilidades.",tb==="Situaciones"?btn("+ Situación",T("Crea una situación nueva (1–4 opciones)")):"");
