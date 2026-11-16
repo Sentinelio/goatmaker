@@ -846,7 +846,7 @@ V.partido=function(){
     var catSel=selE? catSit(selE.x.id,selE.grp) : "Ataque";
     if(SIT_CAT_ORDEN.indexOf(ST.tab.sc)<0 || (!ST.tab.sc)) ST.tab.sc=catSel;
     var sc=ST.tab.sc;
-    var tabsCat='<div class="tabs" style="flex-wrap:wrap">'+SIT_CAT_ORDEN.map(function(c){ var n=todas.filter(function(e){ return catSit(e.x.id,e.grp)===c; }).length; return '<button class="'+(sc===c?"on":"")+'" onclick="'+on(function(){ST.tab.sc=c;go()})+'">'+esc(c)+(n?' · '+n:'')+'</button>'; }).join("")+'</div>';
+    var tabsCat='<div class="tabs" style="flex-wrap:nowrap;width:100%;overflow-x:auto;margin-bottom:14px">'+SIT_CAT_ORDEN.map(function(c){ var n=todas.filter(function(e){ return catSit(e.x.id,e.grp)===c; }).length; return '<button style="flex:1 1 0;min-width:0;padding:6px 4px;line-height:1.25;text-align:center;font-size:13px" class="'+(sc===c?"on":"")+'" onclick="'+on(function(){ST.tab.sc=c;go()})+'">'+esc(c)+'<br><small class="mut" style="font-weight:500">'+n+'</small></button>'; }).join("")+'</div>';
     var nota=(sc==="Previa")?"La genera el juego al empezar el partido. No se edita aquí.":(sc==="Post partido")?"La genera el juego al terminar el partido. No se edita aquí.":"";
     SIT_CAT_ORDEN.forEach(function(cat){
       if(cat==="Previa"||cat==="Post partido") return;
