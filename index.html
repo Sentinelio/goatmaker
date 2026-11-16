@@ -419,6 +419,8 @@ textarea{background:var(--raise);border:1px solid var(--hair);color:var(--ink);b
 .mbody > .mpanel.mp-corto{flex:1 1 auto;min-height:0;max-height:none;overflow:hidden}
 .mbody > .mpanel.mp-corto > .pnav,.mbody > .mpanel.mp-corto > .chips{flex:none}
 .mbody > .mpanel.mp-corto > *:not(.pnav):not(.chips){flex:1 1 auto;min-height:0;max-height:none;overflow-y:auto}
+#ov-match *{scrollbar-width:none}
+#ov-match ::-webkit-scrollbar{display:none}
 .mbody > .mpanel.mp-corto .plista{max-height:none;overflow:visible}
 .avisodec{margin:0 0 6px}
 .rolx{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:800;margin-top:4px}
@@ -784,7 +786,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.69.19";
+var VERSION="4.69.20";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -3801,7 +3803,7 @@ function renderFlashSiguiente(){
       +'<p class="abtxt">'+esc(f.txt)+'</p></div>';
     $("ov-match-inner").innerHTML='<div class="matchcard" style="position:relative">'+btnsPausa()+cabeceraMatch()
       +'<div class="mbody"><div id="mpanel" class="mpanel mp-corto">'+panelHTML()+'</div></div>'
-      +'<div class="mfoot">'+H+autoBarHTML(2400)+'</div></div>';
+      +'<div class="mfoot">'+H+btnTerminar()+autoBarHTML(2400)+'</div></div>';
     $("ov-match").classList.remove("hidden");
     $("ov-match").onclick=saltarAuto;
     activarSwipe();
@@ -3861,7 +3863,7 @@ function renderFlashSiguiente(){
      +((f.tipo==="roja"||f.tipo==="ta"||f.tipo==="lesion"||(f.tipo==="gol"&&!f.mio))? '<span style="color:var(--bad)">✘ </span>':'')
      +esc(f.deTuDecision)+'</p>':'';
   H=H.replace('<p class="ftxt">', dTxt+'<p class="ftxt">');
-  H+=autoBarHTML(2000);
+  H+=btnTerminar()+autoBarHTML(2000);
   $("ov-match-inner").innerHTML='<div class="inner-flash">'+H+'</div>';
   $("ov-match").classList.remove("hidden");
   $("ov-match").onclick=saltarAuto;
@@ -5632,7 +5634,7 @@ function renderCierre(){
   if(M.miTR) linea.push("🟥 expulsado");
   if(linea.length) cuerpo+='<p class="note" style="text-align:center;margin-top:10px">'+esc(linea.join(" · "))+'</p>';
   if(jugo) cuerpo+='<p style="text-align:center;margin:10px 8px 0;font-size:13px;line-height:1.45">'+esc(resumenActuacion(n))+'</p>';
-  if(jugo && _caida>=0.5) cuerpo+='<p class="note" style="text-align:center;margin:8px 8px 0">Llegaste a estar en <b>'+M.notaMax.v.toFixed(1)+'</b> ('+M.notaMax.min+'′): el tramo final te costó <b style="color:var(--bad)">−'+_caida.toFixed(1)+'</b>. El detalle, jugada a jugada, en la pestaña Yo.</p>';
+  if(jugo && _caida>=0.5) cuerpo+='<p class="note" style="text-align:center;margin:8px 8px 0">Llegaste a estar en <b>'+M.notaMax.v.toFixed(1)+'</b> ('+M.notaMax.min+'′): el tramo final te costó <b style="color:var(--bad)">−'+_caida.toFixed(1)+'</b>. El detalle, jugada a jugada, en la pestaña Mi Perfil.</p>';
   if(M.cicloCumplido) cuerpo+='<p class="note" style="text-align:center;margin-top:8px;padding:9px 11px;border-radius:12px;background:rgba(255,194,75,.12);color:var(--ink)">🟨 Quinta amarilla del ciclo: te pierdes la próxima jornada por sanción.</p>';
   else if(M.miTR) cuerpo+='<p class="note" style="text-align:center;margin-top:8px;padding:9px 11px;border-radius:12px;background:rgba(255,84,112,.12);color:var(--ink)">🟥 Expulsado: sanción de un partido.</p>';
   M.resumenHTML=cuerpo;
@@ -6171,6 +6173,8 @@ function simularResto(){
   M.simResto=true;
   M.flash=[];
   while(M && !M.fin && M.tramo<6) simTramo();
+  /* al simular el resto no se muestran uno a uno los flashes: los hechos quedan en la cronología y el resumen */
+  if(M) M.flash=[];
   if(M && !M.fin) avanzarPartido();
 }
 function btnsPausa(){
@@ -6193,11 +6197,18 @@ function cabeceraMatch(){
     +'<div class="mteam'+(M.casa?'':' mine')+'">'+crestSVG(visN.id,36)+'<span class="tn">'+esc(visN.c)+'</span></div>'
     +'</div></div>';
 }
+/* expulsado, lesionado o cambiado: ya no decides nada; puedes terminar el partido de golpe */
+function jugadorFuera(){
+  return !!M && !M.fin && M.fase!=="post" && M.fase!=="cierre" && (!!M.finAnticipado || (M.enCampo===false && (M.convRol==="titular" || !!M.yaJugado)));
+}
+function btnTerminar(){
+  return jugadorFuera()? '<button class="gold-btn" style="margin-top:10px;width:100%" onclick="simularResto()">Terminar el partido</button>' : '';
+}
 function pintarMatch(cuerpo, pie){
   if(!M) return;   /* si el partido ya acabó, nada puede volver a taparlo todo */
   $("ov-match-inner").innerHTML='<div class="matchcard" style="position:relative">'+btnsPausa()+cabeceraMatch()
     +'<div class="mbody">'+cuerpo+'</div>'
-    +'<div class="mfoot">'+(pie||"")+'</div></div>';
+    +'<div class="mfoot">'+(pie||"")+btnTerminar()+'</div></div>';
   $("ov-match").classList.remove("hidden");
   activaMantenerEnPartido();
   vigilaGifs();

@@ -37,6 +37,7 @@ Lee esto primero en una sesión nueva. Resume todo lo hecho hasta v4.69.0. Detal
 | **4.69.17** | partido: texto de la decisión al mismo tamaño que la narración (17 px, peso 700); pestaña «Yo» renombrada «Mi Perfil»; en Mi Perfil la lista de decisiones ya no se corta a 29 vh; quitadas tiros, pases de peligro y acciones defensivas del panel de partido (el historial no cambia) | `62f1c7342367dc6600ec8bcde031899f` |
 | **4.69.18** | Mi Perfil: caja de contenido que llena el hueco y se desplaza (sin cortes ni espacio vacío); quitados jugadas al límite, impacto, zonas pisadas y el bloque «Tu temporada»; gol, VAR y roja se saltan con un toque (sin bloqueo de 1,1 s, mínimo 5 %) | `66364aa4ffcf7176cd0354de6e2dd2b7` |
 | **4.69.19** | estadísticas: barras desde el centro (cada equipo crece hacia su lado) con la barra azul del jugador en su lado, donde hay dato por jugador (goles, tiros, paradas, tarjetas) | `d50aefbb77695e6c7f45f2492c20a74e` |
+| **4.69.20** | partido: botón «Terminar el partido» tras expulsión, lesión o cambio (simula el resto sin mostrar flashes uno a uno); sin barras de scroll dentro del partido; texto del resumen con «Mi Perfil» | `f75bdda0e096d28b6c640b8634f969bf` |
 
 Repo: `github.com/Sentinelio/goatmaker`, rama main, GitHub Pages en `https://sentinelio.github.io/goatmaker/` (misma origin que otra app de Manu, otra ruta). Commit 4.67.1: `b828c51`. Guardado del jugador: `localStorage` con prefijo `lap1-` (clave `lap1-save`), por navegador: cada amigo juega su partida sin ver la de otro.
 
