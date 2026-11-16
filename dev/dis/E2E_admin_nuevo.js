@@ -46,6 +46,14 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     ok(ops.some(o => /ATRIBUTOS|Atributos/i.test(o) && parseFloat(o) < 0.5), 'Ficha: Atributos atenuado');
     ok(await p.locator('button[disabled]', { hasText: 'Mensaje' }).count() >= 1, 'Ficha: Mensaje desactivado');
     await p.screenshot({ path: '/tmp/parche/nuevo2_ficha.png' });
+    // Datos del admin: nombre y nota se guardan en el servidor; Grupo queda deshabilitado
+    const nombreIn = p.locator('input[value="Dani"]');
+    await nombreIn.fill('Dani Ruiz'); await nombreIn.press('Tab'); await p.waitForTimeout(600);
+    await p.locator('textarea').first().fill('Nota de prueba'); await p.locator('textarea').first().press('Tab'); await p.waitForTimeout(600);
+    const dat = await (await fetch(BASE + '/api/collections/tl_players/records?filter=' + encodeURIComponent("install='inst-aaaa-1111'"), { headers: H })).json();
+    ok(dat.items[0] && dat.items[0].label === 'Dani Ruiz', 'Datos admin: el nombre se guarda en el servidor');
+    ok(dat.items[0] && dat.items[0].adm_nota === 'Nota de prueba', 'Datos admin: la nota se guarda en el servidor');
+    ok(await p.locator('select[disabled]').count() >= 1, 'Datos admin: Grupo deshabilitado');
     await p.getByRole('button', { name: '← Volver a la lista' }).click(); await p.waitForTimeout(200);
     // Códigos
     await p.click('#side a:has-text("Códigos y regalos")');
