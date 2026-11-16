@@ -423,6 +423,7 @@ textarea{background:var(--raise);border:1px solid var(--hair);color:var(--ink);b
 html:has(#ov-match:not(.hidden)){overflow:hidden}
 #ov-match ::-webkit-scrollbar{display:none}
 .mbody > .mpanel.mp-corto .plista{max-height:none;overflow:visible}
+.mbody > .mpanel.mp-corto .tlhead{flex:none}
 .avisodec{margin:0 0 6px}
 .rolx{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:800;margin-top:4px}
 .rolx.tit{color:var(--ok)} .rolx.sup{color:var(--gold)} .rolx.fue{color:var(--muted)}
@@ -787,7 +788,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.69.23";
+var VERSION="4.69.24";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -6362,10 +6363,10 @@ function panelHTML(){
     var g45=[0,0];
     (M.goles||[]).forEach(function(g){ if((g.m||0)<=45){ if(!!g.mio===!!M.casa) g45[0]++; else g45[1]++; } });
     var m45=(M.est1 && M.est1.golA!==undefined)? M.est1.golA+"–"+M.est1.golB : g45[0]+"–"+g45[1];
+    var notaPrevia=(M.convRol==="suplente")? '<p class="note" style="text-align:center;margin:8px 0 4px">'+(M.yaJugado? "Eres suplente. Entraste desde el banquillo.":"Eres suplente. Empiezas en el banquillo.")+'</p>' : '';
     var esCierre=(M.fase==="cierre"), pasado45=esCierre||M.tramo>=3||M.min>45, hayDescuento=C.some(function(e){return e.m>90;})||M.min>90;
     if(!C.length) return H
-      +sep("Previa","")
-      +((M.convRol==="suplente" && !M.yaJugado)? '<p class="note" style="text-align:center;margin:10px 0 0">Eres suplente. Empiezas en el banquillo.</p>':'')
+      +sep("Previa","")+notaPrevia
       +'<p class="note" style="text-align:center;margin:14px 0">Todavía no ha pasado nada reseñable.</p>'
       +(pasado45? sep("Descanso", m45):"")+(esCierre? sep("Final", M.sc[0]+"–"+M.sc[1]):"");
     var ICO={gol:"⚽", ta:'<b class="tcard tam"></b>', roja:'<b class="tcard tro"></b>', cambio:"", lesion:"🚑"};
@@ -6387,7 +6388,7 @@ function panelHTML(){
         +'</div>');
     });
     /* fronteras del partido, leyendo de nuevo a viejo */
-    var cuerpoTl=sep("Previa",""), desc=false;
+    var cuerpoTl=sep("Previa","")+notaPrevia, desc=false;
     C.forEach(function(ev,i){
       if(!desc && ev.m>45 && pasado45){ cuerpoTl+=sep("Descanso", m45); desc=true; }
       cuerpoTl+=FILAS[i];

@@ -120,6 +120,7 @@ input:focus,textarea:focus,select:focus{border-color:#3a4068}textarea{resize:ver
     <span class="pill" id="conn"><span class="dot"></span>Sin conectar</span>
     <span class="sp"></span>
     <span class="pill"><span class="dot"></span>Servidor en línea</span>
+    <span class="pill" id="gver" style="color:var(--gold);font-weight:700"></span>
     <span class="pill" id="modo"></span>
     <button class="b" id="bcam"></button>
     <button class="b gold" id="bpub">Publicar</button>
@@ -172,7 +173,7 @@ var NAV=[
 /* h = ya existe en el panel de hoy · n = nuevo (solo panel y servidor) · j = nuevo y pide cambios en el juego */
 var STAT={tracker:"n",prioridades:"n",resumen:"h",analitica:"h",avisos:"j",publicacion:"h",pruebas:"j",servidor:"n",jugadores:"h",grupos:"j",codigos:"h",reportes:"h",errores:"h",mundo:"j",situaciones:"h",talentos:"h",entrenos:"h",entrenadores:"j",tienda:"h",patrocinios:"j",agentes:"j",pantallas:"j",mapa:"n",eloreal:"j",personaje:"j",piramide:"j",reloj:"h",economia:"j",textos:"j",motor:"j"};
 var STXT={h:["","Ya existe · se integra"],n:["n","Nuevo"],j:["j","Nuevo · toca el juego"]};
-var PRE={mundo:["pa.","nm.","lg.","eq.","pl."],situaciones:["si."],talentos:["ta."],entrenos:["en."],entrenadores:["co."],tienda:["ti.","ct.","sv."],patrocinios:["pt."],agentes:["ag.","mn."],pantallas:["pn."],eloreal:["ev."],piramide:["pi."],personaje:["ps.","ro.","sk.","ca."],reloj:["rl."],economia:["ec.","xt.","pd."],textos:["tx."],motor:["mo."]};
+var PRE={mundo:["pa.","nm.","lg.","eq.","pl."],situaciones:["si.","pj."],talentos:["ta."],entrenos:["en."],entrenadores:["co."],tienda:["ti.","ct.","sv."],patrocinios:["pt."],agentes:["ag.","mn."],pantallas:["pn."],eloreal:["ev."],piramide:["pi."],personaje:["ps.","ro.","sk.","ca."],reloj:["rl."],economia:["ec.","xt.","pd."],textos:["tx."],motor:["mo."]};
 /* secciones que reutilizan una vista con parte de sus pestañas */
 var ALIAS={
  jugadores:{v:"jugadores",t:"Usuarios",s:"Cada usuario es un navegador. Su ficha reúne carrera, partidas, regalos, mensajes, reportes y errores."},
@@ -210,6 +211,7 @@ function topbar(){
   var n=nCam();
   $("bcam").innerHTML= n? '<b style="color:var(--gold)">'+n+'</b> cambio'+(n>1?"s":"")+' sin publicar' : 'Sin cambios';
   $("bpub").disabled=!n;
+  $("gver").textContent="Juego v"+CUR_VER;
   $("modo").innerHTML='<span class="dot '+(ST.modo==="vivo"?"gold":"")+'"></span>'+(ST.modo==="vivo"?"En vivo":"Publicado · v"+ST.ver);
 }
 var HIST=[], HP=-1;
@@ -782,6 +784,22 @@ V.talentosEd=function(){
    card(esc(s.n)+' <span class="mono mut">'+s.id+'</span>',fld(pre+".n","Nombre",s.n,{full:L+" · nombre"})+fld(pre+".d","Descripción",s.d,{type:"area",full:L+" · descripción"})+fld(pre+".row","Fila",s.row,{type:"range",min:1,max:8,step:1,full:L+" · fila"})+fld(pre+".rank","Rangos",s.rank,{type:"range",min:1,max:5,step:1,full:L+" · rangos"})+fld(pre+".lvl","Nivel que pide",s.lvl,{type:"range",min:1,max:99,step:1,full:L+" · nivel"})+fld(pre+".req","Requisitos",s.req?String(s.req).split(","):[],{type:"multi",opts:Tt.nodes.filter(function(x){return x.id!==s.id && x.row<val(pre+".row")}).map(function(x){return x.id}),full:L+" · requisitos",d:"Talentos de filas anteriores."})+'<div class="f"><label>Efecto por rango</label>'+fxEd(pre+".fx",s.fx,Object.assign({},G.CONT_R.tfx,G.CONT_R.tforma),L)+'<div class="fab">rango 0,5 – 2</div></div>'+fld(pre+".off","Fuera de catálogo",false,{type:"tog",full:L+" · fuera de catálogo",si:"No se puede subir; quien lo tiene lo conserva",no:"Disponible"}))+'</div>'+
   card("Ritmo de la rama",fld("ta.tasa."+rama,"Tasa de experiencia",{defensa:0.55,fisico:1.0,centro:0.35,ataque:0.6,mental:0.5,tactica:0.5}[rama],{type:"range",min:0.1,max:2,step:0.05,full:Tt.name+" · tasa de experiencia",d:"Cuánto pesa esta rama al repartir la experiencia."}),"","mt");
 };
+/* ajustes de partido: cuántas situaciones salen y con qué probabilidad hay previa o resumen */
+function partidoAjustes(){
+  var grupos=[G.SITS,G.SITS_BANQUILLO,G.SITS_CAMBIO,G.SITS_CLUTCH], pref=["si.j","si.b","si.c","si.k"], disp=0, total=0;
+  grupos.forEach(function(g,i){ g.forEach(function(x){ total++; if(!val(pref[i]+"."+x.id+".off")) disp++; }); });
+  var mn=val("pj.min"), mx=val("pj.max");
+  return '<div class="grid g2">'
+    +card("Situaciones por partido", fld("pj.min","Mínimo de situaciones por partido",2,{min:1,max:12,step:1,full:"Partido · mínimo de situaciones"})
+      +fld("pj.max","Máximo de situaciones por partido",6,{min:1,max:12,step:1,full:"Partido · máximo de situaciones"})
+      +(mn>mx?'<p class="err small">El máximo es menor que el mínimo: el juego descartará este cambio.</p>':'')
+      +'<p class="small mut">Los valores de fábrica son de 2 a 6. El juego reparte las situaciones entre ese mínimo y ese máximo.</p>')
+    +card("Previa y resumen", fld("pj.previa","Previa (% de partidos en que sale)",40,{min:0,max:100,step:1,full:"Partido · previa"})
+      +fld("pj.post","Resumen tras el partido (%)",35,{min:0,max:100,step:1,full:"Partido · resumen"})
+      +'<p class="small mut">La previa solo sale si juegas de titular. El resumen también sale si ganas o pierdes por tres goles o más.</p>')
+    +'</div>'
+    +card("Situaciones disponibles", '<div class="diff"><span class="p">En juego y banquillo (sin fuera de catálogo)</span><b>'+disp+'</b></div><div class="diff"><span class="p">Total de fábrica</span><b>'+total+'</b></div><p class="small mut" style="margin:10px 0 0">El partido de ojeo de la pirámide no tiene situaciones: solo calcula una nota. Se configurará cuando exista como partido jugable.</p>');
+}
 V.partido=function(){
   var t=tabs("pa",["Situaciones","Reloj","Probabilidades"]), tb=ST.tab.pa, h=hd("Partido","Las situaciones que el jugador decide, el reloj y la tabla de probabilidades.",tb==="Situaciones"?btn("+ Situación",T("Crea una situación nueva (1–4 opciones)")):"");
   if(tb==="Situaciones"){
@@ -799,7 +817,7 @@ V.partido=function(){
       x.o.map(function(o,i){ var po=pre+".o"+i, Lo=L+" · opción "+(i+1); return '<div class="opt"><div class="row" style="margin-bottom:6px"><b>Opción '+(i+1)+'</b><span class="sp"></span>'+btn("✕",T("Quita la opción"),"sm")+'</div>'+fld(po+".l","Botón",o.l,{full:Lo+" · botón"})+'<div class="f"><label>Efectos</label>'+fxEd(po+".fx",o.fx,G.CONT_R.sitfx,Lo)+'<div class="fab"></div></div>'+(o.ok!==undefined?fld(po+".ok","Si sale bien",o.ok,{type:"area",full:Lo+" · si sale bien"}):"")+(o.mid!==undefined?fld(po+".mid","Si no pasa nada",o.mid,{type:"area",full:Lo+" · si no pasa nada"}):"")+(o.ko!==undefined&&o.ko!==""?fld(po+".ko","Si sale mal",o.ko,{type:"area",full:Lo+" · si sale mal"}):"")+'</div>'; }).join("")+
       (x.o.length<4?'<div style="margin-top:10px">'+btn("+ Opción",T("Añade una opción (máximo 4)"),"sm")+'</div>':""),
       '<span class="tag">'+cur[2]+'</span> '+btn("Duplicar",T("Crea una situación nueva a partir de esta"),"sm")+" "+btn("Probar",T("Abre el juego con esta situación forzada"),"sm"));
-    return h+t+'<div class="split">'+lst(items,x.id,function(id){ST.sel.si=id;go()},{top:'<input type="text" placeholder="Filtrar situaciones" value="'+esc(ST.sel.sq||"")+'" style="margin:2px 0 6px" onchange="'+on(function(v){ST.sel.sq=v;go()})+'">'})+det+'</div>';
+    return h+t+partidoAjustes()+'<div class="split">'+lst(items,x.id,function(id){ST.sel.si=id;go()},{top:'<input type="text" placeholder="Filtrar situaciones" value="'+esc(ST.sel.sq||"")+'" style="margin:2px 0 6px" onchange="'+on(function(v){ST.sel.sq=v;go()})+'">'})+det+'</div>';
   }
   if(tb==="Reloj"){ var R=G.RELOJ, rr=G.CONT_R.reloj, ej=function(n){ return nf(clamp(val("rl.base")+n*val("rl.letra"),val("rl.min"),val("rl.max"))*val("rl.factor")/1000,1); };
     var hh=fld("rl.base","Tiempo base (ms)",R.base,{type:"range",min:rr.base[0],max:20000,step:100,full:"Reloj · base"})+fld("rl.letra","Por letra (ms)",R.letra,{type:"range",min:rr.letra[0],max:rr.letra[1],step:1,full:"Reloj · por letra",d:"Los textos largos dan más tiempo."})+fld("rl.min","Mínimo (ms)",R.min,{type:"range",min:rr.min[0],max:30000,step:100,full:"Reloj · mínimo"})+fld("rl.max","Máximo (ms)",R.max,{type:"range",min:rr.max[0],max:60000,step:100,full:"Reloj · máximo"})+fld("rl.fuera","Fuera del partido ×",R.fuera,{type:"range",min:rr.fuera[0],max:rr.fuera[1],step:0.05,full:"Reloj · fuera del partido",d:"Banquillo y descanso."})+fld("rl.factor","Factor general ×",R.factor,{type:"range",min:rr.factor[0],max:rr.factor[1],step:0.05,full:"Reloj · factor general"});
@@ -1358,7 +1376,7 @@ var CAT=[
 /* ===== ADAPTACIÓN AL SERVIDOR REAL (Goatmaker) =====
    Sustituye los datos de ejemplo por PocketBase. Lo que no está integrado queda atenuado (clase .off, deshabilitado). */
 var PB_URL="https://server-pc.tail3b4002.ts.net:8447";
-CUR_VER="4.69.22";   /* versión actual del juego: el filtro «Versión antigua» compara con esto */
+CUR_VER="4.69.24";   /* versión actual del juego: el filtro «Versión antigua» compara con esto */
 var OK_NAV=["jugadores","grupos","codigos","reportes"];
 var PB={tok:"",byInst:{},raw:{pl:[],cod:[],can:[],rep:[]}};
 var PB_RT={bug:["🐞","Fallo"],idea:["💡","Idea"],otro:["💬","Otro"]};
@@ -1436,6 +1454,7 @@ function side(){
 function topbar(){
   $("bcam").innerHTML='Sin cambios'; $("bcam").disabled=true;
   $("bpub").disabled=true; $("bpub").classList.add("off");
+  $("gver").textContent="Juego v"+CUR_VER;
   $("modo").innerHTML='<span class="dot"></span>Datos en vivo';
 }
 
