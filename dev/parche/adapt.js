@@ -57,7 +57,7 @@ async function pbEntra(){
     var j=await r.json(); if(!r.ok) throw new Error(j.message||r.status);
     PB.tok=j.token; try{sessionStorage.setItem("gm-adm",JSON.stringify({u:PB_URL,t:j.token}))}catch(e){}
     $("l-pass").value=""; pbMuestra(); await pbCarga();
-  }catch(e){ $("l-err").textContent="No se pudo entrar: "+e.message; }
+  }catch(e){ $("l-err").textContent=(e instanceof TypeError)? "No llega a server-pc: revisa que Tailscale esté conectado en este dispositivo y que PocketBase esté encendido en el servidor." : "No se pudo entrar: "+e.message; }
 }
 function pbMuestra(){ $("login").classList.add("hide"); $("app").classList.remove("hide"); }
 function pbOut(){ try{sessionStorage.removeItem("gm-adm")}catch(e){} PB.tok=""; $("app").classList.add("hide"); $("login").classList.remove("hide"); }
