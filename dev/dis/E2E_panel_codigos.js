@@ -33,7 +33,7 @@ const SEED = `(function(){var a=3*2654435761>>>0;Math.random=function(){a|=0;a=a
   /* ---- el panel (admin) ---- */
   const actx = await browser.newContext({ viewport: { width: 1280, height: 900 }, permissions: ['clipboard-read', 'clipboard-write'] }); const a = await actx.newPage(); mon(a);
   a.on('dialog', d => { if (d.type() === 'prompt') d.accept(a._promptAns == null ? '' : a._promptAns); else d.accept(); });
-  await a.goto('file://' + ADM); await a.fill('#l-url', BASE); await a.fill('#l-mail', 'a@t.local'); await a.fill('#l-pass', 'testpass1234'); await a.click('#l-go');
+  await a.goto('file://' + ADM); await a.evaluate(u=>{window.PB_URL=u},BASE); await a.fill('#l-mail', 'a@t.local'); await a.fill('#l-pass', 'testpass1234'); await a.click('#l-go');
   await a.waitForSelector('#nav button', { timeout: 8000 }); await a.waitForTimeout(600);
   const navT = await a.$$eval('#nav button', b => b.map(x => x.innerText.trim()));
   ok(navT.some(x => /^Códigos/.test(x)) && navT.some(x => /^Bandeja de reportes/.test(x)), 'P0 el menú tiene Códigos y Bandeja de reportes (' + navT.join('|') + ')');
@@ -125,7 +125,7 @@ const SEED = `(function(){var a=3*2654435761>>>0;Math.random=function(){a|=0;a=a
 
   /* móvil */
   const mctx = await browser.newContext({ viewport: { width: 390, height: 844 } }); const m = await mctx.newPage(); mon(m);
-  await m.goto('file://' + ADM); await m.fill('#l-url', BASE); await m.fill('#l-mail', 'a@t.local'); await m.fill('#l-pass', 'testpass1234'); await m.click('#l-go'); await m.waitForSelector('#nav button'); await m.waitForTimeout(700);
+  await m.goto('file://' + ADM); await m.evaluate(u=>{window.PB_URL=u},BASE); await m.fill('#l-mail', 'a@t.local'); await m.fill('#l-pass', 'testpass1234'); await m.click('#l-go'); await m.waitForSelector('#nav button'); await m.waitForTimeout(700);
   for (const tab of ['codigos', 'reportes']) { await m.click('#bmenu'); await m.click('nav button[data-t=' + tab + ']'); await m.waitForTimeout(300); const w = await m.evaluate(() => document.documentElement.scrollWidth); ok(w <= 391, 'M ' + tab + ' sin desborde horizontal en móvil (' + w + ')'); }
   await m.screenshot({ path: '/tmp/tele/adm_reportes_movil.png' });
   await a.click('nav button[data-t=codigos]'); await a.waitForTimeout(250); await a.screenshot({ path: '/tmp/tele/adm_codigos.png', fullPage: true });

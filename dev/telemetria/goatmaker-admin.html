@@ -92,8 +92,7 @@ nav.side button{display:flex;margin:0 0 2px;padding:6px 10px}
 <div id="login" class="login card">
   <div class="brand" style="font-size:22px">Goatmaker · <b>Admin</b></div>
   <p class="mut small">Entra con tu usuario superusuario de PocketBase. La sesión vive solo en esta pestaña.</p>
-  <label class="small mut">URL de PocketBase</label><input id="l-url" placeholder="https://pb.midominio.com">
-  <label class="small mut">Email</label><input id="l-mail" type="email" autocomplete="username">
+    <label class="small mut">Email</label><input id="l-mail" type="email" autocomplete="username">
   <label class="small mut">Contraseña</label><input id="l-pass" type="password" autocomplete="current-password">
   <button class="b gold" id="l-go" style="width:100%;padding:10px">Entrar</button>
   <p id="l-err" class="err small"></p>
@@ -120,6 +119,7 @@ var CLUBES={"BAR":"Barcelona","RMA":"R. Madrid","ATM":"Atlético","VIL":"Villarr
 var $=function(i){return document.getElementById(i)};
 function h(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]})}
 function club(id){return CLUBES[id]||id||"—"}
+var PB_URL="https://server-pc.tail3b4002.ts.net:8447";
 var ST={url:"",tok:"",players:[],sessions:[],events:[],snaps:[],codes:[],canjes:[],reports:[],tab:"resumen",sel:null,sort:{k:"last_t",d:-1},fEv:{},at:0};
 var TABS=[["resumen","Resumen"],["jugadores","Jugadores"],["codigos","Códigos"],["reportes","Reportes"],["contenido","Contenido"],["errores","Errores"],["balance","Balance"]];
 var SIDE=[
@@ -149,9 +149,9 @@ function svgLine(vals,w,hh,lo,hi){w=w||520;hh=hh||120;var v=vals.filter(function
 async function api(path,opt){opt=opt||{};opt.headers=Object.assign({Authorization:ST.tok},opt.headers||{});var r=await fetch(ST.url+path,opt);if(r.status===401){logout();throw new Error("sesión caducada")}if(!r.ok){var t="";try{t=(await r.json()).message}catch(e){}throw new Error(r.status+" "+t)}return r.status===204?null:r.json()}
 async function all(col,q,prog){var out=[],p=1,tp=1;do{var r=await api("/api/collections/"+col+"/records?perPage=500&page="+p+"&"+(q||""));out=out.concat(r.items);tp=r.totalPages;p++;if(prog)prog(out.length,r.totalItems)}while(p<=tp);return out}
 async function login(){
-  var u=$("l-url").value.trim().replace(/\/+$/,"");$("l-err").textContent="";
+  var u=PB_URL;$("l-err").textContent="";
   try{var r=await fetch(u+"/api/collections/_superusers/auth-with-password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({identity:$("l-mail").value.trim(),password:$("l-pass").value})});
-    var j=await r.json();if(!r.ok)throw new Error(j.message||r.status);ST.url=u;ST.tok=j.token;try{sessionStorage.setItem("gm-adm",JSON.stringify({u:u,t:j.token}));localStorage.setItem("gm-adm-url",u)}catch(e){}
+    var j=await r.json();if(!r.ok)throw new Error(j.message||r.status);ST.url=u;ST.tok=j.token;try{sessionStorage.setItem("gm-adm",JSON.stringify({u:u,t:j.token}));}catch(e){}
     $("login").classList.add("hide");$("app").classList.remove("hide");$("l-pass").value="";await load()}
   catch(e){$("l-err").textContent="No se pudo entrar: "+e.message}
 }
@@ -632,7 +632,7 @@ document.addEventListener("change",async function(ev){var t=ev.target;
 if(t.classList&&t.classList.contains("lab")){try{await api("/api/collections/tl_players/records/"+t.dataset.l,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({label:t.value.trim().slice(0,80)})});var p=ST.players.find(function(x){return x.id===t.dataset.l});if(p)p.label=t.value.trim();t.style.borderColor="var(--ok)";setTimeout(function(){t.style.borderColor=""},800)}catch(e){alert("No se pudo guardar: "+e.message)}}});
 $("l-go").onclick=login;$("bmenu").onclick=function(){$("shell").classList.toggle("menu")};$("l-pass").addEventListener("keydown",function(e){if(e.key==="Enter")login()});
 setInterval(function(){if(ST.tok&&!document.hidden&&ST.tab!=="contenido"&&Date.now()-ST.at>60000&&!ST.sel&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))load()},30000);
-(function init(){try{$("l-url").value=/^https?:$/.test(location.protocol)?location.origin:(localStorage.getItem("gm-adm-url")||"");var s=JSON.parse(sessionStorage.getItem("gm-adm")||"null");if(s&&s.t){ST.url=s.u;ST.tok=s.t;$("login").classList.add("hide");$("app").classList.remove("hide");load()}}catch(e){}})();
+(function init(){try{var s=JSON.parse(sessionStorage.getItem("gm-adm")||"null");if(s&&s.t){ST.url=s.u;ST.tok=s.t;$("login").classList.add("hide");$("app").classList.remove("hide");load()}}catch(e){}})();
 </script>
 </body>
 </html>
