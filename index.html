@@ -409,10 +409,15 @@ textarea{background:var(--raise);border:1px solid var(--hair);color:var(--ink);b
 .tlsep b{color:var(--muted)}
 .mbody::-webkit-scrollbar{display:none}
 .mfoot{flex:none;position:relative;z-index:2;padding-top:8px}
-.reloj{height:6px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:12px}
+.reloj{height:6px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:4px;padding:8px 0;background-clip:content-box;touch-action:none;cursor:pointer}
 .reloj i{display:block;height:100%;background:var(--gold);width:100%;transition:width .08s linear,background .3s}
-.autobar{height:3px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:10px}
-.autobar i{display:block;height:100%;background:var(--gold);width:0;animation:fill var(--dur,2600ms) linear forwards}
+.autobar{height:3px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:4px;padding:8px 0;background-clip:content-box;touch-action:none;cursor:pointer}
+.autobar i{display:block;height:100%;background:#7D8699;width:0;animation:fill var(--dur,2600ms) linear forwards}
+.mbody > .mpanel.mp-corto{flex:none;max-height:38vh;overflow:hidden}
+.mbody > .mpanel.mp-corto > *{flex:none;max-height:34vh;overflow-y:auto}
+.avisodec{margin:0 0 6px}
+.rolx{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:800;margin-top:4px}
+.rolx.tit{color:var(--ok)} .rolx.sup{color:var(--gold)} .rolx.fue{color:var(--muted)}
 @keyframes fill{from{width:0}to{width:100%}}
 .tapnext{text-align:center;font-size:10.5px;letter-spacing:.16em;color:var(--dim);
   text-transform:uppercase;margin-top:8px;font-weight:700}
@@ -460,7 +465,7 @@ textarea{background:var(--raise);border:1px solid var(--hair);color:var(--ink);b
   padding:8px 10px;margin-bottom:8px;position:relative;z-index:1}
 .tick{position:relative;z-index:1;display:flex;flex-direction:column;justify-content:flex-end;
   min-height:100%;padding:14px 2px 6px}
-.tick-bajo{min-height:96px;height:96px;padding:8px 2px 2px;justify-content:flex-end;overflow:hidden;flex:none}
+.tick-bajo{min-height:0;height:auto;padding:6px 2px 2px;justify-content:flex-end;overflow:hidden;flex:none}
 .mpanel{position:relative;z-index:1;background:rgba(255,255,255,.035);border:1px solid var(--hair);
   border-radius:16px;padding:10px 12px 12px;margin-top:6px}
 .pnav{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -768,7 +773,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="4.69.8";
+var VERSION="4.69.9";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -3784,8 +3789,8 @@ function renderFlashSiguiente(){
       +(f.deTuDecision? '<div class="abdec">'+esc(String(f.deTuDecision).replace(/^«|»$/g,""))+'</div>':'')
       +'<p class="abtxt">'+esc(f.txt)+'</p></div>';
     $("ov-match-inner").innerHTML='<div class="matchcard" style="position:relative">'+btnsPausa()+cabeceraMatch()
-      +'<div class="mbody">'+H+'<div id="mpanel" class="mpanel">'+panelHTML()+'</div></div>'
-      +'<div class="mfoot"><div class="autobar" style="--dur:2400ms"><i></i></div></div></div>';
+      +'<div class="mbody"><div id="mpanel" class="mpanel mp-corto">'+panelHTML()+'</div></div>'
+      +'<div class="mfoot">'+H+autoBarHTML(2400)+'</div></div>';
     $("ov-match").classList.remove("hidden");
     $("ov-match").onclick=saltarAuto;
     activarSwipe();
@@ -3845,7 +3850,7 @@ function renderFlashSiguiente(){
      +((f.tipo==="roja"||f.tipo==="ta"||f.tipo==="lesion"||(f.tipo==="gol"&&!f.mio))? '<span style="color:var(--bad)">✘ </span>':'')
      +esc(f.deTuDecision)+'</p>':'';
   H=H.replace('<p class="ftxt">', dTxt+'<p class="ftxt">');
-  H+='<div class="autobar" style="--dur:2000ms"><i></i></div>';
+  H+=autoBarHTML(2000);
   $("ov-match-inner").innerHTML='<div class="inner-flash">'+H+'</div>';
   $("ov-match").classList.remove("hidden");
   $("ov-match").onclick=saltarAuto;
@@ -4083,7 +4088,7 @@ function iniciarJornada(){
   }
   compis().forEach(function(c){ c.taPartido=0; c.lesionPartido=false; });
   PANEL=0;   /* cada partido arranca en su cronología */
-  M.enCampo = (conv.rol==="titular");
+  M.enCampo = (conv.rol==="titular"); M.convRol=conv.rol;
   if(conv.rol==="titular"){ M.entraEn=null; M.yaJugado=true; M.minJugados=90; M.minEntrada=0; }
   else if(conv.rol==="suplente"){ M.entraEn=45+Math.floor(rnd()*30); M.yaJugado=false; M.minJugados=0; }
   else { M.entraEn=null; M.yaJugado=false; M.minJugados=0; M.sinMinutos=true; }
@@ -4320,24 +4325,6 @@ function simTramo(){
   asegurarOnce();
   for(var i=0;i<gh;i++){ M.min=Math.min(90,Math.max((M.min||1)+1,minutoDe(M.tramo))); eventos.push({mio:true, m:M.min}); }
   for(var j=0;j<ga;j++){ M.min=Math.min(90,Math.max((M.min||1)+1,minutoDe(M.tramo))); eventos.push({mio:false, m:M.min}); }
-  if(M.enCampo && rnd()<(M.pTA!==undefined? M.pTA:0.055)*(M.nemesisHoy?1.4:1)){
-    S.yo.ta++; M.miTA=(M.miTA||0)+1;
-    if(M.miTA>=2){
-      S.yo.tr++; M.miTR=1; M.rojaPropia=true; S.sancion=2; S._castJor=jorAbs();
-      M.finAnticipado=true; M.yaJugado=true; M.modOwn*=0.82; M.modOpp*=1.16;
-      tocarEje("disciplina",-7); tocarEje("temperamento", 4);
-      M.eventos.push("🟥 Expulsado en el "+M.min+"′ por doble amarilla.");
-      (M.golesTramo=M.golesTramo||[]).push("🟥 ¡SEGUNDA AMARILLA! Te vas expulsado y dejas a los tuyos con diez. La ducha, y mañana los titulares.");
-      regTarjeta(S.nombre,true,true);
-      if(M.rivalDirecto) sumarTension(M.rivalDirecto.nombre, M.rival, M.rivalDirecto.pos, 12, "Expulsado en el partido contra él, "+M.min+"′.");
-    } else {
-      (M.golesTramo=M.golesTramo||[]).push("🟨 Te enseñan la amarilla "+pick(["por una entrada a destiempo.","por protestar con la mano en la boca.","por frenar una contra agarrando."])+" Con cuidado ahora.");
-      M.eventos.push("🟨 Amarilla en el "+M.min+"′.");
-      tocarEje("temperamento", 1.5);
-      regTarjeta(S.nombre,false,true);
-      if(M.rivalDirecto) sumarTension(M.rivalDirecto.nombre, M.rival, M.rivalDirecto.pos, 4, "Amarilla en el duelo con él, "+M.min+"′.");
-    }
-  }
   if(M.enCampo && rnd()<(M.pLES!==undefined? M.pLES:0.018)){
     S.lesion=2+Math.floor(rnd()*3); S._castJor=jorAbs(); M.finAnticipado=true; M.yaJugado=true; M.modOwn*=0.95;
     S.motivoBaja=pick(["un pinchazo en el isquio","un golpe feo en el tobillo","una sobrecarga que muerde"]);
@@ -5446,14 +5433,14 @@ function elegirOpcion(i){
   M.ecoPend = ecosDe(o, quePaso, cls).slice(0,2);
   M.ultimaDec = etiqueta;
   if(M.faseAct==="juego") M.decHechas++;
-  if(M.faseAct==="post"){ M.fase="cierre"; M.postTxt=txt; M.postDec=etiqueta; renderCierre(); return; }
+  if(M.faseAct==="post"){ M.fase="cierre"; M.postTxt=txt; M.postDec=etiqueta; M.postAviso=avisoDecHTML({dec:etiqueta, t:txt||"—", cls:cls, matiz:matiz}); renderCierre(); return; }
   M.fase="juego";
   /* si la decisión provoca gol, tarjeta, lesión o VAR, esa pantalla va PRIMERO:
      nada de narrar tres frases antes de enseñar lo que acaba de pasar */
   if(hayFlash()){
     M.flash[0].deTuDecision=etiqueta;
     M.flash[0].txt=M.flash[0].txt||txt;
-    M.log=null;
+    /* la línea de la decisión se conserva: tras el flash se narra con su caja de aviso */
     renderFlashSiguiente();
     return;
   }
@@ -5640,7 +5627,7 @@ function renderCierre(){
   else if(M.miTR) cuerpo+='<p class="note" style="text-align:center;margin-top:8px;padding:9px 11px;border-radius:12px;background:rgba(255,84,112,.12);color:var(--ink)">🟥 Expulsado: sanción de un partido.</p>';
   M.resumenHTML=cuerpo;
   pintarMatch('<div id="mpanel" class="mpanel">'+panelHTML()+'</div>',
-    '<button class="gold-btn" onclick="cerrarJornada()">Continuar</button>');
+    (M.postAviso||'')+'<button class="gold-btn" onclick="cerrarJornada()">Continuar</button>');
   activarSwipe();
 }
 function cerrarJornada(){
@@ -6049,7 +6036,6 @@ function decisionExpirada(){
     (M.dec=M.dec||[]).push([M.min||0, "indecision", "", "x", "ko", -75, -1, -750]);
     M.modOwn*=0.97;
     if(rnd()<0.16){ anotarGol(false,"rival"); }
-    if(rnd()<0.10 && !M.miTA){ M.miTA=1; pushFlash({tipo:"ta", txt:"Llegas tarde por indecisión y te la juegas con una entrada desesperada. Amarilla."}); M.eventos.push("🟨 Amarilla en el "+M.min+"′."); }
     M.decHechas++;
   } else if(fase==="descanso"){ M.nota-=0.3; (M.dec=M.dec||[]).push([45, "indecision", "", "x", "ko", -30, -1, -300]); M.misDelta=(M.misDelta||0)-2; }
   else if(fase==="post"){ M.misDelta=(M.misDelta||0)-3; M.morDelta-=1; }
@@ -6071,7 +6057,71 @@ function saltarAuto(){
   clearTimeout(AUTOT); AUTOT=null;
   var f=AUTOFN; AUTOFN=null; f();
 }
-function cancelarAuto(){ clearTimeout(AUTOT); AUTOT=null; AUTOFN=null; pararReloj(); }
+function cancelarAuto(){ clearTimeout(AUTOT); AUTOT=null; AUTOFN=null; AUTO_HOLD=null; pararReloj(); }
+/* barras de tiempo: grises = lectura (un toque la salta, mantenerla pausa); naranjas = tu decisión (mantenerla pausa) */
+var AUTO_MS=0, AUTO_T0=0, AUTO_HOLD=null, BAR_HOLD=null, BAR_SUPR=false;
+function autoBarHTML(dur){
+  return '<div class="autobar" style="--dur:'+dur+'ms" onpointerdown="barDown(event,\'auto\')" onpointerup="barUp(event,\'auto\')" onpointerleave="barCancel()" onpointercancel="barCancel()" onclick="barClick(event)"><i></i></div>';
+}
+function pausarAuto(){
+  if(!AUTOT || AUTO_HOLD) return;
+  var rest=Math.max(300, AUTO_MS-(Date.now()-AUTO_T0));
+  clearTimeout(AUTOT); AUTOT=null;
+  AUTO_HOLD={fn:AUTOFN, rest:rest};
+  var b=document.querySelector('.autobar i'); if(b) b.style.animationPlayState='paused';
+}
+function reanudarAuto(){
+  if(!AUTO_HOLD) return;
+  var h=AUTO_HOLD; AUTO_HOLD=null;
+  AUTOFN=h.fn; AUTO_MS=h.rest; AUTO_T0=Date.now();
+  AUTOT=setTimeout(function(){ AUTOT=null; var f=AUTOFN; AUTOFN=null; if(f) f(); }, h.rest);
+  var b=document.querySelector('.autobar i'); if(b) b.style.animationPlayState='running';
+}
+function skipBarra(){
+  if(PAUSA || !AUTOFN) return;
+  clearTimeout(AUTOT); AUTOT=null; var f=AUTOFN; AUTOFN=null; f();
+}
+function barDown(e,k){
+  if(PAUSA) return;
+  BAR_SUPR=false;
+  if(BAR_HOLD) clearTimeout(BAR_HOLD.to);
+  BAR_HOLD={k:k, held:false, to:setTimeout(function(){ if(!BAR_HOLD) return; BAR_HOLD.held=true; if(k==="dec") pausarReloj(); else pausarAuto(); }, 220)};
+}
+function barUp(e,k){
+  if(!BAR_HOLD) return;
+  clearTimeout(BAR_HOLD.to);
+  var h=BAR_HOLD; BAR_HOLD=null;
+  if(h.held){ BAR_SUPR=true; if(h.k==="dec") reanudarReloj(); else reanudarAuto(); }
+}
+function barCancel(){
+  if(!BAR_HOLD) return;
+  clearTimeout(BAR_HOLD.to);
+  var h=BAR_HOLD; BAR_HOLD=null;
+  if(h.held){ if(h.k==="dec") reanudarReloj(); else reanudarAuto(); }
+}
+function barClick(e){
+  if(e) e.stopPropagation();
+  if(BAR_SUPR){ BAR_SUPR=false; return; }
+  skipBarra();
+}
+/* aviso de la consecuencia de cada decisión (mismo formato que el de banquillo, bajo el marcador no) */
+function avisoDecHTML(l){
+  var k=l.matiz||l.cls, bien=(k==="ok"||k==="okpeaje"), mal=(k==="ko"||k==="kopremio");
+  var tit={ok:"✔ salió bien", okpeaje:"✔ bien, pero con precio", ko:"✘ salió mal", kopremio:"✘ mal, aunque algo sacas", mid:"— sin consecuencias"}[k]||"";
+  return '<div class="avisobanca avisodec '+(bien?"bien":mal?"mal":"")+'"><div class="abtit">'+tit+'</div>'
+    +(l.dec?'<div class="abdec">'+esc(l.dec)+'</div>':'')+'<p class="abtxt">'+esc(l.t)+'</p></div>';
+}
+/* situación del jugador en el partido: titular, suplente o fuera */
+function rolPartido(){
+  var r=M && M.convRol;
+  if(r==="titular") return M.enCampo? ["Titular","tit"] : ["Titular · has salido del campo","fue"];
+  if(r==="suplente"){
+    if(M.enCampo) return ["Suplente · ya en el campo","sup"];
+    if(M.entraEn) return ["Suplente · entras hacia el "+M.entraEn+"′","sup"];
+    return ["Suplente · hoy no juegas","fue"];
+  }
+  return ["Fuera de la convocatoria","fue"];
+}
 var PAUSA=false, AUTO_P=null;
 function pausarTodo(){
   if(!M || M.fin || PAUSA) return;
@@ -6122,6 +6172,7 @@ function cabeceraMatch(){
   var scA=M.casa?M.sc[0]:M.sc[1], scB=M.casa?M.sc[1]:M.sc[0];
   return '<div class="mhead">'
     +'<div class="mtag">Jornada '+(M.jor+1)+' · '+esc(EQ[M.casa?S.equipo:M.rival].est)+'</div>'
+    +'<div class="mtag rolx '+rolPartido()[1]+'">'+esc(rolPartido()[0])+'</div>'
     +(M.nemesisHoy? '<div class="mtag" style="color:var(--bad);font-weight:700">⚔ '+esc(M.rivalDirecto.nombre)+' — '+esc(nivelNemesis(S.nemesis.tension).txt)+'</div>':'')
     +'<div class="mrow">'
     +'<div class="mteam'+(M.casa?' mine':'')+'">'+crestSVG(casaN.id,36)+'<span class="tn">'+esc(casaN.c)+'</span></div>'
@@ -6166,7 +6217,7 @@ function renderMatch(sit, tras){
     });
     var texto=(typeof sit.x==="function"?sit.x(M):sit.x)||"";
     var ms=msReloj(sit,texto);
-    pie+='<div class="reloj" id="relojwrap"><i id="relojbar" style="width:100%"></i><span class="pausatip">⏸ leyendo — suelta para seguir</span></div>';
+    pie+='<div class="reloj" id="relojwrap" onpointerdown="barDown(event,\'dec\')" onpointerup="barUp(event,\'dec\')" onpointerleave="barCancel()" onpointercancel="barCancel()"><i id="relojbar" style="width:100%"></i><span class="pausatip">⏸ leyendo — suelta para seguir</span></div>';
     pintarMatch('<div class="sit-hold" ontouchstart="holdP(event)" ontouchend="holdR()" ontouchcancel="holdR()" onmousedown="holdP(event)" onmouseup="holdR()" onmouseleave="holdR()">'+cuerpo+'</div>', pie);
     if(!dbgOn()) arrancarReloj(ms);
     return;
@@ -6373,7 +6424,7 @@ function narrarSiguiente(){
   if(M.histCron.length>3) M.histCron.shift();
   var enCro=(panelesDe()[clamp(PANEL,0,panelesDe().length-1)]==="cro");
   var _stPanel=(function(){ var el2=scrollPanelEl(); return el2? (el2.scrollTop||0):0; })();
-  var cuerpo=dbgResultado()+'<div id="mpanel" class="mpanel">'+panelHTML()+'</div>'+(enCro?'':'<div class="tick tick-bajo">');
+  var cuerpo=dbgResultado()+'<div id="mpanel" class="mpanel mp-corto">'+panelHTML()+'</div>'+(enCro?'':'<div class="tick tick-bajo">');
   (enCro? []:M.histCron).forEach(function(l,i){
     var ultima=i===M.histCron.length-1;
     cuerpo+='<p class="'+(ultima?"now":"old")+'">'
@@ -6390,7 +6441,7 @@ function narrarSiguiente(){
   });
   if(!enCro) cuerpo+='</div>';
   var dur=Math.round(clamp(800+linea.t.length*24, 1000, 2300));
-  pintarMatch(cuerpo, '<div class="autobar" style="--dur:'+dur+'ms"><i></i></div>');
+  pintarMatch(cuerpo, (linea.cls? avisoDecHTML(linea):'')+autoBarHTML(dur));
   (function(){
     var el2=scrollPanelEl(); if(!el2) return;
     try{
@@ -6422,7 +6473,7 @@ function cierreInminente(){
     "El árbitro se lleva el silbato a la boca por última vez.",
     "Se acabó. Noventa minutos en las piernas.",
     "Pitido final en el estadio."]))+'</p></div>';
-  pintarMatch(cuerpo, '<div class="autobar" style="--dur:900ms"><i></i></div>');
+  pintarMatch(cuerpo, autoBarHTML(900));
   $("ov-match").onclick=saltarAuto;
   autoAvance(900, function(){ $("ov-match").onclick=null; finPartido(); });
 }

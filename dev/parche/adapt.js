@@ -1,7 +1,7 @@
 /* ===== ADAPTACIÓN AL SERVIDOR REAL (Goatmaker) =====
    Sustituye los datos de ejemplo por PocketBase. Lo que no está integrado queda atenuado (clase .off, deshabilitado). */
 var PB_URL="https://server-pc.tail3b4002.ts.net:8447";
-CUR_VER="4.69.8";   /* versión actual del juego: el filtro «Versión antigua» compara con esto */
+CUR_VER="4.69.9";   /* versión actual del juego: el filtro «Versión antigua» compara con esto */
 var OK_NAV=["jugadores","grupos","codigos","reportes"];
 var PB={tok:"",byInst:{},raw:{pl:[],cod:[],can:[],rep:[]}};
 var PB_RT={bug:["🐞","Fallo"],idea:["💡","Idea"],otro:["💬","Otro"]};
