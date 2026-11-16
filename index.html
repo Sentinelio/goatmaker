@@ -648,7 +648,28 @@ input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(255,
 #menu button i{font-style:normal;font-size:19px;line-height:1;opacity:.6}
 #menu button.on{color:var(--gold)}
 #menu button.on i{opacity:1}
-body.conmenu{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+body.conmenu{padding-bottom:calc(84px + env(safe-area-inset-bottom));padding-top:calc(74px + env(safe-area-inset-top))}
+/* barra superior del menú: perfil del jugador (solo visible con el menú abierto) */
+#topbar{display:none;position:fixed;left:0;right:0;top:0;z-index:30;padding:8px 10px;
+  background:rgba(10,12,20,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--hair)}
+body.conmenu #topbar{display:block}
+/* con el partido abierto, la barra del menú se oculta (la pantalla de partido tiene su propia cabecera) */
+body.conmenu:has(#ov-match:not(.hidden)){padding-top:0}
+body.conmenu:has(#ov-match:not(.hidden)) #topbar{display:none}
+#topbar .tb{display:flex;align-items:center;gap:12px;background:rgba(22,27,44,.92);border:1px solid var(--hair);
+  border-radius:18px;padding:8px 10px}
+#topbar .tbring{position:relative;width:44px;height:44px;flex:none}
+#topbar .tbring svg{position:absolute;inset:0;width:44px;height:44px}
+#topbar .tbring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+#topbar .tbtxt{flex:1;min-width:0}
+#topbar .tbn{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}
+#topbar .tbs{font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#topbar .tbbtn{width:36px;height:36px;border-radius:11px;background:rgba(255,255,255,.06);border:0;color:var(--ink);
+  display:flex;align-items:center;justify-content:center;flex:none;font-size:17px}
+@media(min-width:980px){
+  #topbar{max-width:520px;left:50%;right:auto;width:100%;transform:translateX(-50%);border-radius:0 0 18px 18px;border:1px solid var(--hair);border-top:0}
+}
 @media(min-width:980px){
   #menu{max-width:520px;left:50%;right:auto;width:100%;transform:translateX(-50%);border-radius:18px 18px 0 0;border:1px solid var(--hair)}
 }
@@ -768,6 +789,7 @@ body.conmenu{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
   <div id="scr-sec" class="hidden"><div id="sec-body"></div></div>
 </div>
 
+<div id="topbar"></div>
 <nav id="menu" class="hidden">
   <button data-s="inicio"  onclick="irSec('inicio')"><i>⚽</i><span>Inicio</span></button>
   <button data-s="jugador" onclick="irSec('jugador')"><i>👤</i><span>Jugador</span></button>
@@ -6637,6 +6659,7 @@ function irSec(k){
   ["scr-title","scr-pick","scr-pos"].forEach(function(id){ $(id).classList.add("hidden"); });
   document.body.classList.add("conmenu");
   $("menu").classList.remove("hidden");
+  renderTopbar();
   var bs=$("menu").getElementsByTagName("button");
   for(var i=0;i<bs.length;i++){ bs[i].className = bs[i].getAttribute("data-s")===k? "on":""; }
   if(k==="inicio"){
@@ -10308,6 +10331,21 @@ function convocatoria(){
   S.conv=c;
   return c;
 }
+/* barra superior del menú: nombre, puesto, nivel y acceso a ajustes */
+function renderTopbar(){
+  var tb=$("topbar"); if(!tb || !S) return;
+  var nv=S.nivel||1, pct=nv>=99? 1 : clamp((S.xp||0)/xpParaNivel(nv),0,1);
+  var club=EQ[S.equipo]? EQ[S.equipo].c : "";
+  tb.innerHTML='<div class="tb">'
+    +'<div class="tbring"><svg viewBox="0 0 44 44" aria-hidden="true">'
+      +'<circle cx="22" cy="22" r="19" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="3"/>'
+      +'<circle cx="22" cy="22" r="19" fill="none" stroke="var(--gold)" stroke-width="3" stroke-linecap="round" stroke-dasharray="'+(pct*119.38).toFixed(2)+' 119.38" transform="rotate(-90 22 22)"/>'
+    +'</svg><b>'+nv+'</b></div>'
+    +'<div class="tbtxt"><div class="tbn">'+esc(S.nombre||"")+'</div>'
+      +'<div class="tbs">'+esc(POS[S.pos]? POS[S.pos].n : "")+(club? ' · '+esc(club):'')+'</div></div>'
+    +'<button class="tbbtn" aria-label="Ajustes" onclick="irSec(\'ajustes\')">⚙️</button>'
+  +'</div>';
+}
 function renderHub(){
   PARTIDA_ABIERTA=true;
   setTimeout(drenarOvsem,0);   /* lo que quedó esperando a que hubiera menú */
@@ -10318,6 +10356,7 @@ function renderHub(){
   $("scr-hub").classList.remove("hidden");
   $("menu").classList.remove("hidden");
   document.body.classList.add("conmenu");
+  renderTopbar();
   var bs=$("menu").getElementsByTagName("button");
   for(var i=0;i<bs.length;i++){ bs[i].className = bs[i].getAttribute("data-s")==="inicio"? "on":""; }
   var yo=EQ[S.equipo], p=partidoDe(S.jornada), casa=p&&p.h===S.equipo, rival=p?(casa?p.a:p.h):null;
