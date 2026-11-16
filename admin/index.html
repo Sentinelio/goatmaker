@@ -180,7 +180,7 @@ var ALIAS={
  reportes:{v:"reportes",t:"Bandeja de reportes",s:"Lo que llega desde Ajustes → Reportar, de todos los usuarios. El detalle de cada persona está en su ficha."},
  errores:{v:"errores",t:"Bandeja de errores"},
  eloreal:{v:"eloreal",t:"Elo",s:"Reglas para todos los clubes: de dónde se descarga, cuándo y cómo evoluciona. El Elo de cada club está en su ficha."},
- situaciones:{v:"partido",tabs:{pa:["Situaciones"]},t:"Situaciones",s:"Lo que el jugador decide durante el partido: texto, opciones y efectos."},
+ situaciones:{v:"partido",tabs:{pa:["Situaciones","Ajustes"]},t:"Situaciones",s:"Lo que el jugador decide durante el partido: texto, opciones y efectos."},
  reloj:{v:"partido",tabs:{pa:["Reloj","Probabilidades"]},t:"Reloj y probabilidades",s:"La cuenta atrás de las decisiones y la tabla de probabilidades, para todas las situaciones."},
  patrocinios:{v:"economia",tabs:{ec:["Patrocinios"]},t:"Patrocinios",s:"El catálogo de marcas que pueden firmar con el jugador."},
  agentes:{v:"economia",tabs:{ec:["Agentes","Maniobras"]},t:"Agentes y maniobras",s:"Los estilos de agente y las maniobras de Mover los hilos."},
@@ -802,6 +802,7 @@ function partidoAjustes(){
 }
 V.partido=function(){
   var t=tabs("pa",["Situaciones","Reloj","Probabilidades"]), tb=ST.tab.pa, h=hd("Partido","Las situaciones que el jugador decide, el reloj y la tabla de probabilidades.",tb==="Situaciones"?btn("+ Situación",T("Crea una situación nueva (1–4 opciones)")):"");
+  if(tb==="Ajustes") return h+t+partidoAjustes();
   if(tb==="Situaciones"){
     var grupos=[["En juego",G.SITS,"si.j"],["Banquillo",G.SITS_BANQUILLO,"si.b"],["Te cambian",G.SITS_CAMBIO,"si.c"],["Momento decisivo",G.SITS_CLUTCH,"si.k"]], items=[], cur=null, q=(ST.sel.sq||"").toLowerCase();
     grupos.forEach(function(g){ items.push({gh:g[0]+" · "+g[1].length}); g[1].forEach(function(x){ var tt=isFn(x.t)?x.id:x.t; reg(g[2]+"."+x.id+".off",false,tt+" · fuera de catálogo"); if(q && (tt+x.id).toLowerCase().indexOf(q)<0) return; items.push({id:x.id,n:tt,rt:x.pos?x.pos.join(" "):"",ch:chgPre(g[2]+"."+x.id+"."),off:val(g[2]+"."+x.id+".off")}); if(x.id===(ST.sel.si||"por-salida")) cur=[x,g[2],g[0]]; }); });
@@ -817,7 +818,7 @@ V.partido=function(){
       x.o.map(function(o,i){ var po=pre+".o"+i, Lo=L+" · opción "+(i+1); return '<div class="opt"><div class="row" style="margin-bottom:6px"><b>Opción '+(i+1)+'</b><span class="sp"></span>'+btn("✕",T("Quita la opción"),"sm")+'</div>'+fld(po+".l","Botón",o.l,{full:Lo+" · botón"})+'<div class="f"><label>Efectos</label>'+fxEd(po+".fx",o.fx,G.CONT_R.sitfx,Lo)+'<div class="fab"></div></div>'+(o.ok!==undefined?fld(po+".ok","Si sale bien",o.ok,{type:"area",full:Lo+" · si sale bien"}):"")+(o.mid!==undefined?fld(po+".mid","Si no pasa nada",o.mid,{type:"area",full:Lo+" · si no pasa nada"}):"")+(o.ko!==undefined&&o.ko!==""?fld(po+".ko","Si sale mal",o.ko,{type:"area",full:Lo+" · si sale mal"}):"")+'</div>'; }).join("")+
       (x.o.length<4?'<div style="margin-top:10px">'+btn("+ Opción",T("Añade una opción (máximo 4)"),"sm")+'</div>':""),
       '<span class="tag">'+cur[2]+'</span> '+btn("Duplicar",T("Crea una situación nueva a partir de esta"),"sm")+" "+btn("Probar",T("Abre el juego con esta situación forzada"),"sm"));
-    return h+t+partidoAjustes()+'<div class="split">'+lst(items,x.id,function(id){ST.sel.si=id;go()},{top:'<input type="text" placeholder="Filtrar situaciones" value="'+esc(ST.sel.sq||"")+'" style="margin:2px 0 6px" onchange="'+on(function(v){ST.sel.sq=v;go()})+'">'})+det+'</div>';
+    return h+t+'<div class="split">'+lst(items,x.id,function(id){ST.sel.si=id;go()},{top:'<input type="text" placeholder="Filtrar situaciones" value="'+esc(ST.sel.sq||"")+'" style="margin:2px 0 6px" onchange="'+on(function(v){ST.sel.sq=v;go()})+'">'})+det+'</div>';
   }
   if(tb==="Reloj"){ var R=G.RELOJ, rr=G.CONT_R.reloj, ej=function(n){ return nf(clamp(val("rl.base")+n*val("rl.letra"),val("rl.min"),val("rl.max"))*val("rl.factor")/1000,1); };
     var hh=fld("rl.base","Tiempo base (ms)",R.base,{type:"range",min:rr.base[0],max:20000,step:100,full:"Reloj · base"})+fld("rl.letra","Por letra (ms)",R.letra,{type:"range",min:rr.letra[0],max:rr.letra[1],step:1,full:"Reloj · por letra",d:"Los textos largos dan más tiempo."})+fld("rl.min","Mínimo (ms)",R.min,{type:"range",min:rr.min[0],max:30000,step:100,full:"Reloj · mínimo"})+fld("rl.max","Máximo (ms)",R.max,{type:"range",min:rr.max[0],max:60000,step:100,full:"Reloj · máximo"})+fld("rl.fuera","Fuera del partido ×",R.fuera,{type:"range",min:rr.fuera[0],max:rr.fuera[1],step:0.05,full:"Reloj · fuera del partido",d:"Banquillo y descanso."})+fld("rl.factor","Factor general ×",R.factor,{type:"range",min:rr.factor[0],max:rr.factor[1],step:0.05,full:"Reloj · factor general"});
