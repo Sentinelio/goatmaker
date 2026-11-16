@@ -33,6 +33,7 @@ Lee esto primero en una sesión nueva. Resume todo lo hecho hasta v4.69.0. Detal
 | **4.69.13** | partido: vuelta a la maquetación de 4.69.9 (flechas, pestañas y textos sin cambios); solo la caja de contenido ocupa el espacio libre y las últimas acciones van abajo, con una línea vacía sobre ellas | `5b2fc1fb141855db5a10c175ed6d8612` |
 | **4.69.14** | partido: las barras de tiempo (lectura y decisión) vuelven a verse; el relleno tenía altura 0 por el padding | `3790187f6588b20b8a2caaf1aa5a97d3` |
 | **4.69.15** | charla de pasillo (autobús): las dos opciones cambian la confianza del míster (+3 / −3) y dejan aviso en Mercado; antes una no tenía efecto | `a44b435b4d3602fed94ad972a5d667c1` |
+| **4.69.16** | partido: tocar y mantener valen en cualquier punto (gris: tocar salta, mínimo 5 de la barra); Decisiones pasa dentro de Yo; estadísticas con barra azul del jugador y separador; crónica con el nombre en naranja y gifs que solo corren al verse; sin copiar JSON en el resumen | `f99013cb035fac40e65e4280bceb880a` |
 
 Repo: `github.com/Sentinelio/goatmaker`, rama main, GitHub Pages en `https://sentinelio.github.io/goatmaker/` (misma origin que otra app de Manu, otra ruta). Commit 4.67.1: `b828c51`. Guardado del jugador: `localStorage` con prefijo `lap1-` (clave `lap1-save`), por navegador: cada amigo juega su partida sin ver la de otro.
 
