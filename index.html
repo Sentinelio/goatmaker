@@ -5892,6 +5892,7 @@ function cerrarJornada(){
   M.notaFinal=jugoAlgo? Math.round(nota*10)/10 : null; M.esMVP=esMVP;
   var _subidas=ganarXP(xpPartido());
   if(_subidas) M.subioNivel={de:S.nivel-_subidas, a:S.nivel};
+  vitrinaRegistrar(S.hist[S.hist.length-1]);
   (function(){ var h=S.hist[S.hist.length-1]; if(!h || !h.otros || !h.otros.length) return;
     var mejor=null;
     h.otros.forEach(function(p){
@@ -5934,6 +5935,7 @@ function partidoSinMinutos(){
   S.hist.push({jor:S.jornada+1, rival:rival, casa:casa, sc:[M.sc[0],M.sc[1]], goles:M.goles, otros:otros, pulso:(M.pulso||[]),
     crono:cronoCompacto(M.crono),
     sinTi:"decisión técnica"});
+  vitrinaRegistrar(S.hist[S.hist.length-1]);
   (function(){ var h=S.hist[S.hist.length-1]; if(!h || !h.otros || !h.otros.length) return;
     var mejor=null;
     h.otros.forEach(function(p){
@@ -6015,6 +6017,7 @@ function jornadaSinTi(){
       S.rehabPlan=null;
     }
   }
+  vitrinaRegistrar(S.hist[S.hist.length-1]);
   (function(){ var h=S.hist[S.hist.length-1]; if(!h || !h.otros || !h.otros.length) return;
     var mejor=null;
     h.otros.forEach(function(p){
@@ -7040,36 +7043,54 @@ function fichaFamilias(){
     + fam("💶","Cuentas", fmtDinero(S.dinero||0), (bonusTienda().upkeep? "nómina "+fmtDinero(bonusTienda().upkeep)+"/sem":""))
     +'</div>';
 }
-function vitrinaHTML(){
-  var todos=[];
-  var temporadas=Object.keys(S.archivo||{}).map(Number).sort(function(a,b){return a-b;});
-  function esLiga(h){ return h.yo && h.rival!=="PRA" && h.rival!=="PRB"; }
-  temporadas.forEach(function(t){ (histDe(t)||[]).forEach(function(h){ if(esLiga(h)) todos.push({t:t, h:h}); }); });
-  (S.hist||[]).forEach(function(h){ if(esLiga(h)) todos.push({t:S.temporada, h:h}); });
-  if(!todos.length) return '<div class="card"><div class="eyebrow">🏆 Vitrina</div><p class="note" style="margin:4px 2px">Aún vacía. Las vitrinas se llenan jugando.</p></div>';
-  var badges=[];
-  function hito(cond, ic, n, cuando){ if(cond) badges.push({ic:ic, n:n, c:cuando}); }
-  var pj=0, goles=0, mejor=null, hat=null, aug=0;
-  var golesPorTemp={};
-  todos.forEach(function(x){
-    pj++; goles+=x.h.yo.g||0;
-    golesPorTemp[x.t]=(golesPorTemp[x.t]||0)+(x.h.yo.g||0);
-    if(!mejor || x.h.yo.nota>mejor.h.yo.nota) mejor=x;
-    if((x.h.yo.g||0)>=3 && !hat) hat=x;
-    if(pj===50) hito(true,"🎖","50 partidos","T"+x.t+" · J"+x.h.jor);
-    if(pj===100) hito(true,"🎖","100 partidos","T"+x.t+" · J"+x.h.jor);
-    if(goles>=10 && aug<10){ aug=10; hito(true,"⚽","10 goles","T"+x.t+" · J"+x.h.jor); }
-    if(goles>=25 && aug<25){ aug=25; hito(true,"⚽","25 goles","T"+x.t+" · J"+x.h.jor); }
-    if(goles>=50 && aug<50){ aug=50; hito(true,"⚽","50 goles","T"+x.t+" · J"+x.h.jor); }
+/* VITRINA: registro propio de la carrera. Se alimenta al cerrar cada partido y al cerrar cada temporada,
+   así que borrar los partidos de una temporada no afecta a lo que ya está anotado. */
+function vitrinaVacia(){ return {pj:0, goles:0, golesT:{}, hitos:[], hat:false, mejor:null}; }
+function vitrinaLiga(h){ return !!(h && h.yo && h.rival!=="PRA" && h.rival!=="PRB"); }
+function vitrinaAnade(v, h, temp){
+  if(!vitrinaLiga(h)) return;
+  var cuando="T"+temp+" · J"+h.jor, rival=EQ[h.rival]?EQ[h.rival].c:h.rival, g=h.yo.g||0, antes=v.goles, nota=h.yo.nota||0;
+  function hito(ic,n,c){ v.hitos.push({ic:ic, n:n, c:c}); }
+  v.pj++; v.goles+=g; v.golesT[temp]=(v.golesT[temp]||0)+g;
+  if(v.pj===50) hito("🎖","50 partidos",cuando);
+  if(v.pj===100) hito("🎖","100 partidos",cuando);
+  [10,25,50].forEach(function(u){ if(antes<u && v.goles>=u) hito("⚽",u+" goles",cuando); });
+  if(g>=3 && !v.hat){ v.hat=true; hito("🎩","Hat-trick",cuando+" vs "+rival); }
+  if(!v.mejor || nota>v.mejor.nota) v.mejor={nota:nota, c:cuando+" vs "+rival};
+  if(nota>=9 && !v.recuerdo){ v.recuerdo=true; hito("🌟","Partido para el recuerdo ("+nota.toFixed(1)+")",cuando+" vs "+rival); }
+}
+function vitrinaRegistrar(h){
+  if(!S || !h) return;
+  if(!S.vitrina){ S.vitrina=vitrinaReconstruir(); return; }   /* ya incluye el partido recién guardado */
+  vitrinaAnade(S.vitrina, h, S.temporada);
+}
+function vitrinaCierreTemporada(golesTemp){
+  if(!S) return;
+  if(!S.vitrina) S.vitrina=vitrinaReconstruir();   /* antes de borrar los partidos de la temporada */
+  if(golesTemp>=15) S.vitrina.hitos.push({ic:"🥇", n:"Temporada de "+golesTemp+" goles", c:"T"+S.temporada});
+}
+/* partidas anteriores a esta versión: se reconstruye una sola vez desde lo que quede en el historial */
+function vitrinaReconstruir(){
+  var v=vitrinaVacia();
+  Object.keys(S.archivo||{}).map(Number).sort(function(a,b){return a-b;}).forEach(function(t){
+    (histDe(t)||[]).forEach(function(h){ vitrinaAnade(v, h, t); });
   });
-  if(mejor && mejor.h.yo.nota>=9) hito(true,"🌟","Partido para el recuerdo ("+mejor.h.yo.nota.toFixed(1)+")","T"+mejor.t+" · J"+mejor.h.jor+" vs "+(EQ[mejor.h.rival]?EQ[mejor.h.rival].c:mejor.h.rival));
-  if(hat) hito(true,"🎩","Hat-trick","T"+hat.t+" · J"+hat.h.jor+" vs "+(EQ[hat.h.rival]?EQ[hat.h.rival].c:hat.h.rival));
-  Object.keys(golesPorTemp).forEach(function(t){ if(golesPorTemp[t]>=15) hito(true,"🥇","Temporada de "+golesPorTemp[t]+" goles","T"+t); });
+  (S.hist||[]).forEach(function(h){ vitrinaAnade(v, h, S.temporada); });
+  return v;
+}
+function vitrinaHTML(){
+  if(!S) return "";
+  if(!S.vitrina) S.vitrina=vitrinaReconstruir();
+  var v=S.vitrina;
   var H='<div class="card"><div class="eyebrow">🏆 Vitrina</div>';
-  if(badges.length) badges.forEach(function(b){ H+='<div class="row2" style="font-size:12.5px;padding:5px 0"><span>'+b.ic+' <b>'+esc(b.n)+'</b></span><span style="color:var(--dim);font-size:11px">'+esc(b.c)+'</span></div>'; });
-  else H+='<p class="note" style="margin:4px 2px">'+pj+' partido'+(pj>1?"s":"")+' jugados. Los hitos llegarán.</p>';
-  H+='</div>';
-  return H;
+  if(!v.pj && !v.hitos.length){
+    return H+'<p class="note" style="margin:4px 2px">Aún vacía. Las vitrinas se llenan jugando.</p></div>';
+  }
+  H+='<div class="row2" style="font-size:12.5px;padding:5px 0"><span>Partidos</span><b>'+v.pj+'</b></div>';
+  H+='<div class="row2" style="font-size:12.5px;padding:5px 0"><span>Goles</span><b>'+v.goles+'</b></div>';
+  if(v.mejor) H+='<div class="row2" style="font-size:12.5px;padding:5px 0"><span>Mejor nota</span><span style="color:var(--dim);font-size:11px">'+v.mejor.nota.toFixed(1)+' · '+esc(v.mejor.c)+'</span></div>';
+  v.hitos.slice().reverse().forEach(function(b){ H+='<div class="row2" style="font-size:12.5px;padding:5px 0"><span>'+b.ic+' <b>'+esc(b.n)+'</b></span><span style="color:var(--dim);font-size:11px">'+esc(b.c)+'</span></div>'; });
+  return H+'</div>';
 }
 function secJugador(){
   var Y=S.yo, media=Y.notaN?(Y.notaSum/Y.notaN):0, yo=EQ[S.equipo], k=SUB.jugador;
@@ -10532,6 +10553,7 @@ function nuevaTemporada(){
   var finalPrev=Object.keys(S.tabla).map(function(k){ return {id:k,t:S.tabla[k]}; })
     .sort(function(x,y){ return (y.t.pts-x.t.pts)||((y.t.gf-y.t.gc)-(x.t.gf-x.t.gc))||(y.t.gf-x.t.gf); })
     .map(function(r){ return r.id; });
+  vitrinaCierreTemporada(S.yo.g||0);
   /* al cerrar la temporada se borran los partidos (S.hist se reinicia); las estadísticas quedan en S.carrera */
   S.reto=null;
   var carrera=(S.carrera||[]).concat([{temp:S.temporada, club:S.equipo, liga:(divPrev==="2"?"Segunda División":"Primera División"),
@@ -10547,7 +10569,7 @@ function nuevaTemporada(){
   var LLEVAR=["attr","reps","skills","skl","car","vicios","publico","muro","prensa","entrenador",
               "contrato","acuerdo","dinero","dineroCarrera","custom","vidaLog","fama","esperas",
               "conf","moral","debug","compis","mote","bienvenida","vida","mundo","division","altura","fichajes","archivo","lado",
-              "tienda","histLes","agente","fidelidad","modLesTemp",
+              "tienda","histLes","vitrina","agente","fidelidad","modLesTemp",
               "potencial","mister","repsM","patros","misPosts","peso","posSec","tensiones","nemesis","nivel","xp","techos","techoPend","talentoPend","talentos","ultimaJugada"];   /* los contratos de patrocinio son de CARRERA */   /* tu techo es tu destino, y la relación con el míster (y lo sudado con él) no se borra en verano */   /* lo que es de CARRERA viaja: tu bazar, tu expediente, tu agente, tus años de «me quedo» y el escudo médico */
   var guarda={};
   LLEVAR.forEach(function(k){ guarda[k]=S[k]; });
