@@ -66,7 +66,7 @@ function bgLayer(id,z){
     '<img src="'+img+'" alt="" style="'+frStyle(frOf(id,z))+'">'+
     '<div style="position:absolute;inset:0;background:rgba(8,10,20,'+ov+')"></div></div>';
 }
-var PARTIDO_MUESTRA={jor:"Jornada 26 de 38 · Local", liga:"LaLiga", casa:"Espanyol", fuera:"Zaragoza", rol:"titular", convTxt:"Titular", convDet:"Empiezas en el once", frase:"El partido más esperado de la jornada.", btn:"⚽ Saltar al campo", btnCorto:"⚽ Jugar"};
+var PARTIDO_MUESTRA={jor:"Jornada 26", liga:"LaLiga", casa:"Espanyol", fuera:"Zaragoza", rol:"titular", convTxt:"Titular", convDet:"Empiezas en el once", frase:"El partido más esperado de la jornada.", btn:"⚽ Saltar al campo", btnCorto:"⚽ Jugar"};
 var PARTIDO_ROL={titular:"#4ADE80", suplente:"#FFC24B", fuera:"#F87171", lesion:"#F87171", sancion:"#F87171"};
 function partidoBody(z){
   var P=PARTIDO_MUESTRA;
@@ -87,10 +87,10 @@ function partidoBody(z){
   if(z==="1x1") return abajo(box(vsc(9)+pair(P.fuera,24,9),'column',2),'');
   if(z==="2x1") return alLado(conNombres(34,9,11,6),circ());
   if(z==="3x1") return alLado(conNombres(42,12,14,12),circ());
-  if(z==="1x2") return abajo(box(pair(P.casa,26,9)+vsc(9)+pair(P.fuera,26,9),'column',3),circ(20));
+  if(z==="1x2") return abajo(box(pair(P.casa,26,9)+vsc(9)+pair(P.fuera,26,9),'column',10),circ(20));
   if(z==="2x2") return abajo(conNombres(50,12,16,8),pill());
-  if(z==="1x3") return abajo(box(nom(P.liga,14)+pair(P.casa,42,11)+vsc(13)+pair(P.fuera,42,11),'column',6),circ());
-  if(z==="2x3") return abajo(box(pair(P.casa,46,12)+vsc(14)+pair(P.fuera,46,12),'column',5),pill());
+  if(z==="1x3") return abajo(box(nom(P.liga,14)+pair(P.casa,42,11)+vsc(13)+pair(P.fuera,42,11),'column',12),circ());
+  if(z==="2x3") return abajo(box(pair(P.casa,46,12)+vsc(14)+pair(P.fuera,46,12),'column',14),pill());
   if(z==="3x2") return cabecera(jor(10),conNombres(50,13,18,14),pill());
   return cabecera(jor(11),conNombres(70,14,22,16),pill());
 }
