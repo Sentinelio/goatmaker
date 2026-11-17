@@ -253,26 +253,28 @@ function bgCargar(id,z,el){
   im.onerror=function(){ URL.revokeObjectURL(url); toast("No se pudo leer la imagen"); };
   im.src=url;
 }
-/* controles de fondo dentro de cada pieza: aparecen al pasar el ratón; sin ratón se ve la imagen */
-(function(){ if(document.getElementById("wdpz-css")) return; var st=document.createElement("style"); st.id="wdpz-css";
-  st.textContent=".wdpz .wdctl{display:none;position:absolute;inset:0;background:rgba(8,10,20,.86);flex-direction:column;justify-content:center;gap:6px;padding:8px;box-sizing:border-box;font-size:11px;color:#E8EAF2}.wdpz:hover .wdctl{display:flex}";
-  document.head.appendChild(st); })();
-function bgCtl(W,z){
+/* panel de fondo: se abre con el botón ☰ junto al nombre de cada tamaño y se cierra con el mismo botón */
+function bgPanel(W,z){
   var pre="wd."+W.id, k=pre+".bg."+z, img=wdBg(W.id,z), pos=val(pre+".bgpos."+z)||"centro", ov=val(pre+".bgov."+z);
-  return '<div class="wdctl">'+
-    '<label class="b sm" style="cursor:pointer;text-align:center;padding:4px 6px">'+(img?'Cambiar imagen':'Subir imagen')+'<input type="file" accept="image/*" style="display:none" onchange="'+on(function(x,el){ bgCargar(W.id,z,el); })+'"></label>'+
-    (img? '<button class="b sm" style="padding:4px 6px" onclick="'+on(function(){ set(k,null); })+'">Quitar</button>' : '')+
-    '<select style="font-size:11px;padding:2px" onchange="'+on(function(x){ set(pre+".bgpos."+z,x); })+'">'+BG_POS.map(function(o){return '<option'+(o===pos?' selected':'')+'>'+o+'</option>'}).join("")+'</select>'+
-    '<input type="range" min="0" max="80" step="5" value="'+ov+'" title="Velo '+ov+' %" onchange="'+on(function(x){ set(pre+".bgov."+z,Number(x)); })+'">'+
+  var rotulo='font-size:11px;color:#8891AA;width:60px;flex:none';
+  return '<div style="position:absolute;left:0;top:28px;width:260px;z-index:20;background:#161B2C;border:1px solid #3A4262;border-radius:12px;padding:10px;box-sizing:border-box;box-shadow:0 10px 30px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:8px">'+
+    '<div style="font-size:12px;color:#E8EAF2">Fondo · '+z+'</div>'+
+    '<label class="b sm" style="cursor:pointer;text-align:center;padding:6px">'+(img?'Cambiar imagen':'Subir imagen')+'<input type="file" accept="image/*" style="display:none" onchange="'+on(function(x,el){ bgCargar(W.id,z,el); })+'"></label>'+
+    (img? '<button class="b sm" onclick="'+on(function(){ set(k,null); })+'">Quitar imagen</button>' : '')+
+    '<div style="display:flex;align-items:center;gap:8px"><span style="'+rotulo+'">Encuadre</span><select style="flex:1;font-size:12px" onchange="'+on(function(x){ set(pre+".bgpos."+z,x); })+'">'+BG_POS.map(function(o){return '<option'+(o===pos?' selected':'')+'>'+o+'</option>'}).join("")+'</select></div>'+
+    '<div style="display:flex;align-items:center;gap:8px"><span style="'+rotulo+'">Velo</span><input type="range" min="0" max="80" step="5" value="'+ov+'" style="flex:1" onchange="'+on(function(x){ set(pre+".bgov."+z,Number(x)); })+'"><span style="font-size:11px;color:#8891AA;width:34px;text-align:right;flex:none">'+ov+' %</span></div>'+
     '</div>';
 }
 function tetris(W,defS){
   var pre="wd."+W.id;
   var pieces=[1,2,3].map(function(hh){ return '<div style="display:flex;gap:12px;align-items:flex-start;width:100%">'+WSZ.filter(function(z){ return +z.split("x")[1]===hh; }).map(function(z){
-    var w=+z.split("x")[0], h=+z.split("x")[1], isOn=!!val(pre+".z"+z), isD=z===defS;
-    return '<div style="flex:'+w+' 1 0;min-width:0;'+(isOn?"":"opacity:.4")+'">'+
-      '<div style="font-family:monospace;font-size:12px;color:#8891AA;margin-bottom:4px">'+z+(isD?' · defecto':'')+(isOn?'':' · apagado')+'</div>'+
-      '<div class="wdpz" style="position:relative;overflow:hidden;width:100%;aspect-ratio:'+w+' / '+h+';box-sizing:border-box;border-radius:8px;background:'+(isD?'#2A2412':'#161B2C')+(wdBg(W.id,z)?';background-image:url(\''+wdBg(W.id,z)+'\');background-size:cover;background-position:'+BG_CSS[val(pre+".bgpos."+z)||"centro"]:'')+';border:1px solid '+(isD?'#FFC24B':'#3A4262')+'">'+(isOn?bgCtl(W,z):'')+'</div></div>';
+    var w=+z.split("x")[0], h=+z.split("x")[1], isOn=!!val(pre+".z"+z), isD=z===defS, key=W.id+"|"+z, abierto=isOn && ST.sel.bgp===key;
+    var etiqueta='<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px">'+
+      '<span style="font-family:monospace;font-size:12px;color:#8891AA">'+z+(isD?' · defecto':'')+(isOn?'':' · apagado')+'</span>'+
+      (isOn? '<button class="b sm" title="Fondo de '+z+'" style="padding:0 7px;line-height:20px;font-size:13px" onclick="'+on(function(){ ST.sel.bgp = abierto? null : key; go(); })+'">☰</button>' : '')+'</div>';
+    return '<div style="position:relative;flex:'+w+' 1 0;min-width:0;'+(isOn?"":"opacity:.4")+'">'+etiqueta+
+      '<div class="wdpz" style="position:relative;overflow:hidden;width:100%;aspect-ratio:'+w+' / '+h+';box-sizing:border-box;border-radius:8px;background:'+(isD?'#2A2412':'#161B2C')+(wdBg(W.id,z)?';background-image:url(\''+wdBg(W.id,z)+'\');background-size:cover;background-position:'+BG_CSS[val(pre+".bgpos."+z)||"centro"]:'')+';border:1px solid '+(isD?'#FFC24B':'#3A4262')+'"></div>'+
+      (abierto? bgPanel(W,z) : '')+'</div>';
   }).join("")+'</div>'; }).join("");
   return '<div style="display:grid;gap:12px;width:100%">'+pieces+'</div>';
 }
