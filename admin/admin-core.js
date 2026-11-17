@@ -1455,7 +1455,7 @@ var CAT=[
 var PB_URL="https://server-pc.tail3b4002.ts.net:8447";
 CUR_VER="0.03.001";
 var CUR_VER_DATE="2026-11-17T15:13:34+01:00";   /* fecha en que la versión del juego quedó integrada en el admin (se ve al pasar el ratón) */
-var ADMIN_VER="0.03.017", ADMIN_VER_DATE="2026-11-17T21:05:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.018", ADMIN_VER_DATE="2026-11-17T21:20:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
   var g=$("gver"), e=$("ever");
@@ -1524,6 +1524,8 @@ async function pbCarga(){
           (function fx(base,f){ Object.keys(f||{}).forEach(function(k){ var v=f[k], q=base+"."+k; if(v&&typeof v==="object"&&!Array.isArray(v)) fx(q,v); else if(typeof v==="number"||typeof v==="boolean") BASE[q]=v; }); })(po+".fx", r.fx);
         }); }); }
     if(pp){ if(pp.min!=null) BASE["pj.min"]=pp.min; if(pp.max!=null) BASE["pj.max"]=pp.max; if(pp.previa!=null) BASE["pj.previa"]=pp.previa; if(pp.post!=null) BASE["pj.post"]=pp.post; }
+  /* widgets: lo último guardado en el servidor vuelve a ser el valor de partida */
+  try{ var wr=await pbApi("/api/collections/tl_widgets/records?perPage=1&filter="+encodeURIComponent("(kind='cfg')")); var wp=wr.items&&wr.items[0]&&wr.items[0].pack; if(wp) Object.keys(wp).forEach(function(k){ BASE[k]=wp[k]; }); }catch(e){}
   }catch(e){}
   PB.det={}; pbAdapta(); go();
 }

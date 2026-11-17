@@ -1,5 +1,6 @@
 /* pestañas de Widgets integradas (la clave "wd" no comparte lista con el resto de páginas) */
 var OK_TAB_WD=["Tamaños","Pantalla de inicio"];
+OK_BTN.push("Guardar widgets");
 /* WIDGETS: cada pestaña del juego como widget independiente. Se expone aquí para poder cambiarla por separado. */
 var WSZ=["1x1","2x1","3x1","1x2","2x2","3x2","1x3","2x3","3x3"];
 var WID=[
@@ -390,6 +391,25 @@ V.widgets=function(){
       '<div style="display:flex;flex-direction:column;gap:14px;min-width:0">'+datos+card("Tamaños permitidos", permitidos, '<span class="tag">'+WSZ.length+' tamaños</span>')+'</div>'+
       card("Tamaños como piezas · "+L, tetris(W,defS,selZ))+'</div>';
   }
-  return hd("Widgets","Cada pestaña del juego como widget independiente, para cambiar cada uno por separado.", "")+
+  return hd("Widgets","Cada pestaña del juego como widget independiente, para cambiar cada uno por separado.", btn("Guardar widgets",wdGuardar,"gold"))+
     t+'<div class="split">'+widgetList()+'<div style="min-width:0;flex:1 1 auto;width:100%">'+(tb==="Pantalla de inicio"? inicioView() : b)+'</div></div>';
 };
+
+/* guarda en el servidor (tl_widgets) toda la configuración de widgets: tamaños, fondos, encuadres y velos */
+function wdGuardar(){
+  var keys={}; Object.keys(BASE).concat(Object.keys(DRAFT)).forEach(function(k){ if(k.indexOf("wd.")===0) keys[k]=true; });
+  var pack={}; Object.keys(keys).forEach(function(k){ var v=val(k); if(v!==undefined) pack[k]=v; });
+  toast("Guardando widgets…");
+  pbApi("/api/collections/tl_widgets/records?perPage=1&filter="+encodeURIComponent("(kind='cfg')")).then(function(r){
+    var body=JSON.stringify({kind:"cfg", pack:pack, t:Date.now()}), it=r.items&&r.items[0];
+    return it? pbApi("/api/collections/tl_widgets/records/"+it.id,{method:"PATCH",headers:PB_JSON,body:body})
+             : pbApi("/api/collections/tl_widgets/records",{method:"POST",headers:PB_JSON,body:body});
+  }).then(function(){
+    Object.keys(pack).forEach(function(k){ BASE[k]=pack[k]; delete DRAFT[k]; });
+    try{ guardarBorrador(); }catch(e){}
+    go(); toast("Widgets guardados en el servidor");
+  }).catch(function(e){
+    var m=String(e.message||e);
+    toast(/404/.test(m)? "Falta la colección tl_widgets en el servidor (migración 1763000007)" : "No se guardaron los widgets: "+m);
+  });
+}
