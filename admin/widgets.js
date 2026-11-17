@@ -54,10 +54,21 @@ var MUESTRA={
 var BG_POS=["centro","arriba","abajo","izquierda","derecha"];
 var BG_CSS={"centro":"center","arriba":"center top","abajo":"center bottom","izquierda":"left center","derecha":"right center"};
 function wdBg(id,z){ return val("wd."+id+".bg."+z) || null; }
+/* encuadre libre: zoom (100-400 %) y paneo (-100..100) de la imagen de cada tamaño */
+function frOf(id,z){
+  var s=val("wd."+id+".bgz."+z), x=val("wd."+id+".bgx."+z), y=val("wd."+id+".bgy."+z);
+  return { s:(s==null? 100 : Number(s)), u:(x==null? 0 : Number(x)), v:(y==null? 0 : Number(y)) };
+}
+function frStyle(f){
+  var k=f.s/100, tx=f.u*(k-1)/2, ty=f.v*(k-1)/2;
+  return 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;user-select:none;transform:translate('+tx+'%,'+ty+'%) scale('+k+');transform-origin:50% 50%';
+}
 function bgLayer(id,z){
   var img=wdBg(id,z); if(!img) return "";
-  var ov=(Number(val("wd."+id+".bgov."+z))||0)/100, pos=BG_CSS[val("wd."+id+".bgpos."+z)||"centro"]||"center";
-  return '<div style="position:absolute;inset:-9px;border-radius:14px;background:linear-gradient(rgba(8,10,20,'+ov+'),rgba(8,10,20,'+ov+')),url(\''+img+'\') '+pos+'/cover no-repeat"></div>';
+  var ov=(Number(val("wd."+id+".bgov."+z))||0)/100;
+  return '<div style="position:absolute;inset:-9px;border-radius:14px;overflow:hidden">'+
+    '<img src="'+img+'" alt="" style="'+frStyle(frOf(id,z))+'">'+
+    '<div style="position:absolute;inset:0;background:rgba(8,10,20,'+ov+')"></div></div>';
 }
 function sampleBody(W,z){
   var bg=bgLayer(W.id,z);
@@ -220,7 +231,9 @@ function widgetList(){
     WSZ.forEach(function(z){
       reg("wd."+W.id+".z"+z,true,W.id+" · "+z+" permitido");
       reg("wd."+W.id+".bg."+z,null,W.id+" · "+z+" · imagen de fondo");
-      reg("wd."+W.id+".bgpos."+z,"centro",W.id+" · "+z+" · encuadre del fondo");
+      reg("wd."+W.id+".bgz."+z,100,W.id+" · "+z+" · zoom del fondo");
+      reg("wd."+W.id+".bgx."+z,0,W.id+" · "+z+" · paneo horizontal del fondo");
+      reg("wd."+W.id+".bgy."+z,0,W.id+" · "+z+" · paneo vertical del fondo");
       reg("wd."+W.id+".bgov."+z,35,W.id+" · "+z+" · velo del fondo");
     });
   });
@@ -238,8 +251,7 @@ function widgetList(){
 }
 /* piezas de tetris con los tamaños del widget */
 /* carga: la imagen se reduce en el navegador (máx. 640 px, JPEG) para que quepa en el borrador */
-function bgCargar(id,z,el){
-  var f=el.files&&el.files[0]; el.value=""; if(!f) return;
+function bgSubir(id,z,f){
   if(!/^image\//.test(f.type)){ toast("Elige un archivo de imagen"); return; }
   var url=URL.createObjectURL(f), im=new Image();
   im.onload=function(){
@@ -247,22 +259,85 @@ function bgCargar(id,z,el){
     c.width=Math.round(im.naturalWidth*k); c.height=Math.round(im.naturalHeight*k);
     c.getContext("2d").drawImage(im,0,0,c.width,c.height);
     URL.revokeObjectURL(url);
-    set("wd."+id+".bg."+z, c.toDataURL("image/jpeg",0.82));
-    toast("Fondo "+z+" de "+id+" cargado");
+    var pre="wd."+id;
+    set(pre+".bg."+z, c.toDataURL("image/jpeg",0.82));
+    set(pre+".bgz."+z, 100); set(pre+".bgx."+z, 0); set(pre+".bgy."+z, 0);
+    toast("Fondo de "+id+" · "+z+" cargado");
   };
   im.onerror=function(){ URL.revokeObjectURL(url); toast("No se pudo leer la imagen"); };
   im.src=url;
 }
-/* controles del fondo del tamaño elegido: van en su tarjeta fija, a la derecha de Tamaños permitidos */
+function bgCargar(id,z,el){
+  var f=el.files&&el.files[0]; el.value=""; if(f) bgSubir(id,z,f);
+}
+/* pegar (Ctrl+V): con un tamaño elegido en Tamaños como piezas, la imagen del portapapeles va a ese fondo */
+document.addEventListener("paste", function(ev){
+  var sel=ST.sel.bgp||""; if(!sel || !document.querySelector(".wdpz")) return;
+  var t=ev.target; if(t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+  var items=(ev.clipboardData && ev.clipboardData.items)||[];
+  for(var i=0;i<items.length;i++){
+    if(items[i].kind==="file" && /^image\//.test(items[i].type)){
+      var f=items[i].getAsFile(), p=sel.split("|"); if(!f) return;
+      ev.preventDefault();
+      if(!val("wd."+p[0]+".z"+p[1])){ toast("Ese tamaño está apagado"); return; }
+      bgSubir(p[0],p[1],f); return;
+    }
+  }
+});
+/* arrastrar para mover la imagen; se guarda al soltar. La rueda amplía o reduce */
+function bgDragIni(f){
+  return on(function(x,el,ev){
+    el.setPointerCapture(ev.pointerId);
+    window._BGD={ x:ev.clientX, y:ev.clientY, u0:f.u, v0:f.v, cu:f.u, cv:f.v, k:f.s/100, w:el.getBoundingClientRect().width, el:el };
+  });
+}
+function bgDragMov(){
+  return on(function(x,el,ev){
+    var d=window._BGD; if(!d || d.k<=1) return;
+    d.cu=Math.max(-100,Math.min(100, d.u0 + (ev.clientX-d.x)*200/((d.k-1)*d.w)));
+    d.cv=Math.max(-100,Math.min(100, d.v0 + (ev.clientY-d.y)*200/((d.k-1)*d.w)));
+    var im=d.el.querySelector("img"); if(im) im.style.transform="translate("+(d.cu*(d.k-1)/2)+"%,"+(d.cv*(d.k-1)/2)+"%) scale("+d.k+")";
+  });
+}
+function bgDragFin(W,z){
+  return on(function(){
+    var d=window._BGD; window._BGD=null; if(!d) return;
+    if(Math.round(d.cu)===Math.round(d.u0) && Math.round(d.cv)===Math.round(d.v0)) return;
+    set("wd."+W.id+".bgx."+z, Math.round(d.cu)); set("wd."+W.id+".bgy."+z, Math.round(d.cv));
+  });
+}
+function bgRueda(W,z,f){
+  return on(function(x,el,ev){
+    ev.preventDefault();
+    set("wd."+W.id+".bgz."+z, Math.max(100,Math.min(400, f.s+(ev.deltaY<0?10:-10))));
+  });
+}
+/* vista previa del tamaño elegido: aquí se encuadra la imagen */
+function bgPreview(W,z,ov){
+  var img=wdBg(W.id,z), c=z.split("x"), f=frOf(W.id,z);
+  var forma='width:min(100%,calc(240px * '+c[0]+' / '+c[1]+'));aspect-ratio:'+c[0]+' / '+c[1]+';box-sizing:border-box;border-radius:8px;';
+  if(!img) return '<div style="'+forma+'border:1px dashed #3A4262;display:flex;align-items:center;justify-content:center;color:#8891AA;font-size:12px;text-align:center;padding:10px">Sin imagen. Pega con Ctrl+V o sube una.</div>';
+  return '<div class="wdprev" title="Arrastra para mover · rueda para ampliar" '+
+    'onpointerdown="'+bgDragIni(f)+'" onpointermove="'+bgDragMov()+'" onpointerup="'+bgDragFin(W,z)+'" onpointercancel="'+bgDragFin(W,z)+'" onwheel="'+bgRueda(W,z,f)+'" '+
+    'style="position:relative;overflow:hidden;'+forma+'border:1px solid #3A4262;touch-action:none;cursor:grab;background:#0B0E18">'+
+    '<img src="'+img+'" alt="" style="'+frStyle(f)+'">'+
+    '<div style="position:absolute;inset:0;background:rgba(8,10,20,'+ov+');pointer-events:none"></div></div>';
+}
+/* controles del fondo del tamaño elegido: van en su tarjeta fija, dentro de Tamaños permitidos */
 function bgControles(W,z){
-  var pre="wd."+W.id, k=pre+".bg."+z, img=wdBg(W.id,z), pos=val(pre+".bgpos."+z)||"centro", ov=val(pre+".bgov."+z);
-  var rot='font-size:12px;color:#8891AA;width:70px;flex:none';
+  var pre="wd."+W.id, k=pre+".bg."+z, img=wdBg(W.id,z), ov=val(pre+".bgov."+z), f=frOf(W.id,z);
+  var rot='font-size:12px;color:#8891AA;width:44px;flex:none';
   return '<div style="display:flex;flex-direction:column;gap:10px">'+
-    '<label class="b sm" style="cursor:pointer;text-align:center;padding:6px">'+(img?'Cambiar imagen':'Subir imagen')+'<input type="file" accept="image/*" style="display:none" onchange="'+on(function(x,el){ bgCargar(W.id,z,el); })+'"></label>'+
-    (img? '<button class="b sm" onclick="'+on(function(){ set(k,null); })+'">Quitar imagen</button>' : '')+
-    '<div style="display:flex;align-items:center;gap:8px"><span style="'+rot+'">Encuadre</span><select style="flex:1;font-size:12px" onchange="'+on(function(x){ set(pre+".bgpos."+z,x); })+'">'+BG_POS.map(function(o){return '<option'+(o===pos?' selected':'')+'>'+o+'</option>'}).join("")+'</select></div>'+
-    '<div style="display:flex;align-items:center;gap:8px"><span style="'+rot+'">Velo</span><input type="range" min="0" max="80" step="5" value="'+ov+'" style="flex:1" onchange="'+on(function(x){ set(pre+".bgov."+z,Number(x)); })+'"><span style="font-size:12px;color:#8891AA;width:40px;text-align:right;flex:none">'+ov+' %</span></div>'+
-    '</div>';
+    bgPreview(W,z,(Number(ov)||0)/100)+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+      '<label class="b sm" style="cursor:pointer;text-align:center;padding:6px;flex:1">'+(img?'Cambiar imagen':'Subir imagen')+'<input type="file" accept="image/*" style="display:none" onchange="'+on(function(x,el){ bgCargar(W.id,z,el); })+'"></label>'+
+      (img? '<button class="b sm" onclick="'+on(function(){ set(k,null); })+'">Quitar imagen</button>' : '')+
+    '</div>'+
+    '<p class="mut" style="margin:0;font-size:12px">o pega una imagen con Ctrl+V</p>'+
+    (img? '<div style="display:flex;align-items:center;gap:8px"><span style="'+rot+'">Zoom</span><input type="range" min="100" max="400" step="5" value="'+f.s+'" style="flex:1" onchange="'+on(function(x){ set(pre+".bgz."+z,Number(x)); })+'"><span style="font-size:12px;color:#8891AA;width:48px;text-align:right;flex:none">'+f.s+' %</span></div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center"><span class="mut" style="font-size:12px">Arrastra la imagen para encuadrarla</span><button class="b sm" onclick="'+on(function(){ set(pre+".bgz."+z,100); set(pre+".bgx."+z,0); set(pre+".bgy."+z,0); })+'">Centrar</button></div>' : '')+
+    '<div style="display:flex;align-items:center;gap:8px"><span style="'+rot+'">Velo</span><input type="range" min="0" max="80" step="5" value="'+ov+'" style="flex:1" onchange="'+on(function(x){ set(pre+".bgov."+z,Number(x)); })+'"><span style="font-size:12px;color:#8891AA;width:48px;text-align:right;flex:none">'+ov+' %</span></div>'+
+  '</div>';
 }
 function bgFijo(W,selZ){
   var ok = !!selZ && !!val("wd."+W.id+".z"+selZ);
@@ -274,7 +349,7 @@ function tetris(W,defS,selZ){
     var w=+z.split("x")[0], h=+z.split("x")[1], isOn=!!val(pre+".z"+z), isD=z===defS, elegido=isOn && selZ===z, key=W.id+"|"+z;
     return '<div style="flex:'+w+' 1 0;min-width:0;'+(isOn?"":"opacity:.4")+'">'+
       '<div style="font-family:monospace;font-size:12px;color:'+(elegido?'#E8EAF2':'#8891AA')+';margin-bottom:4px">'+z+(isOn?'':' · apagado')+'</div>'+
-      '<div class="wdpz" '+(isOn?'onclick="'+on(function(){ ST.sel.bgp = key; go(); })+'" title="Editar el fondo de '+z+'" ':'')+'style="position:relative;overflow:hidden;width:100%;aspect-ratio:'+w+' / '+h+';box-sizing:border-box;border-radius:8px;cursor:'+(isOn?'pointer':'default')+';background:'+(isD?'#2A2412':'#161B2C')+(wdBg(W.id,z)?';background-image:url(\''+wdBg(W.id,z)+'\');background-size:cover;background-position:'+BG_CSS[val(pre+".bgpos."+z)||"centro"]:'')+';border:'+(elegido?'2px solid #60A5FA':'1px solid '+(isD?'#FFC24B':'#3A4262'))+'"></div></div>';
+      '<div class="wdpz" '+(isOn?'onclick="'+on(function(){ ST.sel.bgp = key; go(); })+'" title="Editar el fondo de '+z+'" ':'')+'style="position:relative;overflow:hidden;width:100%;aspect-ratio:'+w+' / '+h+';box-sizing:border-box;border-radius:8px;cursor:'+(isOn?'pointer':'default')+';background:'+(isD?'#2A2412':'#161B2C')+''+';border:'+(elegido?'2px solid #60A5FA':'1px solid '+(isD?'#FFC24B':'#3A4262'))+'">'+(wdBg(W.id,z)?'<img src="'+wdBg(W.id,z)+'" alt="" style="'+frStyle(frOf(W.id,z))+'">':'')+'</div></div>';
   }).join("")+'</div>'; }).join("");
   return '<div style="display:grid;gap:12px;width:100%">'+pieces+'</div>';
 }
@@ -297,9 +372,9 @@ V.widgets=function(){
     var defS=val(pre+".def")||W.def;
     var selZ=(ST.sel.bgp||"").indexOf(W.id+"|")===0? ST.sel.bgp.split("|")[1] : null;
     /* Fondo va dentro de Tamaños permitidos, a la derecha de la lista */
-    var permitidos='<div style="display:flex;gap:16px;align-items:stretch"><div style="flex:1 1 auto;min-width:0">'+filas+'</div>'+
-      '<div style="width:280px;flex:none;display:flex;flex-direction:column">'+bgFijo(W,selZ)+'</div></div>';
-    b='<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:stretch">'+
+    var permitidos='<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:stretch"><div style="flex:1 1 260px;min-width:0">'+filas+'</div>'+
+      '<div style="flex:0 0 280px;max-width:100%;display:flex;flex-direction:column">'+bgFijo(W,selZ)+'</div></div>';
+    b='<div style="display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px;align-items:stretch">'+
       '<div style="display:flex;flex-direction:column;gap:14px;min-width:0">'+datos+card("Tamaños permitidos", permitidos, '<span class="tag">'+WSZ.length+' tamaños</span>')+'</div>'+
       card("Tamaños como piezas · "+L, tetris(W,defS,selZ))+'</div>';
   }
