@@ -159,7 +159,7 @@ function inicioView(){
   Object.keys(L).forEach(function(id){ var p=L[id], W=wById(id), isS=id===sel;
     items+='<div id="wdi-'+id+'" draggable="true" ondragstart="window._WD=\''+id+'\';document.getElementById(\'wdtrash\').style.display=\'flex\'" ondragend="document.getElementById(\'wdtrash\').style.display=\'none\';inicioClear()" onclick="'+on(function(){ ST.sel.wdp=id; go(); })+'" style="grid-column:'+p.c+' / span '+p.w+';grid-row:'+p.r+' / span '+p.h+';position:relative;box-sizing:border-box;border-radius:14px;background:#161B2C;border:'+(isS?'2px solid #FFC24B':'1px solid #3A4262')+';padding:9px;overflow:hidden;display:flex;flex-direction:column;cursor:grab">'+'<div class="wdc" style="height:100%;width:100%">'+sampleBody(W,val("wd."+id+".def")||W.def)+'</div>'+(isS?'<span onmousedown="event.preventDefault();event.stopPropagation();window._WRS=\''+id+'\'" onpointerdown="this.setPointerCapture(event.pointerId)" title="Arrastra para cambiar el tamaño" style="position:absolute;right:4px;bottom:4px;width:16px;height:16px;border-radius:5px;background:#FFC24B;cursor:nwse-resize;z-index:2"></span>':'')+'</div>';
   });
-  var dropTrash=on(function(){ var id=window._WD; if(id){ set("wd."+id+".on",false); set("wd."+id+".c",null); set("wd."+id+".r",null); ST.sel.wdp=null; } });
+  var dropTrash=on(function(){ var id=window._WD; if(id && !inicioBorrable(id)){ toast("Este widget no se puede quitar del inicio"); return; } if(id){ set("wd."+id+".on",false); set("wd."+id+".c",null); set("wd."+id+".r",null); ST.sel.wdp=null; } });
   var dropPhone=on(function(){ inicioClear();
     if(window._WRS){ var rid=window._WRS; window._WRS=null; var pr=inicioLayout()[rid]; if(!pr) return; var tw=Math.max(1,window._WC-pr.c+1), th=Math.max(1,window._WR-pr.r+1), best=null; WSZ.forEach(function(z){ var zw=+z.split("x")[0], zh=+z.split("x")[1]; if(!val("wd."+rid+".z"+z) || zw>tw || zh>th || !inicioFits(rid,pr.c,pr.r,z)) return; if(!best || zw*zh>best.a) best={z:z,a:zw*zh}; }); if(best) set("wd."+rid+".def",best.z); else toast("Ningún tamaño habilitado cabe ahí"); return; }
     var id=window._WD, c=window._WC, r=window._WR; if(!id||!c||!r) return;
@@ -195,10 +195,12 @@ function inicioPreview(){
   el.style.gridColumn=pr.c+" / span "+b.w; el.style.gridRow=pr.r+" / span "+b.h;
   var wc=el.querySelector(".wdc"); if(wc) wc.innerHTML=sampleBody(wById(rid),b.z);
 }
+function inicioBorrable(id){ return !!val("wd."+id+".borrar"); }
 function widgetList(){
   /* los valores del inicio se registran aquí, no solo al abrir Datos o Tamaños, para que el móvil funcione desde el primer momento */
   WID.forEach(function(W){
     reg("wd."+W.id+".on",false,W.id+" · aparece en el inicio");
+    reg("wd."+W.id+".borrar",true,W.id+" · se puede quitar del inicio");
     reg("wd."+W.id+".def",W.def,W.id+" · tamaño por defecto");
     reg("wd."+W.id+".c",null,W.id+" · columna en el inicio");
     reg("wd."+W.id+".r",null,W.id+" · fila en el inicio");
@@ -213,7 +215,7 @@ function widgetList(){
       rows+='<div class="it'+(x.id===sel?' on':'')+'" draggable="true" ondragstart="window._WD=\''+x.id+'\'" ondragend="inicioClear()" onclick="'+on(function(){ ST.sel.wd=x.id; go(); })+'" style="display:flex;align-items:center;gap:8px;'+(isOn?'':'opacity:.6')+'"><span>'+x.id+' · '+esc(x.n)+'</span><span style="margin-left:auto">'+st+'</span></div>';
     });
   });
-  var dropList=on(function(){ var id=window._WD; if(id){ set("wd."+id+".on",false); if(ST.sel.wdp===id) ST.sel.wdp=null; } });
+  var dropList=on(function(){ var id=window._WD; if(id && !inicioBorrable(id)){ toast("Este widget no se puede quitar del inicio"); return; } if(id){ set("wd."+id+".on",false); if(ST.sel.wdp===id) ST.sel.wdp=null; } });
   return '<div class="card list" ondragover="event.preventDefault()" ondrop="event.preventDefault();'+dropList+'" style="padding:0;overflow:hidden">'+rows+'</div>';
 }
 /* piezas de tetris con los tamaños del widget */
@@ -237,6 +239,7 @@ V.widgets=function(){
       '<div class="diff"><span class="p mut">Pestaña de origen</span><span class="mono small">'+esc(W.tab)+'</span></div>'+
       fld(pre+".def","Tamaño por defecto",W.def,{type:"sel",opts:WSZ,full:L+" · tamaño por defecto"})+
       fld(pre+".on","Aparece en el inicio",false,{type:"tog",full:L+" · aparece en el inicio",si:"Sí",no:"No"})+
+      fld(pre+".borrar","Se puede quitar del inicio",true,{type:"tog",full:L+" · se puede quitar del inicio",si:"Sí",no:"No",d:"Si está en No, no se puede borrar arrastrándolo a la papelera. Sí se puede cambiar su tamaño y moverlo."})+
       fld(pre+".txt","Qué muestra en tamaño pequeño",W.txt,{type:"area",rows:3,full:L+" · contenido",d:"Cada widget muestra la misma pestaña que en el juego, en la versión que cabe en su tamaño."}));
   if(tb==="Tamaños"){
     var filas=WSZ.map(function(z){
