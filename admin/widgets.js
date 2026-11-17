@@ -377,9 +377,10 @@ V.widgets=function(){
       fld(pre+".borrar","Se puede quitar del inicio",true,{type:"tog",full:L+" · se puede quitar del inicio",si:"Sí",no:"No",d:"Si está en No, no se puede borrar arrastrándolo a la papelera. Sí se puede cambiar su tamaño y moverlo."})+
       fld(pre+".txt","Qué muestra en tamaño pequeño",W.txt,{type:"area",rows:3,full:L+" · contenido",d:"Cada widget muestra la misma pestaña que en el juego, en la versión que cabe en su tamaño."}));
   if(tb==="Tamaños"){
-    var filas=WSZ.map(function(z){
+    /* cada tamaño: nombre a la izquierda y su interruptor a la misma altura, también con la columna estrecha */
+    var filas='<div class="tamf"><style>.tamf .f{display:flex;align-items:center;justify-content:space-between;gap:12px}.tamf .f>label{flex:1 1 auto;min-width:0}.tamf .f>div{margin:0;flex:none;width:auto}.tamf .f .row{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:8px}.tamf .f .fab{flex:none}</style>'+WSZ.map(function(z){
         return fld(pre+".z"+z, z+(z==="1x1"?" · una celda":z==="3x3"?" · tablero completo":""), true, {type:"tog", full:L+" · "+z, si:"Sí", no:"No"});
-      }).join("");
+      }).join("")+'</div>';
     var defS=val(pre+".def")||W.def;
     var selZ=(ST.sel.bgp||"").indexOf(W.id+"|")===0? ST.sel.bgp.split("|")[1] : null;
     /* Fondo va dentro de Tamaños permitidos, a la derecha de la lista */
