@@ -50,7 +50,20 @@ var MUESTRA={
  W20:{l:"Dinero",v:"12.400 €",r:[["Fichaje","-500 €"],["Patrocinio","+1.200 €"]]},
  W21:{l:"Tienda",v:"3 destacados",s:"artículos"}
 };
+/* fondos por tamaño: capa de imagen detrás del contenido, con encuadre y velo */
+var BG_POS=["centro","arriba","abajo","izquierda","derecha"];
+var BG_CSS={"centro":"center","arriba":"center top","abajo":"center bottom","izquierda":"left center","derecha":"right center"};
+function wdBg(id,z){ return val("wd."+id+".bg."+z) || null; }
+function bgLayer(id,z){
+  var img=wdBg(id,z); if(!img) return "";
+  var ov=(Number(val("wd."+id+".bgov."+z))||0)/100, pos=BG_CSS[val("wd."+id+".bgpos."+z)||"centro"]||"center";
+  return '<div style="position:absolute;inset:-9px;border-radius:14px;background:linear-gradient(rgba(8,10,20,'+ov+'),rgba(8,10,20,'+ov+')),url(\''+img+'\') '+pos+'/cover no-repeat"></div>';
+}
 function sampleBody(W,z){
+  var bg=bgLayer(W.id,z);
+  return bg? bg+'<div style="position:relative;height:100%;width:100%;box-sizing:border-box">'+sampleBodyBase(W,z)+'</div>' : sampleBodyBase(W,z);
+}
+function sampleBodyBase(W,z){
   var m=MUESTRA[W.id]||{}, c=z.split("x"), cw=+c[0], ch=+c[1], n=cw*ch;
   var lbl='<div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#8891AA">'+esc(m.l||W.n)+'</div>';
   var big=function(t,px){ return '<div style="font-size:'+px+'px;font-weight:700;color:#FFC24B;line-height:1.15">'+esc(t)+'</div>'; };
@@ -204,7 +217,12 @@ function widgetList(){
     reg("wd."+W.id+".def",W.def,W.id+" · tamaño por defecto");
     reg("wd."+W.id+".c",null,W.id+" · columna en el inicio");
     reg("wd."+W.id+".r",null,W.id+" · fila en el inicio");
-    WSZ.forEach(function(z){ reg("wd."+W.id+".z"+z,true,W.id+" · "+z+" permitido"); });
+    WSZ.forEach(function(z){
+      reg("wd."+W.id+".z"+z,true,W.id+" · "+z+" permitido");
+      reg("wd."+W.id+".bg."+z,null,W.id+" · "+z+" · imagen de fondo");
+      reg("wd."+W.id+".bgpos."+z,"centro",W.id+" · "+z+" · encuadre del fondo");
+      reg("wd."+W.id+".bgov."+z,35,W.id+" · "+z+" · velo del fondo");
+    });
   });
   var L=inicioLayout(), sel=ST.sel.wd||WID[0].id, rows="";
   ["Inicio","Jugador","Equipo","Mercado","Cuentas"].forEach(function(g){
@@ -219,13 +237,44 @@ function widgetList(){
   return '<div class="card list" ondragover="event.preventDefault()" ondrop="event.preventDefault();'+dropList+'" style="padding:0;overflow:hidden">'+rows+'</div>';
 }
 /* piezas de tetris con los tamaños del widget */
+/* carga: la imagen se reduce en el navegador (máx. 640 px, JPEG) para que quepa en el borrador */
+function bgCargar(id,z,el){
+  var f=el.files&&el.files[0]; el.value=""; if(!f) return;
+  if(!/^image\//.test(f.type)){ toast("Elige un archivo de imagen"); return; }
+  var url=URL.createObjectURL(f), im=new Image();
+  im.onload=function(){
+    var k=Math.min(1,640/im.naturalWidth), c=document.createElement("canvas");
+    c.width=Math.round(im.naturalWidth*k); c.height=Math.round(im.naturalHeight*k);
+    c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+    URL.revokeObjectURL(url);
+    set("wd."+id+".bg."+z, c.toDataURL("image/jpeg",0.82));
+    toast("Fondo "+z+" de "+id+" cargado");
+  };
+  im.onerror=function(){ URL.revokeObjectURL(url); toast("No se pudo leer la imagen"); };
+  im.src=url;
+}
+function bgCard(W,L){
+  var pre="wd."+W.id, filas=WSZ.filter(function(z){ return !!val(pre+".z"+z); }).map(function(z){
+    var k=pre+".bg."+z, img=wdBg(W.id,z);
+    var thumb='<div style="flex:none;width:72px;height:46px;border-radius:8px;border:1px solid #3A4262;background:'+(img?'url(\''+img+'\') '+BG_CSS[val(pre+".bgpos."+z)||"centro"]+'/cover':'#161B2C')+'"></div>';
+    var up='<label class="b sm" style="cursor:pointer">'+(img?'Cambiar imagen':'Subir imagen')+'<input type="file" accept="image/*" style="display:none" onchange="'+on(function(x,el){ bgCargar(W.id,z,el); })+'"></label>';
+    var quita=img? ' '+btn("Quitar imagen",function(){ set(k,null); },"sm") : '';
+    var pos='<select onchange="'+on(function(x){ set(pre+".bgpos."+z,x); })+'">'+BG_POS.map(function(o){return '<option'+(o===(val(pre+".bgpos."+z)||"centro")?' selected':'')+'>'+o+'</option>'}).join("")+'</select>';
+    var velo='<input type="range" min="0" max="80" step="5" value="'+val(pre+".bgov."+z)+'" onchange="'+on(function(x){ set(pre+".bgov."+z,Number(x)); })+'" style="width:120px"> <span class="small mut">'+val(pre+".bgov."+z)+' %</span>';
+    return '<div style="display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid #232A40;flex-wrap:wrap">'+
+      '<span class="mono small mut" style="width:34px">'+z+'</span>'+thumb+
+      '<div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:6px"><div class="row" style="gap:8px;flex-wrap:wrap">'+up+quita+'</div>'+
+      '<div class="row" style="gap:8px;flex-wrap:wrap"><span class="small mut">Encuadre</span>'+pos+'<span class="small mut">Velo</span>'+velo+'</div></div></div>';
+  }).join("");
+  return card("Fondos por tamaño · "+L, filas || '<p class="mut" style="margin:0">Activa al menos un tamaño en Tamaños permitidos.</p>', '<span class="tag">JPG/PNG · máx. 640 px</span>');
+}
 function tetris(W,defS){
   var pre="wd."+W.id;
   var pieces=[1,2,3].map(function(hh){ return '<div style="display:flex;gap:12px;align-items:flex-start;width:100%">'+WSZ.filter(function(z){ return +z.split("x")[1]===hh; }).map(function(z){
     var w=+z.split("x")[0], h=+z.split("x")[1], isOn=!!val(pre+".z"+z), isD=z===defS;
     return '<div style="flex:'+w+' 1 0;min-width:0;'+(isOn?"":"opacity:.4")+'">'+
       '<div style="font-family:monospace;font-size:12px;color:#8891AA;margin-bottom:4px">'+z+(isD?' · defecto':'')+(isOn?'':' · apagado')+'</div>'+
-      '<div style="width:100%;aspect-ratio:'+w+' / '+h+';box-sizing:border-box;border-radius:8px;background:'+(isD?'#2A2412':'#161B2C')+';border:1px solid '+(isD?'#FFC24B':'#3A4262')+'"></div></div>';
+      '<div style="width:100%;aspect-ratio:'+w+' / '+h+';box-sizing:border-box;border-radius:8px;background:'+(isD?'#2A2412':'#161B2C')+(wdBg(W.id,z)?';background-image:url(\''+wdBg(W.id,z)+'\');background-size:cover;background-position:'+BG_CSS[val(pre+".bgpos."+z)||"centro"]:'')+';border:1px solid '+(isD?'#FFC24B':'#3A4262')+'"></div></div>';
   }).join("")+'</div>'; }).join("");
   return '<div style="display:grid;gap:12px;width:100%">'+pieces+'</div>';
 }
@@ -246,7 +295,7 @@ V.widgets=function(){
         return fld(pre+".z"+z, z+(z==="1x1"?" · una celda":z==="3x3"?" · tablero completo":""), true, {type:"tog", full:L+" · "+z, si:"Sí", no:"No"});
       }).join("");
     var defS=val(pre+".def")||W.def;
-    b='<div class="grid g2"><div style="display:flex;flex-direction:column;gap:14px;min-width:0">'+datos+card("Tamaños permitidos", filas, '<span class="tag">'+WSZ.length+' tamaños</span>')+'</div>'+card("Tamaños como piezas · "+L, tetris(W,defS))+'</div>';
+    b='<div class="grid g2"><div style="display:flex;flex-direction:column;gap:14px;min-width:0">'+datos+card("Tamaños permitidos", filas, '<span class="tag">'+WSZ.length+' tamaños</span>')+bgCard(W,L)+'</div>'+card("Tamaños como piezas · "+L, tetris(W,defS))+'</div>';
   }
   return hd("Widgets","Cada pestaña del juego como widget independiente, para cambiar cada uno por separado.", "")+
     t+'<div class="split">'+widgetList()+'<div>'+(tb==="Pantalla de inicio"? inicioView() : b)+'</div></div>';

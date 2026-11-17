@@ -12,7 +12,7 @@ var ST={sec:"jugadores", sel:{}, tab:{}, modo:"publicado", ver:"0.03.001", modal
 var DRAFT={}, BASE={}, LBL={};
 var H=[];
 function on(f){ H.push(f); return "H["+(H.length-1)+"](this.value,this,event)"; }
-var OK_BTN=["Copiar","Regenerar","Desactivar","Activar","Borrar","+ Código","Crear código","Copiar para Claude","Descargar","Quitar selección","← Volver a la lista","‹ Anterior","Siguiente ›","Cancelar","Borrar datos","Borrar todos sus datos","Confirmar"];
+var OK_BTN=["Copiar","Regenerar","Desactivar","Activar","Borrar","+ Código","Crear código","Copiar para Claude","Descargar","Quitar selección","← Volver a la lista","‹ Anterior","Siguiente ›","Cancelar","Quitar imagen","Borrar datos","Borrar todos sus datos","Confirmar"];
 var OK_CHIP=["Todos","Activos hoy","Versión antigua","Nuevo","Visto","Hecho","Fallo","Idea"];
 var OK_TAB=["Ficha","Códigos","Canjes","Situaciones","Ajustes"];
 function btn(l,f,c){ var no=OK_BTN.indexOf(l)<0; return '<button class="b '+(c||"")+(no?" off":"")+'"'+(no?" disabled":"")+' onclick="'+on(f)+'">'+l+'</button>'; }
