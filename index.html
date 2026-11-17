@@ -402,6 +402,9 @@ textarea{background:var(--raise);border:1px solid var(--hair);color:var(--ink);b
     rgba(5,6,11,.97);
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
 .overlay .inner{width:100%;max-width:520px;flex:1;min-height:0;display:flex;flex-direction:column}
+#ov-match{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#ov-match .inner{max-width:none}
+@media (min-width:1100px){#ov-match .inner{max-width:1000px}}
 .mhead{flex:none}
 .mbody{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
   scrollbar-width:none;position:relative;z-index:1;display:flex;flex-direction:column}
@@ -816,7 +819,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.002";
+var VERSION="0.03.003";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -6301,6 +6304,8 @@ function activaMantenerEnPartido(){
   if(OVP_OK) return;
   var ov=$("ov-match"); if(!ov) return;
   OVP_OK=true;
+  ov.addEventListener("contextmenu", function(e){ e.preventDefault(); });
+  ov.addEventListener("selectstart", function(e){ e.preventDefault(); });
   ov.addEventListener("pointerdown", function(e){
     if(e.target.closest && e.target.closest("button,.opt,.chip,.pnav,.chips,.gold-btn,.ghost,.autobar,.reloj")) return;
     if(PAUSA || !M) return;
