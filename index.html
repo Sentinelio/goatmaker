@@ -6630,14 +6630,14 @@ function volverTitulo(){
   $("menu").classList.add("hidden"); document.body.classList.remove("conmenu");
   $("scr-title").classList.remove("hidden"); window.scrollTo(0,0);
 }
-var SUB={jugador:"ficha", equipo:"tabla", mercado:"hilos", cuentas:"dinero", ajustes:"partida"};
-function resetSub(){ SUB={jugador:"ficha", equipo:"tabla", mercado:"hilos", cuentas:"dinero", ajustes:"partida"}; }
+var SUB={jugador:"ficha", equipo:"tabla", mercado:"hilos", cuentas:"dinero", ajustes:"info"};
+function resetSub(){ SUB={jugador:"ficha", equipo:"tabla", mercado:"hilos", cuentas:"dinero", ajustes:"info"}; }
 var SUBS={
   jugador:[["ficha","Ficha"],["fisico","Físico"],["animo","Ánimo"],["caracter","Carácter"],["fama","Fama"],["stats","Números"],["partidos","Partidos"],["hist","Carrera"]],
   equipo:[["tabla","Clasificación"],["plantilla","Vestuario"],["mister","El míster"],["entreno","Entreno"],["jornada","Resultados"]],
   cuentas:[["dinero","Dinero"],["tienda","Tienda"]],
   mercado:[["hilos","Mover los hilos"],["agente","Agente"],["patros","Patrocinios"],["rumores","Rumores"],["fichajes","Fichajes"],["prensa","Prensa"]],
-  ajustes:[["partida","Partida"],["contenido","Contenido"],["codigo","Código"],["reportar","Reportar"],["info","Información"]]
+  ajustes:[["info","Información"],["codigo","Código"],["reportar","Reportar"]]
 };
 function irSub(sec,k){ SUB[sec]=k; irSec(sec); }
 function subTabs(sec){
