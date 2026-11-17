@@ -80,11 +80,11 @@ function partidoBody(z){
   var pair=function(n,w,px){ return '<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+escudo(n,w)+nom(n,px)+'</div>'; };
   var conNombres=function(w,px,vpx,gap){ return '<div style="display:flex;align-items:flex-start;gap:'+gap+'px">'+pair(P.casa,w,px)+vs(w,vpx)+pair(P.fuera,w,px)+'</div>'; };
   var pill=function(){ return ''; };
-  var circ=function(d){ d=d||24; return '<div style="width:'+d+'px;height:'+d+'px;border-radius:50%;background:linear-gradient(180deg,#FFD27A,#E9A93A);display:flex;align-items:center;justify-content:center;font-size:'+Math.round(d*.55)+'px;flex:none">⚽</div>'; };
+  var circ=function(){ return ''; };
   var abajo=function(body,btn){ return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:space-between;height:100%;width:100%;box-sizing:border-box;padding:6px 0">'+'<div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;width:100%">'+body+'</div>'+btn+'</div>'; };
   var alLado=function(body,btn){ return '<div style="display:flex;align-items:center;justify-content:center;gap:10px;height:100%;width:100%;box-sizing:border-box">'+body+btn+'</div>'; };
   var cabecera=function(label,body,btn){ return '<div style="display:flex;flex-direction:column;align-items:center;height:100%;width:100%;box-sizing:border-box;padding:6px 0">'+label+'<div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center">'+body+'</div>'+btn+'</div>'; };
-  if(z==="1x1") return abajo(box(vsc(9)+pair(P.fuera,28,9),'column',2),'');
+  if(z==="1x1") return abajo(box(vsc(9)+pair(P.fuera,24,9),'column',2),'');
   if(z==="2x1") return alLado(conNombres(34,9,11,6),circ());
   if(z==="3x1") return alLado(conNombres(42,12,14,12),circ());
   if(z==="1x2") return abajo(box(pair(P.casa,26,9)+vsc(9)+pair(P.fuera,26,9),'column',3),circ(20));
