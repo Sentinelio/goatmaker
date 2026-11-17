@@ -1455,7 +1455,7 @@ var CAT=[
 var PB_URL="https://server-pc.tail3b4002.ts.net:8447";
 CUR_VER="0.03.001";
 var CUR_VER_DATE="2026-11-17T15:13:34+01:00";   /* fecha en que la versión del juego quedó integrada en el admin (se ve al pasar el ratón) */
-var ADMIN_VER="0.03.015", ADMIN_VER_DATE="2026-11-17T16:50:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.016", ADMIN_VER_DATE="2026-11-17T21:00:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
   var g=$("gver"), e=$("ever");
@@ -1479,7 +1479,10 @@ async function pbApi(path,opt){
   opt=opt||{}; opt.headers=Object.assign({Authorization:PB.tok},opt.headers||{});
   var r=await fetch(PB_URL+path,opt);
   if(r.status===401){ pbOut(); throw new Error("sesión caducada"); }
-  if(!r.ok){ var t=""; try{t=(await r.json()).message}catch(e){} throw new Error(r.status+" "+t); }
+  if(!r.ok){ var t=""; try{t=(await r.json()).message}catch(e){}
+    /* sin sesión de superusuario válida el servidor responde 403: se vuelve a pedir el login en vez de fallar en silencio */
+    if(r.status===403 && /superuser/i.test(t||"")){ pbOut(); throw new Error("Vuelve a entrar como superusuario"); }
+    throw new Error(r.status+" "+t); }
   return r.status===204?null:r.json();
 }
 var PB_JSON={"Content-Type":"application/json"};
