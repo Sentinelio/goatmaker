@@ -504,7 +504,7 @@ V.interruptores=function(){
   card("",FLAGS.map(function(f){ var ab=ST.sel.flag===f[0]; return '<div class="f"><label>'+f[1]+'<small>'+f[2]+'</small></label><div><div class="row">'+sw(f[3],function(){f[3]=!f[3];go();toast(f[1]+": "+(f[3]?"encendido":"apagado"))})+'<span class="small mut">'+(f[3]?"Encendido":"Apagado")+' para todos'+(f[0]==="pistas"?' · <b style="color:var(--tx)">1 excepción</b>':'')+'</span><span class="small mut">· '+f[4]+'</span></div>'+(ab?'<div class="opt"><div class="row"><select style="width:auto"><option>Grupo: Testers</option><option>Grupo: Amigos</option><option>Un jugador…</option></select><select style="width:auto"><option>Encendido</option><option>Apagado</option></select>'+btn("Añadir excepción",T("Excepción añadida"),"sm")+'</div>'+(f[0]==="pistas"?'<div class="diff" style="margin-top:8px"><span class="p">Grupo <b>Testers</b>: siempre encendido</span>'+btn("Quitar",T("Excepción quitada"),"sm")+'</div>':'')+'</div>':'')+'</div><div class="fab"><a onclick="'+on(function(){ST.sel.flag=ab?null:f[0];go()})+'">'+(ab?"cerrar":"excepciones")+'</a></div></div>'; }).join(""));
 };
 function nextIter(v){ var p=String(v).split("."); return p.length===3? p[0]+"."+p[1]+"."+String(+p[2]+1).padStart(3,"0") : v; }
-function publicarLocal(){ var n=$("nota"); if(!n || !n.value.trim()){ toast("Escribe la nota de la versión"); return; } ST.ver=nextIter(ST.ver); VERS.unshift([ST.ver,"ahora",n.value,nCam()]); Object.keys(DRAFT).forEach(function(p){ BASE[p]=DRAFT[p]; }); DRAFT={}; go(); toast("Publicada la versión "+ST.ver); }
+function publicarLocal(){ var n=$("nota"); if(!n || !n.value.trim()){ toast("Escribe la nota de la versión"); return; } ST.ver=nextIter(ST.ver); CUR_VER=ST.ver; CUR_VER_DATE=new Date().toISOString(); pintaVers(); VERS.unshift([ST.ver,"ahora",n.value,nCam()]); Object.keys(DRAFT).forEach(function(p){ BASE[p]=DRAFT[p]; }); DRAFT={}; go(); toast("Publicada la versión "+ST.ver); }
 /* los ajustes de partido llegan al juego: se publica una versión nueva de tl_content partiendo de la última
    publicada (así no se pierde lo que ya haya publicado el admin antiguo) y solo cambia el bloque «partido» */
 /* el borrador de situaciones, en el mismo formato que el bloque «sits» del juego */
@@ -1451,12 +1451,12 @@ var CAT=[
 var PB_URL="https://server-pc.tail3b4002.ts.net:8447";
 CUR_VER="0.03.001";
 var CUR_VER_DATE="2026-11-17T15:13:34+01:00";   /* fecha en que la versión del juego quedó integrada en el admin (se ve al pasar el ratón) */
-var ADMIN_VER="0.03.001", ADMIN_VER_DATE="2026-11-17T15:13:34+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.002", ADMIN_VER_DATE="2026-11-17T15:23:40+01:00";   /* versión del editor: súbela al cambiar el admin */
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
   var g=$("gver"), e=$("ever");
-  if(g){ g.textContent="Juego v"+CUR_VER; g.title="Versión del juego integrada el "+fechaES(CUR_VER_DATE); }
-  if(e){ e.textContent="Editor v"+ADMIN_VER; e.title="Versión del editor, cambiada el "+fechaES(ADMIN_VER_DATE); }
+  if(g){ g.textContent="🎮 Juego v"+CUR_VER; g.title="Versión del juego integrada el "+fechaES(CUR_VER_DATE); }
+  if(e){ e.textContent="🛠 Editor v"+ADMIN_VER; e.title="Versión del editor, cambiada el "+fechaES(ADMIN_VER_DATE); }
 }   /* versión actual del juego: el filtro «Versión antigua» compara con esto */
 var OK_NAV=["jugadores","grupos","codigos","reportes","situaciones","widgets"];
 var PB={tok:"",byInst:{},raw:{pl:[],cod:[],can:[],rep:[]}};
@@ -1529,7 +1529,13 @@ async function pbEntra(){
     $("l-pass").value=""; pbMuestra(); await pbCarga();
   }catch(e){ $("l-err").textContent=(e instanceof TypeError)? "No llega a server-pc: revisa que Tailscale esté conectado en este dispositivo y que PocketBase esté encendido en el servidor." : "No se pudo entrar: "+e.message; }
 }
-function pbMuestra(){ $("login").classList.add("hide"); $("app").classList.remove("hide"); }
+function pbMuestra(){ $("login").classList.add("hide"); $("app").classList.remove("hide"); pbUltimaVersion(); }
+function pbUltimaVersion(){
+  pbApi("/api/collections/tl_content/records?perPage=1&sort=-n&filter="+encodeURIComponent("(kind='ver')")).then(function(r){
+    var l=r.items&&r.items[0];
+    if(l&&l.ver_juego){ CUR_VER=l.ver_juego; ST.ver=l.ver_juego; CUR_VER_DATE=new Date(l.t||Date.now()).toISOString(); pintaVers(); go(); }
+  }).catch(function(){});
+}
 function pbOut(){ try{sessionStorage.removeItem("gm-adm")}catch(e){} PB.tok=""; $("app").classList.add("hide"); $("login").classList.remove("hide"); }
 
 /* barra lateral: solo lo integrado tiene enlace; el resto va atenuado */
