@@ -325,14 +325,14 @@ function bgPreview(W,z,ov){
 }
 /* ajuste en vivo mientras se arrastra el slider: se pinta al momento y se guarda al soltar */
 function bgVivo(id,z,que,v){
-  var pv=document.querySelector(".wdprev"); if(!pv) return;
-  if(que==="zoom"){
-    var f=frOf(id,z), k=v/100, im=pv.querySelector("img");
-    if(im) im.style.transform="translate("+(f.u*(k-1)/2)+"%,"+(f.v*(k-1)/2)+"%) scale("+k+")";
-  } else {
-    var ov=pv.querySelector(":scope > div:last-child");
-    if(ov) ov.style.background="rgba(8,10,20,"+(v/100)+")";
-  }
+  var f=frOf(id,z), k=v/100;
+  var tf="translate("+(f.u*(k-1)/2)+"%,"+(f.v*(k-1)/2)+"%) scale("+k+")";
+  var targets=[document.querySelector(".wdprev"), document.querySelector('.wdpz[data-k="'+id+'|'+z+'"]')];
+  targets.forEach(function(box){
+    if(!box) return;
+    if(que==="zoom"){ var im=box.querySelector("img"); if(im) im.style.transform=tf; }
+    else { var ov=box.querySelector(":scope > div:last-child, .wdpov"); if(ov) ov.style.background="rgba(8,10,20,"+(v/100)+")"; }
+  });
 }
 /* controles del fondo del tamaño elegido: van en su tarjeta fija, dentro de Tamaños permitidos */
 function bgControles(W,z){
@@ -360,7 +360,7 @@ function tetris(W,defS,selZ){
     var w=+z.split("x")[0], h=+z.split("x")[1], isOn=!!val(pre+".z"+z), isD=z===defS, elegido=isOn && selZ===z, key=W.id+"|"+z;
     return '<div style="flex:'+w+' 1 0;min-width:0;'+(isOn?"":"opacity:.4")+'">'+
       '<div style="font-family:monospace;font-size:12px;color:'+(elegido?'#E8EAF2':'#8891AA')+';margin-bottom:4px">'+z+(isOn?'':' · apagado')+'</div>'+
-      '<div class="wdpz" '+(isOn?'onclick="'+on(function(){ ST.sel.bgp = key; go(); })+'" title="Editar el fondo de '+z+'" ':'')+'style="position:relative;overflow:hidden;width:100%;aspect-ratio:'+w+' / '+h+';box-sizing:border-box;border-radius:8px;cursor:'+(isOn?'pointer':'default')+';background:'+(isD?'#2A2412':'#161B2C')+''+';border:'+(elegido?'2px solid #60A5FA':'1px solid '+(isD?'#FFC24B':'#3A4262'))+'">'+(wdBg(W.id,z)?'<img src="'+wdBg(W.id,z)+'" alt="" style="'+frStyle(frOf(W.id,z))+'">':'')+'</div></div>';
+      '<div class="wdpz" data-k="'+key+'" '+(isOn?'onclick="'+on(function(){ ST.sel.bgp = key; go(); })+'" title="Editar el fondo de '+z+'" ':'')+'style="position:relative;overflow:hidden;width:100%;aspect-ratio:'+w+' / '+h+';box-sizing:border-box;border-radius:8px;cursor:'+(isOn?'pointer':'default')+';background:'+(isD?'#2A2412':'#161B2C')+''+';border:'+(elegido?'2px solid #60A5FA':'1px solid '+(isD?'#FFC24B':'#3A4262'))+'">'+(wdBg(W.id,z)?'<img src="'+wdBg(W.id,z)+'" alt="" style="'+frStyle(frOf(W.id,z))+'"><div class="wdpov" style="position:absolute;inset:0;pointer-events:none;background:rgba(8,10,20,'+((Number(val(pre+".bgov."+z))||0)/100)+')"></div>':'')+'</div></div>';
   }).join("")+'</div>'; }).join("");
   return '<div style="display:grid;gap:12px;width:100%">'+pieces+'</div>';
 }
