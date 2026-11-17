@@ -82,11 +82,11 @@ function partidoBody(z){
   if(z==="1x1") return fill(escudo(P.casa,56),'center');
   if(z==="2x1") return row(escudo(P.casa,50)+'<div style="display:flex;flex-direction:column;align-items:center">'+vsb(14)+'</div>'+escudo(P.fuera,50),10);
   if(z==="3x1") return row(escudo(P.casa,56)+'<div style="min-width:0;display:flex;flex-direction:column;align-items:center;flex:1">'+txt(P.casa,14,null,'font-weight:600')+vsb(16)+txt(P.fuera,14,null,'font-weight:600')+'</div>'+escudo(P.fuera,56),8);
-  if(z==="1x2") return fill(txt(P.casa,11,null,'font-weight:600')+escudo(P.casa,46)+vsb(14)+escudo(P.fuera,46)+txt(P.fuera,11,null,'font-weight:600'));
-  if(z==="2x2") return fill(jor(10)+'<div style="display:flex;align-items:center;justify-content:center;gap:10px">'+escudo(P.casa,46)+vsb(16)+escudo(P.fuera,46)+'</div>'+conv(12));
+  if(z==="1x2") return fill(escudo(P.casa,46)+vsb(14)+escudo(P.fuera,46));
+  if(z==="2x2") return fill('<div style="display:flex;align-items:center;justify-content:center;gap:10px">'+escudo(P.casa,46)+vsb(16)+escudo(P.fuera,46)+'</div>'+conv(12));
   if(z==="3x2") return fill(jor(10)+'<div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:100%"><div style="display:flex;align-items:center;justify-content:center;gap:14px">'+escudo(P.casa,64)+vsb(20)+escudo(P.fuera,64)+'</div><div style="display:flex;justify-content:space-around;width:100%">'+txt(P.casa,13,null,'font-weight:600')+txt(P.fuera,13,null,'font-weight:600')+'</div></div>'+frase(12));
-  if(z==="1x3") return fill('<div style="font-size:22px;line-height:1">🏆</div>'+txt(P.liga,14,null,'font-weight:700')+escudo(P.casa,42)+vsb(13)+escudo(P.fuera,42)+jor(9));
-  if(z==="2x3") return fill(jor(10)+'<div style="display:flex;flex-direction:column;align-items:center;gap:8px">'+escudo(P.casa,52)+vsb(18)+escudo(P.fuera,52)+'</div>'+conv(12));
+  if(z==="1x3") return fill('<div style="font-size:22px;line-height:1">🏆</div>'+txt(P.liga,14,null,'font-weight:700')+escudo(P.casa,42)+vsb(13)+escudo(P.fuera,42));
+  if(z==="2x3") return fill('<div style="display:flex;flex-direction:column;align-items:center;gap:8px">'+escudo(P.casa,52)+vsb(18)+escudo(P.fuera,52)+'</div>'+conv(12));
   return fill(jor(11)+'<div style="display:flex;align-items:center;justify-content:center;gap:14px;width:100%">'+'<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+escudo(P.casa,70)+txt(P.casa,14,null,'font-weight:700')+'</div>'+vsb(22)+'<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+escudo(P.fuera,70)+txt(P.fuera,14,null,'font-weight:700')+'</div></div>'+frase(13));
 }
 function sampleBody(W,z){
