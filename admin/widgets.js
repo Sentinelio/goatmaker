@@ -69,24 +69,26 @@ function bgLayer(id,z){
 var PARTIDO_MUESTRA={jor:"Jornada 26 de 38 · Local", liga:"LaLiga", casa:"Espanyol", fuera:"Zaragoza", rol:"titular", convTxt:"Titular", convDet:"Empiezas en el once", frase:"El partido más esperado de la jornada.", btn:"⚽ Saltar al campo", btnCorto:"⚽ Jugar"};
 var PARTIDO_ROL={titular:"#4ADE80", suplente:"#FFC24B", fuera:"#F87171", lesion:"#F87171", sancion:"#F87171"};
 function partidoBody(z){
-  var P=PARTIDO_MUESTRA, col=PARTIDO_ROL[P.rol]||"#FFC24B";
-  var sig=function(n){ return n.slice(0,3).toUpperCase(); };
-  var escudo=function(n,w){ return '<div style="width:'+w+'px;height:'+Math.round(w*1.15)+'px;clip-path:polygon(0 0,100% 0,100% 60%,50% 100%,0 60%);background:linear-gradient(160deg,#3A4262,#1C2236);color:#E8EAF2;font-weight:700;font-size:'+Math.max(9,Math.round(w*.34))+'px;display:flex;align-items:center;justify-content:center;flex:none">'+esc(sig(n))+'</div>'; };
-  var txt=function(t,px,c,extra){ return '<div style="font-size:'+px+'px;color:'+(c||'#E8EAF2')+';line-height:1.2;text-align:center;'+(extra||'')+'">'+esc(t)+'</div>'; };
-  var vsb=function(px){ return '<b style="font-size:'+px+'px;color:#8891AA;line-height:1">VS</b>'; };
-  var jor=function(px){ return txt(P.jor,px||10,'#8891AA','letter-spacing:.06em;text-transform:uppercase;'); };
-  var conv=function(px){ return '<div style="border-left:3px solid '+col+';padding:4px 8px;font-size:'+(px||12)+'px;line-height:1.3;text-align:left"><b style="color:'+col+'">'+esc(P.convTxt)+'</b><div style="color:#8891AA">'+esc(P.convDet)+'</div></div>'; };
-  var fill=function(body,just){ return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:'+(just||'space-between')+';height:100%;width:100%;box-sizing:border-box">'+body+'</div>'; };
-  var row=function(body,gap){ return '<div style="display:flex;align-items:center;justify-content:space-between;gap:'+(gap||8)+'px;height:100%;width:100%">'+body+'</div>'; };
-  if(z==="1x1") return fill(escudo(P.casa,56),'center');
-  if(z==="2x1") return row(escudo(P.casa,50)+'<div style="display:flex;flex-direction:column;align-items:center">'+vsb(14)+'</div>'+escudo(P.fuera,50),10);
-  if(z==="3x1") return row(escudo(P.casa,56)+vsb(16)+escudo(P.fuera,56),8);
-  if(z==="1x2") return fill(escudo(P.casa,46)+vsb(14)+escudo(P.fuera,46));
-  if(z==="2x2") return fill('<div style="display:flex;align-items:center;justify-content:center;gap:8px">'+escudo(P.casa,50)+vsb(16)+escudo(P.fuera,50)+'</div>','center');
-  if(z==="3x2") return fill(jor(10)+'<div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:100%"><div style="display:flex;align-items:center;justify-content:center;gap:14px">'+escudo(P.casa,64)+vsb(20)+escudo(P.fuera,64)+'</div><div style="display:flex;justify-content:space-around;width:100%">'+txt(P.casa,13,null,'font-weight:600')+txt(P.fuera,13,null,'font-weight:600')+'</div></div>');
-  if(z==="1x3") return fill('<div style="font-size:22px;line-height:1">🏆</div>'+txt(P.liga,14,null,'font-weight:700')+escudo(P.casa,42)+vsb(13)+escudo(P.fuera,42));
-  if(z==="2x3") return fill('<div style="display:flex;flex-direction:column;align-items:center;gap:8px">'+escudo(P.casa,64)+vsb(20)+escudo(P.fuera,64)+'</div>','center');
-  return fill(jor(11)+'<div style="display:flex;align-items:center;justify-content:center;gap:14px;width:100%">'+'<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+escudo(P.casa,70)+txt(P.casa,14,null,'font-weight:700')+'</div>'+vsb(22)+'<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+escudo(P.fuera,70)+txt(P.fuera,14,null,'font-weight:700')+'</div></div>');
+  var P=PARTIDO_MUESTRA;
+  var h=function(w){ return Math.round(w*1.15); };
+  var escudo=function(n,w){ return '<div style="width:'+w+'px;height:'+h(w)+'px;clip-path:polygon(0 0,100% 0,100% 60%,50% 100%,0 60%);background:linear-gradient(160deg,#3A4262,#1C2236);color:#E8EAF2;font-weight:700;font-size:'+Math.max(9,Math.round(w*.34))+'px;display:flex;align-items:center;justify-content:center;flex:none">'+esc(n.slice(0,3).toUpperCase())+'</div>'; };
+  var vs=function(w,px){ return '<div style="height:'+h(w)+'px;display:flex;align-items:center;flex:none"><b style="font-size:'+px+'px;color:#8891AA;line-height:1">VS</b></div>'; };
+  var vsc=function(px){ return '<b style="font-size:'+px+'px;color:#8891AA;line-height:1">VS</b>'; };
+  var nom=function(n,px){ return '<div style="font-size:'+px+'px;font-weight:700;color:#E8EAF2;line-height:1.2;text-align:center;white-space:nowrap">'+esc(n)+'</div>'; };
+  var jor=function(px){ return '<div style="font-size:'+px+'px;color:#8891AA;letter-spacing:.06em;text-transform:uppercase;text-align:center;line-height:1.2">'+esc(P.jor)+'</div>'; };
+  var box=function(body,dir,gap){ return '<div style="display:flex;flex-direction:'+dir+';align-items:center;justify-content:center;gap:'+gap+'px;width:100%;height:100%;box-sizing:border-box">'+body+'</div>'; };
+  var pair=function(n,w,px){ return '<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+escudo(n,w)+nom(n,px)+'</div>'; };
+  var conNombres=function(w,px,vpx,gap){ return '<div style="flex:1;display:flex;align-items:center;justify-content:center;min-height:0"><div style="display:flex;align-items:flex-start;gap:'+gap+'px">'+pair(P.casa,w,px)+vs(w,vpx)+pair(P.fuera,w,px)+'</div></div>'; };
+  var cuerpo=function(label,body){ return '<div style="display:flex;flex-direction:column;height:100%;width:100%;box-sizing:border-box">'+label+body+'</div>'; };
+  if(z==="1x1") return box(escudo(P.casa,56),'column',0);
+  if(z==="2x1") return box(escudo(P.casa,50)+vs(50,14)+escudo(P.fuera,50),'row',10);
+  if(z==="3x1") return box(escudo(P.casa,56)+vs(56,16)+escudo(P.fuera,56),'row',18);
+  if(z==="1x2") return box(escudo(P.casa,40)+vsc(12)+escudo(P.fuera,40),'column',4);
+  if(z==="2x2") return box(escudo(P.casa,50)+vs(50,16)+escudo(P.fuera,50),'row',8);
+  if(z==="1x3") return box('<div style="font-size:22px;line-height:1">🏆</div>'+nom(P.liga,14)+escudo(P.casa,42)+vsc(13)+escudo(P.fuera,42),'column',8);
+  if(z==="2x3") return box(escudo(P.casa,60)+vsc(18)+escudo(P.fuera,60),'column',6);
+  if(z==="3x2") return cuerpo(jor(10),conNombres(60,13,20,14));
+  return cuerpo(jor(11),conNombres(70,14,22,16));
 }
 function sampleBody(W,z){
   var bg=bgLayer(W.id,z), inner= W.id==="W01"? partidoBody(z) : sampleBodyBase(W,z);
