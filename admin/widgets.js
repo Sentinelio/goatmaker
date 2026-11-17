@@ -1,7 +1,5 @@
-/* pestañas de Widgets integradas (la clave "wd" no comparte lista con el resto de páginas) */
 var OK_TAB_WD=["Tamaños","Pantalla de inicio"];
 OK_BTN.push("Guardar widgets");
-/* WIDGETS: cada pestaña del juego como widget independiente. Se expone aquí para poder cambiarla por separado. */
 var WSZ=["1x1","2x1","3x1","1x2","2x2","3x2","1x3","2x3","3x3"];
 var WID=[
  {id:"W01", pg:"Inicio",  tab:"partido",  n:"Partido de hoy",   def:"3x3", txt:"Jornada, escudos, estado de banquillo o titular y botón Continuar."},
@@ -27,7 +25,6 @@ var WID=[
  {id:"W21", pg:"Cuentas", tab:"tienda",   n:"Tienda",           def:"2x1", txt:"Artículos destacados."}
 ];
 function wById(id){ return WID.filter(function(w){return w.id===id})[0]; }
-/* galería: contenido de muestra por widget y cada tamaño a escala real (celdas de 76 px, hueco de 10 px) */
 var MUESTRA={
  W01:{l:"Hoy · 20:45",v:"Espanyol – Zaragoza",s:"En el banquillo",r:[["J26","4-4"],["J25","1-0"]]},
  W02:{l:"Ficha",v:"J. de ejemplo",s:"Lateral · 68",f:0.68},
@@ -51,11 +48,9 @@ var MUESTRA={
  W20:{l:"Dinero",v:"12.400 €",r:[["Fichaje","-500 €"],["Patrocinio","+1.200 €"]]},
  W21:{l:"Tienda",v:"3 destacados",s:"artículos"}
 };
-/* fondos por tamaño: capa de imagen detrás del contenido, con encuadre y velo */
 var BG_POS=["centro","arriba","abajo","izquierda","derecha"];
 var BG_CSS={"centro":"center","arriba":"center top","abajo":"center bottom","izquierda":"left center","derecha":"right center"};
 function wdBg(id,z){ return val("wd."+id+".bg."+z) || null; }
-/* encuadre libre: zoom (100-400 %) y paneo (-100..100) de la imagen de cada tamaño */
 function frOf(id,z){
   var s=val("wd."+id+".bgz."+z), x=val("wd."+id+".bgx."+z), y=val("wd."+id+".bgy."+z);
   return { s:(s==null? 100 : Number(s)), u:(x==null? 0 : Number(x)), v:(y==null? 0 : Number(y)) };
@@ -71,13 +66,10 @@ function bgLayer(id,z){
     '<img src="'+img+'" alt="" style="'+frStyle(frOf(id,z))+'">'+
     '<div style="position:absolute;inset:0;background:rgba(8,10,20,'+ov+')"></div></div>';
 }
-/* «Partido de hoy» tal como lo ve el jugador en el juego (tarjeta siguiente partido), con lo que cabe en cada tamaño.
-   Datos de muestra; en el juego salen de la jornada, el rival y la convocatoria reales. */
 var PARTIDO_MUESTRA={jor:"Jornada 26 de 38 · Local", liga:"LaLiga", casa:"Espanyol", fuera:"Zaragoza", rol:"titular", convTxt:"Titular", convDet:"Empiezas en el once", frase:"El partido más esperado de la jornada.", btn:"⚽ Saltar al campo", btnCorto:"⚽ Jugar"};
 var PARTIDO_ROL={titular:"#4ADE80", suplente:"#FFC24B", fuera:"#F87171", lesion:"#F87171", sancion:"#F87171"};
 function partidoBody(z){
   var P=PARTIDO_MUESTRA, col=PARTIDO_ROL[P.rol]||"#FFC24B";
-  /* escudo provisional: forma neutra con las siglas (no se dibujan escudos reales). Tamaño en px según la pieza. */
   var sig=function(n){ return n.slice(0,3).toUpperCase(); };
   var escudo=function(n,w){ return '<div style="width:'+w+'px;height:'+Math.round(w*1.15)+'px;clip-path:polygon(0 0,100% 0,100% 60%,50% 100%,0 60%);background:linear-gradient(160deg,#3A4262,#1C2236);color:#E8EAF2;font-weight:700;font-size:'+Math.max(9,Math.round(w*.34))+'px;display:flex;align-items:center;justify-content:center;flex:none">'+esc(sig(n))+'</div>'; };
   var txt=function(t,px,c,extra){ return '<div style="font-size:'+px+'px;color:'+(c||'#E8EAF2')+';line-height:1.2;text-align:center;'+(extra||'')+'">'+esc(t)+'</div>'; };
@@ -118,7 +110,6 @@ function sampleBodyBase(W,z){
   if(z==="2x3") return lbl+'<div style="margin-top:6px">'+big(m.v||"—",22)+small(m.s)+'</div>'+(m.f!=null?'<div style="margin-top:10px">'+bar(m.f)+'</div>':'')+'<div style="margin-top:auto">'+rows(3)+'</div>';
   return lbl+'<div style="margin-top:6px">'+big(m.v||"—",24)+small(m.s)+'</div>'+(m.f!=null? '<div style="margin-top:10px">'+bar(m.f)+'</div>' : '')+'<div style="margin-top:8px">'+rows(4)+'</div>';
 }
-/* pantalla de inicio: móvil con rejilla de 3 columnas x 4 filas que ocupa toda la pantalla (sin scroll) */
 var PH_C=3, PH_R=4;
 function inicioLayout(){
   var out={}, occ={};
@@ -129,7 +120,6 @@ function inicioLayout(){
   ws.forEach(function(W){ var s=sz(W), c=val("wd."+W.id+".c"), r=val("wd."+W.id+".r"); if(c && r && fits(c,r,s.w,s.h)){ mark(c,r,s.w,s.h); out[W.id]={c:c,r:r,w:s.w,h:s.h}; } });
   return out;
 }
-/* ¿cabe el widget en (c,r) con el tamaño z, sin tapar a los demás? */
 function inicioFits(id,c,r,z){
   var w=+z.split("x")[0], h=+z.split("x")[1];
   if(c<1 || r<1 || c+w-1>PH_C || r+h-1>PH_R) return false;
@@ -227,7 +217,6 @@ function inicioView(){
     '<div style="position:absolute;bottom:10px;left:10px;right:10px;height:60px;border-radius:20px;background:#161B2C;border:1px solid #232A40;display:flex;justify-content:space-around;align-items:center;box-sizing:border-box">'+["Inicio","Equipo","Jugador","Mercado","Cuentas"].map(function(n,i){ return '<span style="font-size:10px;color:'+(i===0?"#FFC24B":"#8891AA")+'">'+n+'</span>'; }).join("")+'</div>'+'<div id="wdtrash" ondragover="event.preventDefault()" ondrop="event.preventDefault();'+dropTrash+'" style="display:none;position:absolute;bottom:14px;left:50%;transform:translateX(-50%);width:56px;height:56px;border-radius:50%;background:#3A1A22;border:1px solid #FF5470;align-items:center;justify-content:center;font-size:24px;z-index:5">🗑</div>'+'</div></div>'+'</div>';
   return phone;
 }
-/* vista previa del reescalado: mientras se arrastra la esquina, el widget cambia de tamaño en el móvil */
 function inicioBest(rid,pr,tw,th){
   var best=null;
   WSZ.forEach(function(z){
@@ -248,7 +237,6 @@ function inicioPreview(){
 }
 function inicioBorrable(id){ return !!val("wd."+id+".borrar"); }
 function widgetList(){
-  /* los valores del inicio se registran aquí, no solo al abrir Datos o Tamaños, para que el móvil funcione desde el primer momento */
   WID.forEach(function(W){
     reg("wd."+W.id+".on",false,W.id+" · aparece en el inicio");
     reg("wd."+W.id+".borrar",true,W.id+" · se puede quitar del inicio");
@@ -276,8 +264,6 @@ function widgetList(){
   var dropList=on(function(){ var id=window._WD; if(id && !inicioBorrable(id)){ toast("Este widget no se puede quitar del inicio"); return; } if(id){ set("wd."+id+".on",false); if(ST.sel.wdp===id) ST.sel.wdp=null; } });
   return '<div class="card list" ondragover="event.preventDefault()" ondrop="event.preventDefault();'+dropList+'" style="padding:0;overflow:hidden">'+rows+'</div>';
 }
-/* piezas de tetris con los tamaños del widget */
-/* carga: la imagen se reduce en el navegador (máx. 640 px, JPEG) para que quepa en el borrador */
 function bgSubir(id,z,f){
   if(!/^image\//.test(f.type)){ toast("Elige un archivo de imagen"); return; }
   var url=URL.createObjectURL(f), im=new Image();
@@ -297,7 +283,6 @@ function bgSubir(id,z,f){
 function bgCargar(id,z,el){
   var f=el.files&&el.files[0]; el.value=""; if(f) bgSubir(id,z,f);
 }
-/* pegar (Ctrl+V): con un tamaño elegido en Tamaños como piezas, la imagen del portapapeles va a ese fondo */
 document.addEventListener("paste", function(ev){
   var sel=ST.sel.bgp||""; if(!sel || !document.querySelector(".wdpz")) return;
   var t=ev.target; if(t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
@@ -311,7 +296,6 @@ document.addEventListener("paste", function(ev){
     }
   }
 });
-/* arrastrar para mover la imagen; se guarda al soltar. La rueda amplía o reduce */
 function bgDragIni(f){
   return on(function(x,el,ev){
     el.setPointerCapture(ev.pointerId);
@@ -339,7 +323,6 @@ function bgRueda(W,z,f){
     set("wd."+W.id+".bgz."+z, Math.max(100,Math.min(400, f.s+(ev.deltaY<0?10:-10))));
   });
 }
-/* vista previa del tamaño elegido: aquí se encuadra la imagen */
 function bgPreview(W,z,ov){
   var img=wdBg(W.id,z), c=z.split("x"), f=frOf(W.id,z);
   var forma='width:100%;height:170px;box-sizing:border-box;border-radius:8px;';
@@ -350,7 +333,6 @@ function bgPreview(W,z,ov){
     '<img src="'+img+'" alt="" style="'+frStyle(f)+'">'+
     '<div style="position:absolute;inset:0;background:rgba(8,10,20,'+ov+');pointer-events:none"></div></div>';
 }
-/* ajuste en vivo mientras se arrastra el slider: se pinta al momento y se guarda al soltar */
 function bgVivo(id,z,que,v){
   var f=frOf(id,z), k=v/100;
   var tf="translate("+(f.u*(k-1)/2)+"%,"+(f.v*(k-1)/2)+"%) scale("+k+")";
@@ -361,7 +343,6 @@ function bgVivo(id,z,que,v){
     else { var ov=box.querySelector(":scope > div:last-child, .wdpov"); if(ov) ov.style.background="rgba(8,10,20,"+(v/100)+")"; }
   });
 }
-/* controles del fondo del tamaño elegido: van en su tarjeta fija, dentro de Tamaños permitidos */
 function bgControles(W,z){
   var pre="wd."+W.id, k=pre+".bg."+z, img=wdBg(W.id,z), ov=val(pre+".bgov."+z), f=frOf(W.id,z);
   var rot='font-size:12px;color:#8891AA;width:44px;flex:none';
@@ -404,13 +385,11 @@ V.widgets=function(){
       fld(pre+".borrar","Se puede quitar del inicio",true,{type:"tog",full:L+" · se puede quitar del inicio",si:"Sí",no:"No",d:"Si está en No, no se puede borrar arrastrándolo a la papelera. Sí se puede cambiar su tamaño y moverlo."})+
       fld(pre+".txt","Qué muestra en tamaño pequeño",W.txt,{type:"area",rows:3,full:L+" · contenido",d:"Cada widget muestra la misma pestaña que en el juego, en la versión que cabe en su tamaño."}));
   if(tb==="Tamaños"){
-    /* cada tamaño: nombre a la izquierda y su interruptor a la misma altura, también con la columna estrecha */
     var filas='<div class="tamf"><style>.tamf .f{display:flex;align-items:center;justify-content:space-between;gap:12px}.tamf .f>label{flex:1 1 auto;min-width:0}.tamf .f>div{margin:0;flex:none;width:auto}.tamf .f .row{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:8px}.tamf .f .fab{flex:none}</style>'+WSZ.map(function(z){
         return fld(pre+".z"+z, z+(z==="1x1"?" · una celda":z==="3x3"?" · tablero completo":""), true, {type:"tog", full:L+" · "+z, si:"Sí", no:"No"});
       }).join("")+'</div>';
     var defS=val(pre+".def")||W.def;
     var selZ=(ST.sel.bgp||"").indexOf(W.id+"|")===0? ST.sel.bgp.split("|")[1] : null;
-    /* Fondo va dentro de Tamaños permitidos, a la derecha de la lista */
     var permitidos='<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:stretch"><div style="flex:1 1 260px;min-width:0">'+filas+'</div>'+
       '<div style="flex:0 0 280px;max-width:100%;display:flex;flex-direction:column">'+bgFijo(W,selZ)+'</div></div>';
     b='<div style="display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px;align-items:stretch">'+
@@ -421,7 +400,6 @@ V.widgets=function(){
     t+'<div class="split">'+widgetList()+'<div style="min-width:0;flex:1 1 auto;width:100%">'+(tb==="Pantalla de inicio"? inicioView() : b)+'</div></div>';
 };
 
-/* guarda en el servidor (tl_widgets) toda la configuración de widgets: tamaños, fondos, encuadres y velos */
 function wdGuardar(){
   var keys={}; Object.keys(BASE).concat(Object.keys(DRAFT)).forEach(function(k){ if(k.indexOf("wd.")===0) keys[k]=true; });
   var pack={}; Object.keys(keys).forEach(function(k){ var v=val(k); if(v!==undefined) pack[k]=v; });
