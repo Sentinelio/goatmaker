@@ -75,7 +75,7 @@ function partidoBody(z){
   var vs=function(w,px){ return '<div style="height:'+h(w)+'px;display:flex;align-items:center;flex:none"><b style="font-size:'+px+'px;color:#8891AA;line-height:1">VS</b></div>'; };
   var vsc=function(px){ return '<b style="font-size:'+px+'px;color:#8891AA;line-height:1">VS</b>'; };
   var nom=function(n,px){ return '<div style="font-size:'+px+'px;font-weight:700;color:#E8EAF2;line-height:1.2;text-align:center;white-space:nowrap">'+esc(n)+'</div>'; };
-  var jor=function(px){ return '<div style="font-size:'+px+'px;color:#8891AA;letter-spacing:.06em;text-transform:uppercase;text-align:center;line-height:1.2;white-space:nowrap">'+esc(P.jor)+'</div>'; };
+  var jor=function(px){ return '<div style="font-size:'+px+'px;color:#8891AA;letter-spacing:.06em;text-transform:uppercase;text-align:center;line-height:1.2;white-space:nowrap">'+esc(P.jor.replace('Jornada','Jor.'))+'</div>'; };
   var box=function(body,dir,gap){ return '<div style="display:flex;flex-direction:'+dir+';align-items:center;justify-content:center;gap:'+gap+'px;width:100%;box-sizing:border-box">'+body+'</div>'; };
   var pair=function(n,w,px){ return '<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+escudo(n,w)+nom(n,px)+'</div>'; };
   var conNombres=function(w,px,vpx,gap){ return '<div style="display:flex;align-items:flex-start;gap:'+gap+'px">'+pair(P.casa,w,px)+vs(w,vpx)+pair(P.fuera,w,px)+'</div>'; };
@@ -84,7 +84,7 @@ function partidoBody(z){
   var abajo=function(body,btn){ return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:space-between;height:100%;width:100%;box-sizing:border-box;padding:6px 0">'+'<div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;width:100%">'+body+'</div>'+btn+'</div>'; };
   var alLado=function(body,btn){ return '<div style="display:flex;align-items:center;justify-content:center;gap:10px;height:100%;width:100%;box-sizing:border-box">'+body+btn+'</div>'; };
   var cabecera=function(label,body,btn){ return '<div style="display:flex;flex-direction:column;align-items:center;height:100%;width:100%;box-sizing:border-box;padding:6px 0">'+label+'<div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center">'+body+'</div>'+btn+'</div>'; };
-  var lado=function(body){ return '<div style="display:flex;align-items:center;height:100%;width:100%;box-sizing:border-box;padding:0 6px 0 6px"><div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;color:#8891AA;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;flex:none">'+esc(P.jor.replace('Jornada','Jor.'))+'</div><div style="flex:1;min-width:0;display:flex;align-items:center;justify-content:center">'+body+'</div></div>'; };
+  var lado=function(body){ return '<div style="display:flex;align-items:center;height:100%;width:100%;box-sizing:border-box;padding:0 6px 0 2px"><div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;color:#8891AA;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;flex:none">'+esc(P.jor.replace('Jornada','Jor.'))+'</div><div style="flex:1;min-width:0;display:flex;align-items:center;justify-content:center">'+body+'</div></div>'; };
   if(z==="1x1") return abajo(box(vsc(9)+pair(P.fuera,24,9),'column',2),'');
   if(z==="2x1") return lado(conNombres(34,9,11,6));
   if(z==="3x1") return lado(conNombres(42,12,14,12));
