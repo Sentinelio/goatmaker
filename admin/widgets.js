@@ -75,7 +75,7 @@ function partidoBody(z){
   var vs=function(w,px){ return '<div style="height:'+h(w)+'px;display:flex;align-items:center;flex:none"><b style="font-size:'+px+'px;color:#8891AA;line-height:1">VS</b></div>'; };
   var vsc=function(px){ return '<b style="font-size:'+px+'px;color:#8891AA;line-height:1">VS</b>'; };
   var nom=function(n,px){ return '<div style="font-size:'+px+'px;font-weight:700;color:#E8EAF2;line-height:1.2;text-align:center;white-space:nowrap">'+esc(n)+'</div>'; };
-  var jor=function(px){ return '<div style="font-size:'+px+'px;color:#8891AA;letter-spacing:.06em;text-transform:uppercase;text-align:center;line-height:1.2">'+esc(P.jor)+'</div>'; };
+  var jor=function(px){ return '<div style="font-size:'+px+'px;color:#8891AA;letter-spacing:.06em;text-transform:uppercase;text-align:center;line-height:1.2;white-space:nowrap">'+esc(P.jor)+'</div>'; };
   var box=function(body,dir,gap){ return '<div style="display:flex;flex-direction:'+dir+';align-items:center;justify-content:center;gap:'+gap+'px;width:100%;box-sizing:border-box">'+body+'</div>'; };
   var pair=function(n,w,px){ return '<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+escudo(n,w)+nom(n,px)+'</div>'; };
   var conNombres=function(w,px,vpx,gap){ return '<div style="display:flex;align-items:flex-start;gap:'+gap+'px">'+pair(P.casa,w,px)+vs(w,vpx)+pair(P.fuera,w,px)+'</div>'; };
@@ -89,7 +89,7 @@ function partidoBody(z){
   if(z==="3x1") return alLado(conNombres(42,12,14,12),circ());
   if(z==="1x2") return abajo(box(pair(P.casa,26,9)+vsc(9)+pair(P.fuera,26,9),'column',10),circ(20));
   if(z==="2x2") return abajo(conNombres(50,12,16,8),pill());
-  if(z==="1x3") return abajo(box(nom(P.liga,14)+pair(P.casa,42,11)+vsc(13)+pair(P.fuera,42,11),'column',12),circ());
+  if(z==="1x3") return abajo(box(jor(9)+pair(P.casa,42,11)+vsc(13)+pair(P.fuera,42,11),'column',12),circ());
   if(z==="2x3") return abajo(box(pair(P.casa,46,12)+vsc(14)+pair(P.fuera,46,12),'column',14),pill());
   if(z==="3x2") return cabecera(jor(10),conNombres(50,13,18,14),pill());
   return cabecera(jor(11),conNombres(70,14,22,16),pill());
