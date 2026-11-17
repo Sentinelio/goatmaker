@@ -61,7 +61,7 @@ function frOf(id,z){
 }
 function frStyle(f){
   var k=f.s/100, tx=f.u*(k-1)/2, ty=f.v*(k-1)/2;
-  return 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;user-select:none;transform:translate('+tx+'%,'+ty+'%) scale('+k+');transform-origin:50% 50%';
+  return 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none;transform:translate('+tx+'%,'+ty+'%) scale('+k+');transform-origin:50% 50%';
 }
 function bgLayer(id,z){
   var img=wdBg(id,z); if(!img) return "";

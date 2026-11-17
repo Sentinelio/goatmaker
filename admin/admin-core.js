@@ -1451,7 +1451,7 @@ var CAT=[
 var PB_URL="https://server-pc.tail3b4002.ts.net:8447";
 CUR_VER="0.03.001";
 var CUR_VER_DATE="2026-11-17T15:13:34+01:00";   /* fecha en que la versión del juego quedó integrada en el admin (se ve al pasar el ratón) */
-var ADMIN_VER="0.03.011", ADMIN_VER_DATE="2026-11-17T16:30:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.012", ADMIN_VER_DATE="2026-11-17T16:36:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
   var g=$("gver"), e=$("ever");
