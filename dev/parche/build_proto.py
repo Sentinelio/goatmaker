@@ -153,7 +153,8 @@ adapt=open('/tmp/parche/adapt.js',encoding='utf-8').read()
 rep('go();\n</script>\n</body>', '/* datos del juego que usa el panel */\n'+gdat+'/* catálogo de efectos del panel (mismo que el juego) */\n'+cat+'\n'+adapt+'\ngo();\n</script>\n</body>')
 
 open(OUT,'w',encoding='utf-8').write(s)
-open('/home/claude/goatmaker/admin/index.html','w',encoding='utf-8').write(s)
+# admin/index.html ya es un shell (admin-core.js + widgets.js): este script ya no lo regenera
+# open('/home/claude/goatmaker/admin/index.html','w',encoding='utf-8').write(s)
 m=re.search(r'<script>(.*)</script>',s,re.S)
 open('/tmp/parche/nuevo_script.js','w',encoding='utf-8').write(m.group(1))
 print('OK', len(s))
