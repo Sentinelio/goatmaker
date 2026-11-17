@@ -85,12 +85,12 @@ function partidoBody(z){
   var alLado=function(body,btn){ return '<div style="display:flex;align-items:center;justify-content:center;gap:10px;height:100%;width:100%;box-sizing:border-box">'+body+btn+'</div>'; };
   var cabecera=function(label,body,btn){ return '<div style="display:flex;flex-direction:column;align-items:center;height:100%;width:100%;box-sizing:border-box;padding:6px 0">'+label+'<div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center">'+body+'</div>'+btn+'</div>'; };
   if(z==="1x1") return abajo('',circ(34));
-  if(z==="2x1") return alLado(box(escudo(P.casa,40)+vs(40,12)+escudo(P.fuera,40),'row',8),circ());
-  if(z==="3x1") return alLado(box(escudo(P.casa,48)+vs(48,14)+escudo(P.fuera,48),'row',12),circ());
-  if(z==="1x2") return abajo(box(escudo(P.casa,34)+vsc(11)+escudo(P.fuera,34),'column',3),circ());
-  if(z==="2x2") return abajo(box(escudo(P.casa,50)+vs(50,16)+escudo(P.fuera,50),'row',8),pill());
-  if(z==="1x3") return abajo(box('<div style="font-size:22px;line-height:1">🏆</div>'+nom(P.liga,14)+escudo(P.casa,42)+vsc(13)+escudo(P.fuera,42),'column',8),circ());
-  if(z==="2x3") return abajo(box(escudo(P.casa,60)+vsc(18)+escudo(P.fuera,60),'column',6),pill());
+  if(z==="2x1") return alLado(conNombres(34,9,11,6),circ());
+  if(z==="3x1") return alLado(conNombres(42,12,14,12),circ());
+  if(z==="1x2") return abajo(box(pair(P.casa,26,9)+vsc(9)+pair(P.fuera,26,9),'column',3),circ(20));
+  if(z==="2x2") return abajo(conNombres(50,12,16,8),pill());
+  if(z==="1x3") return abajo(box(nom(P.liga,14)+pair(P.casa,42,11)+vsc(13)+pair(P.fuera,42,11),'column',6),circ());
+  if(z==="2x3") return abajo(box(pair(P.casa,46,12)+vsc(14)+pair(P.fuera,46,12),'column',5),pill());
   if(z==="3x2") return cabecera(jor(10),conNombres(50,13,18,14),pill());
   return cabecera(jor(11),conNombres(70,14,22,16),pill());
 }
