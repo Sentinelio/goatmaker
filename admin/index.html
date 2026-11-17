@@ -164,15 +164,15 @@ var NAV=[
  ["Usuarios",[["jugadores","☺","Usuarios"],["grupos","❖","Grupos"],["codigos","✦","Códigos y regalos"],["reportes","⚑","Bandeja de reportes"],["errores","⚠","Bandeja de errores"]]],
  ["Juego · Mundo",[["mundo","⚽","Mundo"]]],
  ["Juego · Contenido",[["situaciones","◷","Situaciones"],["talentos","❋","Talentos"],["entrenos","↗","Entrenamientos"],["entrenadores","☗","Entrenadores"],["tienda","🛍","Vida y tienda"],["patrocinios","★","Patrocinios"],["agentes","✆","Agentes y maniobras"]]],
- ["Juego · Pantallas",[["pantallas","▣","Pantallas"],["mapa","⇄","Mapa de pantallas"]]],
+ ["Juego · Pantallas",[["pantallas","▣","Pantallas"],["mapa","⇄","Mapa de pantallas"],["widgets","▦","Widgets"]]],
  ["Herramientas",[["tracker","✓","Tracker"]]],
  ["Juego · Reglas globales",[["eloreal","↕","Elo"],["personaje","♟","Personaje"],["piramide","△","Pirámide y edades"],["reloj","⏱","Reloj y probabilidades"],["economia","€","Economía"],["textos","❝","Textos generales"],["motor","⚙","Motor"]]],
  ["Otros",[["prioridades","≡","Prioridades"]]]
 ];
 /* h = ya existe en el panel de hoy · n = nuevo (solo panel y servidor) · j = nuevo y pide cambios en el juego */
-var STAT={tracker:"n",prioridades:"n",resumen:"h",analitica:"h",avisos:"j",publicacion:"h",pruebas:"j",servidor:"n",jugadores:"h",grupos:"j",codigos:"h",reportes:"h",errores:"h",mundo:"j",situaciones:"h",talentos:"h",entrenos:"h",entrenadores:"j",tienda:"h",patrocinios:"j",agentes:"j",pantallas:"j",mapa:"n",eloreal:"j",personaje:"j",piramide:"j",reloj:"h",economia:"j",textos:"j",motor:"j"};
+var STAT={widgets:"j",tracker:"n",prioridades:"n",resumen:"h",analitica:"h",avisos:"j",publicacion:"h",pruebas:"j",servidor:"n",jugadores:"h",grupos:"j",codigos:"h",reportes:"h",errores:"h",mundo:"j",situaciones:"h",talentos:"h",entrenos:"h",entrenadores:"j",tienda:"h",patrocinios:"j",agentes:"j",pantallas:"j",mapa:"n",eloreal:"j",personaje:"j",piramide:"j",reloj:"h",economia:"j",textos:"j",motor:"j"};
 var STXT={h:["","Ya existe · se integra"],n:["n","Nuevo"],j:["j","Nuevo · toca el juego"]};
-var PRE={mundo:["pa.","nm.","lg.","eq.","pl."],situaciones:["si.","pj."],talentos:["ta."],entrenos:["en."],entrenadores:["co."],tienda:["ti.","ct.","sv."],patrocinios:["pt."],agentes:["ag.","mn."],pantallas:["pn."],eloreal:["ev."],piramide:["pi."],personaje:["ps.","ro.","sk.","ca."],reloj:["rl."],economia:["ec.","xt.","pd."],textos:["tx."],motor:["mo."]};
+var PRE={widgets:["wd."],mundo:["pa.","nm.","lg.","eq.","pl."],situaciones:["si.","pj."],talentos:["ta."],entrenos:["en."],entrenadores:["co."],tienda:["ti.","ct.","sv."],patrocinios:["pt."],agentes:["ag.","mn."],pantallas:["pn."],eloreal:["ev."],piramide:["pi."],personaje:["ps.","ro.","sk.","ca."],reloj:["rl."],economia:["ec.","xt.","pd."],textos:["tx."],motor:["mo."]};
 /* secciones que reutilizan una vista con parte de sus pestañas */
 var ALIAS={
  jugadores:{v:"jugadores",t:"Usuarios",s:"Cada usuario es un navegador. Su ficha reúne carrera, partidas, regalos, mensajes, reportes y errores."},
@@ -1579,7 +1579,57 @@ var CAT=[
    Sustituye los datos de ejemplo por PocketBase. Lo que no está integrado queda atenuado (clase .off, deshabilitado). */
 var PB_URL="https://server-pc.tail3b4002.ts.net:8447";
 CUR_VER="4.69.24";   /* versión actual del juego: el filtro «Versión antigua» compara con esto */
-var OK_NAV=["jugadores","grupos","codigos","reportes","situaciones"];
+/* WIDGETS: cada pestaña del juego como widget independiente. Se expone aquí para poder cambiarla por separado. */
+var WSZ=["1x1","1x2","1x3","3x1","2x1","2x2","3x3"];
+var WID=[
+ {id:"W01", pg:"Inicio",  tab:"partido",  n:"Partido de hoy",   def:"3x3", txt:"Jornada, escudos, estado de banquillo o titular y botón Continuar."},
+ {id:"W02", pg:"Jugador", tab:"ficha",    n:"Ficha",            def:"2x1", txt:"Nombre, posición y media."},
+ {id:"W03", pg:"Jugador", tab:"fisico",   n:"Físico",           def:"1x1", txt:"Valor de forma física principal."},
+ {id:"W04", pg:"Jugador", tab:"animo",    n:"Ánimo",            def:"1x1", txt:"Valor de ánimo."},
+ {id:"W05", pg:"Jugador", tab:"caracter", n:"Carácter",         def:"1x2", txt:"Ejes de carácter resumidos."},
+ {id:"W06", pg:"Jugador", tab:"fama",     n:"Fama",             def:"1x1", txt:"Fama y seguidores."},
+ {id:"W07", pg:"Jugador", tab:"stats",    n:"Números",          def:"2x2", txt:"Goles, asistencias, media y tendencia de notas."},
+ {id:"W08", pg:"Jugador", tab:"hist",     n:"Carrera",          def:"3x1", txt:"Temporadas y totales de carrera."},
+ {id:"W09", pg:"Equipo",  tab:"tabla",    n:"Clasificación",    def:"2x2", txt:"Clasificación con tu equipo resaltado."},
+ {id:"W10", pg:"Equipo",  tab:"plantilla",n:"Vestuario",        def:"2x2", txt:"Compañeros con su afinidad."},
+ {id:"W11", pg:"Equipo",  tab:"mister",   n:"El míster",        def:"2x1", txt:"Confianza y último mensaje."},
+ {id:"W12", pg:"Equipo",  tab:"entreno",  n:"Entreno",          def:"2x1", txt:"Sesiones usadas de la semana."},
+ {id:"W13", pg:"Equipo",  tab:"jornada",  n:"Resultados",       def:"1x3", txt:"Partidos de la temporada, el más reciente arriba."},
+ {id:"W14", pg:"Mercado", tab:"hilos",    n:"Mover los hilos",  def:"1x1", txt:"Hilos disponibles."},
+ {id:"W15", pg:"Mercado", tab:"agente",   n:"Agente",           def:"1x1", txt:"Estado del agente."},
+ {id:"W16", pg:"Mercado", tab:"patros",   n:"Patrocinios",      def:"1x1", txt:"Patrocinios activos."},
+ {id:"W17", pg:"Mercado", tab:"rumores",  n:"Rumores",          def:"1x1", txt:"Último rumor."},
+ {id:"W18", pg:"Mercado", tab:"fichajes", n:"Fichajes",         def:"1x1", txt:"Ofertas y fichajes."},
+ {id:"W19", pg:"Mercado", tab:"prensa",   n:"Prensa",           def:"1x2", txt:"Último titular de prensa."},
+ {id:"W20", pg:"Cuentas", tab:"dinero",   n:"Dinero",           def:"2x1", txt:"Saldo y últimos movimientos."},
+ {id:"W21", pg:"Cuentas", tab:"tienda",   n:"Tienda",           def:"2x1", txt:"Artículos destacados."}
+];
+function wById(id){ return WID.filter(function(w){return w.id===id})[0]; }
+V.widgets=function(){
+  var s=ST.sel.wd||WID[0].id, W=wById(s)||WID[0], pre="wd."+W.id, L=W.id+" "+W.n;
+  var t=tabs("wd",["Datos","Tamaños","Contenido"]), tb=ST.tab.wd, b="", items=[];
+  ["Inicio","Jugador","Equipo","Mercado","Cuentas"].forEach(function(g){
+    items.push({gh:g});
+    WID.filter(function(x){return x.pg===g}).forEach(function(x){
+      var ch=chgPre("wd."+x.id+".");
+      items.push({id:x.id, n:x.id+" · "+x.n, rt:ch?"editado":"", ch:ch});
+    });
+  });
+  var ix=WID.indexOf(W);
+  if(tb==="Datos") b=card(L,
+      fld(pre+".n","Nombre",W.n,{full:L+" · nombre",d:"Solo para el panel."})+
+      '<div class="diff"><span class="p mut">Página</span><b>'+esc(W.pg)+'</b></div>'+
+      '<div class="diff"><span class="p mut">Pestaña de origen</span><span class="mono small">'+esc(W.tab)+'</span></div>'+
+      fld(pre+".def","Tamaño por defecto",W.def,{type:"sel",opts:WSZ,full:L+" · tamaño por defecto"}));
+  else if(tb==="Tamaños") b=card("Tamaños permitidos", WSZ.map(function(z){
+      return fld(pre+".z"+z, z+(z==="1x1"?" · una celda":z==="3x3"?" · tablero completo":""), true, {type:"tog", full:L+" · "+z, si:"Sí", no:"No"});
+    }).join(""), '<span class="tag">'+WSZ.length+' tamaños</span>');
+  else b=card("Contenido compacto", fld(pre+".txt","Qué muestra en tamaño pequeño",W.txt,{type:"area",rows:3,full:L+" · contenido"})+
+      '<p class="note small" style="margin:8px 0 0">Cada widget muestra la misma pestaña que en el juego, en la versión que cabe en su tamaño.</p>');
+  return hd("Widgets","Cada pestaña del juego como widget independiente, para cambiar cada uno por separado.", "")+
+    '<div class="split">'+lst(items,W.id,function(id){ST.sel.wd=id;go()})+'<div>'+t+b+'</div></div>';
+};
+var OK_NAV=["jugadores","grupos","codigos","reportes","situaciones","widgets"];
 var PB={tok:"",byInst:{},raw:{pl:[],cod:[],can:[],rep:[]}};
 var PB_RT={bug:["🐞","Fallo"],idea:["💡","Idea"],otro:["💬","Otro"]};
 
