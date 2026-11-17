@@ -88,7 +88,7 @@ function partidoBody(z){
   var lado=function(body){ return '<div style="display:flex;align-items:center;height:100%;width:100%;box-sizing:border-box;padding:0 6px 0 2px"><div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;color:#8891AA;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;flex:none">'+esc(P.jor.replace('Jornada','Jor.'))+'</div><div style="flex:1;min-width:0;display:flex;align-items:center;justify-content:center">'+body+'</div></div>'; };
   if(z==="1x1") return abajo(box(vsc(9)+pair(P.fuera,24,9),'column',2),'');
   if(z==="2x1") return lado(conNombres(34,9,11,6));
-  if(z==="3x1") return lado(conNombres(42,12,14,12));
+  if(z==="3x1") return lado(conNombres(34,9,11,6));
   if(z==="1x2") return cabecera(jorCorta(9),box(pair(P.casa,26,9)+vsc(9)+pair(P.fuera,26,9),'column',8),'');
   if(z==="2x2") return cabecera(jor(10),conNombres(50,12,16,8),'');
   if(z==="1x3") return cabecera(jorCorta(9),box(pair(P.casa,42,11)+vsc(13)+pair(P.fuera,42,11),'column',12),'');
