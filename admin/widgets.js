@@ -71,9 +71,31 @@ function bgLayer(id,z){
     '<img src="'+img+'" alt="" style="'+frStyle(frOf(id,z))+'">'+
     '<div style="position:absolute;inset:0;background:rgba(8,10,20,'+ov+')"></div></div>';
 }
+/* «Partido de hoy» tal como lo ve el jugador en el juego (tarjeta siguiente partido), con lo que cabe en cada tamaño.
+   Datos de muestra; en el juego salen de la jornada, el rival y la convocatoria reales. */
+var PARTIDO_MUESTRA={jor:"Jornada 26 de 38 · Local", casa:"Espanyol", fuera:"Zaragoza", rol:"titular", convTxt:"Titular", convDet:"Empiezas en el once", btn:"⚽ Saltar al campo", btnCorto:"⚽ Jugar"};
+var PARTIDO_ROL={titular:"#4ADE80", suplente:"#FFC24B", fuera:"#F87171", lesion:"#F87171", sancion:"#F87171"};
+function partidoBody(z){
+  var P=PARTIDO_MUESTRA, col=PARTIDO_ROL[P.rol]||"#FFC24B";
+  var tag=function(){ return '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#8891AA;line-height:1.3">'+esc(P.jor)+'</div>'; };
+  var vs=function(vert){ var t='<span style="font-size:11px;color:#E8EAF2;font-weight:600">'+esc(P.casa)+'</span>', f='<span style="font-size:11px;color:#E8EAF2;font-weight:600">'+esc(P.fuera)+'</span>', v='<b style="font-size:10px;color:#8891AA">VS</b>';
+    return vert? '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center">'+t+v+f+'</div>' : '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px">'+t+v+f+'</div>'; };
+  var conv=function(){ return '<div style="border-left:3px solid '+col+';padding:3px 8px;font-size:11px;line-height:1.3"><b style="color:'+col+'">'+esc(P.convTxt)+'</b><div style="color:#8891AA">'+esc(P.convDet)+'</div></div>'; };
+  var btn=function(t,fs){ return '<div style="background:#FFC24B;color:#1A1408;border-radius:6px;text-align:center;font-weight:700;font-size:'+(fs||11)+'px;padding:6px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(t)+'</div>'; };
+  var c=z.split("x"), cw=+c[0], ch=+c[1];
+  if(z==="1x1") return '<div style="display:flex;align-items:center;justify-content:center;height:100%">'+btn("Jugar",11)+'</div>';
+  if(z==="2x1") return '<div style="display:flex;flex-direction:column;justify-content:center;gap:6px;height:100%">'+tag()+btn(P.btnCorto,11)+'</div>';
+  if(z==="3x1") return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;height:100%"><div style="min-width:0">'+vs(false)+'</div><div style="width:40%">'+btn(P.btnCorto,11)+'</div></div>';
+  if(z==="1x2") return '<div style="display:flex;flex-direction:column;gap:6px;height:100%;justify-content:center">'+tag()+vs(true)+btn(P.btnCorto,10)+'</div>';
+  if(z==="1x3") return '<div style="display:flex;flex-direction:column;gap:8px;height:100%;justify-content:center">'+tag()+vs(true)+conv().replace(/padding:3px 8px;/,'padding:2px 4px;')+btn(P.btnCorto,10)+'</div>';
+  if(z==="2x2") return '<div style="display:flex;flex-direction:column;gap:8px;height:100%;justify-content:center">'+tag()+vs(false)+conv()+btn(P.btn,11)+'</div>';
+  if(z==="3x2") return '<div style="display:flex;flex-direction:column;gap:8px;height:100%;justify-content:center">'+tag()+vs(false)+'<div style="display:flex;gap:10px;align-items:stretch"><div style="flex:1 1 auto;min-width:0">'+conv()+'</div><div style="flex:0 0 40%;display:flex;align-items:center">'+btn(P.btn,11)+'</div></div></div>';
+  if(z==="2x3") return '<div style="display:flex;flex-direction:column;gap:10px;height:100%;justify-content:center">'+tag()+vs(true)+conv()+btn(P.btn,11)+'</div>';
+  return '<div style="display:flex;flex-direction:column;gap:10px;height:100%;justify-content:center">'+tag()+vs(false)+conv()+btn(P.btn,12)+'</div>';
+}
 function sampleBody(W,z){
-  var bg=bgLayer(W.id,z);
-  return bg? bg+'<div style="position:relative;height:100%;width:100%;box-sizing:border-box">'+sampleBodyBase(W,z)+'</div>' : sampleBodyBase(W,z);
+  var bg=bgLayer(W.id,z), inner= W.id==="W01"? partidoBody(z) : sampleBodyBase(W,z);
+  return bg? bg+'<div style="position:relative;height:100%;width:100%;box-sizing:border-box">'+inner+'</div>' : inner;
 }
 function sampleBodyBase(W,z){
   var m=MUESTRA[W.id]||{}, c=z.split("x"), cw=+c[0], ch=+c[1], n=cw*ch;
