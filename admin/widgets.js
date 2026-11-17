@@ -219,13 +219,13 @@ function widgetList(){
 /* piezas de tetris con los tamaños del widget */
 function tetris(W,defS){
   var pre="wd."+W.id;
-  var pieces=WSZ.map(function(z){
+  var pieces=[1,2,3].map(function(hh){ return '<div style="display:flex;gap:12px;align-items:flex-start;width:100%">'+WSZ.filter(function(z){ return +z.split("x")[1]===hh; }).map(function(z){
     var w=+z.split("x")[0], h=+z.split("x")[1], isOn=!!val(pre+".z"+z), isD=z===defS;
     return '<div style="flex:'+w+' 1 0;min-width:0;'+(isOn?"":"opacity:.4")+'">'+
       '<div style="font-family:monospace;font-size:12px;color:#8891AA;margin-bottom:4px">'+z+(isD?' · defecto':'')+(isOn?'':' · apagado')+'</div>'+
       '<div style="width:100%;aspect-ratio:'+w+' / '+h+';box-sizing:border-box;border-radius:8px;background:'+(isD?'#2A2412':'#161B2C')+';border:1px solid '+(isD?'#FFC24B':'#3A4262')+'"></div></div>';
-  }).join("");
-  return '<div style="display:flex;gap:12px;align-items:flex-start;width:100%;padding:4px">'+pieces+'</div>';
+  }).join("")+'</div>'; }).join("");
+  return '<div style="display:grid;gap:12px;width:100%">'+pieces+'</div>';
 }
 V.widgets=function(){
   var s=ST.sel.wd||WID[0].id, W=wById(s)||WID[0], pre="wd."+W.id, L=W.id+" "+W.n;
@@ -242,14 +242,8 @@ V.widgets=function(){
     var filas=WSZ.map(function(z){
         return fld(pre+".z"+z, z+(z==="1x1"?" · una celda":z==="3x3"?" · tablero completo":""), true, {type:"tog", full:L+" · "+z, si:"Sí", no:"No"});
       }).join("");
-    var defS=val(pre+".def")||W.def, prev=WSZ.map(function(z){
-      var on=!!val(pre+".z"+z);
-      return '<span class="tag '+(z===defS?"gold":on?"ok":"")+'" style="margin:0 4px 4px 0;'+(on?"":"opacity:.4;text-decoration:line-through")+'">'+z+(z===defS?" · defecto":"")+'</span>';
-    }).join("");
-    var defOff=!val(pre+".z"+defS);
-    b=card("Tamaños permitidos", filas, '<span class="tag">'+WSZ.length+' tamaños</span>')
-      + card("Tamaños como piezas · "+L, tetris(W,defS))
-      + card("Vista rápida", '<div>'+prev+'</div>'+(defOff? '<p class="note small" style="margin:8px 0 0;color:var(--bad)">El tamaño por defecto está apagado: enciéndelo o cambia el defecto.</p>' : '<p class="note small" style="margin:8px 0 0">Así se ofrecen los tamaños al jugador en el inicio.</p>'));
+    var defS=val(pre+".def")||W.def;
+    b='<div class="grid g2">'+card("Tamaños permitidos", filas, '<span class="tag">'+WSZ.length+' tamaños</span>')+card("Tamaños como piezas · "+L, tetris(W,defS))+'</div>';
   }
   return hd("Widgets","Cada pestaña del juego como widget independiente, para cambiar cada uno por separado.", "")+
     '<div class="split">'+widgetList()+'<div>'+t+(tb==="Pantalla de inicio"? inicioView() : b)+'</div></div>';
