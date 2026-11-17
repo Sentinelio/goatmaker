@@ -296,9 +296,11 @@ V.widgets=function(){
       }).join("");
     var defS=val(pre+".def")||W.def;
     var selZ=(ST.sel.bgp||"").indexOf(W.id+"|")===0? ST.sel.bgp.split("|")[1] : null;
-    b='<div style="display:grid;grid-template-columns:minmax(0,1fr) 280px minmax(0,1fr);gap:14px;align-items:stretch">'+
-      '<div style="display:flex;flex-direction:column;gap:14px;min-width:0">'+datos+card("Tamaños permitidos", filas, '<span class="tag">'+WSZ.length+' tamaños</span>')+'</div>'+
-      '<div style="min-width:0;display:flex;flex-direction:column">'+bgFijo(W,selZ)+'</div>'+
+    /* Fondo va dentro de Tamaños permitidos, a la derecha de la lista */
+    var permitidos='<div style="display:flex;gap:16px;align-items:stretch"><div style="flex:1 1 auto;min-width:0">'+filas+'</div>'+
+      '<div style="width:280px;flex:none;display:flex;flex-direction:column">'+bgFijo(W,selZ)+'</div></div>';
+    b='<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:stretch">'+
+      '<div style="display:flex;flex-direction:column;gap:14px;min-width:0">'+datos+card("Tamaños permitidos", permitidos, '<span class="tag">'+WSZ.length+' tamaños</span>')+'</div>'+
       card("Tamaños como piezas · "+L, tetris(W,defS,selZ))+'</div>';
   }
   return hd("Widgets","Cada pestaña del juego como widget independiente, para cambiar cada uno por separado.", "")+
