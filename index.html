@@ -6635,7 +6635,7 @@ function volverTitulo(){
 var SUB={jugador:"ficha", equipo:"tabla", mercado:"hilos", cuentas:"dinero", ajustes:"info"};
 function resetSub(){ SUB={jugador:"ficha", equipo:"tabla", mercado:"hilos", cuentas:"dinero", ajustes:"info"}; }
 var SUBS={
-  jugador:[["ficha","Ficha"],["fisico","Físico"],["animo","Ánimo"],["caracter","Carácter"],["fama","Fama"],["stats","Números"],["partidos","Partidos"],["hist","Carrera"]],
+  jugador:[["ficha","Ficha"],["fisico","Físico"],["animo","Ánimo"],["caracter","Carácter"],["fama","Fama"],["stats","Números"],["hist","Carrera"]],
   equipo:[["tabla","Clasificación"],["plantilla","Vestuario"],["mister","El míster"],["entreno","Entreno"],["jornada","Resultados"]],
   cuentas:[["dinero","Dinero"],["tienda","Tienda"]],
   mercado:[["hilos","Mover los hilos"],["agente","Agente"],["patros","Patrocinios"],["rumores","Rumores"],["fichajes","Fichajes"],["prensa","Prensa"]],
@@ -6848,9 +6848,10 @@ function copiarHistJSON(){
     else { copiarFallback(j); hecho(); }
   }catch(e){ copiarFallback(j); hecho(); }
 }
-function verPartido(i){ PARTIDO_SEL=i; PF_TAB="res"; irSub("jugador","partidos"); }
-function verPartidoTab(i,t){ PARTIDO_TEMP=null; PARTIDO_SEL=i; PF_TAB=t||"acta"; irSub("jugador","partidos"); }
-function setTempPartidos(t){ PARTIDO_TEMP=(t===S.temporada? null:t); PARTIDO_SEL=null; irSub("jugador","partidos"); }
+function irResultados(){ irSec("equipo"); irSub("equipo","jornada"); }
+function verPartido(i){ PARTIDO_SEL=i; PF_TAB="res"; irResultados(); }
+function verPartidoTab(i,t){ PARTIDO_TEMP=null; PARTIDO_SEL=i; PF_TAB=t||"acta"; irResultados(); }
+function setTempPartidos(t){ PARTIDO_TEMP=(t===S.temporada? null:t); PARTIDO_SEL=null; irResultados(); }
 function cerrarYFicha(){
   if(M) cerrarJornada();                     /* liquida la jornada como siempre */
   if(S && S.hist && S.hist.length) verPartidoTab(S.hist.length-1, "acta");
@@ -6872,8 +6873,8 @@ function cardPartido(i){
     +'<button class="chip" onclick="verPartidoTab('+i+',\'res\')">🔥 Desglose</button>'
     +'</div></div>';
 }
-function cerrarPartido(){ PARTIDO_SEL=null; irSub("jugador","partidos"); }
-function pfTab(t){ PF_TAB=t; irSub("jugador","partidos"); }
+function cerrarPartido(){ PARTIDO_SEL=null; irResultados(); }
+function pfTab(t){ PF_TAB=t; irResultados(); }
 function zonasDePartido(h){
   var Z={};
   function suma(z,p){ Z[z]=(Z[z]||0)+p; var v=ZONA_VECINAS[z]||[]; if(v[0]) Z[v[0]]=(Z[v[0]]||0)+Math.max(1,Math.round(p*0.42)); if(v[1]) Z[v[1]]=(Z[v[1]]||0)+Math.max(1,Math.round(p*0.22)); }
@@ -7092,143 +7093,9 @@ function vitrinaHTML(){
   v.hitos.slice().reverse().forEach(function(b){ H+='<div class="row2" style="font-size:12.5px;padding:5px 0"><span>'+b.ic+' <b>'+esc(b.n)+'</b></span><span style="color:var(--dim);font-size:11px">'+esc(b.c)+'</span></div>'; });
   return H+'</div>';
 }
-function secJugador(){
-  var Y=S.yo, media=Y.notaN?(Y.notaSum/Y.notaN):0, yo=EQ[S.equipo], k=SUB.jugador;
-  var E=entrenoEstado();
-  if(S.forma===undefined) S.forma=70;
-  var H='<div class="eyebrow">Jugador</div><h2 class="disp">'+S.dorsal+' · '+esc(S.nombre)+'</h2>'+subTabs("jugador");
-  if(SUB.jugador==="ficha") H+=fichaFamilias();
-  if(S.skillNueva){
-    H+='<div class="card skcard"><div class="eyebrow" style="color:var(--bloom)">Habilidad desbloqueada</div>'
-      +'<p style="margin:0"><b style="color:var(--bloom)">★ '+esc(S.skillNueva)+'</b></p>'
-      +'</div>';
-    S.skillNueva=null;
-  }
-  if(k==="ficha"){
-    if(S.avisoPerfil){ H+='<div class="card" style="border-color:var(--bad)"><p class="note" style="margin:0;color:var(--bad)">'+esc(S.avisoPerfil)+'</p></div>'; S.avisoPerfil=null; }
-    var _sf=(pub().seg||1200), _vm=valorJugador();
-    var _hasta=2026+(S.temporada-1)+((S.contrato&&S.contrato.anos)||0);   /* anos = temporadas RESTANTES: decrementa cada verano */
-    var _resta=(S.contrato&&S.contrato.anos)||0;
-    H+='<div class="card"><div class="statgrid2">'
-      +celda((_sf>=1000? (Math.round(_sf/100)/10).toLocaleString("es")+" k" : _sf), "Seguidores")
-      +celda(fmtDinero(_vm), "Valor de mercado")
-      +celda("jun "+_hasta+(_resta<=1? " ⚠":""), "Contrato hasta")
-      +celda(S.altura? S.altura+" cm" : "—", "Altura")+'</div></div>';
-    if(EDIT_PERFIL){
-      H+='<div class="card" style="border-color:rgba(255,194,75,.35)"><div class="eyebrow">Editar perfil</div>'
-        +'<div class="row2"><span>Nombre</span><input id="ed-nombre" class="inp" maxlength="22" value="'+esc(S.nombre)+'" style="max-width:170px;text-align:right"></div>'
-        +'<div class="row2"><span>Dorsal</span><input id="ed-dorsal" class="inp" type="number" min="1" max="99" value="'+S.dorsal+'" style="max-width:70px;text-align:right"></div>'
-        +'<div class="row2"><span>Altura (cm)</span><input id="ed-altura" class="inp" type="number" min="165" max="200" value="'+(S.altura||180)+'" style="max-width:70px;text-align:right"></div>'
-
-        +'<div style="display:flex;gap:8px"><button class="gold-btn" style="flex:1" onclick="guardarPerfil()">Guardar</button>'
-        +'<button class="ghost" style="flex:1" onclick="EDIT_PERFIL=false;irSec(\'jugador\')">Cancelar</button></div></div>';
-    } else if(!M){
-      H+='<button class="ghost" style="width:100%;margin:0 0 10px" onclick="EDIT_PERFIL=true;irSec(\'jugador\')">✎ Editar perfil</button>';
-    }
-    H+='<div class="card"><div style="display:flex;gap:14px;align-items:center">'
-      +'<div style="flex:1"><div class="note">'+esc(POS[S.pos].n)+'</div>'
-      +'<div style="font-weight:700;margin-top:2px">'+esc(rolAct().n)+'</div>'
-      +'<div class="note" style="margin-top:6px">'+esc(rolAct().d)+'</div>'
-      +(S.mote? '<div class="note" style="margin-top:4px;color:var(--bloom)">«'+esc(S.mote)+'»</div>':'')
-      +'<div class="note" style="margin-top:6px">'+(S.edad||21)+' años · pierna '+esc((PIERNAS[S.pierna]||PIERNAS.D).n.toLowerCase())+' · '+(S.altura||180)+'cm · '+(S.peso||75)+'kg</div>'
-      +((S.pos==="EXT"||S.pos==="LAT"||S.pos==="DFC")? '<div class="note" style="margin-top:4px;font-size:11px">'+(bandaMia()==="bandaI"?"Banda izquierda":"Banda derecha")+'</div>':'')
-      +((S.posSec&&S.posSec.length)? '<div class="note" style="margin-top:4px;font-size:11px">También juega: '+S.posSec.map(function(x){return esc(POS[x.pos].ab)+(x.lado?" ("+(x.lado==="I"?"izq":"der")+")":"");}).join(" · ")+'</div>':'')
-      +'</div>'
-      +'<div style="width:104px;flex:none">'+(Y.notaN?orbeHTML(media,"Media"):'<div class="orb" style="--orbc:var(--dim)"><b class="disp">—</b></div><div class="orb-lb">Media</div>')+'</div>'
-      +'</div></div>';
-    var arq=arquetipo(), dis=eje("disciplina"), ego=eje("ego");
-    if(S.nemesis){
-      var nn=nivelNemesis(S.nemesis.tension);
-      H+='<div class="card" style="border-left:3px solid var(--bad)"><div class="eyebrow" style="color:var(--bad)">⚔ Tu némesis</div>'
-        +'<h3 style="margin:0 0 4px">'+esc(S.nemesis.nombre)+'</h3>'
-        +'<p class="note" style="margin:0 0 6px">'+esc(POS[S.nemesis.pos]?POS[S.nemesis.pos].n:S.nemesis.pos)+' del '+esc(EQ[S.nemesis.club]?EQ[S.nemesis.club].c:S.nemesis.club)+' · '+esc(nn.txt)+' · '+S.nemesis.veces+' cruce'+(S.nemesis.veces===1?"":"s")+'</p>'
-        +'<div class="pubbar"><i style="width:'+Math.min(100,Math.round(S.nemesis.tension))+'%;background:var(--bad)"></i></div>'
-        +(S.nemesis.historial&&S.nemesis.historial.length? '<div style="margin-top:8px;font-size:11.5px">'+S.nemesis.historial.slice(-4).reverse().map(function(h){return '<div>J'+h.jor+' · '+esc(h.txt)+'</div>';}).join("")+'</div>':'')
-        +'</div>';
-    }
-    H+='<div class="card" style="border-left:3px solid '+arq.col+'"><div class="eyebrow" style="color:'+arq.col+'">Quién eres</div>'
-      +'<h3 style="margin:0 0 4px;color:'+arq.col+'">'+esc(arq.n)+'</h3>'
-      +'<p class="note" style="margin:0 0 10px">'+esc(arq.d)+'</p>'
-      +'<div class="mapabox">'+mapaCaracterSVG()+'</div>'
-      +'<p class="note" style="margin:4px 0 10px;text-align:center">Te pareces a <b style="color:'+arq.col+'">'
-        +esc(pareceteA().map(function(x){return x.n;}).join(", "))+'</b></p>'
-      +RASGOS_ORDEN.map(function(k){
-          var r=RASGOS_P[k], v=eje(k);
-          return ejeBarra(r.n, r.rango[0]===0? (v-50)*2 : v, r.izq, r.der, Math.round(v));
-        }).join("")
-      +'<p class="note" style="margin:8px 0 0">'+esc(consecuenciaCaracter())+'</p>'
-      +(function(){
-          var v=vulnerabilidad();
-          var et=v>=70?"muy expuesto":v>=50?"expuesto":v>=32?"con defensas":"blindado";
-          var col=v>=70?"var(--bad)":v>=50?"#FFA23A":v>=32?"var(--muted)":"var(--ok)";
-          return '<div class="row2" style="margin-top:8px"><span>Vulnerabilidad</span>'
-            +'<b style="color:'+col+'">'+v+' · '+et+'</b></div>'
-            +'';
-        })()+'</div>';
-    var _op=objetivoPersonal(), _Y=S.yo, _prog=clamp((S.jornada+1)/38, 0, 1);
-    var _nMed=_Y.notaN? _Y.notaSum/_Y.notaN : 0;
-    function _meta(lb, act, obj, dec){
-      var esperado=obj*_prog;
-      var ok=act>=esperado;
-      return '<div class="row2"><span>'+esc(lb)+'</span><b style="color:'+(ok?"var(--ok)":"var(--bad)")+'">'
-        +(dec? act.toFixed(2):act)+' <i style="color:var(--dim);font-weight:400">/ '+(dec? obj.toFixed(1):obj)+'</i></b></div>';
-    }
-    H+='<div class="card"><div class="eyebrow">Lo que te pide el club</div>'
-      +_meta("Partidos", _Y.pj, _op.pj)
-      +(_op.gol>0? _meta("Goles", _Y.g, _op.gol):"")
-      +_meta("Nota media", _nMed, _op.nota, true)
-      +'<p class="note" style="margin:7px 0 0">'+({0:"No estás cumpliendo nada de lo que te pidieron.",
-        1:"Vas corto en casi todo.",2:"Vas cumpliendo la mayor parte.",3:"Estás por encima de lo que te pidieron."}[cumpleObjetivo()])+'</p></div>';
-    var mia=miMedia();
-    var rivPuesto=compis().filter(function(c){return c.pos===S.pos;});
-    var mejorRiv=rivPuesto.length? Math.max.apply(null,rivPuesto.map(function(c){return c.media;})):0;
-    H+='<div class="card"><div class="eyebrow">Media</div>'
-      +'<div style="display:flex;align-items:center;gap:14px">'
-      +'<div class="disp" style="font-size:44px;line-height:1;color:'+notaColor(mia/10)+'">'+mia+'</div>'
-      +'<div class="note" style="flex:1">'+(mejorRiv? (mia>=mejorRiv? "Eres el mejor "+POS[S.pos].n.toLowerCase()+" de la plantilla." : "Por detrás del titular ("+mejorRiv+"). Entrena para pelearle el puesto.") : "Sin competencia directa en tu puesto.")+'</div></div></div>';
-    H+='<div class="card"><div class="eyebrow">Atributos</div>';
-    ATTR_ORDEN.forEach(function(a){ H+=barraAttr(a); });
-    if(S.pos==="POR") H+=barraAttr("POR");
-    H+='</div>';
-    var sinJugar=jornadasSinJugar();
-    var _fm=fraseMister(), mrel=_fm.txt;
-    H+='<div class="card"><div class="eyebrow">Situación</div>'
-      +(S.contrato? '<div class="row2"><span>Salario</span><b style="color:var(--gold)">'+fmtDinero(S.contrato.salario)+'/año</b></div>'
-          +'<div class="row2"><span>Contrato</span><b>'+S.contrato.anos+' temporadas · cláusula '+fmtDinero(S.contrato.clausula)+'</b></div>'
-          +(S.contrato.primaFichaje? '<div class="row2"><span>Prima de fichaje</span><b>'+fmtDinero(S.contrato.primaFichaje)+' cobrada</b></div>':'')
-          +(S.contrato.primaGol? '<div class="row2"><span>Prima por gol</span><b>'+fmtDinero(S.contrato.primaGol)+'</b></div>':'')
-          +(S.contrato.primaPartido? '<div class="row2"><span>Prima por partido</span><b>'+fmtDinero(S.contrato.primaPartido)+'</b></div>':'')
-          +(function(){
-              var v=[]; var K=S.contrato;
-              if(K.casa) v.push("vivienda"); if(K.coche) v.push("coche"); if(K.familia) v.push("vuelos familia");
-              if(K.imagen) v.push("derechos de imagen"); if(K.salidaDescenso) v.push("salida si desciende");
-              return v.length? '<div class="row2"><span>Extras</span><b class="note" style="text-align:right;max-width:60%">'+esc(v.join(" · "))+'</b></div>':'';
-            })()
-          +'<div class="row2"><span>Ganado esta temporada</span><b>'+fmtDinero(Math.round(S.dinero||0))+'</b></div>'
-          +((S.dineroCarrera||0)>0? '<div class="row2"><span>Ganado en la carrera</span><b>'+fmtDinero(Math.round((S.dineroCarrera||0)+(S.dinero||0)))+'</b></div>':''):'')
-      +(S.acuerdo? '<div class="row2"><span>Lo que firmaste</span><b style="color:var(--gold)">'
-          +esc({negociado:"Contrato negociado por ti", salario:"Mejora de salario", minutos:"Minutos garantizados", clausula:"Cláusula rebajada", corto:"Contrato corto", ficha:"Ficha de primer equipo", nada:"Sin exigencias"}[S.acuerdo]||"—")
-          +(S.garantia>0? ' ('+S.garantia+' jornadas)':'')+'</b></div>':'')
-      +'<div class="row2"><span>'+esc(mister().n)+'</span><b style="color:'+_fm.col+'">'+esc(mrel)+'</b></div>'
-      +(sinJugar? '<div class="row2"><span>Sin jugar</span><b style="color:var(--bad)">'+sinJugar+' jornada(s) seguidas</b></div>':'')
-      +(function(){
-          var riv=compis().filter(function(c){return c.pos===S.pos && !c.lesion && !c.sancion;});
-          if(!riv.length) return "";
-          riv.sort(function(a,b){return b.media-a.media;});
-          var top=riv[0];
-          return top.media>miMedia()? '<div class="row2"><span>Por delante de ti</span><b>'+esc(top.n)+' ('+top.media+')</b></div>' : "";
-        })()
-      +'<div class="row2"><span>Vestuario</span><b>'+Math.round(afinMedia())+'/100</b></div>'
-      +'<div class="row2"><span>Confianza</span><b>'+Math.round(S.conf)+'</b></div>';
-    if(S.lesion>0) H+='<div class="row2"><span>Lesión</span><b style="color:var(--bad)">'+S.lesion+' jornada(s)</b></div>';
-    if(S.sancion>0) H+='<div class="row2"><span>Sanción</span><b style="color:var(--bad)">'+S.sancion+' jornada ('+esc(S.motivoBaja||"")+')</b></div>';
-    H+='</div>';
-  }
-  else if(k==="caracter"){ H+=caracterHTML(); }
-  else if(k==="fama"){ H+=secRedes(); }
-  else if(k==="fisico"){ H+=secMedica()+secNivel()+secAtributos()+secTalentos(); }
-  else if(k==="animo"){ H+=secPersonal()+secEstado(); }
-  else if(k==="partidos"){
+/* Partido por partido: detalle (acta, pulso, desglose) de un partido de la temporada. Se abre desde Ciudad deportiva › Resultados. */
+function secPartidos(){
+  var H="";
     var tSel=(PARTIDO_TEMP===null? S.temporada:PARTIDO_TEMP);
     var HH=histDe(PARTIDO_TEMP);
     if(PARTIDO_SEL!==null && HH[PARTIDO_SEL]){
@@ -7371,7 +7238,144 @@ function secJugador(){
       });
       H+='<p class="note" style="margin:8px 2px 0">Cada partido guarda sus decisiones: toca uno y verás su mapa, su desglose y sus acciones.</p></div>';
     }
+  return H;
+}
+function secJugador(){
+  var Y=S.yo, media=Y.notaN?(Y.notaSum/Y.notaN):0, yo=EQ[S.equipo], k=SUB.jugador;
+  var E=entrenoEstado();
+  if(S.forma===undefined) S.forma=70;
+  var H='<div class="eyebrow">Jugador</div><h2 class="disp">'+S.dorsal+' · '+esc(S.nombre)+'</h2>'+subTabs("jugador");
+  if(SUB.jugador==="ficha") H+=fichaFamilias();
+  if(S.skillNueva){
+    H+='<div class="card skcard"><div class="eyebrow" style="color:var(--bloom)">Habilidad desbloqueada</div>'
+      +'<p style="margin:0"><b style="color:var(--bloom)">★ '+esc(S.skillNueva)+'</b></p>'
+      +'</div>';
+    S.skillNueva=null;
   }
+  if(k==="ficha"){
+    if(S.avisoPerfil){ H+='<div class="card" style="border-color:var(--bad)"><p class="note" style="margin:0;color:var(--bad)">'+esc(S.avisoPerfil)+'</p></div>'; S.avisoPerfil=null; }
+    var _sf=(pub().seg||1200), _vm=valorJugador();
+    var _hasta=2026+(S.temporada-1)+((S.contrato&&S.contrato.anos)||0);   /* anos = temporadas RESTANTES: decrementa cada verano */
+    var _resta=(S.contrato&&S.contrato.anos)||0;
+    H+='<div class="card"><div class="statgrid2">'
+      +celda((_sf>=1000? (Math.round(_sf/100)/10).toLocaleString("es")+" k" : _sf), "Seguidores")
+      +celda(fmtDinero(_vm), "Valor de mercado")
+      +celda("jun "+_hasta+(_resta<=1? " ⚠":""), "Contrato hasta")
+      +celda(S.altura? S.altura+" cm" : "—", "Altura")+'</div></div>';
+    if(EDIT_PERFIL){
+      H+='<div class="card" style="border-color:rgba(255,194,75,.35)"><div class="eyebrow">Editar perfil</div>'
+        +'<div class="row2"><span>Nombre</span><input id="ed-nombre" class="inp" maxlength="22" value="'+esc(S.nombre)+'" style="max-width:170px;text-align:right"></div>'
+        +'<div class="row2"><span>Dorsal</span><input id="ed-dorsal" class="inp" type="number" min="1" max="99" value="'+S.dorsal+'" style="max-width:70px;text-align:right"></div>'
+        +'<div class="row2"><span>Altura (cm)</span><input id="ed-altura" class="inp" type="number" min="165" max="200" value="'+(S.altura||180)+'" style="max-width:70px;text-align:right"></div>'
+
+        +'<div style="display:flex;gap:8px"><button class="gold-btn" style="flex:1" onclick="guardarPerfil()">Guardar</button>'
+        +'<button class="ghost" style="flex:1" onclick="EDIT_PERFIL=false;irSec(\'jugador\')">Cancelar</button></div></div>';
+    } else if(!M){
+      H+='<button class="ghost" style="width:100%;margin:0 0 10px" onclick="EDIT_PERFIL=true;irSec(\'jugador\')">✎ Editar perfil</button>';
+    }
+    H+='<div class="card"><div style="display:flex;gap:14px;align-items:center">'
+      +'<div style="flex:1"><div class="note">'+esc(POS[S.pos].n)+'</div>'
+      +'<div style="font-weight:700;margin-top:2px">'+esc(rolAct().n)+'</div>'
+      +'<div class="note" style="margin-top:6px">'+esc(rolAct().d)+'</div>'
+      +(S.mote? '<div class="note" style="margin-top:4px;color:var(--bloom)">«'+esc(S.mote)+'»</div>':'')
+      +'<div class="note" style="margin-top:6px">'+(S.edad||21)+' años · pierna '+esc((PIERNAS[S.pierna]||PIERNAS.D).n.toLowerCase())+' · '+(S.altura||180)+'cm · '+(S.peso||75)+'kg</div>'
+      +((S.pos==="EXT"||S.pos==="LAT"||S.pos==="DFC")? '<div class="note" style="margin-top:4px;font-size:11px">'+(bandaMia()==="bandaI"?"Banda izquierda":"Banda derecha")+'</div>':'')
+      +((S.posSec&&S.posSec.length)? '<div class="note" style="margin-top:4px;font-size:11px">También juega: '+S.posSec.map(function(x){return esc(POS[x.pos].ab)+(x.lado?" ("+(x.lado==="I"?"izq":"der")+")":"");}).join(" · ")+'</div>':'')
+      +'</div>'
+      +'<div style="width:104px;flex:none">'+(Y.notaN?orbeHTML(media,"Media"):'<div class="orb" style="--orbc:var(--dim)"><b class="disp">—</b></div><div class="orb-lb">Media</div>')+'</div>'
+      +'</div></div>';
+    var arq=arquetipo(), dis=eje("disciplina"), ego=eje("ego");
+    if(S.nemesis){
+      var nn=nivelNemesis(S.nemesis.tension);
+      H+='<div class="card" style="border-left:3px solid var(--bad)"><div class="eyebrow" style="color:var(--bad)">⚔ Tu némesis</div>'
+        +'<h3 style="margin:0 0 4px">'+esc(S.nemesis.nombre)+'</h3>'
+        +'<p class="note" style="margin:0 0 6px">'+esc(POS[S.nemesis.pos]?POS[S.nemesis.pos].n:S.nemesis.pos)+' del '+esc(EQ[S.nemesis.club]?EQ[S.nemesis.club].c:S.nemesis.club)+' · '+esc(nn.txt)+' · '+S.nemesis.veces+' cruce'+(S.nemesis.veces===1?"":"s")+'</p>'
+        +'<div class="pubbar"><i style="width:'+Math.min(100,Math.round(S.nemesis.tension))+'%;background:var(--bad)"></i></div>'
+        +(S.nemesis.historial&&S.nemesis.historial.length? '<div style="margin-top:8px;font-size:11.5px">'+S.nemesis.historial.slice(-4).reverse().map(function(h){return '<div>J'+h.jor+' · '+esc(h.txt)+'</div>';}).join("")+'</div>':'')
+        +'</div>';
+    }
+    H+='<div class="card" style="border-left:3px solid '+arq.col+'"><div class="eyebrow" style="color:'+arq.col+'">Quién eres</div>'
+      +'<h3 style="margin:0 0 4px;color:'+arq.col+'">'+esc(arq.n)+'</h3>'
+      +'<p class="note" style="margin:0 0 10px">'+esc(arq.d)+'</p>'
+      +'<div class="mapabox">'+mapaCaracterSVG()+'</div>'
+      +'<p class="note" style="margin:4px 0 10px;text-align:center">Te pareces a <b style="color:'+arq.col+'">'
+        +esc(pareceteA().map(function(x){return x.n;}).join(", "))+'</b></p>'
+      +RASGOS_ORDEN.map(function(k){
+          var r=RASGOS_P[k], v=eje(k);
+          return ejeBarra(r.n, r.rango[0]===0? (v-50)*2 : v, r.izq, r.der, Math.round(v));
+        }).join("")
+      +'<p class="note" style="margin:8px 0 0">'+esc(consecuenciaCaracter())+'</p>'
+      +(function(){
+          var v=vulnerabilidad();
+          var et=v>=70?"muy expuesto":v>=50?"expuesto":v>=32?"con defensas":"blindado";
+          var col=v>=70?"var(--bad)":v>=50?"#FFA23A":v>=32?"var(--muted)":"var(--ok)";
+          return '<div class="row2" style="margin-top:8px"><span>Vulnerabilidad</span>'
+            +'<b style="color:'+col+'">'+v+' · '+et+'</b></div>'
+            +'';
+        })()+'</div>';
+    var _op=objetivoPersonal(), _Y=S.yo, _prog=clamp((S.jornada+1)/38, 0, 1);
+    var _nMed=_Y.notaN? _Y.notaSum/_Y.notaN : 0;
+    function _meta(lb, act, obj, dec){
+      var esperado=obj*_prog;
+      var ok=act>=esperado;
+      return '<div class="row2"><span>'+esc(lb)+'</span><b style="color:'+(ok?"var(--ok)":"var(--bad)")+'">'
+        +(dec? act.toFixed(2):act)+' <i style="color:var(--dim);font-weight:400">/ '+(dec? obj.toFixed(1):obj)+'</i></b></div>';
+    }
+    H+='<div class="card"><div class="eyebrow">Lo que te pide el club</div>'
+      +_meta("Partidos", _Y.pj, _op.pj)
+      +(_op.gol>0? _meta("Goles", _Y.g, _op.gol):"")
+      +_meta("Nota media", _nMed, _op.nota, true)
+      +'<p class="note" style="margin:7px 0 0">'+({0:"No estás cumpliendo nada de lo que te pidieron.",
+        1:"Vas corto en casi todo.",2:"Vas cumpliendo la mayor parte.",3:"Estás por encima de lo que te pidieron."}[cumpleObjetivo()])+'</p></div>';
+    var mia=miMedia();
+    var rivPuesto=compis().filter(function(c){return c.pos===S.pos;});
+    var mejorRiv=rivPuesto.length? Math.max.apply(null,rivPuesto.map(function(c){return c.media;})):0;
+    H+='<div class="card"><div class="eyebrow">Media</div>'
+      +'<div style="display:flex;align-items:center;gap:14px">'
+      +'<div class="disp" style="font-size:44px;line-height:1;color:'+notaColor(mia/10)+'">'+mia+'</div>'
+      +'<div class="note" style="flex:1">'+(mejorRiv? (mia>=mejorRiv? "Eres el mejor "+POS[S.pos].n.toLowerCase()+" de la plantilla." : "Por detrás del titular ("+mejorRiv+"). Entrena para pelearle el puesto.") : "Sin competencia directa en tu puesto.")+'</div></div></div>';
+    H+='<div class="card"><div class="eyebrow">Atributos</div>';
+    ATTR_ORDEN.forEach(function(a){ H+=barraAttr(a); });
+    if(S.pos==="POR") H+=barraAttr("POR");
+    H+='</div>';
+    var sinJugar=jornadasSinJugar();
+    var _fm=fraseMister(), mrel=_fm.txt;
+    H+='<div class="card"><div class="eyebrow">Situación</div>'
+      +(S.contrato? '<div class="row2"><span>Salario</span><b style="color:var(--gold)">'+fmtDinero(S.contrato.salario)+'/año</b></div>'
+          +'<div class="row2"><span>Contrato</span><b>'+S.contrato.anos+' temporadas · cláusula '+fmtDinero(S.contrato.clausula)+'</b></div>'
+          +(S.contrato.primaFichaje? '<div class="row2"><span>Prima de fichaje</span><b>'+fmtDinero(S.contrato.primaFichaje)+' cobrada</b></div>':'')
+          +(S.contrato.primaGol? '<div class="row2"><span>Prima por gol</span><b>'+fmtDinero(S.contrato.primaGol)+'</b></div>':'')
+          +(S.contrato.primaPartido? '<div class="row2"><span>Prima por partido</span><b>'+fmtDinero(S.contrato.primaPartido)+'</b></div>':'')
+          +(function(){
+              var v=[]; var K=S.contrato;
+              if(K.casa) v.push("vivienda"); if(K.coche) v.push("coche"); if(K.familia) v.push("vuelos familia");
+              if(K.imagen) v.push("derechos de imagen"); if(K.salidaDescenso) v.push("salida si desciende");
+              return v.length? '<div class="row2"><span>Extras</span><b class="note" style="text-align:right;max-width:60%">'+esc(v.join(" · "))+'</b></div>':'';
+            })()
+          +'<div class="row2"><span>Ganado esta temporada</span><b>'+fmtDinero(Math.round(S.dinero||0))+'</b></div>'
+          +((S.dineroCarrera||0)>0? '<div class="row2"><span>Ganado en la carrera</span><b>'+fmtDinero(Math.round((S.dineroCarrera||0)+(S.dinero||0)))+'</b></div>':''):'')
+      +(S.acuerdo? '<div class="row2"><span>Lo que firmaste</span><b style="color:var(--gold)">'
+          +esc({negociado:"Contrato negociado por ti", salario:"Mejora de salario", minutos:"Minutos garantizados", clausula:"Cláusula rebajada", corto:"Contrato corto", ficha:"Ficha de primer equipo", nada:"Sin exigencias"}[S.acuerdo]||"—")
+          +(S.garantia>0? ' ('+S.garantia+' jornadas)':'')+'</b></div>':'')
+      +'<div class="row2"><span>'+esc(mister().n)+'</span><b style="color:'+_fm.col+'">'+esc(mrel)+'</b></div>'
+      +(sinJugar? '<div class="row2"><span>Sin jugar</span><b style="color:var(--bad)">'+sinJugar+' jornada(s) seguidas</b></div>':'')
+      +(function(){
+          var riv=compis().filter(function(c){return c.pos===S.pos && !c.lesion && !c.sancion;});
+          if(!riv.length) return "";
+          riv.sort(function(a,b){return b.media-a.media;});
+          var top=riv[0];
+          return top.media>miMedia()? '<div class="row2"><span>Por delante de ti</span><b>'+esc(top.n)+' ('+top.media+')</b></div>' : "";
+        })()
+      +'<div class="row2"><span>Vestuario</span><b>'+Math.round(afinMedia())+'/100</b></div>'
+      +'<div class="row2"><span>Confianza</span><b>'+Math.round(S.conf)+'</b></div>';
+    if(S.lesion>0) H+='<div class="row2"><span>Lesión</span><b style="color:var(--bad)">'+S.lesion+' jornada(s)</b></div>';
+    if(S.sancion>0) H+='<div class="row2"><span>Sanción</span><b style="color:var(--bad)">'+S.sancion+' jornada ('+esc(S.motivoBaja||"")+')</b></div>';
+    H+='</div>';
+  }
+  else if(k==="caracter"){ H+=caracterHTML(); }
+  else if(k==="fama"){ H+=secRedes(); }
+  else if(k==="fisico"){ H+=secMedica()+secNivel()+secAtributos()+secTalentos(); }
+  else if(k==="animo"){ H+=secPersonal()+secEstado(); }
   else if(k==="stats"){
     /* --- forma reciente: los últimos partidos con su nota --- */
     var conNota=(S.hist||[]).filter(function(h){ return h.yo; }).slice(-8);
@@ -8355,9 +8359,10 @@ function secEquipo(){
     H+='<p class="note" style="margin:8px 0 0">Entrenar lo que a él le interesa rinde más. Lo que no, cunde menos.</p></div>';
   }
   else {
-    /* Resultados: cada partido de la temporada se va acumulando, el más reciente arriba */
-    var HH=S.hist||[];
-    if(!HH.length){ H+='<div class="card"><p class="note" style="margin:0">La liga aún no ha empezado.</p></div>'; }
+    /* Resultados: cada partido de la temporada se va acumulando, el más reciente arriba. Desde aquí se abre el detalle. */
+    var HH=S.hist||[]; PARTIDO_TEMP=null;
+    if(PARTIDO_SEL!==null && HH[PARTIDO_SEL]){ H+=secPartidos(); }
+    else if(!HH.length){ H+='<div class="card"><p class="note" style="margin:0">La liga aún no ha empezado.</p></div>'; }
     else { for(var ri=HH.length-1; ri>=0; ri--){ H+=cardPartido(ri); } }
   }
   return H;
