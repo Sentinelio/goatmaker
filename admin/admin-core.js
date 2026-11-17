@@ -9,7 +9,11 @@ function isFn(v){ return v && typeof v==="object" && v.$fn; }
 
 /* ================= estado ================= */
 var ST={sec:"jugadores", sel:{}, tab:{}, modo:"publicado", ver:"0.03.001", modal:null, chk:{}, sort:"last"};
-var DRAFT={}, BASE={}, LBL={};
+/* el borrador se guarda en este navegador: así no se pierde al recargar el admin tras una versión nueva */
+var BORR_KEY="gm-admin-draft";
+function leerBorrador(){ try{ var o=JSON.parse(localStorage.getItem(BORR_KEY)||"{}"); return (o && typeof o==="object")? o : {}; }catch(e){ return {}; } }
+function guardarBorrador(){ try{ localStorage.setItem(BORR_KEY, JSON.stringify(DRAFT)); }catch(e){ toast("No se pudo guardar el borrador en este navegador (¿sin espacio?)"); } }
+var DRAFT=leerBorrador(), BASE={}, LBL={};
 var H=[];
 function on(f){ H.push(f); return "H["+(H.length-1)+"](this.value,this,event)"; }
 var OK_BTN=["Copiar","Regenerar","Desactivar","Activar","Borrar","+ Código","Crear código","Copiar para Claude","Descargar","Quitar selección","← Volver a la lista","‹ Anterior","Siguiente ›","Cancelar","Borrar datos","Borrar todos sus datos","Confirmar"];
@@ -90,7 +94,7 @@ function mover(d){ if(HP+d<0 || HP+d>=HIST.length) return; HP+=d; var o=JSON.par
 var MOV=false;
 function menu(v){ document.querySelector(".app").classList.toggle("menu",!!v); }
 function nav(s,keep){ ST.sec=s; ST.modal=null; menu(false); try{ location.hash=s; }catch(e){} go(); if(!keep) $("main").scrollTop=0; }
-function go(){ H=[]; CUR=ALIAS[ST.sec]||null; var f=V[CUR?CUR.v:ST.sec]||V.resumen; $("main").innerHTML=f(); if(!MOV && !ST.modal) apunta(); $("bback").disabled=HP<=0; $("bfwd").disabled=HP>=HIST.length-1; $("ov").innerHTML= ST.modal? '<div class="modal" onclick="if(event.target===this)modal()"><div class="card">'+ST.modal()+'</div></div>' : ""; side(); topbar(); montar(); }
+function go(){ H=[]; CUR=ALIAS[ST.sec]||null; var f=V[CUR?CUR.v:ST.sec]||V.resumen; $("main").innerHTML=f(); if(!MOV && !ST.modal) apunta(); $("bback").disabled=HP<=0; $("bfwd").disabled=HP>=HIST.length-1; $("ov").innerHTML= ST.modal? '<div class="modal" onclick="if(event.target===this)modal()"><div class="card">'+ST.modal()+'</div></div>' : ""; side(); topbar(); montar(); guardarBorrador(); }
 function miga(extra){ var g=NAV.filter(function(g){return g[1].some(function(i){return i[0]===ST.sec})})[0], it=g&&g[1].filter(function(i){return i[0]===ST.sec})[0]; return '<div class="crumb">'+(g?g[0]:"")+' › <a onclick="nav(\''+ST.sec+'\')">'+(it?it[2]:"")+'</a>'+(extra?' › '+extra:'')+'</div>'; }
 function hd(t,s,extra){ if(CUR){ t=CUR.t||t; s=CUR.s||s; } var st=STXT[STAT[ST.sec]||"h"]; return miga()+'<div class="row" style="align-items:flex-start"><div style="flex:1;min-width:260px"><h1>'+t+' <span class="st '+st[0]+'">'+st[1]+'</span></h1><p class="sub">'+s+'</p></div>'+(extra||"")+'</div>'+flagsBar(); }
 function tabs(k,arr){ if(CUR&&CUR.tabs&&CUR.tabs[k]) arr=CUR.tabs[k]; if(arr.indexOf(ST.tab[k])<0) ST.tab[k]=arr[0]; if(CUR&&CUR.tabs&&CUR.tabs[k]&&arr.length===1) return ""; return '<div class="tabs">'+arr.map(function(t){var no=(k==="wd"?OK_TAB_WD:OK_TAB).indexOf(t)<0;return '<button class="'+(ST.tab[k]===t?"on":"")+(no?" off":"")+'"'+(no?" disabled":"")+' onclick="'+on(function(){ST.tab[k]=t;go()})+'">'+t+'</button>'}).join("")+'</div>'; }
@@ -504,7 +508,7 @@ V.interruptores=function(){
   card("",FLAGS.map(function(f){ var ab=ST.sel.flag===f[0]; return '<div class="f"><label>'+f[1]+'<small>'+f[2]+'</small></label><div><div class="row">'+sw(f[3],function(){f[3]=!f[3];go();toast(f[1]+": "+(f[3]?"encendido":"apagado"))})+'<span class="small mut">'+(f[3]?"Encendido":"Apagado")+' para todos'+(f[0]==="pistas"?' · <b style="color:var(--tx)">1 excepción</b>':'')+'</span><span class="small mut">· '+f[4]+'</span></div>'+(ab?'<div class="opt"><div class="row"><select style="width:auto"><option>Grupo: Testers</option><option>Grupo: Amigos</option><option>Un jugador…</option></select><select style="width:auto"><option>Encendido</option><option>Apagado</option></select>'+btn("Añadir excepción",T("Excepción añadida"),"sm")+'</div>'+(f[0]==="pistas"?'<div class="diff" style="margin-top:8px"><span class="p">Grupo <b>Testers</b>: siempre encendido</span>'+btn("Quitar",T("Excepción quitada"),"sm")+'</div>':'')+'</div>':'')+'</div><div class="fab"><a onclick="'+on(function(){ST.sel.flag=ab?null:f[0];go()})+'">'+(ab?"cerrar":"excepciones")+'</a></div></div>'; }).join(""));
 };
 function nextIter(v){ var p=String(v).split("."); return p.length===3? p[0]+"."+p[1]+"."+String(+p[2]+1).padStart(3,"0") : v; }
-function publicarLocal(){ var n=$("nota"); if(!n || !n.value.trim()){ toast("Escribe la nota de la versión"); return; } ST.ver=nextIter(ST.ver); CUR_VER=ST.ver; CUR_VER_DATE=new Date().toISOString(); pintaVers(); VERS.unshift([ST.ver,"ahora",n.value,nCam()]); Object.keys(DRAFT).forEach(function(p){ BASE[p]=DRAFT[p]; }); DRAFT={}; go(); toast("Publicada la versión "+ST.ver); }
+function publicarLocal(){ var n=$("nota"); if(!n || !n.value.trim()){ toast("Escribe la nota de la versión"); return; } ST.ver=nextIter(ST.ver); CUR_VER=ST.ver; CUR_VER_DATE=new Date().toISOString(); pintaVers(); VERS.unshift([ST.ver,"ahora",n.value,nCam()]); Object.keys(DRAFT).forEach(function(p){ BASE[p]=DRAFT[p]; }); DRAFT={}; try{ localStorage.removeItem(BORR_KEY); }catch(e){} go(); toast("Publicada la versión "+ST.ver); }
 /* los ajustes de partido llegan al juego: se publica una versión nueva de tl_content partiendo de la última
    publicada (así no se pierde lo que ya haya publicado el admin antiguo) y solo cambia el bloque «partido» */
 /* el borrador de situaciones, en el mismo formato que el bloque «sits» del juego */
@@ -1451,7 +1455,7 @@ var CAT=[
 var PB_URL="https://server-pc.tail3b4002.ts.net:8447";
 CUR_VER="0.03.001";
 var CUR_VER_DATE="2026-11-17T15:13:34+01:00";   /* fecha en que la versión del juego quedó integrada en el admin (se ve al pasar el ratón) */
-var ADMIN_VER="0.03.014", ADMIN_VER_DATE="2026-11-17T16:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.015", ADMIN_VER_DATE="2026-11-17T16:50:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
   var g=$("gver"), e=$("ever");
