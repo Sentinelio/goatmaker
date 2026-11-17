@@ -6852,15 +6852,15 @@ function cerrarYFicha(){
   if(M) cerrarJornada();                     /* liquida la jornada como siempre */
   if(S && S.hist && S.hist.length) verPartidoTab(S.hist.length-1, "acta");
 }
-/* la tarjeta del hub: tu último partido, con atajos al acta */
-function cardUltimoPartido(){
-  if(!S || !S.hist || !S.hist.length) return "";
-  var i=S.hist.length-1, h=S.hist[i];
+/* una tarjeta de partido de la temporada (Ciudad deportiva › Resultados), con atajos al acta */
+function cardPartido(i){
+  if(!S || !S.hist || !S.hist[i]) return "";
+  var h=S.hist[i];
   var res=h.sc[0]>h.sc[1]?"V":h.sc[0]<h.sc[1]?"D":"E";
   var rc=res==="V"?"var(--ok)":res==="D"?"var(--bad)":"var(--gold)";
   return '<div class="card" style="padding:12px 14px"><div style="display:flex;gap:10px;align-items:center">'
     +crestSVG(h.rival,26)
-    +'<div style="flex:1;min-width:0"><b>Último partido · J'+h.jor+'</b><br><span class="note">'
+    +'<div style="flex:1;min-width:0"><b>Jornada '+h.jor+'</b><br><span class="note">'
     +(h.casa?"casa":"fuera")+' · <b style="color:'+rc+'">'+h.sc[0]+"-"+h.sc[1]+'</b> vs '+esc(EQ[h.rival]?EQ[h.rival].c:h.rival)+'</span></div>'
     +(h.yo? '<span class="mchip" style="background:'+notaColor(h.yo.nota)+'">'+h.yo.nota.toFixed(1)+'</span>':'')
     +'</div><div class="chips full" style="grid-template-columns:repeat(3,1fr);margin-top:10px">'
@@ -8334,14 +8334,10 @@ function secEquipo(){
     H+='<p class="note" style="margin:8px 0 0">Entrenar lo que a él le interesa rinde más. Lo que no, cunde menos.</p></div>';
   }
   else {
-    var h=S.hist[S.hist.length-1];
-    H+='<div class="card"><div class="eyebrow">Última jornada</div>';
-    if(!h){ H+='<p class="note" style="margin:0">La liga aún no ha empezado.</p>'; }
-    else {
-      H+='<p class="mono" style="margin:0 0 8px;font-size:14px;color:var(--gold)">'+esc(EQ[S.equipo].c)+' '+h.sc[0]+'–'+h.sc[1]+' '+esc(EQ[h.rival].c)+(h.casa?"":" (fuera)")+'</p>';
-      (h.otros||[]).forEach(function(o){ H+='<p class="note mono" style="margin:3px 0">'+esc(EQ[o.h].c)+' '+o.gh+'–'+o.ga+' '+esc(EQ[o.a].c)+'</p>'; });
-    }
-    H+='</div>';
+    /* Resultados: cada partido de la temporada se va acumulando, el más reciente arriba */
+    var HH=S.hist||[];
+    if(!HH.length){ H+='<div class="card"><p class="note" style="margin:0">La liga aún no ha empezado.</p></div>'; }
+    else { for(var ri=HH.length-1; ri>=0; ri--){ H+=cardPartido(ri); } }
   }
   return H;
 }
@@ -10390,7 +10386,6 @@ function renderHub(){
         +'<span>'+esc(c.det)+'</span></div>'
       +'<button class="gold-btn" onclick="iniciarJornada()">'+BOTON[c.rol]+'</button>'
       +'</div>';
-    L+=cardUltimoPartido();
   }
   /* aviso si tienes cosas pendientes esta semana */
   var E=entrenoEstado(), libres=3-E.hechos.filter(function(h){return !h.extra;}).length;
@@ -10537,17 +10532,8 @@ function nuevaTemporada(){
   var finalPrev=Object.keys(S.tabla).map(function(k){ return {id:k,t:S.tabla[k]}; })
     .sort(function(x,y){ return (y.t.pts-x.t.pts)||((y.t.gf-y.t.gc)-(x.t.gf-x.t.gc))||(y.t.gf-x.t.gf); })
     .map(function(r){ return r.id; });
-  /* la temporada entera queda archivada: cada partido con su libro */
+  /* al cerrar la temporada se borran los partidos (S.hist se reinicia); las estadísticas quedan en S.carrera */
   S.reto=null;
-  S.archivo=S.archivo||{};
-  S.archivo[S.temporada]={h:(S.hist||[]).map(function(e){ var c={}; for(var kk in e){ if(kk!=="lib") c[kk]=e[kk]; } return c; })};
-  Object.keys(S.archivo).forEach(function(t){
-    if(+t < S.temporada-7){   /* las muy viejas se compactan: quedan goles y números */
-      S.archivo[t].h=(S.archivo[t].h||[]).map(function(e){
-        return {jor:e.jor, rival:e.rival, casa:e.casa, sc:e.sc, goles:e.goles||[], yo:e.yo||null, sinTi:e.sinTi||null, comp:1};
-      });
-    }
-  });
   var carrera=(S.carrera||[]).concat([{temp:S.temporada, club:S.equipo, liga:(divPrev==="2"?"Segunda División":"Primera División"),
     edad:S.edad, pj:Y.pj, g:Y.g, a:Y.a, ta:Y.ta, tr:Y.tr, med:Y.notaN?(Y.notaSum/Y.notaN):0,
     at:(function(){ var o={}; ATTR_ORDEN.concat(S.pos==="POR"?["POR"]:[]).forEach(function(k){ o[k]=Math.round(atr(k)); }); return o; })(),
