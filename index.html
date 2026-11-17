@@ -10140,9 +10140,7 @@ function secAjustes(){
     H+='<div class="card"><div class="eyebrow">Tu partida</div>'
       +(hay? '<button class="ghost" onclick="exportar()">Exportar partida (JSON)</button>' : '')
       +'<button class="ghost" onclick="importar()">Importar partida</button>'
-      +(hay? '<button class="ghost" onclick="toggleDebug()">'+(dbgOn()?"Desactivar modo debug":"Activar modo debug")+'</button>'
-            +'<p class="note" style="margin:10px 0 0">El modo debug muestra probabilidades y puntos de cada decisión, y desactiva el reloj para poder leerlo todo.</p>'
-          : '<p class="note" style="margin:10px 0 0">No hay ninguna carrera en marcha: desde aquí solo puedes importar una partida guardada.</p>')
+      +(hay? '' : '<p class="note" style="margin:10px 0 0">No hay ninguna carrera en marcha: desde aquí solo puedes importar una partida guardada.</p>')
       +'</div>';
     if(hay) H+='<div class="card" style="border-color:rgba(255,84,112,.35)"><div class="eyebrow" style="color:var(--bad)">Zona de riesgo</div>'
       +'<p class="note" style="margin:0 0 10px">Empezar una carrera nueva borra la actual por completo. Útil para probar otro puesto, otra edad u otro club.</p>'
