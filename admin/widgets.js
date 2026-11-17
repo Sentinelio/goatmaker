@@ -77,33 +77,25 @@ var PARTIDO_MUESTRA={jor:"Jornada 26 de 38 · Local", liga:"LaLiga", casa:"Espan
 var PARTIDO_ROL={titular:"#4ADE80", suplente:"#FFC24B", fuera:"#F87171", lesion:"#F87171", sancion:"#F87171"};
 function partidoBody(z){
   var P=PARTIDO_MUESTRA, col=PARTIDO_ROL[P.rol]||"#FFC24B";
-  /* escudo provisional: forma neutra con las siglas del equipo (no se dibujan escudos reales) */
+  /* escudo provisional: forma neutra con las siglas (no se dibujan escudos reales). Tamaño en px según la pieza. */
   var sig=function(n){ return n.slice(0,3).toUpperCase(); };
-  var escudo=function(n,w){ return '<div style="width:'+w+'px;height:'+Math.round(w*1.15)+'px;clip-path:polygon(0 0,100% 0,100% 60%,50% 100%,0 60%);background:linear-gradient(160deg,#3A4262,#1C2236);color:#E8EAF2;font-weight:700;font-size:'+Math.max(8,Math.round(w*.36))+'px;display:flex;align-items:center;justify-content:center;flex:none">'+esc(sig(n))+'</div>'; };
-  var tag=function(){ return '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#8891AA;line-height:1.3">'+esc(P.jor)+'</div>'; };
-  var vsb=function(){ return '<b style="font-size:12px;color:#8891AA">VS</b>'; };
-  /* h: escudos y VS en fila · v: escudos apilados · vn: escudos y nombres apilados · tv: solo nombres apilados */
-  var vs=function(mode,w){ w=w||26;
-    var nom=function(n){ return '<span style="font-size:11px;color:#E8EAF2;font-weight:600">'+esc(n)+'</span>'; };
-    if(mode==="h") return '<div style="display:flex;align-items:center;justify-content:center;gap:8px">'+escudo(P.casa,w)+vsb()+escudo(P.fuera,w)+'</div>';
-    if(mode==="v") return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'+escudo(P.casa,w)+vsb()+escudo(P.fuera,w)+'</div>';
-    if(mode==="vn") return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center">'+escudo(P.casa,w)+nom(P.casa)+vsb()+escudo(P.fuera,w)+nom(P.fuera)+'</div>';
-    return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center">'+nom(P.casa)+vsb()+nom(P.fuera)+'</div>';
-  };
-  var conv=function(){ return '<div style="border-left:3px solid '+col+';padding:3px 8px;font-size:11px;line-height:1.3"><b style="color:'+col+'">'+esc(P.convTxt)+'</b><div style="color:#8891AA">'+esc(P.convDet)+'</div></div>'; };
-  /* sin botón de jugar en el widget */
-  var btn=function(){ return ''; };
-  var frase=function(){ return '<div style="font-size:11px;font-style:italic;color:#C9CEDF;text-align:center">'+esc(P.frase)+'</div>'; };
-  var col_=function(gap,body){ return '<div style="display:flex;flex-direction:column;gap:'+gap+'px;height:100%;justify-content:center">'+body+'</div>'; };
-  if(z==="1x1") return col_(3,'<div style="display:flex;justify-content:center">'+escudo(P.casa,20)+'</div>'+btn("Jugar",9));
-  if(z==="2x1") return col_(6,tag()+btn(P.btnCorto,11));
-  if(z==="3x1") return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;height:100%">'+vs("h",22)+'<div style="width:42%">'+btn(P.btnCorto,11)+'</div></div>';
-  if(z==="1x2") return col_(4,vs("vn",18)+btn(P.btnCorto,10));
-  if(z==="1x3") return col_(6,'<div style="font-size:18px;text-align:center">🏆</div><div style="font-size:12px;font-weight:700;color:#E8EAF2;text-align:center">'+esc(P.liga)+'</div>'+tag()+vs("tv")+btn(P.btnCorto,10));
-  if(z==="2x2") return col_(6,tag()+vs("h",26)+conv()+btn(P.btn,11));
-  if(z==="3x2") return col_(8,tag()+vs("h",34)+frase()+btn(P.btn,11));
-  if(z==="2x3") return col_(10,tag()+vs("v",30)+conv()+btn(P.btn,11));
-  return col_(12,tag()+vs("h",44)+frase()+btn(P.btn,12));
+  var escudo=function(n,w){ return '<div style="width:'+w+'px;height:'+Math.round(w*1.15)+'px;clip-path:polygon(0 0,100% 0,100% 60%,50% 100%,0 60%);background:linear-gradient(160deg,#3A4262,#1C2236);color:#E8EAF2;font-weight:700;font-size:'+Math.max(9,Math.round(w*.34))+'px;display:flex;align-items:center;justify-content:center;flex:none">'+esc(sig(n))+'</div>'; };
+  var txt=function(t,px,c,extra){ return '<div style="font-size:'+px+'px;color:'+(c||'#E8EAF2')+';line-height:1.2;text-align:center;'+(extra||'')+'">'+esc(t)+'</div>'; };
+  var vsb=function(px){ return '<b style="font-size:'+px+'px;color:#8891AA;line-height:1">VS</b>'; };
+  var jor=function(px){ return txt(P.jor,px||10,'#8891AA','letter-spacing:.06em;text-transform:uppercase;'); };
+  var conv=function(px){ return '<div style="border-left:3px solid '+col+';padding:4px 8px;font-size:'+(px||12)+'px;line-height:1.3;text-align:left"><b style="color:'+col+'">'+esc(P.convTxt)+'</b><div style="color:#8891AA">'+esc(P.convDet)+'</div></div>'; };
+  var frase=function(px){ return txt(P.frase,px||12,'#C9CEDF','font-style:italic;'); };
+  var fill=function(body,just){ return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:'+(just||'space-between')+';height:100%;width:100%;box-sizing:border-box">'+body+'</div>'; };
+  var row=function(body,gap){ return '<div style="display:flex;align-items:center;justify-content:space-between;gap:'+(gap||8)+'px;height:100%;width:100%">'+body+'</div>'; };
+  if(z==="1x1") return fill(escudo(P.casa,56),'center');
+  if(z==="2x1") return row(escudo(P.casa,50)+'<div style="display:flex;flex-direction:column;align-items:center">'+vsb(14)+'</div>'+escudo(P.fuera,50),10);
+  if(z==="3x1") return row(escudo(P.casa,56)+'<div style="min-width:0;display:flex;flex-direction:column;align-items:center;flex:1">'+txt(P.casa,14,null,'font-weight:600')+vsb(16)+txt(P.fuera,14,null,'font-weight:600')+'</div>'+escudo(P.fuera,56),8);
+  if(z==="1x2") return fill(txt(P.casa,11,null,'font-weight:600')+escudo(P.casa,46)+vsb(14)+escudo(P.fuera,46)+txt(P.fuera,11,null,'font-weight:600'));
+  if(z==="2x2") return fill(jor(10)+'<div style="display:flex;align-items:center;justify-content:center;gap:10px">'+escudo(P.casa,46)+vsb(16)+escudo(P.fuera,46)+'</div>'+conv(12));
+  if(z==="3x2") return fill(jor(10)+'<div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:100%"><div style="display:flex;align-items:center;justify-content:center;gap:14px">'+escudo(P.casa,64)+vsb(20)+escudo(P.fuera,64)+'</div><div style="display:flex;justify-content:space-around;width:100%">'+txt(P.casa,13,null,'font-weight:600')+txt(P.fuera,13,null,'font-weight:600')+'</div></div>'+frase(12));
+  if(z==="1x3") return fill('<div style="font-size:22px;line-height:1">🏆</div>'+txt(P.liga,14,null,'font-weight:700')+escudo(P.casa,42)+vsb(13)+escudo(P.fuera,42)+jor(9));
+  if(z==="2x3") return fill(jor(10)+'<div style="display:flex;flex-direction:column;align-items:center;gap:8px">'+escudo(P.casa,52)+vsb(18)+escudo(P.fuera,52)+'</div>'+conv(12));
+  return fill(jor(11)+'<div style="display:flex;align-items:center;justify-content:center;gap:14px;width:100%">'+'<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+escudo(P.casa,70)+txt(P.casa,14,null,'font-weight:700')+'</div>'+vsb(22)+'<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+escudo(P.fuera,70)+txt(P.fuera,14,null,'font-weight:700')+'</div></div>'+frase(13));
 }
 function sampleBody(W,z){
   var bg=bgLayer(W.id,z), inner= W.id==="W01"? partidoBody(z) : sampleBodyBase(W,z);
