@@ -73,25 +73,36 @@ function bgLayer(id,z){
 }
 /* «Partido de hoy» tal como lo ve el jugador en el juego (tarjeta siguiente partido), con lo que cabe en cada tamaño.
    Datos de muestra; en el juego salen de la jornada, el rival y la convocatoria reales. */
-var PARTIDO_MUESTRA={jor:"Jornada 26 de 38 · Local", casa:"Espanyol", fuera:"Zaragoza", rol:"titular", convTxt:"Titular", convDet:"Empiezas en el once", btn:"⚽ Saltar al campo", btnCorto:"⚽ Jugar"};
+var PARTIDO_MUESTRA={jor:"Jornada 26 de 38 · Local", liga:"LaLiga", casa:"Espanyol", fuera:"Zaragoza", rol:"titular", convTxt:"Titular", convDet:"Empiezas en el once", frase:"El partido más esperado de la jornada.", btn:"⚽ Saltar al campo", btnCorto:"⚽ Jugar"};
 var PARTIDO_ROL={titular:"#4ADE80", suplente:"#FFC24B", fuera:"#F87171", lesion:"#F87171", sancion:"#F87171"};
 function partidoBody(z){
   var P=PARTIDO_MUESTRA, col=PARTIDO_ROL[P.rol]||"#FFC24B";
+  /* escudo provisional: forma neutra con las siglas del equipo (no se dibujan escudos reales) */
+  var sig=function(n){ return n.slice(0,3).toUpperCase(); };
+  var escudo=function(n,w){ return '<div style="width:'+w+'px;height:'+Math.round(w*1.15)+'px;clip-path:polygon(0 0,100% 0,100% 60%,50% 100%,0 60%);background:linear-gradient(160deg,#3A4262,#1C2236);color:#E8EAF2;font-weight:700;font-size:'+Math.max(8,Math.round(w*.36))+'px;display:flex;align-items:center;justify-content:center;flex:none">'+esc(sig(n))+'</div>'; };
   var tag=function(){ return '<div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#8891AA;line-height:1.3">'+esc(P.jor)+'</div>'; };
-  var vs=function(vert){ var t='<span style="font-size:11px;color:#E8EAF2;font-weight:600">'+esc(P.casa)+'</span>', f='<span style="font-size:11px;color:#E8EAF2;font-weight:600">'+esc(P.fuera)+'</span>', v='<b style="font-size:10px;color:#8891AA">VS</b>';
-    return vert? '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center">'+t+v+f+'</div>' : '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px">'+t+v+f+'</div>'; };
+  var vsb=function(){ return '<b style="font-size:12px;color:#8891AA">VS</b>'; };
+  /* h: escudos y VS en fila · v: escudos apilados · vn: escudos y nombres apilados · tv: solo nombres apilados */
+  var vs=function(mode,w){ w=w||26;
+    var nom=function(n){ return '<span style="font-size:11px;color:#E8EAF2;font-weight:600">'+esc(n)+'</span>'; };
+    if(mode==="h") return '<div style="display:flex;align-items:center;justify-content:center;gap:8px">'+escudo(P.casa,w)+vsb()+escudo(P.fuera,w)+'</div>';
+    if(mode==="v") return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'+escudo(P.casa,w)+vsb()+escudo(P.fuera,w)+'</div>';
+    if(mode==="vn") return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center">'+escudo(P.casa,w)+nom(P.casa)+vsb()+escudo(P.fuera,w)+nom(P.fuera)+'</div>';
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center">'+nom(P.casa)+vsb()+nom(P.fuera)+'</div>';
+  };
   var conv=function(){ return '<div style="border-left:3px solid '+col+';padding:3px 8px;font-size:11px;line-height:1.3"><b style="color:'+col+'">'+esc(P.convTxt)+'</b><div style="color:#8891AA">'+esc(P.convDet)+'</div></div>'; };
-  var btn=function(t,fs){ return '<div style="background:#FFC24B;color:#1A1408;border-radius:6px;text-align:center;font-weight:700;font-size:'+(fs||11)+'px;padding:6px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(t)+'</div>'; };
-  var c=z.split("x"), cw=+c[0], ch=+c[1];
-  if(z==="1x1") return '<div style="display:flex;align-items:center;justify-content:center;height:100%">'+btn("Jugar",11)+'</div>';
-  if(z==="2x1") return '<div style="display:flex;flex-direction:column;justify-content:center;gap:6px;height:100%">'+tag()+btn(P.btnCorto,11)+'</div>';
-  if(z==="3x1") return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;height:100%"><div style="min-width:0">'+vs(false)+'</div><div style="width:40%">'+btn(P.btnCorto,11)+'</div></div>';
-  if(z==="1x2") return '<div style="display:flex;flex-direction:column;gap:6px;height:100%;justify-content:center">'+tag()+vs(true)+btn(P.btnCorto,10)+'</div>';
-  if(z==="1x3") return '<div style="display:flex;flex-direction:column;gap:8px;height:100%;justify-content:center">'+tag()+vs(true)+conv().replace(/padding:3px 8px;/,'padding:2px 4px;')+btn(P.btnCorto,10)+'</div>';
-  if(z==="2x2") return '<div style="display:flex;flex-direction:column;gap:8px;height:100%;justify-content:center">'+tag()+vs(false)+conv()+btn(P.btn,11)+'</div>';
-  if(z==="3x2") return '<div style="display:flex;flex-direction:column;gap:8px;height:100%;justify-content:center">'+tag()+vs(false)+'<div style="display:flex;gap:10px;align-items:stretch"><div style="flex:1 1 auto;min-width:0">'+conv()+'</div><div style="flex:0 0 40%;display:flex;align-items:center">'+btn(P.btn,11)+'</div></div></div>';
-  if(z==="2x3") return '<div style="display:flex;flex-direction:column;gap:10px;height:100%;justify-content:center">'+tag()+vs(true)+conv()+btn(P.btn,11)+'</div>';
-  return '<div style="display:flex;flex-direction:column;gap:10px;height:100%;justify-content:center">'+tag()+vs(false)+conv()+btn(P.btn,12)+'</div>';
+  var btn=function(t,fs){ return '<div style="background:#FFC24B;color:#1A1408;border-radius:6px;text-align:center;font-weight:700;font-size:'+(fs||11)+'px;padding:5px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(t)+'</div>'; };
+  var frase=function(){ return '<div style="font-size:11px;font-style:italic;color:#C9CEDF;text-align:center">'+esc(P.frase)+'</div>'; };
+  var col_=function(gap,body){ return '<div style="display:flex;flex-direction:column;gap:'+gap+'px;height:100%;justify-content:center">'+body+'</div>'; };
+  if(z==="1x1") return col_(3,'<div style="display:flex;justify-content:center">'+escudo(P.casa,20)+'</div>'+btn("Jugar",9));
+  if(z==="2x1") return col_(6,tag()+btn(P.btnCorto,11));
+  if(z==="3x1") return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;height:100%">'+vs("h",22)+'<div style="width:42%">'+btn(P.btnCorto,11)+'</div></div>';
+  if(z==="1x2") return col_(4,vs("vn",18)+btn(P.btnCorto,10));
+  if(z==="1x3") return col_(6,'<div style="font-size:18px;text-align:center">🏆</div><div style="font-size:12px;font-weight:700;color:#E8EAF2;text-align:center">'+esc(P.liga)+'</div>'+tag()+vs("tv")+btn(P.btnCorto,10));
+  if(z==="2x2") return col_(6,tag()+vs("h",26)+conv()+btn(P.btn,11));
+  if(z==="3x2") return col_(8,tag()+vs("h",34)+frase()+btn(P.btn,11));
+  if(z==="2x3") return col_(10,tag()+vs("v",30)+conv()+btn(P.btn,11));
+  return col_(12,tag()+vs("h",44)+frase()+btn(P.btn,12));
 }
 function sampleBody(W,z){
   var bg=bgLayer(W.id,z), inner= W.id==="W01"? partidoBody(z) : sampleBodyBase(W,z);
