@@ -323,6 +323,17 @@ function bgPreview(W,z,ov){
     '<img src="'+img+'" alt="" style="'+frStyle(f)+'">'+
     '<div style="position:absolute;inset:0;background:rgba(8,10,20,'+ov+');pointer-events:none"></div></div>';
 }
+/* ajuste en vivo mientras se arrastra el slider: se pinta al momento y se guarda al soltar */
+function bgVivo(id,z,que,v){
+  var pv=document.querySelector(".wdprev"); if(!pv) return;
+  if(que==="zoom"){
+    var f=frOf(id,z), k=v/100, im=pv.querySelector("img");
+    if(im) im.style.transform="translate("+(f.u*(k-1)/2)+"%,"+(f.v*(k-1)/2)+"%) scale("+k+")";
+  } else {
+    var ov=pv.querySelector(":scope > div:last-child");
+    if(ov) ov.style.background="rgba(8,10,20,"+(v/100)+")";
+  }
+}
 /* controles del fondo del tamaño elegido: van en su tarjeta fija, dentro de Tamaños permitidos */
 function bgControles(W,z){
   var pre="wd."+W.id, k=pre+".bg."+z, img=wdBg(W.id,z), ov=val(pre+".bgov."+z), f=frOf(W.id,z);
@@ -334,9 +345,9 @@ function bgControles(W,z){
       (img? '<button class="b sm" onclick="'+on(function(){ set(k,null); })+'">Quitar imagen</button>' : '')+
     '</div>'+
     '<p class="mut" style="margin:0;font-size:12px">o pega una imagen con Ctrl+V</p>'+
-    (img? '<div style="display:flex;align-items:center;gap:8px"><span style="'+rot+'">Zoom</span><input type="range" min="100" max="400" step="5" value="'+f.s+'" style="flex:1" onchange="'+on(function(x){ set(pre+".bgz."+z,Number(x)); })+'"><span style="font-size:12px;color:#8891AA;width:48px;text-align:right;flex:none">'+f.s+' %</span></div>'+
+    (img? '<div style="display:flex;align-items:center;gap:8px"><span style="'+rot+'">Zoom</span><input type="range" min="100" max="400" step="5" value="'+f.s+'" style="flex:1" oninput="'+on(function(x,el){ bgVivo(W.id,z,'zoom',Number(x)); el.nextElementSibling.textContent=x+' %'; })+'" onchange="'+on(function(x){ set(pre+".bgz."+z,Number(x)); })+'"><span style="font-size:12px;color:#8891AA;width:48px;text-align:right;flex:none">'+f.s+' %</span></div>'+
       '<div style="display:flex;justify-content:space-between;align-items:center"><span class="mut" style="font-size:12px">Arrastra la imagen para encuadrarla</span><button class="b sm" onclick="'+on(function(){ set(pre+".bgz."+z,100); set(pre+".bgx."+z,0); set(pre+".bgy."+z,0); })+'">Centrar</button></div>' : '')+
-    '<div style="display:flex;align-items:center;gap:8px"><span style="'+rot+'">Velo</span><input type="range" min="0" max="80" step="5" value="'+ov+'" style="flex:1" onchange="'+on(function(x){ set(pre+".bgov."+z,Number(x)); })+'"><span style="font-size:12px;color:#8891AA;width:48px;text-align:right;flex:none">'+ov+' %</span></div>'+
+    '<div style="display:flex;align-items:center;gap:8px"><span style="'+rot+'">Velo</span><input type="range" min="0" max="80" step="5" value="'+ov+'" style="flex:1" oninput="'+on(function(x,el){ bgVivo(W.id,z,'velo',Number(x)); el.nextElementSibling.textContent=x+' %'; })+'" onchange="'+on(function(x){ set(pre+".bgov."+z,Number(x)); })+'"><span style="font-size:12px;color:#8891AA;width:48px;text-align:right;flex:none">'+ov+' %</span></div>'+
   '</div>';
 }
 function bgFijo(W,selZ){
