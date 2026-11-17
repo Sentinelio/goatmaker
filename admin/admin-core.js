@@ -8,7 +8,7 @@ function clamp(v,a,b){return Math.min(b,Math.max(a,v))}
 function isFn(v){ return v && typeof v==="object" && v.$fn; }
 
 /* ================= estado ================= */
-var ST={sec:"jugadores", sel:{}, tab:{}, modo:"publicado", ver:7, modal:null, chk:{}, sort:"last"};
+var ST={sec:"jugadores", sel:{}, tab:{}, modo:"publicado", ver:"0.03.001", modal:null, chk:{}, sort:"last"};
 var DRAFT={}, BASE={}, LBL={};
 var H=[];
 function on(f){ H.push(f); return "H["+(H.length-1)+"](this.value,this,event)"; }
@@ -503,7 +503,8 @@ V.interruptores=function(){
   return hd("Interruptores","Encienden o apagan partes del juego al momento, sin publicar versión. Cada uno admite excepciones por grupo o jugador.")+
   card("",FLAGS.map(function(f){ var ab=ST.sel.flag===f[0]; return '<div class="f"><label>'+f[1]+'<small>'+f[2]+'</small></label><div><div class="row">'+sw(f[3],function(){f[3]=!f[3];go();toast(f[1]+": "+(f[3]?"encendido":"apagado"))})+'<span class="small mut">'+(f[3]?"Encendido":"Apagado")+' para todos'+(f[0]==="pistas"?' · <b style="color:var(--tx)">1 excepción</b>':'')+'</span><span class="small mut">· '+f[4]+'</span></div>'+(ab?'<div class="opt"><div class="row"><select style="width:auto"><option>Grupo: Testers</option><option>Grupo: Amigos</option><option>Un jugador…</option></select><select style="width:auto"><option>Encendido</option><option>Apagado</option></select>'+btn("Añadir excepción",T("Excepción añadida"),"sm")+'</div>'+(f[0]==="pistas"?'<div class="diff" style="margin-top:8px"><span class="p">Grupo <b>Testers</b>: siempre encendido</span>'+btn("Quitar",T("Excepción quitada"),"sm")+'</div>':'')+'</div>':'')+'</div><div class="fab"><a onclick="'+on(function(){ST.sel.flag=ab?null:f[0];go()})+'">'+(ab?"cerrar":"excepciones")+'</a></div></div>'; }).join(""));
 };
-function publicarLocal(){ var n=$("nota"); if(!n || !n.value.trim()){ toast("Escribe la nota de la versión"); return; } ST.ver++; VERS.unshift([ST.ver,"ahora",n.value,nCam()]); Object.keys(DRAFT).forEach(function(p){ BASE[p]=DRAFT[p]; }); DRAFT={}; go(); toast("Publicada la versión "+ST.ver); }
+function nextIter(v){ var p=String(v).split("."); return p.length===3? p[0]+"."+p[1]+"."+String(+p[2]+1).padStart(3,"0") : v; }
+function publicarLocal(){ var n=$("nota"); if(!n || !n.value.trim()){ toast("Escribe la nota de la versión"); return; } ST.ver=nextIter(ST.ver); VERS.unshift([ST.ver,"ahora",n.value,nCam()]); Object.keys(DRAFT).forEach(function(p){ BASE[p]=DRAFT[p]; }); DRAFT={}; go(); toast("Publicada la versión "+ST.ver); }
 /* los ajustes de partido llegan al juego: se publica una versión nueva de tl_content partiendo de la última
    publicada (así no se pierde lo que ya haya publicado el admin antiguo) y solo cambia el bloque «partido» */
 /* el borrador de situaciones, en el mismo formato que el bloque «sits» del juego */
@@ -534,7 +535,7 @@ function pbPublicaPartido(nota){
     var pack=(last&&last.pack)? JSON.parse(JSON.stringify(last.pack)) : {v:1};
     pack.v=1; pack.partido={min:mn,max:mx,previa:val("pj.previa"),post:val("pj.post")};
     var cambiosSits=sitsDesdeBorrador(); if(Object.keys(cambiosSits).length) pack.sits=mezclaProfunda(pack.sits||{}, cambiosSits);
-    return pbApi("/api/collections/tl_content/records",{method:"POST",headers:PB_JSON,body:JSON.stringify({kind:"ver",n:(last?last.n:0)+1,pack:pack,nota:nota,t:Date.now(),ver_juego:CUR_VER})});
+    return pbApi("/api/collections/tl_content/records",{method:"POST",headers:PB_JSON,body:JSON.stringify({kind:"ver",n:(last?last.n:0)+1,pack:pack,nota:nota,t:Date.now(),ver_juego:nextIter(ST.ver)})});
   });
 }
 function publicar(){
@@ -552,7 +553,7 @@ V.publicacion=function(){
   return hd("Publicación","El borrador son tus cambios. Los jugadores solo los reciben cuando publicas, salvo en modo en vivo.",btn("Importar paquete",T("Carga un paquete .json en el borrador"))+btn("Exportar borrador",T("Descarga el borrador como .json")))+
   '<div class="grid g2">'+card("Borrador · "+ks.length+" cambio"+(ks.length===1?"":"s"),
     (ks.length? Object.keys(porSec).map(function(s){ return '<div class="small mut" style="margin:8px 0 2px;text-transform:uppercase;letter-spacing:.06em">'+(nom[s]||s)+'</div>'+porSec[s].map(function(p){return '<div class="diff"><span class="p">'+esc(LBL[p])+'<br><span class="small"><s>'+esc(shw(BASE[p]))+'</s> → <b class="nw">'+esc(shw(DRAFT[p]))+'</b></span></span>'+btn("Deshacer",function(){set(p,BASE[p])},"sm")+'</div>'}).join(""); }).join("")+
-     '<div class="row" style="margin-top:12px"><input id="nota" type="text" placeholder="Nota de la versión (obligatoria)" style="flex:1;min-width:160px">'+btn("Publicar v"+(ST.ver+1),publicar,"gold")+'</div><div class="row" style="margin-top:8px">'+btn("Probar antes en el Banco de pruebas",function(){nav("pruebas")},"sm")+btn("Descartar todo",function(){DRAFT={};go();toast("Borrador vaciado")},"sm red")+'</div>'
+     '<div class="row" style="margin-top:12px"><input id="nota" type="text" placeholder="Nota de la versión (obligatoria)" style="flex:1;min-width:160px">'+btn("Publicar v"+nextIter(ST.ver),publicar,"gold")+'</div><div class="row" style="margin-top:8px">'+btn("Probar antes en el Banco de pruebas",function(){nav("pruebas")},"sm")+btn("Descartar todo",function(){DRAFT={};go();toast("Borrador vaciado")},"sm red")+'</div>'
      : '<p class="mut">Nada pendiente. Cambia cualquier valor en el Editor y aparecerá aquí, con su valor anterior y el nuevo.</p>'),"")+
   '<div class="grid">'+card("Modo",'<div class="row"><span class="chip '+(ST.modo==="publicado"?"on":"")+'" onclick="'+on(function(){ST.modo="publicado";go()})+'">Por versiones</span><span class="chip '+(ST.modo==="vivo"?"on":"")+'" onclick="'+on(function(){ST.modo="vivo";go()})+'">En vivo</span></div><p class="small mut" style="margin:6px 0 10px">'+(ST.modo==="vivo"?"Cada cambio guardado llega a los jugadores en su siguiente arranque, sin publicar.":"Los jugadores reciben la última versión publicada.")+'</p><div class="f"><label>Los testers reciben</label><select><option>El borrador</option><option>Lo mismo que todos</option></select><div class="fab"></div></div><div class="f"><label>Mi navegador recibe</label><select><option>El borrador</option><option>Lo publicado</option></select><div class="fab"></div></div>')+
    card("Validación del borrador",'<div class="diff"><span class="tag ok">correcto</span><span class="p">Todos los valores están dentro del rango del motor.</span></div><div class="diff"><span class="tag ok">correcto</span><span class="p">Ningún talento apunta a un requisito que no existe.</span></div><div class="diff"><span class="tag gold">aviso</span><span class="p">El juego 4.68.0 (1 jugador) no entiende los bloques nuevos; los ignorará.</span></div><p class="small mut" style="margin:8px 0 0">El juego valida otra vez al recibirlo y descarta lo que no entiende.</p>')+'</div></div>'+
