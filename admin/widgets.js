@@ -76,7 +76,6 @@ function partidoBody(z){
   var vsb=function(px){ return '<b style="font-size:'+px+'px;color:#8891AA;line-height:1">VS</b>'; };
   var jor=function(px){ return txt(P.jor,px||10,'#8891AA','letter-spacing:.06em;text-transform:uppercase;'); };
   var conv=function(px){ return '<div style="border-left:3px solid '+col+';padding:4px 8px;font-size:'+(px||12)+'px;line-height:1.3;text-align:left"><b style="color:'+col+'">'+esc(P.convTxt)+'</b><div style="color:#8891AA">'+esc(P.convDet)+'</div></div>'; };
-  var frase=function(px){ return txt(P.frase,px||12,'#C9CEDF','font-style:italic;'); };
   var fill=function(body,just){ return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:'+(just||'space-between')+';height:100%;width:100%;box-sizing:border-box">'+body+'</div>'; };
   var row=function(body,gap){ return '<div style="display:flex;align-items:center;justify-content:space-between;gap:'+(gap||8)+'px;height:100%;width:100%">'+body+'</div>'; };
   if(z==="1x1") return fill(escudo(P.casa,56),'center');
@@ -84,10 +83,10 @@ function partidoBody(z){
   if(z==="3x1") return row(escudo(P.casa,56)+vsb(16)+escudo(P.fuera,56),8);
   if(z==="1x2") return fill(escudo(P.casa,46)+vsb(14)+escudo(P.fuera,46));
   if(z==="2x2") return fill('<div style="display:flex;align-items:center;justify-content:center;gap:8px">'+escudo(P.casa,50)+vsb(16)+escudo(P.fuera,50)+'</div>','center');
-  if(z==="3x2") return fill(jor(10)+'<div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:100%"><div style="display:flex;align-items:center;justify-content:center;gap:14px">'+escudo(P.casa,64)+vsb(20)+escudo(P.fuera,64)+'</div><div style="display:flex;justify-content:space-around;width:100%">'+txt(P.casa,13,null,'font-weight:600')+txt(P.fuera,13,null,'font-weight:600')+'</div></div>'+frase(12));
+  if(z==="3x2") return fill(jor(10)+'<div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:100%"><div style="display:flex;align-items:center;justify-content:center;gap:14px">'+escudo(P.casa,64)+vsb(20)+escudo(P.fuera,64)+'</div><div style="display:flex;justify-content:space-around;width:100%">'+txt(P.casa,13,null,'font-weight:600')+txt(P.fuera,13,null,'font-weight:600')+'</div></div>');
   if(z==="1x3") return fill('<div style="font-size:22px;line-height:1">🏆</div>'+txt(P.liga,14,null,'font-weight:700')+escudo(P.casa,42)+vsb(13)+escudo(P.fuera,42));
   if(z==="2x3") return fill('<div style="display:flex;flex-direction:column;align-items:center;gap:8px">'+escudo(P.casa,64)+vsb(20)+escudo(P.fuera,64)+'</div>','center');
-  return fill(jor(11)+'<div style="display:flex;align-items:center;justify-content:center;gap:14px;width:100%">'+'<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+escudo(P.casa,70)+txt(P.casa,14,null,'font-weight:700')+'</div>'+vsb(22)+'<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+escudo(P.fuera,70)+txt(P.fuera,14,null,'font-weight:700')+'</div></div>'+frase(13));
+  return fill(jor(11)+'<div style="display:flex;align-items:center;justify-content:center;gap:14px;width:100%">'+'<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+escudo(P.casa,70)+txt(P.casa,14,null,'font-weight:700')+'</div>'+vsb(22)+'<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+escudo(P.fuera,70)+txt(P.fuera,14,null,'font-weight:700')+'</div></div>');
 }
 function sampleBody(W,z){
   var bg=bgLayer(W.id,z), inner= W.id==="W01"? partidoBody(z) : sampleBodyBase(W,z);
