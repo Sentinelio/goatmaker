@@ -315,7 +315,7 @@ function bgRueda(W,z,f){
 /* vista previa del tamaño elegido: aquí se encuadra la imagen */
 function bgPreview(W,z,ov){
   var img=wdBg(W.id,z), c=z.split("x"), f=frOf(W.id,z);
-  var forma='width:min(100%,calc(240px * '+c[0]+' / '+c[1]+'));aspect-ratio:'+c[0]+' / '+c[1]+';box-sizing:border-box;border-radius:8px;';
+  var forma='width:100%;height:170px;box-sizing:border-box;border-radius:8px;';
   if(!img) return '<div style="'+forma+'border:1px dashed #3A4262;display:flex;align-items:center;justify-content:center;color:#8891AA;font-size:12px;text-align:center;padding:10px">Sin imagen. Pega con Ctrl+V o sube una.</div>';
   return '<div class="wdprev" title="Arrastra para mover · rueda para ampliar" '+
     'onpointerdown="'+bgDragIni(f)+'" onpointermove="'+bgDragMov()+'" onpointerup="'+bgDragFin(W,z)+'" onpointercancel="'+bgDragFin(W,z)+'" onwheel="'+bgRueda(W,z,f)+'" '+
