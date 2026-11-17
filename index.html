@@ -47,6 +47,7 @@ body{
   color:var(--ink);
   font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   min-height:100vh;
+  min-height:100dvh;
   padding:0 0 calc(28px + env(safe-area-inset-bottom));
   -webkit-font-smoothing:antialiased;
 }
@@ -649,6 +650,7 @@ input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(255,
 #menu button.on{color:var(--gold)}
 #menu button.on i{opacity:1}
 body.conmenu{padding-bottom:calc(84px + env(safe-area-inset-bottom));padding-top:calc(68px + env(safe-area-inset-top))}
+body.conmenu #stbadge{bottom:calc(92px + env(safe-area-inset-bottom))}
 /* barra superior del menú: perfil del jugador (solo visible con el menú abierto) */
 #topbar{display:none;position:fixed;left:0;right:0;top:0;z-index:30;padding:6px 4px calc(6px);
   background:rgba(10,12,20,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
@@ -814,7 +816,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.001";
+var VERSION="0.03.002";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -840,6 +842,8 @@ async function reiniciaPorBaja(){
   modal({ico:"🗑️", t:"Tu partida ya no existe", x:"Tu usuario ha sido dado de baja y su partida se ha borrado. Puedes empezar una carrera nueva.", okTxt:"Entendido", cancelTxt:"Cerrar", onOk:function(){ location.reload(); }, onCancel:function(){ location.reload(); }});
 }
 var MEM={};
+var FS_OK=!!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen);
+function pantallaCompleta(){ try{ var d=document.documentElement; if(!document.fullscreenElement && !document.webkitFullscreenElement){ var f=d.requestFullscreen||d.webkitRequestFullscreen; if(f) f.call(d); } else { var x=document.exitFullscreen||document.webkitExitFullscreen; if(x) x.call(document); } }catch(e){} }
 function stBadge(){ var n=$("stbadge"); if(n) n.textContent="v"+VERSION+" · "+ST_BACKEND; }
 /* ================= DATOS 2026-27 ================= */
 /* Elo: elofootball.com · ago 2026. col: [color1, color2, patrón] para el escudo. */
@@ -10364,6 +10368,7 @@ function renderTopbar(){
     +'<div class="tbtxt"><div class="tbn">'+esc(S.nombre||"")+'</div>'
       +'<div class="tbs">'+esc(POS[S.pos]? POS[S.pos].n : "")+(club? ' · '+esc(club):'')+'</div></div>'
     +'<button class="tbbtn" disabled aria-label="Notificaciones (próximamente)" title="Notificaciones (próximamente)">🔔</button>'
+    +'<button class="tbbtn" aria-label="Pantalla completa" title="Pantalla completa" onclick="pantallaCompleta()"'+(FS_OK?'':' disabled')+'>⛶</button>'
     +'<button class="tbbtn" aria-label="Ajustes" onclick="irSec(\'ajustes\')">⚙️</button>'
   +'</div>';
 }
