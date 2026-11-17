@@ -1449,9 +1449,9 @@ var CAT=[
    Sustituye los datos de ejemplo por PocketBase. Lo que no está integrado queda atenuado (clase .off, deshabilitado). */
 var PB_URL="https://server-pc.tail3b4002.ts.net:8447";
 CUR_VER="4.69.24";
-var CUR_VER_DATE="2026-11-16";   /* fecha en que la versión del juego quedó integrada en el admin (se ve al pasar el ratón) */
-var ADMIN_VER="1.0", ADMIN_VER_DATE="2026-11-17";   /* versión del editor: súbela al cambiar el admin */
-function fechaES(iso){ return new Date(iso+"T12:00:00").toLocaleDateString("es-ES",{day:"numeric",month:"long",year:"numeric"}); }
+var CUR_VER_DATE="2026-11-16T21:41:17+01:00";   /* fecha en que la versión del juego quedó integrada en el admin (se ve al pasar el ratón) */
+var ADMIN_VER="1.0", ADMIN_VER_DATE="2026-11-17T15:00:40+01:00";   /* versión del editor: súbela al cambiar el admin */
+function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
   var g=$("gver"), e=$("ever");
   if(g){ g.textContent="Juego v"+CUR_VER; g.title="Versión del juego integrada el "+fechaES(CUR_VER_DATE); }
