@@ -89,7 +89,7 @@ function partidoBody(z){
   if(z==="1x1") return abajo(box(vsc(9)+pair(P.fuera,24,9),'column',2),'');
   if(z==="2x1") return lado(conNombres(34,9,11,6));
   if(z==="3x1") return lado(conNombres(42,12,14,12));
-  if(z==="1x2") return abajo(box(pair(P.casa,26,9)+vsc(9)+pair(P.fuera,26,9),'column',10),circ(20));
+  if(z==="1x2") return cabecera(jorCorta(9),box(pair(P.casa,26,9)+vsc(9)+pair(P.fuera,26,9),'column',8),'');
   if(z==="2x2") return cabecera(jor(10),conNombres(50,12,16,8),'');
   if(z==="1x3") return cabecera(jorCorta(9),box(pair(P.casa,42,11)+vsc(13)+pair(P.fuera,42,11),'column',12),'');
   if(z==="2x3") return cabecera(jor(10),box(pair(P.casa,46,12)+vsc(14)+pair(P.fuera,46,12),'column',14),'');
