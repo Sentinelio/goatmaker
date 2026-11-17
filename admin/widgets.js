@@ -253,20 +253,18 @@ function bgCargar(id,z,el){
   im.onerror=function(){ URL.revokeObjectURL(url); toast("No se pudo leer la imagen"); };
   im.src=url;
 }
-function bgCard(W,L){
-  var pre="wd."+W.id, filas=WSZ.filter(function(z){ return !!val(pre+".z"+z); }).map(function(z){
-    var k=pre+".bg."+z, img=wdBg(W.id,z);
-    var thumb='<div style="flex:none;width:72px;height:46px;border-radius:8px;border:1px solid #3A4262;background:'+(img?'url(\''+img+'\') '+BG_CSS[val(pre+".bgpos."+z)||"centro"]+'/cover':'#161B2C')+'"></div>';
-    var up='<label class="b sm" style="cursor:pointer">'+(img?'Cambiar imagen':'Subir imagen')+'<input type="file" accept="image/*" style="display:none" onchange="'+on(function(x,el){ bgCargar(W.id,z,el); })+'"></label>';
-    var quita=img? ' '+btn("Quitar imagen",function(){ set(k,null); },"sm") : '';
-    var pos='<select onchange="'+on(function(x){ set(pre+".bgpos."+z,x); })+'">'+BG_POS.map(function(o){return '<option'+(o===(val(pre+".bgpos."+z)||"centro")?' selected':'')+'>'+o+'</option>'}).join("")+'</select>';
-    var velo='<input type="range" min="0" max="80" step="5" value="'+val(pre+".bgov."+z)+'" onchange="'+on(function(x){ set(pre+".bgov."+z,Number(x)); })+'" style="width:120px"> <span class="small mut">'+val(pre+".bgov."+z)+' %</span>';
-    return '<div style="display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid #232A40;flex-wrap:wrap">'+
-      '<span class="mono small mut" style="width:34px">'+z+'</span>'+thumb+
-      '<div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:6px"><div class="row" style="gap:8px;flex-wrap:wrap">'+up+quita+'</div>'+
-      '<div class="row" style="gap:8px;flex-wrap:wrap"><span class="small mut">Encuadre</span>'+pos+'<span class="small mut">Velo</span>'+velo+'</div></div></div>';
-  }).join("");
-  return card("Fondos por tamaño · "+L, filas || '<p class="mut" style="margin:0">Activa al menos un tamaño en Tamaños permitidos.</p>', '<span class="tag">JPG/PNG · máx. 640 px</span>');
+/* controles de fondo dentro de cada pieza: aparecen al pasar el ratón; sin ratón se ve la imagen */
+(function(){ if(document.getElementById("wdpz-css")) return; var st=document.createElement("style"); st.id="wdpz-css";
+  st.textContent=".wdpz .wdctl{display:none;position:absolute;inset:0;background:rgba(8,10,20,.86);flex-direction:column;justify-content:center;gap:6px;padding:8px;box-sizing:border-box;font-size:11px;color:#E8EAF2}.wdpz:hover .wdctl{display:flex}";
+  document.head.appendChild(st); })();
+function bgCtl(W,z){
+  var pre="wd."+W.id, k=pre+".bg."+z, img=wdBg(W.id,z), pos=val(pre+".bgpos."+z)||"centro", ov=val(pre+".bgov."+z);
+  return '<div class="wdctl">'+
+    '<label class="b sm" style="cursor:pointer;text-align:center;padding:4px 6px">'+(img?'Cambiar imagen':'Subir imagen')+'<input type="file" accept="image/*" style="display:none" onchange="'+on(function(x,el){ bgCargar(W.id,z,el); })+'"></label>'+
+    (img? '<button class="b sm" style="padding:4px 6px" onclick="'+on(function(){ set(k,null); })+'">Quitar</button>' : '')+
+    '<select style="font-size:11px;padding:2px" onchange="'+on(function(x){ set(pre+".bgpos."+z,x); })+'">'+BG_POS.map(function(o){return '<option'+(o===pos?' selected':'')+'>'+o+'</option>'}).join("")+'</select>'+
+    '<input type="range" min="0" max="80" step="5" value="'+ov+'" title="Velo '+ov+' %" onchange="'+on(function(x){ set(pre+".bgov."+z,Number(x)); })+'">'+
+    '</div>';
 }
 function tetris(W,defS){
   var pre="wd."+W.id;
@@ -274,7 +272,7 @@ function tetris(W,defS){
     var w=+z.split("x")[0], h=+z.split("x")[1], isOn=!!val(pre+".z"+z), isD=z===defS;
     return '<div style="flex:'+w+' 1 0;min-width:0;'+(isOn?"":"opacity:.4")+'">'+
       '<div style="font-family:monospace;font-size:12px;color:#8891AA;margin-bottom:4px">'+z+(isD?' · defecto':'')+(isOn?'':' · apagado')+'</div>'+
-      '<div style="width:100%;aspect-ratio:'+w+' / '+h+';box-sizing:border-box;border-radius:8px;background:'+(isD?'#2A2412':'#161B2C')+(wdBg(W.id,z)?';background-image:url(\''+wdBg(W.id,z)+'\');background-size:cover;background-position:'+BG_CSS[val(pre+".bgpos."+z)||"centro"]:'')+';border:1px solid '+(isD?'#FFC24B':'#3A4262')+'"></div></div>';
+      '<div class="wdpz" style="position:relative;overflow:hidden;width:100%;aspect-ratio:'+w+' / '+h+';box-sizing:border-box;border-radius:8px;background:'+(isD?'#2A2412':'#161B2C')+(wdBg(W.id,z)?';background-image:url(\''+wdBg(W.id,z)+'\');background-size:cover;background-position:'+BG_CSS[val(pre+".bgpos."+z)||"centro"]:'')+';border:1px solid '+(isD?'#FFC24B':'#3A4262')+'">'+(isOn?bgCtl(W,z):'')+'</div></div>';
   }).join("")+'</div>'; }).join("");
   return '<div style="display:grid;gap:12px;width:100%">'+pieces+'</div>';
 }
@@ -295,7 +293,7 @@ V.widgets=function(){
         return fld(pre+".z"+z, z+(z==="1x1"?" · una celda":z==="3x3"?" · tablero completo":""), true, {type:"tog", full:L+" · "+z, si:"Sí", no:"No"});
       }).join("");
     var defS=val(pre+".def")||W.def;
-    b='<div class="grid g2"><div style="display:flex;flex-direction:column;gap:14px;min-width:0">'+datos+card("Tamaños permitidos", filas, '<span class="tag">'+WSZ.length+' tamaños</span>')+bgCard(W,L)+'</div>'+card("Tamaños como piezas · "+L, tetris(W,defS))+'</div>';
+    b='<div class="grid g2"><div style="display:flex;flex-direction:column;gap:14px;min-width:0">'+datos+card("Tamaños permitidos", filas, '<span class="tag">'+WSZ.length+' tamaños</span>')+'</div>'+card("Tamaños como piezas · "+L, tetris(W,defS))+'</div>';
   }
   return hd("Widgets","Cada pestaña del juego como widget independiente, para cambiar cada uno por separado.", "")+
     t+'<div class="split">'+widgetList()+'<div>'+(tb==="Pantalla de inicio"? inicioView() : b)+'</div></div>';
