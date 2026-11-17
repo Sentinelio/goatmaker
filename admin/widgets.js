@@ -1,5 +1,5 @@
 /* pestañas de Widgets integradas (la clave "wd" no comparte lista con el resto de páginas) */
-var OK_TAB_WD=["Datos","Tamaños","Pantalla de inicio"];
+var OK_TAB_WD=["Tamaños","Pantalla de inicio"];
 /* WIDGETS: cada pestaña del juego como widget independiente. Se expone aquí para poder cambiarla por separado. */
 var WSZ=["1x1","2x1","3x1","1x2","2x2","3x2","1x3","2x3","3x3"];
 var WID=[
@@ -229,7 +229,7 @@ function tetris(W,defS){
 }
 V.widgets=function(){
   var s=ST.sel.wd||WID[0].id, W=wById(s)||WID[0], pre="wd."+W.id, L=W.id+" "+W.n;
-  var t=tabs("wd",["Datos","Tamaños","Pantalla de inicio"]), tb=ST.tab.wd, b="";
+  var t=tabs("wd",["Tamaños","Pantalla de inicio"]), tb=ST.tab.wd, b="";
   var ix=WID.indexOf(W);
   var datos=card(L,
       fld(pre+".n","Nombre",W.n,{full:L+" · nombre",d:"Solo para el panel."})+
@@ -238,8 +238,7 @@ V.widgets=function(){
       fld(pre+".def","Tamaño por defecto",W.def,{type:"sel",opts:WSZ,full:L+" · tamaño por defecto"})+
       fld(pre+".on","Aparece en el inicio",false,{type:"tog",full:L+" · aparece en el inicio",si:"Sí",no:"No"})+
       fld(pre+".txt","Qué muestra en tamaño pequeño",W.txt,{type:"area",rows:3,full:L+" · contenido",d:"Cada widget muestra la misma pestaña que en el juego, en la versión que cabe en su tamaño."}));
-  if(tb==="Datos") b=datos;
-  else if(tb==="Tamaños"){
+  if(tb==="Tamaños"){
     var filas=WSZ.map(function(z){
         return fld(pre+".z"+z, z+(z==="1x1"?" · una celda":z==="3x3"?" · tablero completo":""), true, {type:"tog", full:L+" · "+z, si:"Sí", no:"No"});
       }).join("");
@@ -247,5 +246,5 @@ V.widgets=function(){
     b='<div class="grid g2"><div style="display:flex;flex-direction:column;gap:14px;min-width:0">'+datos+card("Tamaños permitidos", filas, '<span class="tag">'+WSZ.length+' tamaños</span>')+'</div>'+card("Tamaños como piezas · "+L, tetris(W,defS))+'</div>';
   }
   return hd("Widgets","Cada pestaña del juego como widget independiente, para cambiar cada uno por separado.", "")+
-    '<div class="split">'+widgetList()+'<div>'+t+(tb==="Pantalla de inicio"? inicioView() : b)+'</div></div>';
+    t+'<div class="split">'+widgetList()+'<div>'+(tb==="Pantalla de inicio"? inicioView() : b)+'</div></div>';
 };
