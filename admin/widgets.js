@@ -205,7 +205,7 @@ function inicioView(){
   WID.forEach(function(W){ reg("wd."+W.id+".c",null,W.id+" · columna en el inicio"); reg("wd."+W.id+".r",null,W.id+" · fila en el inicio"); });
   var L=inicioLayout(), sel=ST.sel.wdp||null, items="";
   Object.keys(L).forEach(function(id){ var p=L[id], W=wById(id), isS=id===sel;
-    items+='<div id="wdi-'+id+'" draggable="true" ondragstart="window._WD=\''+id+'\';document.getElementById(\'wdtrash\').style.display=\'flex\'" ondragend="document.getElementById(\'wdtrash\').style.display=\'none\';inicioClear()" onclick="'+on(function(){ ST.sel.wdp=id; go(); })+'" style="grid-column:'+p.c+' / span '+p.w+';grid-row:'+p.r+' / span '+p.h+';position:relative;box-sizing:border-box;border-radius:14px;background:#161B2C;border:'+(isS?'2px solid #FFC24B':'1px solid #3A4262')+';padding:9px;overflow:hidden;display:flex;flex-direction:column;cursor:grab">'+'<div class="wdc" style="height:100%;width:100%">'+sampleBody(W,val("wd."+id+".def")||W.def)+'</div>'+(isS?'<span onmousedown="event.preventDefault();event.stopPropagation();window._WRS=\''+id+'\'" onpointerdown="this.setPointerCapture(event.pointerId)" title="Arrastra para cambiar el tamaño" style="position:absolute;right:4px;bottom:4px;width:16px;height:16px;border-radius:5px;background:#FFC24B;cursor:nwse-resize;z-index:2"></span>':'')+'</div>';
+    items+='<div id="wdi-'+id+'" draggable="true" onpointerdown="inicioTouch(event,\''+id+'\')" ondragstart="window._WD=\''+id+'\';document.getElementById(\'wdtrash\').style.display=\'flex\'" ondragend="document.getElementById(\'wdtrash\').style.display=\'none\';inicioClear()" onclick="'+on(function(){ ST.sel.wdp=id; go(); })+'" style="grid-column:'+p.c+' / span '+p.w+';grid-row:'+p.r+' / span '+p.h+';position:relative;box-sizing:border-box;border-radius:14px;background:#161B2C;border:'+(isS?'2px solid #FFC24B':'1px solid #3A4262')+';padding:9px;overflow:hidden;display:flex;flex-direction:column;cursor:grab;touch-action:none">'+'<div class="wdc" style="height:100%;width:100%">'+sampleBody(W,val("wd."+id+".def")||W.def)+'</div>'+(isS?'<span onmousedown="event.preventDefault();event.stopPropagation();window._WRS=\''+id+'\'" onpointerdown="event.stopPropagation();event.preventDefault();window._WRS=\''+id+'\';this.setPointerCapture(event.pointerId)" title="Arrastra para cambiar el tamaño" style="position:absolute;right:2px;bottom:2px;width:26px;height:26px;border-radius:7px;background:#FFC24B;cursor:nwse-resize;z-index:2;touch-action:none"></span>':'')+'</div>';
   });
   var dropTrash=on(function(){ var id=window._WD; if(id && !inicioBorrable(id)){ toast("Este widget no se puede quitar del inicio"); return; } if(id){ set("wd."+id+".on",false); set("wd."+id+".c",null); set("wd."+id+".r",null); ST.sel.wdp=null; } });
   var dropPhone=on(function(){ inicioClear();
@@ -223,6 +223,29 @@ function inicioView(){
     '<div id="wdgrid" ondragover="event.preventDefault();event.dataTransfer.dropEffect=\'move\';var b=this.getBoundingClientRect();window._WC=Math.min(PH_C,Math.max(1,Math.floor((event.clientX-b.left)/114.67)+1));window._WR=Math.min(PH_R,Math.max(1,Math.floor((event.clientY-b.top)/122)+1));inicioMoveFeedback()" ondrop="event.preventDefault();var b=this.getBoundingClientRect();window._WC=Math.min(PH_C,Math.max(1,Math.floor((event.clientX-b.left)/114.67)+1));window._WR=Math.min(PH_R,Math.max(1,Math.floor((event.clientY-b.top)/122)+1));'+dropPhone+'" style="position:absolute;top:76px;left:12px;right:12px;bottom:84px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(4,1fr);gap:8px" onpointermove="if(window._WRS){var b=this.getBoundingClientRect();window._WC=Math.min(PH_C,Math.max(1,Math.floor((event.clientX-b.left)/114.67)+1));window._WR=Math.min(PH_R,Math.max(1,Math.floor((event.clientY-b.top)/122)+1));inicioPreview();}" onpointerup="if(window._WRS){'+dropPhone+'}">'+items+'</div>'+
     '<div style="position:absolute;bottom:10px;left:10px;right:10px;height:60px;border-radius:20px;background:#161B2C;border:1px solid #232A40;display:flex;justify-content:space-around;align-items:center;box-sizing:border-box">'+["Inicio","Equipo","Jugador","Mercado","Cuentas"].map(function(n,i){ return '<span style="font-size:10px;color:'+(i===0?"#FFC24B":"#8891AA")+'">'+n+'</span>'; }).join("")+'</div>'+'<div id="wdtrash" ondragover="event.preventDefault()" ondrop="event.preventDefault();'+dropTrash+'" style="display:none;position:absolute;bottom:14px;left:50%;transform:translateX(-50%);width:56px;height:56px;border-radius:50%;background:#3A1A22;border:1px solid #FF5470;align-items:center;justify-content:center;font-size:24px;z-index:5">🗑</div>'+'</div></div>'+'</div>';
   return phone;
+}
+function inicioTouch(ev,id){
+  if(ev.pointerType!=="touch") return;
+  var el=ev.currentTarget, sx=ev.clientX, sy=ev.clientY, moved=false;
+  el.setPointerCapture(ev.pointerId);
+  var grid=document.getElementById("wdgrid"), tr=document.getElementById("wdtrash");
+  function pos(e){ var b=grid.getBoundingClientRect(); window._WC=Math.min(PH_C,Math.max(1,Math.floor((e.clientX-b.left)/114.67)+1)); window._WR=Math.min(PH_R,Math.max(1,Math.floor((e.clientY-b.top)/122)+1)); }
+  function mv(e){
+    if(!moved){ if(Math.hypot(e.clientX-sx,e.clientY-sy)<8) return; moved=true; window._WD=id; if(tr) tr.style.display="flex"; }
+    e.preventDefault(); pos(e); inicioMoveFeedback();
+  }
+  function end(e){
+    el.removeEventListener("pointermove",mv); el.removeEventListener("pointerup",end); el.removeEventListener("pointercancel",end);
+    if(!moved) return;
+    var t=tr&&tr.getBoundingClientRect();
+    var sobreBasura=!!t && e.clientX>=t.left && e.clientX<=t.right && e.clientY>=t.top && e.clientY<=t.bottom;
+    if(tr) tr.style.display="none";
+    if(sobreBasura){ inicioClear(); tr.dispatchEvent(new Event("drop")); return; }
+    var g=grid.getBoundingClientRect();
+    if(e.clientX<g.left||e.clientX>g.right||e.clientY<g.top||e.clientY>g.bottom){ inicioClear(); return; }
+    pos(e); var d=new Event("drop"); d.clientX=e.clientX; d.clientY=e.clientY; grid.dispatchEvent(d);
+  }
+  el.addEventListener("pointermove",mv); el.addEventListener("pointerup",end); el.addEventListener("pointercancel",end);
 }
 function inicioBest(rid,pr,tw,th){
   var best=null;
