@@ -91,7 +91,8 @@ function partidoBody(z){
     return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center">'+nom(P.casa)+vsb()+nom(P.fuera)+'</div>';
   };
   var conv=function(){ return '<div style="border-left:3px solid '+col+';padding:3px 8px;font-size:11px;line-height:1.3"><b style="color:'+col+'">'+esc(P.convTxt)+'</b><div style="color:#8891AA">'+esc(P.convDet)+'</div></div>'; };
-  var btn=function(t,fs){ return '<div style="background:#FFC24B;color:#1A1408;border-radius:6px;text-align:center;font-weight:700;font-size:'+(fs||11)+'px;padding:5px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(t)+'</div>'; };
+  /* sin botón de jugar en el widget */
+  var btn=function(){ return ''; };
   var frase=function(){ return '<div style="font-size:11px;font-style:italic;color:#C9CEDF;text-align:center">'+esc(P.frase)+'</div>'; };
   var col_=function(gap,body){ return '<div style="display:flex;flex-direction:column;gap:'+gap+'px;height:100%;justify-content:center">'+body+'</div>'; };
   if(z==="1x1") return col_(3,'<div style="display:flex;justify-content:center">'+escudo(P.casa,20)+'</div>'+btn("Jugar",9));
