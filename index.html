@@ -819,7 +819,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.003";
+var VERSION="0.03.004";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -6508,7 +6508,7 @@ function panelHTML(){
     var tot=(a+b)||1, wa=(a/tot*50).toFixed(2), wb=(b/tot*50).toFixed(2), extra='';
     if(pj && pj.v>0){ var wp=Math.min(50,pj.v/tot*50).toFixed(2); extra='<i class="pjb" style="'+(pj.izq?'right:50%':'left:50%')+';width:'+wp+'%"></i>'; }
     var ta=String(a), tb=String(b);
-    if(pj){ var pn='<span class="pjn">('+(pj.v||0)+')</span>'; if(pj.izq) ta+=' '+pn; else tb+=' '+pn; }
+    if(pj){ var pn='<span class="pjn">('+(pj.v||0)+')</span>'; if(pj.izq) ta+=' '+pn; else tb=pn+' '+tb; }
     return '<div class="psrow"><span class="psa mono">'+ta+'</span><span class="psl">'+lb+'</span><span class="psb mono">'+tb+'</span></div>'
       +'<div class="psbar"><i class="pl" style="width:'+wa+'%"></i><i class="pr" style="width:'+wb+'%"></i>'+extra+'<b class="psmark">|</b></div>';
   }
