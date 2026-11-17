@@ -79,12 +79,12 @@ function partidoBody(z){
   var box=function(body,dir,gap){ return '<div style="display:flex;flex-direction:'+dir+';align-items:center;justify-content:center;gap:'+gap+'px;width:100%;box-sizing:border-box">'+body+'</div>'; };
   var pair=function(n,w,px){ return '<div style="display:flex;flex-direction:column;align-items:center;gap:6px">'+escudo(n,w)+nom(n,px)+'</div>'; };
   var conNombres=function(w,px,vpx,gap){ return '<div style="display:flex;align-items:flex-start;gap:'+gap+'px">'+pair(P.casa,w,px)+vs(w,vpx)+pair(P.fuera,w,px)+'</div>'; };
-  var pill=function(){ var t=P.rol==="titular"?"⚽ Saltar al campo":"Continuar"; return '<div style="background:linear-gradient(180deg,#FFD27A,#E9A93A);color:#1A1200;font-weight:700;font-size:11px;padding:6px 12px;border-radius:999px;white-space:nowrap;flex:none">'+esc(t)+'</div>'; };
-  var circ=function(){ return '<div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(180deg,#FFD27A,#E9A93A);display:flex;align-items:center;justify-content:center;font-size:13px;flex:none">⚽</div>'; };
+  var pill=function(){ var t=P.rol==="titular"?"Jugar":"Continuar"; return '<div style="background:linear-gradient(180deg,#FFD27A,#E9A93A);color:#1A1200;font-weight:700;font-size:11px;padding:6px 12px;border-radius:999px;white-space:nowrap;flex:none">'+esc(t)+'</div>'; };
+  var circ=function(d){ d=d||24; return '<div style="width:'+d+'px;height:'+d+'px;border-radius:50%;background:linear-gradient(180deg,#FFD27A,#E9A93A);display:flex;align-items:center;justify-content:center;font-size:'+Math.round(d*.55)+'px;flex:none">⚽</div>'; };
   var abajo=function(body,btn){ return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:space-between;height:100%;width:100%;box-sizing:border-box;padding:6px 0">'+'<div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;width:100%">'+body+'</div>'+btn+'</div>'; };
   var alLado=function(body,btn){ return '<div style="display:flex;align-items:center;justify-content:center;gap:10px;height:100%;width:100%;box-sizing:border-box">'+body+btn+'</div>'; };
   var cabecera=function(label,body,btn){ return '<div style="display:flex;flex-direction:column;align-items:center;height:100%;width:100%;box-sizing:border-box;padding:6px 0">'+label+'<div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center">'+body+'</div>'+btn+'</div>'; };
-  if(z==="1x1") return abajo(escudo(P.casa,28),circ());
+  if(z==="1x1") return abajo('',circ(34));
   if(z==="2x1") return alLado(box(escudo(P.casa,40)+vs(40,12)+escudo(P.fuera,40),'row',8),circ());
   if(z==="3x1") return alLado(box(escudo(P.casa,48)+vs(48,14)+escudo(P.fuera,48),'row',12),circ());
   if(z==="1x2") return abajo(box(escudo(P.casa,34)+vsc(11)+escudo(P.fuera,34),'column',3),circ());
