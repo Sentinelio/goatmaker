@@ -231,19 +231,20 @@ V.widgets=function(){
   var s=ST.sel.wd||WID[0].id, W=wById(s)||WID[0], pre="wd."+W.id, L=W.id+" "+W.n;
   var t=tabs("wd",["Datos","Tamaños","Pantalla de inicio"]), tb=ST.tab.wd, b="";
   var ix=WID.indexOf(W);
-  if(tb==="Datos") b=card(L,
+  var datos=card(L,
       fld(pre+".n","Nombre",W.n,{full:L+" · nombre",d:"Solo para el panel."})+
       '<div class="diff"><span class="p mut">Página</span><b>'+esc(W.pg)+'</b></div>'+
       '<div class="diff"><span class="p mut">Pestaña de origen</span><span class="mono small">'+esc(W.tab)+'</span></div>'+
       fld(pre+".def","Tamaño por defecto",W.def,{type:"sel",opts:WSZ,full:L+" · tamaño por defecto"})+
       fld(pre+".on","Aparece en el inicio",false,{type:"tog",full:L+" · aparece en el inicio",si:"Sí",no:"No"})+
       fld(pre+".txt","Qué muestra en tamaño pequeño",W.txt,{type:"area",rows:3,full:L+" · contenido",d:"Cada widget muestra la misma pestaña que en el juego, en la versión que cabe en su tamaño."}));
+  if(tb==="Datos") b=datos;
   else if(tb==="Tamaños"){
     var filas=WSZ.map(function(z){
         return fld(pre+".z"+z, z+(z==="1x1"?" · una celda":z==="3x3"?" · tablero completo":""), true, {type:"tog", full:L+" · "+z, si:"Sí", no:"No"});
       }).join("");
     var defS=val(pre+".def")||W.def;
-    b='<div class="grid g2">'+card("Tamaños permitidos", filas, '<span class="tag">'+WSZ.length+' tamaños</span>')+card("Tamaños como piezas · "+L, tetris(W,defS))+'</div>';
+    b='<div class="grid g2"><div style="display:flex;flex-direction:column;gap:14px;min-width:0">'+datos+card("Tamaños permitidos", filas, '<span class="tag">'+WSZ.length+' tamaños</span>')+'</div>'+card("Tamaños como piezas · "+L, tetris(W,defS))+'</div>';
   }
   return hd("Widgets","Cada pestaña del juego como widget independiente, para cambiar cada uno por separado.", "")+
     '<div class="split">'+widgetList()+'<div>'+t+(tb==="Pantalla de inicio"? inicioView() : b)+'</div></div>';
