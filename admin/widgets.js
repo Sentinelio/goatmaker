@@ -253,34 +253,30 @@ function bgCargar(id,z,el){
   im.onerror=function(){ URL.revokeObjectURL(url); toast("No se pudo leer la imagen"); };
   im.src=url;
 }
-/* ☰ solo se ve al pasar el ratón por el tamaño, o mientras su panel está abierto */
-(function(){ if(document.getElementById("wdmenu-css")) return; var st=document.createElement("style"); st.id="wdmenu-css";
-  st.textContent=".wdcol .wdmenu{visibility:hidden}.wdcol:hover .wdmenu,.wdmenu.on{visibility:visible}";
-  document.head.appendChild(st); })();
-/* panel de fondo: va debajo de la cuadrícula, en su propia fila, así no tapa ni desborda nada */
-function bgPanel(W,z){
+/* controles del fondo del tamaño elegido: van en su tarjeta fija, a la derecha de Tamaños permitidos */
+function bgControles(W,z){
   var pre="wd."+W.id, k=pre+".bg."+z, img=wdBg(W.id,z), pos=val(pre+".bgpos."+z)||"centro", ov=val(pre+".bgov."+z);
-  var rot='font-size:12px;color:#8891AA';
-  return '<div style="margin-top:12px;padding:12px;border:1px solid #3A4262;border-radius:12px;background:#161B2C;display:flex;flex-wrap:wrap;gap:12px;align-items:center">'+
-    '<span style="font-size:12px;color:#E8EAF2;margin-right:auto">Fondo · '+z+'</span>'+
-    '<label class="b sm" style="cursor:pointer;padding:6px 10px">'+(img?'Cambiar imagen':'Subir imagen')+'<input type="file" accept="image/*" style="display:none" onchange="'+on(function(x,el){ bgCargar(W.id,z,el); })+'"></label>'+
+  var rot='font-size:12px;color:#8891AA;width:70px;flex:none';
+  return '<div style="display:flex;flex-direction:column;gap:10px">'+
+    '<label class="b sm" style="cursor:pointer;text-align:center;padding:6px">'+(img?'Cambiar imagen':'Subir imagen')+'<input type="file" accept="image/*" style="display:none" onchange="'+on(function(x,el){ bgCargar(W.id,z,el); })+'"></label>'+
     (img? '<button class="b sm" onclick="'+on(function(){ set(k,null); })+'">Quitar imagen</button>' : '')+
-    '<span style="'+rot+'">Encuadre</span><select style="font-size:12px;width:130px" onchange="'+on(function(x){ set(pre+".bgpos."+z,x); })+'">'+BG_POS.map(function(o){return '<option'+(o===pos?' selected':'')+'>'+o+'</option>'}).join("")+'</select>'+
-    '<span style="'+rot+'">Velo</span><input type="range" min="0" max="80" step="5" value="'+ov+'" style="width:140px" onchange="'+on(function(x){ set(pre+".bgov."+z,Number(x)); })+'"><span style="'+rot+';width:36px">'+ov+' %</span>'+
+    '<div style="display:flex;align-items:center;gap:8px"><span style="'+rot+'">Encuadre</span><select style="flex:1;font-size:12px" onchange="'+on(function(x){ set(pre+".bgpos."+z,x); })+'">'+BG_POS.map(function(o){return '<option'+(o===pos?' selected':'')+'>'+o+'</option>'}).join("")+'</select></div>'+
+    '<div style="display:flex;align-items:center;gap:8px"><span style="'+rot+'">Velo</span><input type="range" min="0" max="80" step="5" value="'+ov+'" style="flex:1" onchange="'+on(function(x){ set(pre+".bgov."+z,Number(x)); })+'"><span style="font-size:12px;color:#8891AA;width:40px;text-align:right;flex:none">'+ov+' %</span></div>'+
     '</div>';
 }
-function tetris(W,defS){
-  var pre="wd."+W.id, sel=ST.sel.bgp||"", selZ=sel.indexOf(W.id+"|")===0? sel.split("|")[1] : null;
+function bgFijo(W,selZ){
+  var ok = !!selZ && !!val("wd."+W.id+".z"+selZ);
+  return card("Fondo"+(ok?" · "+selZ:""), ok? bgControles(W,selZ) : '<p class="mut" style="margin:0">Pulsa un tamaño en Tamaños como piezas para editar su fondo.</p>').replace('<div class="card "','<div class="card " style="flex:1;margin:0"');
+}
+function tetris(W,defS,selZ){
+  var pre="wd."+W.id;
   var pieces=[1,2,3].map(function(hh){ return '<div style="display:flex;gap:12px;align-items:flex-start;width:100%">'+WSZ.filter(function(z){ return +z.split("x")[1]===hh; }).map(function(z){
-    var w=+z.split("x")[0], h=+z.split("x")[1], isOn=!!val(pre+".z"+z), isD=z===defS, key=W.id+"|"+z, abierto=isOn && selZ===z;
-    var etiqueta='<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px">'+
-      '<span style="font-family:monospace;font-size:12px;color:#8891AA">'+z+(isOn?'':' · apagado')+'</span>'+
-      (isOn? '<button class="b sm wdmenu'+(abierto?' on':'')+'" title="Fondo de '+z+'" style="padding:0 7px;line-height:20px;font-size:13px" onclick="'+on(function(){ ST.sel.bgp = abierto? null : key; go(); })+'">☰</button>' : '')+'</div>';
-    return '<div class="wdcol" style="flex:'+w+' 1 0;min-width:0;'+(isOn?"":"opacity:.4")+'">'+etiqueta+
-      '<div class="wdpz" style="position:relative;overflow:hidden;width:100%;aspect-ratio:'+w+' / '+h+';box-sizing:border-box;border-radius:8px;background:'+(isD?'#2A2412':'#161B2C')+(wdBg(W.id,z)?';background-image:url(\''+wdBg(W.id,z)+'\');background-size:cover;background-position:'+BG_CSS[val(pre+".bgpos."+z)||"centro"]:'')+';border:1px solid '+(isD?'#FFC24B':'#3A4262')+'"></div></div>';
+    var w=+z.split("x")[0], h=+z.split("x")[1], isOn=!!val(pre+".z"+z), isD=z===defS, elegido=isOn && selZ===z, key=W.id+"|"+z;
+    return '<div style="flex:'+w+' 1 0;min-width:0;'+(isOn?"":"opacity:.4")+'">'+
+      '<div style="font-family:monospace;font-size:12px;color:'+(elegido?'#E8EAF2':'#8891AA')+';margin-bottom:4px">'+z+(isOn?'':' · apagado')+'</div>'+
+      '<div class="wdpz" '+(isOn?'onclick="'+on(function(){ ST.sel.bgp = key; go(); })+'" title="Editar el fondo de '+z+'" ':'')+'style="position:relative;overflow:hidden;width:100%;aspect-ratio:'+w+' / '+h+';box-sizing:border-box;border-radius:8px;cursor:'+(isOn?'pointer':'default')+';background:'+(isD?'#2A2412':'#161B2C')+(wdBg(W.id,z)?';background-image:url(\''+wdBg(W.id,z)+'\');background-size:cover;background-position:'+BG_CSS[val(pre+".bgpos."+z)||"centro"]:'')+';border:'+(elegido?'2px solid #60A5FA':'1px solid '+(isD?'#FFC24B':'#3A4262'))+'"></div></div>';
   }).join("")+'</div>'; }).join("");
-  var panel = (selZ && val(pre+".z"+selZ))? bgPanel(W,selZ) : '';
-  return '<div style="display:grid;gap:12px;width:100%">'+pieces+'</div>'+panel;
+  return '<div style="display:grid;gap:12px;width:100%">'+pieces+'</div>';
 }
 V.widgets=function(){
   var s=ST.sel.wd||WID[0].id, W=wById(s)||WID[0], pre="wd."+W.id, L=W.id+" "+W.n;
@@ -299,8 +295,12 @@ V.widgets=function(){
         return fld(pre+".z"+z, z+(z==="1x1"?" · una celda":z==="3x3"?" · tablero completo":""), true, {type:"tog", full:L+" · "+z, si:"Sí", no:"No"});
       }).join("");
     var defS=val(pre+".def")||W.def;
-    b='<div class="grid g2"><div style="display:flex;flex-direction:column;gap:14px;min-width:0">'+datos+card("Tamaños permitidos", filas, '<span class="tag">'+WSZ.length+' tamaños</span>')+'</div>'+card("Tamaños como piezas · "+L, tetris(W,defS))+'</div>';
+    var selZ=(ST.sel.bgp||"").indexOf(W.id+"|")===0? ST.sel.bgp.split("|")[1] : null;
+    b='<div style="display:grid;grid-template-columns:minmax(0,1fr) 280px minmax(0,1fr);gap:14px;align-items:stretch">'+
+      '<div style="display:flex;flex-direction:column;gap:14px;min-width:0">'+datos+card("Tamaños permitidos", filas, '<span class="tag">'+WSZ.length+' tamaños</span>')+'</div>'+
+      '<div style="min-width:0;display:flex;flex-direction:column">'+bgFijo(W,selZ)+'</div>'+
+      card("Tamaños como piezas · "+L, tetris(W,defS,selZ))+'</div>';
   }
   return hd("Widgets","Cada pestaña del juego como widget independiente, para cambiar cada uno por separado.", "")+
-    t+'<div class="split">'+widgetList()+'<div>'+(tb==="Pantalla de inicio"? inicioView() : b)+'</div></div>';
+    t+'<div class="split">'+widgetList()+'<div style="min-width:0;flex:1 1 auto;width:100%">'+(tb==="Pantalla de inicio"? inicioView() : b)+'</div></div>';
 };
