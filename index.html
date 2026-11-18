@@ -8216,6 +8216,18 @@ function recomendacion(){
   cand.sort(function(a,b){ return (b.sube[peor]||0)-(a.sube[peor]||0); });
   return {ej:cand[0].id, motivo:ATTR[peor].n+" ("+Math.round(peorV)+") es tu punto flojo para jugar de "+POS[S.pos].n.toLowerCase()};
 }
+/* texto de la habilidad ligada a un ejercicio: si está bloqueada, qué falta; si no, nivel y progreso */
+function ejSkillTxt(meta){
+  var d=sklData(meta.id), pts=Math.round(d.pts);
+  if(!tieneSkill(meta.id) && !sklDesbloqueada(meta)){
+    var rep=((S.reps&&S.reps[meta.req.ej])||0)+((S.repsM&&S.repsM[meta.req.ej])||0);
+    var fal=[];
+    if(rep<meta.req.n) fal.push((meta.req.n-Math.floor(rep))+" sesiones de "+nombreEj(meta.req.ej));
+    if(atr(meta.req.attr)<meta.req.v) fal.push(meta.req.attr+" "+meta.req.v+" (ahora "+Math.round(atr(meta.req.attr))+")");
+    return "🔒 "+meta.n+": faltan "+fal.join(" y ")+" · "+pts+" pts guardados";
+  }
+  return "★ "+meta.n+" · nivel "+sklNivel(meta.id)+" · "+pts+"/"+sklCoste(d.niv)+" pts para subir";
+}
 function botonEjercicio(e, extra, rec){
   var i=ENTRENOS.indexOf(e), r=reps(e.id);
   var meta=null;
@@ -8227,7 +8239,7 @@ function botonEjercicio(e, extra, rec){
     +(esRec?'<span class="rectag">recomendado</span>':'')
     +'<b>'+esc(e.n)+'</b>'
     +'<span class="ejfx">'+esc(sube||"recupera")+'<i>'+(coste>0?"+":"")+coste+' forma</i></span>'
-    +(meta?'<span class="ejsk">★ '+esc(meta.n)+' · niv '+sklNivel(meta.id)+' · +'+sklPts(meta.id)+' pts</span>':(r?'<span class="ejsk">'+r+' sesiones</span>':''))
+    +(meta?'<span class="ejsk">'+esc(ejSkillTxt(meta))+'</span>':(r?'<span class="ejsk">'+r+' sesiones</span>':''))
     +dbgEntreno(e,extra)+'</button>';
 }
 function dbgEntreno(e, extra){
