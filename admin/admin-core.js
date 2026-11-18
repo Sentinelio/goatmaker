@@ -1165,6 +1165,12 @@ var NAV_RANGOS=[["Último día",86400000],["7 días",7*86400000],["30 días",30*
 var NAV_SEC={jugador:"P11",equipo:"P12",mercado:"P13",cuentas:"P14",ajustes:"P15"};
 function navExcl(){ try{ return JSON.parse(localStorage.getItem("gm-nav-excl")||"[]"); }catch(e){ return []; } }
 function navExclGuarda(a){ try{ localStorage.setItem("gm-nav-excl",JSON.stringify(a)); }catch(e){} }
+/* algunos navegadores envían solo el desfase («UTC+8», «Etc/GMT-8») y no un nombre de zona: se agrupan aparte */
+function navZona(z){
+  if(z==="Etc/UTC"||z==="GMT") return "UTC";
+  if(!z || z==="sin dato" || z==="UTC") return z;
+  return /^(UTC|GMT|Etc\/GMT|Etc\/UTC)([+-]?\d+)?$/.test(z) ? "Sin nombre de zona (solo desfase)" : z;
+}
 function navIncluye(install){ var p=NAVD.pl[install], ex=navExcl(); return !(p && p.g && ex.indexOf(p.g)>=0); }
 function navCargar(){
   if(NAVD.busy) return; NAVD.busy=true; NAVD.err=null;
@@ -1189,7 +1195,7 @@ function navCalc(){
   });
   ses.forEach(function(s){ unicos[s.install]=1; });
   var act=ses.reduce(function(a,s){ return a+(s.active_s||0); },0);
-  var tz={}; ses.forEach(function(s){ var p=NAVD.pl[s.install], z=(p&&p.tz)||"sin dato"; tz[z]=(tz[z]||0)+1; });
+  var tz={}; ses.forEach(function(s){ var p=NAVD.pl[s.install], z=navZona((p&&p.tz)||"sin dato"); tz[z]=(tz[z]||0)+1; });
   var horas=[]; for(var h=0;h<24;h++) horas.push(0);
   ses.forEach(function(s){ horas[new Date(s.start_t).getHours()]++; });
   return {ev:ev, ses:ses, cnt:cnt, tiempo:tiempo, jugadores:Object.keys(unicos).length, act:act, tz:tz, horas:horas};
@@ -1243,7 +1249,7 @@ function navInfoHTML(p){
     if(s.start_t<t1) t1=s.start_t; if(s.start_t>t2) t2=s.start_t;
   });
   var ids=Object.keys(usr).sort(function(a,b){ return usr[b]-usr[a]; });
-  ids.forEach(function(i){ var pl=NAVD.pl[i]||{}; var z=pl.tz||"sin dato"; tz[z]=(tz[z]||0)+1; var l=pl.lang||"sin dato"; lg[l]=(lg[l]||0)+1; });
+  ids.forEach(function(i){ var pl=NAVD.pl[i]||{}; var z=navZona(pl.tz||"sin dato"); tz[z]=(tz[z]||0)+1; var l=pl.lang||"sin dato"; lg[l]=(lg[l]||0)+1; });
   var top=function(o,m){ return Object.keys(o).sort(function(a,b){ return o[b]-o[a]; }).slice(0,m).map(function(k){ return {k:k,v:o[k]}; }); };
   var fmt=function(t){ return new Date(t).toLocaleString("es-ES",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}); };
   var pct=NAVM.totalSes? (n/NAVM.totalSes*100).toFixed(1) : "0";
@@ -1745,7 +1751,7 @@ var SUB_ID={P11:{"Ficha":"ficha","Físico":"fisico","Ánimo":"animo","Carácter"
   P14:{"Dinero":"dinero","Tienda":"tienda"},
   P15:{"Código":"codigo","Reportar":"reportar","Información":"info"}};
 var SUB_OCULTAS_ADMIN={P11:["Carácter"], P12:["Vestuario"], P13:["Rumores","Fichajes","Prensa"]};
-var ADMIN_VER="0.03.071", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.072", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 var _av=document.getElementById("adm-ver"); if(_av) _av.textContent="v"+ADMIN_VER;
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
