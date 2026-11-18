@@ -3,7 +3,7 @@ OK_BTN.push("Guardar widgets");
 var WSZ=["1x1","2x1","3x1","1x2","2x2","3x2","1x3","2x3","3x3"];
 var WID=[
  {id:"W01", pg:"Inicio",  tab:"partido",  n:"Partido de hoy",   def:"3x3", txt:"Jornada, escudos, estado de banquillo o titular y botón Continuar."},
- {id:"W02", pg:"Jugador", tab:"ficha",    n:"Ficha",            def:"2x1", txt:"Forma en todos los tamaños. A más espacio se añaden físico, estado y edad, por orden de importancia."},
+ {id:"W02", pg:"Jugador", tab:"ficha",    n:"Ficha",            def:"2x1", txt:"Resumen del jugador: forma y confianza en todos los tamaños. A más espacio se añaden estado, goles, asistencias, partidos y media, por orden de importancia."},
  {id:"W03", pg:"Jugador", tab:"fisico",   n:"Físico",           def:"1x1", txt:"Físico principal. Con más espacio: los atributos con su barra."},
  {id:"W04", pg:"Jugador", tab:"animo",    n:"Ánimo",            def:"1x1", txt:"Ánimo. Con más espacio: forma, confianza y fama."},
  {id:"W05", pg:"Jugador", tab:"caracter", n:"Carácter",         def:"1x2", txt:"Ejes de carácter con su barra. Con más espacio, los seis."},
@@ -147,27 +147,26 @@ function jugadorBody(W,z){
   var mini=function(a,f){ return '<div style="flex:1;min-width:0"><div style="font-size:10px;color:#8891AA;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(a)+'</div>'+bar(f)+'</div>'; };
   var stat=function(t,v){ return '<div style="text-align:center;flex:1"><div style="font-size:15px;font-weight:700;color:#FFC24B;white-space:nowrap">'+esc(String(v))+'</div><div style="font-size:9px;color:#8891AA;text-transform:uppercase;letter-spacing:.06em">'+esc(t)+'</div></div>'; };
   var A=J.atr, cuerpo;
-  if(W.id==="W02"){ /* Ficha física: forma, físico, estado y edad. Sin contrato, valor, ánimo ni datos de identidad (van en otros sitios). Lo que crece con el tamaño añade info; lo que sobra se reparte en el alto. */
-    var FIS=A.FIS;
-    if(z==="1x1") cuerpo=big(J.forma,22)+sm("forma · físico "+FIS);
+  if(W.id==="W02"){ /* Ficha resumen: lo más importante de la categoría Jugador, en orden: forma, confianza, estado, goles, asistencias, partidos y media. Lo que crece con el tamaño añade info; lo que sobra se reparte en el alto. */
+    if(z==="1x1") cuerpo=big(J.forma,22)+sm("forma");
     else if(cw===1){
       var rows=[fila("Forma",J.forma,J.forma/100)];
-      if(ch>=2) rows.push(fila("Físico",FIS,FIS/100));
-      if(ch>=3) rows.push(fila("Estado",J.estado), fila("Edad",J.edad));
+      if(ch>=2) rows.push(fila("Confianza",J.conf,J.conf/100));
+      if(ch>=3) rows.push(fila("Estado",J.estado), fila("Goles",J.goles), fila("Asist.",J.asist));
+      if(ch>=4) rows.push(fila("Media",J.mediaT));
       cuerpo='<div style="width:100%;height:100%;display:flex;flex-direction:column;justify-content:space-evenly">'+'<div style="text-align:center">'+big(J.forma,ch>=3?34:32)+sm("forma")+'</div><div style="width:100%">'+rows.join("")+'</div></div>';
     }
     else {
       var px= cw>=3 ? (ch>=3?28:(ch===1?16:20)) : (ch>=3?26:18), lb= ch>=3?12:10;
       var tile=function(t,v){ return '<div style="text-align:center;flex:1;min-width:0"><div style="font-size:'+px+'px;font-weight:700;color:#FFC24B;line-height:1.1;white-space:nowrap">'+esc(String(v))+'</div><div style="font-size:'+lb+'px;color:#8891AA;text-transform:uppercase;letter-spacing:.06em">'+esc(t)+'</div></div>'; };
-      var st=[["forma",J.forma]];
-      if(ch===1) st.push(["físico",FIS]);
-      if(ch===1&&cw>=3) st.push(["estado",J.estado],["edad",J.edad]);
-      if(ch>=2&&cw>=2) st.push(["estado",J.estado],["edad",J.edad]);
+      var st;
+      if(ch===1) st= cw>=3 ? [["forma",J.forma],["confianza",J.conf],["estado",J.estado],["goles",J.goles]] : [["forma",J.forma],["confianza",J.conf]];
+      else st= cw>=3 ? [["estado",J.estado],["goles",J.goles],["asistencias",J.asist],["partidos",J.partidos],["media",J.mediaT]] : [["estado",J.estado],["goles",J.goles],["asistencias",J.asist]];
       var filas=[]; var pq= ch>=2 ? (cw===2?2:3) : st.length; for(var q=0;q<st.length;q+=pq) filas.push(st.slice(q,q+pq));
       var cuad=filas.map(function(f){return '<div style="display:flex;justify-content:space-around;align-items:flex-start;gap:6px;width:100%">'+f.map(function(x){return tile(x[0],x[1]);}).join("")+'</div>';}).join('<div style="height:'+(ch>=3?18:6)+'px"></div>');
       var bh= ch>=3?10:6;
       var barraBig=function(a,v,f){ return '<div style="width:100%;margin:'+(ch>=3?6:3)+'px 0"><div style="display:flex;justify-content:space-between;font-size:'+(ch>=3?12:11)+'px;color:#E8EAF2;margin-bottom:3px"><span>'+esc(a)+'</span><b>'+esc(String(v))+'</b></div><div style="height:'+bh+'px;border-radius:'+(bh/2)+'px;background:#2A3149;overflow:hidden"><i style="display:block;height:100%;width:'+Math.round(Math.max(0,Math.min(1,f))*100)+'%;background:#FFC24B"></i></div></div>'; };
-      var barras= ch>=2 ? barraBig("Forma",J.forma,J.forma/100)+barraBig("Físico",FIS,FIS/100) : "";
+      var barras= ch>=2 ? barraBig("Forma",J.forma,J.forma/100)+barraBig("Confianza",J.conf,J.conf/100) : "";
       cuerpo='<div style="width:100%;height:100%;display:flex;flex-direction:column;justify-content:space-evenly">'+'<div style="width:100%">'+cuad+'</div>'+barras+'</div>';
     }
   }
