@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.008";
+var VERSION="0.03.009";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -1460,25 +1460,25 @@ var SKILLS=[
  /* generales */
  {id:"sangrefria", n:"Sangre fría", pos:null, req:{ej:"mental", n:6, attr:"MEN", v:66},
   d:"Los momentos grandes no te tiemblan.", fx:{gol:1.10, penal:true}},
- {id:"motor", n:"Motor inagotable", pos:null, req:{ej:"fisico", n:8, attr:"FIS", v:70},
+ {id:"motor", n:"Motor inagotable", pos:null, req:{ej:"fisico", n:8, attr:"FIS", v:66},
   d:"Aguantas los 90 sin bajar el pistón.", fx:{lesion:0.82, forma:3}},
- {id:"lectura", n:"Lectura de juego", pos:null, req:{ej:"tactica", n:8, attr:"TAC", v:70},
+ {id:"lectura", n:"Lectura de juego", pos:null, req:{ej:"tactica", n:8, attr:"TAC", v:66},
   d:"Llegas antes con la cabeza que con las piernas.", fx:{ta:0.80}},
  {id:"especialista", n:"Especialista a balón parado", pos:null, req:{ej:"parado", n:6, attr:"TEC", v:64},
   d:"Faltas y penaltis son terreno tuyo.", fx:{gol:1.06}, desbloquea:"falta-maestra"},
  /* portero */
- {id:"felino", n:"Reflejo felino", pos:["POR"], req:{ej:"reflejos", n:7, attr:"POR", v:70},
+ {id:"felino", n:"Reflejo felino", pos:["POR"], req:{ej:"reflejos", n:7, attr:"POR", v:66},
   d:"Llegas a lo que no se llega.", fx:{parada:1.18}},
  {id:"dueno", n:"Dueño del área", pos:["POR"], req:{ej:"salidas", n:6, attr:"POR", v:66},
   d:"Todo centro al área es tuyo.", fx:{golR:0.85}},
  {id:"libero", n:"Portero-líbero", pos:["POR"], req:{ej:"pies", n:6, attr:"TEC", v:58},
   d:"Sales jugando como un central más.", desbloquea:"salida-limpia"},
  /* defensas */
- {id:"anticipo", n:"Anticipación", pos:["DFC","LAT","MCD"], req:{ej:"duelos", n:7, attr:"DEF", v:70},
+ {id:"anticipo", n:"Anticipación", pos:["DFC","LAT","MCD"], req:{ej:"duelos", n:7, attr:"DEF", v:66},
   d:"Le ganas la partida antes del contacto.", fx:{golR:0.84, ta:0.9}},
  {id:"conductor", n:"Central conductor", pos:["DFC","LAT"], req:{ej:"salidabal", n:6, attr:"TEC", v:58},
   d:"Rompes líneas conduciendo desde atrás.", desbloquea:"conduccion-larga"},
- {id:"carrilero", n:"Carril infinito", pos:["LAT","EXT"], req:{ej:"idayvuelta", n:7, attr:"FIS", v:70},
+ {id:"carrilero", n:"Carril infinito", pos:["LAT","EXT"], req:{ej:"idayvuelta", n:7, attr:"FIS", v:66},
   d:"Subes y bajas los 90 minutos.", fx:{asis:1.15, lesion:0.9}},
  /* medios */
  {id:"ultimopase", n:"Último pase", pos:["MCD","MC","MCO"], req:{ej:"pasein", n:7, attr:"TEC", v:66},
@@ -1488,11 +1488,11 @@ var SKILLS=[
  {id:"ladron", n:"Ladrón de balones", pos:["MCD","MC","DFC"], req:{ej:"robo", n:7, attr:"DEF", v:64},
   d:"Cortas circuitos antes de que existan.", fx:{golR:0.86}, desbloquea:"robo-alto"},
  /* ataque */
- {id:"killer", n:"Killer del área", pos:["DC","EXT","MCO"], req:{ej:"definicion", n:8, attr:"TEC", v:70},
+ {id:"killer", n:"Killer del área", pos:["DC","EXT","MCO"], req:{ej:"definicion", n:8, attr:"TEC", v:66},
   d:"Si la hueles, la metes.", fx:{gol:1.22}},
- {id:"desborde", n:"Desborde eléctrico", pos:["EXT","MCO","DC"], req:{ej:"regate", n:7, attr:"TEC", v:68},
+ {id:"desborde", n:"Desborde eléctrico", pos:["EXT","MCO","DC"], req:{ej:"regate", n:7, attr:"TEC", v:65},
   d:"Uno contra uno es ventaja tuya.", fx:{asis:1.15}, desbloquea:"irse-de-dos"},
- {id:"torre", n:"Juego de espaldas", pos:["DC","DFC"], req:{ej:"remate", n:7, attr:"FIS", v:68},
+ {id:"torre", n:"Juego de espaldas", pos:["DC","DFC"], req:{ej:"remate", n:7, attr:"FIS", v:65},
   d:"Fijas centrales y los desgastas.", fx:{gol:1.10, golR:0.92}, desbloquea:"descarga"}
 ];
 /* qué acciones de partido ejercitan cada habilidad (k=tipo, z=zonas, s=situación, min=minuto) */
@@ -1536,7 +1536,9 @@ function usoSkillsPartido(d){
     if(u.min && (d.m||0)<u.min) return;
     var dd=sklData(k.id);
     dd.u=jA;
-    dd.pts+=(d.r==="ok"? 2:1);
+    var _p=(d.r==="ok"? 2:1);
+    if(dd.niv<=0 && !sklDesbloqueada(k)) _p=Math.max(0, Math.min(_p, sklCoste(0)-dd.pts));   /* bloqueada: reserva máx. el nivel 1 */
+    dd.pts+=_p;
     S.repsM=S.repsM||{};
     S.repsM[k.req.ej]=Math.round(((S.repsM[k.req.ej]||0)+0.5)*10)/10;
   });
@@ -1744,7 +1746,7 @@ function sk(campo){
       if(!k || !k.fx || !k.fx[campo]) continue;
       var niv=S.skl[id].niv||0;
       if(!niv) continue;
-      m *= 1 + (k.fx[campo]-1)*(niv/99);
+      m *= 1 + (k.fx[campo]-1)*(1-Math.pow(1-Math.min(niv,99)/99,3));   /* los primeros niveles se notan; los últimos pulen */
     }
   }
   if(S.talentos){
@@ -1852,7 +1854,7 @@ function gananciaEntreno(e, k, extra){
   if(v>=T) return 0;                          /* has llegado a tu techo */
   var techo=clamp((T-v)/52, 0.05, 1.10);
   var mult=(extra?1.15:1) * (0.85+((S.conf||55)/300)) * (bonusTienda().mult[k]||1) * (bonusPatros().mult[k]||1)
-          * (1+((S.puntualBonus||0)*0.05)) * (e.id==="remate"? factorFisico():1) * bonusTalentosEntreno(k);
+          * (1+((S.puntualBonus||0)*0.05)) * (estiloMister().doble? 1.2:1) * (e.id==="remate"? factorFisico():1) * bonusTalentosEntreno(k);
   return Math.round(base*techo*mult*100)/100;
 }
 function aplicarEntreno(idx, extra){
@@ -1866,13 +1868,17 @@ function aplicarEntreno(idx, extra){
     if(k.req.ej!==e.id) return;
     var d=sklData(k.id);
     var p=Math.round((4+rnd()*3)*(extra?1.5:1));
+    if(d.niv>0) d.u=jorAbs();   /* entrenar su ejercicio también la mantiene viva */
+    var bloq=(d.niv<=0 && !sklDesbloqueada(k));
+    if(bloq){ var tope=sklCoste(0); p=Math.max(0, Math.min(p, tope-d.pts)); }   /* bloqueada: se guarda como mucho lo justo para el nivel 1 */
     d.pts+=p;
-    ganados.push(k.n+" +"+p+" pts");
+    if(p>0) ganados.push(k.n+" +"+p+" pts");
   });
   var subidas=[];
   Object.keys(e.sube).forEach(function(k){
     var g=gananciaEntreno(e,k,extra);
-    S.attr[k]=clamp(atr(k)+g, 10, techoAtributoDe(k));
+    var _v0=atr(k);   /* entrenar nunca te baja: por encima del techo te quedas donde estás (el declive por edad va en el cierre de jornada) */
+    S.attr[k]= _v0>=techoAtributoDe(k) ? _v0 : clamp(_v0+g, 10, techoAtributoDe(k));
     if(g>0) subidas.push(ATTR[k].n+" +"+g.toFixed(2));
   });
   var coste=(e.forma||0)*(extra?1.4:1);
@@ -1889,7 +1895,6 @@ function aplicarEntreno(idx, extra){
       (S.histLes=S.histLes||[]).push({t:S.temporada, j:S.jornada, motivo:"sobrecarga", sem:S.lesion});
     }
   }
-  if((S.entreno&&S.entreno.hechos&&!S.entreno.hechos.length) && S.puntualBonus){ S.puntualBonus=0; }
   S.entreno=S.entreno||{jor:S.jornada, hechos:[], extra:false};
   if(ganados.length) subidas=subidas.concat(ganados);
   S.entreno.hechos.push({n:e.n, sub:subidas.join(" · ")||"solo recuperación", extra:!!extra});
@@ -1915,13 +1920,25 @@ function horaFmt(h){
    Centro 30 % = entreno (fijo). Derecha 35 % = salida (el control de la derecha).
    Cada hora antes o después da derecho a un ejercicio, con un máximo de 4 por lado. */
 var CITA_LIM=4, CITA_ZONA={izq:35, cen:30, der:35};
-var CITA_UI={jor:-1, ll:0, sa:0};
+var CITA_ACT_LLEGADA=[
+ {id:"estira", n:"Movilidad y estiramientos",  d:"Recuperas forma poco a poco.", forma:2},
+ {id:"gym",    n:"Gimnasio de fuerza",         d:"Más carga: cuesta forma, pero el trabajo cuenta.", forma:-3, eje:"disciplina", ej:1},
+ {id:"video",  n:"Vídeo con el cuerpo técnico",d:"Entiendes el plan. El míster lo nota.", mister:1, eje:"disciplina", ej:0.5},
+ {id:"charla", n:"Charla con los compañeros",  d:"Vestuario antes que pizarra.", eje:"companerismo", ej:1}
+];
+var CITA_ACT_SALIDA=[
+ {id:"hielo",   n:"Hielo y piscina",         d:"Descanso activo.", forma:3},
+ {id:"remates", n:"Remates extra",           d:"Trabajo de área tras el entreno.", forma:-3, eje:"disciplina", ej:1},
+ {id:"mister",  n:"Charla con el míster",    d:"Lo que no se dijo en el campo.", mister:2},
+ {id:"prensa",  n:"Ruedas de prensa",        d:"Hablas con los periodistas: sube tu fama, el míster lo mira raro.", fama:2, mister:-1}
+];
+var CITA_UI={jor:-1, ll:0, sa:0, eL:[], eS:[]};
 function citaVentana(){
   var e=estiloMister(), fin=e.entradaH+(e.doble?6:3);
   return {llamada:e.entradaH, fin:fin, doble:!!e.doble, ini:e.entradaH-CITA_LIM, fin2:fin+CITA_LIM};
 }
 function citaEstado(){
-  if(CITA_UI.jor!==S.jornada) CITA_UI={jor:S.jornada, ll:0, sa:0};
+  if(CITA_UI.jor!==S.jornada) CITA_UI={jor:S.jornada, ll:0, sa:0, eL:[], eS:[]};
   return CITA_UI;
 }
 /* posición 0-100 de una hora dentro de la barra (tramos fijos: 35 · 30 · 35) */
@@ -1930,25 +1947,49 @@ function citaPos(h, V){
   if(h<=V.fin)     return CITA_ZONA.izq+CITA_ZONA.cen*(h-V.llamada)/(V.fin-V.llamada);
   return CITA_ZONA.izq+CITA_ZONA.cen+CITA_ZONA.der*(h-V.fin)/(V.fin2-V.fin);
 }
-/* lo que cuesta llegar pronto o irse tarde: horas de margen con el míster */
-function citaCuenta(ll, sa, doble){
+function citaActo(lista, id){ return lista.filter(function(a){ return a.id===id; })[0] || null; }
+function citaElegidos(lista, ids, n){
+  return (ids||[]).slice(0, n).map(function(id){ return citaActo(lista, id); }).filter(Boolean);
+}
+function citaCuenta(ll, sa, doble, eL, eS){
   var pen=doble?1.3:1;
   var dA=Math.min(3, Math.round(ll*0.75)), cA=Math.round(ll*1.5*pen);
   var dB=Math.round(sa*2/3),               cB=Math.round(sa*5/3*pen);
-  return {ded:dA+dB, coste:cA+cB};
+  var lis=citaElegidos(CITA_ACT_LLEGADA, eL, Math.floor(ll)).concat(citaElegidos(CITA_ACT_SALIDA, eS, Math.floor(sa)));
+  var ejes=[], act=0, mis=0, fama=0;
+  lis.forEach(function(a){
+    act+=(a.forma||0); mis+=(a.mister||0); fama+=(a.fama||0);
+    if(a.eje) ejes.push({k:a.eje, v:a.ej});
+  });
+  return {ded:dA+dB, coste:cA+cB, act:act, mister:mis, fama:fama, ejes:ejes};
 }
 function citaSigno(n){ return (n>0?"+":n<0?"−":"")+Math.abs(n); }
 function citaTextos(V, st){
-  var c=citaCuenta(st.ll, st.sa, V.doble), noche=faseVicio("noche");
-  var partes=["Forma "+citaSigno(-c.coste)];
+  var c=citaCuenta(st.ll, st.sa, V.doble, st.eL, st.eS), noche=faseVicio("noche");
+  var mis=c.mister+(c.ded>0? Math.round(c.ded*1.5) : 0);
+  var nf=c.act-c.coste;
+  var partes=[nf? "Forma "+citaSigno(nf) : "Sin coste de forma"];
+  if(mis) partes.push("Míster "+citaSigno(mis));
+  if(c.fama) partes.push("Fama +"+c.fama);
   if(c.ded>0) partes.push("el míster lo apunta a tu favor");
   if(noche>=1 && c.ded>=1) partes.push("con la noche encima, pesa más");
+  var nL=Math.floor(st.ll), nS=Math.floor(st.sa);
   return {
     ll: st.ll? "Llegas a las "+horaFmt(V.llamada-st.ll)+" · "+st.ll+" h antes" : "Llegas a la hora ("+horaFmt(V.llamada)+")",
     sa: st.sa? "Te vas a las "+horaFmt(V.fin+st.sa)+" · "+st.sa+" h después" : "Te vas al terminar ("+horaFmt(V.fin)+")",
     ent: "Entreno "+horaFmt(V.llamada)+"–"+horaFmt(V.fin),
+    hL: nL? "Antes del entreno · "+st.eL.length+" de "+nL+" ejercicios" : "Antes del entreno · sin tiempo",
+    hS: nS? "Después del entreno · "+st.eS.length+" de "+nS+" ejercicios" : "Después del entreno · sin tiempo",
     fx: partes.join(" · ")
   };
+}
+function citaChipsHTML(lado, lista, st){
+  var ids = lado==="L"? st.eL : st.eS, n = lado==="L"? Math.floor(st.ll) : Math.floor(st.sa);
+  if(!n) return '<p class="note" style="margin:4px 2px">Sin margen: no hay tiempo para ejercicios.</p>';
+  return '<div class="chips full" style="grid-template-columns:repeat(2,1fr)">'+lista.map(function(a){
+    var on=ids.indexOf(a.id)>=0, lleno=!on && ids.length>=n;
+    return '<button class="chip'+(on?' on':'')+'"'+(lleno?' disabled style="opacity:.4"':'')+' title="'+esc(a.d)+'" onclick="citaToggle(\''+lado+'\',\''+a.id+'\')">'+esc(a.n)+'</button>';
+  }).join("")+'</div>';
 }
 function citaMisterHTML(){
   if(!S.contrato || S.lesion>0) return "";
@@ -1975,14 +2016,29 @@ function citaMisterHTML(){
     +'<div id="cita-llv" style="width:35%;color:#4FA3FF;padding-left:2px">'+esc(T.ll)+'</div>'
     +'<div id="cita-ent" style="width:30%;text-align:center;color:#FFC24B">'+esc(T.ent)+'</div>'
     +'<div id="cita-sav" style="width:35%;text-align:right;color:#4ADE80;padding-right:2px">'+esc(T.sa)+'</div></div>';
+  H+='<div class="eyebrow" id="cita-hL" style="color:#4FA3FF">'+esc(T.hL)+'</div>'
+    +'<div id="cita-actL">'+citaChipsHTML("L", CITA_ACT_LLEGADA, st)+'</div>';
+  H+='<div class="eyebrow" id="cita-hS" style="color:#4ADE80;margin-top:10px">'+esc(T.hS)+'</div>'
+    +'<div id="cita-actS">'+citaChipsHTML("S", CITA_ACT_SALIDA, st)+'</div>';
   H+='<p class="note" id="cita-fx" style="margin:8px 2px 10px">'+esc(T.fx)+'</p>';
   H+='<button class="gold-btn" onclick="elegirCita()">Confirmar la cita</button>';
   return H+'</div>';
 }
 function citaMueve(quien, v){
   var V=citaVentana(), st=citaEstado(), x=+v;
-  if(quien==="llegada") st.ll=Math.max(0, Math.min(CITA_LIM, Math.round((V.llamada-x)*2)/2));
-  else                  st.sa=Math.max(0, Math.min(CITA_LIM, Math.round((x-V.fin)*2)/2));
+  if(quien==="llegada"){
+    st.ll=Math.max(0, Math.min(CITA_LIM, Math.round((V.llamada-x)*2)/2));
+    st.eL=st.eL.slice(0, Math.floor(st.ll));          /* si acortas, sobran ejercicios: se quitan */
+  } else {
+    st.sa=Math.max(0, Math.min(CITA_LIM, Math.round((x-V.fin)*2)/2));
+    st.eS=st.eS.slice(0, Math.floor(st.sa));
+  }
+  citaPinta();
+}
+function citaToggle(lado, id){
+  var st=citaEstado(), ids=(lado==="L")? st.eL : st.eS, n=(lado==="L")? Math.floor(st.ll) : Math.floor(st.sa);
+  var i=ids.indexOf(id);
+  if(i>=0) ids.splice(i,1); else if(ids.length<n) ids.push(id);
   citaPinta();
 }
 function citaPinta(){
@@ -1991,32 +2047,37 @@ function citaPinta(){
   var llegada=V.llamada-st.ll, salida=V.fin+st.sa, pres=document.getElementById("cita-pres");
   if(pres){ pres.style.left=citaPos(llegada,V)+"%"; pres.style.width=(citaPos(salida,V)-citaPos(llegada,V))+"%"; }
   var set=function(id, txt){ var el=document.getElementById(id); if(el) el.textContent=txt; };
-  set("cita-llv", T.ll); set("cita-ent", T.ent); set("cita-sav", T.sa); set("cita-fx", T.fx);
+  set("cita-llv", T.ll); set("cita-ent", T.ent); set("cita-sav", T.sa);
+  set("cita-hL", T.hL); set("cita-hS", T.hS); set("cita-fx", T.fx);
+  var cl=document.getElementById("cita-actL"); if(cl) cl.innerHTML=citaChipsHTML("L", CITA_ACT_LLEGADA, st);
+  var cs=document.getElementById("cita-actS"); if(cs) cs.innerHTML=citaChipsHTML("S", CITA_ACT_SALIDA, st);
 }
 function elegirCita(){
   if(!S || S.puntualSem===S.jornada || S.lesion>0) return;
   var V=citaVentana(), st=citaEstado();
-  var c=citaCuenta(st.ll, st.sa, V.doble);
+  var c=citaCuenta(st.ll, st.sa, V.doble, st.eL, st.eS);
   var noche=faseVicio("noche");
   var penaliza = noche>=1 && c.ded>=1;
   if(penaliza){
     var extra=1.6+noche*0.35;
-    S.forma=clamp((S.forma===undefined?70:S.forma)-Math.round(c.coste*extra),20,100);
-    S.mister=clamp(S.mister-Math.round(2*c.ded),5,95);
+    S.forma=clamp((S.forma===undefined?70:S.forma)-Math.round(c.coste*extra)+c.act,20,100);
+    S.mister=clamp(S.mister-Math.round(2*c.ded)+c.mister,5,95);
     S.avisoMercado="Llegas con la noche todavía encima. "+(c.ded>=3?"El míster no dice nada, pero lo apunta.":"Cuesta más de lo que pensabas.");
     S.puntualBonus=0;
   } else {
-    S.forma=clamp((S.forma===undefined?70:S.forma)-c.coste,20,100);
-    S.mister=clamp(S.mister+(c.ded>0?Math.round(c.ded*1.5):0),5,95);
+    S.forma=clamp((S.forma===undefined?70:S.forma)-c.coste+c.act,20,100);
+    S.mister=clamp(S.mister+(c.ded>0?Math.round(c.ded*1.5):0)+c.mister,5,95);
     if(st.sa>0) tocarEje("companerismo", 1.2);
     if(c.ded>=3) tocarEje("disciplina", 1.4);
     S.puntualBonus=c.ded;
     S.avisoMercado = c.ded===0? "Cumples justo lo que toca." : "El cuerpo técnico se fija en quién llega distinto.";
   }
+  c.ejes.forEach(function(x){ tocarEje(x.k, x.v); });
+  if(c.fama) S.fama=clamp((S.fama||30)+c.fama,0,100);
   S.rachaExtra = c.ded>=2? (S.rachaExtra||0)+1 : 0;
   S.puntualSem=S.jornada;
-  regSemana("puntualidad", "llegada-"+st.ll+"-salida-"+st.sa);
-  CITA_UI={jor:-1, ll:0, sa:0};
+  regSemana("puntualidad", "llegada-"+st.ll+"["+st.eL.join("+")+"]-salida-"+st.sa+"["+st.eS.join("+")+"]");
+  CITA_UI={jor:-1, ll:0, sa:0, eL:[], eS:[]};
   guardar();
   irSub("equipo","entreno");
 }
@@ -5779,6 +5840,7 @@ function cerrarJornada(){
      a todo el mundo, entrenases o no (bug real, preexistente: el reset llegaba antes del chequeo) */
   var _sesionesSemana=(S.entreno && S.entreno.jor===S.jornada)? (S.entreno.hechos||[]).length : 0;
   S.entreno=null;
+  S.puntualBonus=0;   /* la cita vale para las sesiones de SU semana */
   S.animo=clamp((S.animo===undefined?65:S.animo)+(res>0?4:res<0?-4:0),20,100);
   S.animo=clamp(S.animo+(animoBase()-S.animo)*0.06,20,100);   /* la vida tira hacia TU normal: 62 + casa + coche */
   /* sin alimentarlos, los rasgos regresan poco a poco hacia el centro:
@@ -5801,10 +5863,15 @@ function cerrarJornada(){
   /* sin trabajo, el nivel se cae solo */
   var sesiones=_sesionesSemana;
   if(sesiones===0 && S.lesion<=0){
-    var kk=pick(["TEC","FIS","TAC","DEF","MEN","POR"]);
+    var kk=pick(ATTR_ORDEN.concat(S.pos==="POR"?["POR"]:[]));
     S.attr[kk]=clamp(atr(kk)-0.5,10,95);
     S.mister=clamp(S.mister-0.8,5,95);
   }
+  /* declive por edad: pasados los 28 el techo baja; lo que quede por encima se va acercando a él poco a poco */
+  if((S.edad||22)>28) ATTR_ORDEN.concat(S.pos==="POR"?["POR"]:[]).forEach(function(k){
+    var T=techoAtributoDe(k), v=atr(k);
+    if(v>T) S.attr[k]=Math.round(Math.max(T, v-Math.max(0.05,(v-T)*0.08))*100)/100;
+  });
   revisarDestitucion();
   revisarCapricho();
   var avisoVicio=cobrarVicios();
@@ -8239,7 +8306,7 @@ function botonEjercicio(e, extra, rec){
     +(esRec?'<span class="rectag">recomendado</span>':'')
     +'<b>'+esc(e.n)+'</b>'
     +'<span class="ejfx">'+esc(sube||"recupera")+'<i>'+(coste>0?"+":"")+coste+' forma</i></span>'
-    +(meta?'<span class="ejsk">'+esc(ejSkillTxt(meta))+'</span>':(r?'<span class="ejsk">'+r+' sesiones</span>':''))
+    +(meta?'<span class="ejsk">'+esc(ejSkillTxt(meta))+'</span>':(r?'<span class="ejsk">'+r+' sesiones hechas</span>':''))
     +dbgEntreno(e,extra)+'</button>';
 }
 function dbgEntreno(e, extra){
@@ -11374,6 +11441,8 @@ function normalizarPartida(){
     if(S.contrato && !S.contrato.firmadoT) S.contrato.firmadoT=S.temporada;
     if(S.lado===undefined) S.lado=CON_LADO(S.pos)? ladoDerivado(S.pierna, S.rol):null;   /* nadie se mueve de su banda */
     if(S.skl){ var _jA0=((S.temporada||1)-1)*38+(S.jornada||0); for(var _sk in S.skl){ if(S.skl[_sk].u===undefined) S.skl[_sk].u=_jA0; } }
+    /* habilidades bloqueadas con reserva de puntos inflada (antes se acumulaban sin tope): se deja lo justo para el nivel 1 */
+    if(S.skl) SKILLS.forEach(function(k){ var d=S.skl[k.id]; if(d && (d.niv||0)<=0 && !sklDesbloqueada(k) && d.pts>sklCoste(0)) d.pts=sklCoste(0); });
     if(!S.mundo || !S.mundo.p1) S.mundo={d:{}, p1:P1_CANON.slice(), p2:P2_CANON.slice()};
     if(!S.entrenador) S.entrenador=crearEntrenador(S.equipo);
     if(!S.publico) S.publico={afic:50, prensa:50, seg:1200};
