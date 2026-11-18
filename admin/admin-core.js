@@ -1238,6 +1238,8 @@ function navNombrePantalla(k){
   var ids=SUB_ID[P]||{}, lbl=Object.keys(ids).filter(function(l){ return ids[l]===sub; })[0];
   return pn+(lbl? " · "+lbl : (sub? " · "+sub : ""));
 }
+var NAV_INFO_VACIA='<div style="color:#8891AA">Pasa el ratón sobre un punto del mapa para ver sus usuarios: versión, grupo, horas jugadas y dinero.</div>';
+function navInfoVacia(){ var t=document.getElementById("nav-info"); if(t) t.innerHTML=NAV_INFO_VACIA; }
 function navVerFicha(id){
   var t=document.getElementById("nav-tip"); if(t) t.style.display="none";
   ST.sel.jug=id; ST.tab.jd="Ficha"; nav("jugadores");
@@ -1292,24 +1294,18 @@ function navMapaEventos(cv){
     NAVM.pts.forEach(function(p){ var x=(p.xy.x-NAVM.cx)*s+W/2, y=(p.xy.y-NAVM.cy)*s+H/2, d=(x-mx)*(x-mx)+(y-my)*(y-my); if(d<196) cerc.push(p); });
     return {p:navAgrupa(cerc), mx:mx, my:my, W:W, H:H};
   }
-  function ocultar(){ var t=document.getElementById("nav-tip"); if(t) t.style.display="none"; }
+  function ocultar(){ navInfoVacia(); }
   cv.addEventListener("wheel",function(e){ e.preventDefault(); ocultar(); var r=cv.getBoundingClientRect(); navMapaAlZoom(e.deltaY<0?1.25:1/1.25, e.clientX-r.left, e.clientY-r.top, r.width); },{passive:false});
   cv.addEventListener("pointerdown",function(e){ drag={x:e.clientX,y:e.clientY}; cv.setPointerCapture(e.pointerId); cv.style.cursor="grabbing"; ocultar(); });
   cv.addEventListener("pointermove",function(e){
     if(drag){ var s=cv.clientWidth/1000*NAVM.z; NAVM.cx-=(e.clientX-drag.x)/s; NAVM.cy-=(e.clientY-drag.y)/s; drag={x:e.clientX,y:e.clientY}; navMapaLimita(); navMapaDibuja(); return; }
-    var t=document.getElementById("nav-tip"); if(!t) return;
+    var t=document.getElementById("nav-info"); if(!t) return;
     var h=cerca(e);
-    if(!h.p){ t.style.display="none"; cv.style.cursor="grab"; return; }
-    t.innerHTML=navInfoHTML(h.p); t.style.display="block";
-    t.style.maxHeight=(h.H-8)+"px"; t.style.overflowY="auto";
-    var tw=t.offsetWidth, th=Math.min(t.offsetHeight,h.H-8), left=h.mx+16, top=h.my+12;
-    if(left+tw>h.W-4) left=h.mx-tw-16;
-    top=Math.min(top, h.H-th-4);
-    t.style.left=Math.max(4,left)+"px"; t.style.top=Math.max(4,top)+"px";
+    if(!h.p){ navInfoVacia(); cv.style.cursor="grab"; return; }
+    t.innerHTML=navInfoHTML(h.p);
     cv.style.cursor="pointer";
   });
-  cv.addEventListener("pointerleave",function(e){ var t=document.getElementById("nav-tip"); if(!drag && !(t && e.relatedTarget && t.contains(e.relatedTarget))) ocultar(); });
-  var tip=document.getElementById("nav-tip"); if(tip) tip.addEventListener("pointerleave",function(){ ocultar(); });
+  cv.addEventListener("pointerleave",function(){ if(!drag) navInfoVacia(); });
   var fin=function(){ drag=null; cv.style.cursor="grab"; };
   cv.addEventListener("pointerup",fin); cv.addEventListener("pointercancel",fin);
 }
@@ -1318,6 +1314,7 @@ function navMapaDibuja(){
   var W=cv.clientWidth||600, H=Math.round(W*0.5), dpr=window.devicePixelRatio||1;
   cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); cv.style.height=H+"px";
   if(!cv._ok){ cv._ok=1; navMapaEventos(cv); }
+  var inf=document.getElementById("nav-info"); if(inf) inf.style.height=H+"px";
   var ctx=cv.getContext("2d"), s=W/1000*NAVM.z;
   function X(x){ return (x-NAVM.cx)*s+W/2; }
   function Y(y){ return (y-NAVM.cy)*s+H/2; }
@@ -1388,8 +1385,8 @@ function navMapa(ses, ev){
   var paMax=pa.length? ub[pa[0]] : 1;
   var lista= pa.length? pa.map(function(z){ return '<div class="hb"><span title="'+esc(z)+'">'+esc(z)+'</span><div class="tr"><i style="width:'+(ub[z]/paMax*100)+'%"></i></div><span>'+ub[z]+'</span></div>'; }).join("") : '<p class="mut small" style="margin:0">Ninguna sesión con ubicación en este periodo.</p>';
   var ctl='<div class="row" style="gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">'+btn("＋",function(){ navMapaZoom(1.5); },"sm")+btn("−",function(){ navMapaZoom(1/1.5); },"sm")+btn("Ver todo",function(){ NAVM.z=1; navMapaLimita(); navMapaDibuja(); },"sm")+'<span class="small mut">Rueda para acercar · arrastra para moverte · pasa el ratón sobre un punto</span></div>';
-  var lienzo='<div style="position:relative"><canvas id="nav-mapa-cv" style="width:100%;display:block;border-radius:8px;background:#070810;cursor:grab;touch-action:none"></canvas><div id="nav-tip" style="display:none;position:absolute;left:0;top:0;pointer-events:auto;background:#0f1117;border:1px solid #2a2f48;border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.5;color:#EDF0F8;width:300px;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:5"></div></div>';
-  return card("Desde dónde se conectan", ctl+'<div class="grid g2" style="gap:14px;align-items:start"><div>'+lienzo+'</div><div><div id="nav-lista" style="overflow-y:auto;padding-right:6px">'+lista+'</div>'+(sinUb? '<p class="small mut" style="margin:10px 0 0">'+nf(sinUb)+(sinUb===1?' sesión':' sesiones')+' sin ubicación (anteriores a la localización o IP privada).</p>' : '')+'</div></div><p class="note" style="margin:8px 2px 0">Ubicación aproximada por IP (ciudad y país). El brillo marca dónde hay más sesiones. Fronteras: Natural Earth · Ciudades: GeoNames (CC BY 4.0).</p>',"","");
+  var lienzo='<canvas id="nav-mapa-cv" style="width:100%;display:block;border-radius:8px;background:#070810;cursor:grab;touch-action:none"></canvas>';
+  return card("Desde dónde se conectan", ctl+'<div style="display:grid;grid-template-columns:minmax(0,1.25fr) 300px minmax(0,1fr);gap:14px;align-items:start"><div>'+lienzo+'</div><div id="nav-info" style="background:#0f1117;border:1px solid #2a2f48;border-radius:8px;padding:12px;font-size:12px;line-height:1.5;color:#EDF0F8;overflow-y:auto;box-sizing:border-box">'+NAV_INFO_VACIA+'</div><div><div id="nav-lista" style="overflow-y:auto;padding-right:6px">'+lista+'</div>'+(sinUb? '<p class="small mut" style="margin:10px 0 0">'+nf(sinUb)+(sinUb===1?' sesión':' sesiones')+' sin ubicación (anteriores a la localización o IP privada).</p>' : '')+'</div></div><p class="note" style="margin:8px 2px 0">Ubicación aproximada por IP (ciudad y país). El brillo marca dónde hay más sesiones. Fronteras: Natural Earth · Ciudades: GeoNames (CC BY 4.0).</p>',"","");
 }
 V.navegacion=function(){
   if(!NAVD.ok && !NAVD.busy && !NAVD.err) setTimeout(navCargar,0);
@@ -1751,7 +1748,7 @@ var SUB_ID={P11:{"Ficha":"ficha","Físico":"fisico","Ánimo":"animo","Carácter"
   P14:{"Dinero":"dinero","Tienda":"tienda"},
   P15:{"Código":"codigo","Reportar":"reportar","Información":"info"}};
 var SUB_OCULTAS_ADMIN={P11:["Carácter"], P12:["Vestuario"], P13:["Rumores","Fichajes","Prensa"]};
-var ADMIN_VER="0.03.072", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.073", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 var _av=document.getElementById("adm-ver"); if(_av) _av.textContent="v"+ADMIN_VER;
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
