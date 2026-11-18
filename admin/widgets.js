@@ -153,9 +153,8 @@ function jugadorBody(W,z){
     var fl=function(a,b,f){ return '<div style="width:100%;padding:3px 0"><div style="display:flex;justify-content:space-between;font-size:10px;color:#E8EAF2;margin-bottom:'+(f!=null?3:0)+'px"><span>'+esc(a)+'</span><b>'+esc(String(b))+'</b></div>'+(f!=null?bar(f):'')+'</div>'; };
       var rows=[fl("Forma",J.forma,J.forma/100)];
       if(ch>=2) rows.push(fl("Confianza",J.conf,J.conf/100));
-      if(ch>=3) rows.push(fl("Estado",J.estado), fl("Goles",J.goles), fl("Asist.",J.asist));
-      if(ch>=4) rows.push(fl("Media",J.mediaT));
-      cuerpo='<div style="width:100%;height:100%;box-sizing:border-box;padding:10px 14px;display:flex;flex-direction:column;justify-content:space-evenly">'+'<div style="text-align:center">'+big(J.forma,ch>=3?34:32)+sm("forma")+'</div><div style="width:100%">'+rows.join("")+'</div></div>';
+      if(ch>=3) rows.push(fl("Estado",J.estado), fl("Goles",J.goles), fl("Asist.",J.asist), fl("Partidos",J.partidos), fl("Media",J.mediaT));
+      cuerpo='<div style="width:100%;height:100%;box-sizing:border-box;padding:10px 14px;display:flex;flex-direction:column;justify-content:space-evenly">'+'<div style="text-align:center">'+big(J.forma,ch>=3?40:32)+sm("forma")+'</div><div style="width:100%">'+rows.join("")+'</div></div>';
     }
     else {
       var px= cw>=3 ? (ch>=3?28:(ch===1?16:20)) : (ch>=3?26:18), lb= ch>=3?12:10;
