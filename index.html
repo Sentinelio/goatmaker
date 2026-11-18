@@ -819,7 +819,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.004";
+var VERSION="0.03.006";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -1914,25 +1914,13 @@ function horaFmt(h){
    Centro 30 % = entreno (fijo). Derecha 35 % = salida (el control de la derecha).
    Cada hora antes o después da derecho a un ejercicio, con un máximo de 4 por lado. */
 var CITA_LIM=4, CITA_ZONA={izq:35, cen:30, der:35};
-var CITA_ACT_LLEGADA=[
- {id:"estira", n:"Movilidad y estiramientos",  d:"Recuperas forma poco a poco.", forma:2},
- {id:"gym",    n:"Gimnasio de fuerza",         d:"Más carga: cuesta forma, pero el trabajo cuenta.", forma:-3, eje:"disciplina", ej:1},
- {id:"video",  n:"Vídeo con el cuerpo técnico",d:"Entiendes el plan. El míster lo nota.", mister:1, eje:"disciplina", ej:0.5},
- {id:"charla", n:"Charla con los compañeros",  d:"Vestuario antes que pizarra.", eje:"companerismo", ej:1}
-];
-var CITA_ACT_SALIDA=[
- {id:"hielo",   n:"Hielo y piscina",         d:"Descanso activo.", forma:3},
- {id:"remates", n:"Remates extra",           d:"Trabajo de área tras el entreno.", forma:-3, eje:"disciplina", ej:1},
- {id:"mister",  n:"Charla con el míster",    d:"Lo que no se dijo en el campo.", mister:2},
- {id:"prensa",  n:"Ruedas de prensa",        d:"Hablas con los periodistas: sube tu fama, el míster lo mira raro.", fama:2, mister:-1}
-];
-var CITA_UI={jor:-1, ll:0, sa:0, eL:[], eS:[]};
+var CITA_UI={jor:-1, ll:0, sa:0};
 function citaVentana(){
   var e=estiloMister(), fin=e.entradaH+(e.doble?6:3);
   return {llamada:e.entradaH, fin:fin, doble:!!e.doble, ini:e.entradaH-CITA_LIM, fin2:fin+CITA_LIM};
 }
 function citaEstado(){
-  if(CITA_UI.jor!==S.jornada) CITA_UI={jor:S.jornada, ll:0, sa:0, eL:[], eS:[]};
+  if(CITA_UI.jor!==S.jornada) CITA_UI={jor:S.jornada, ll:0, sa:0};
   return CITA_UI;
 }
 /* posición 0-100 de una hora dentro de la barra (tramos fijos: 35 · 30 · 35) */
@@ -1941,48 +1929,25 @@ function citaPos(h, V){
   if(h<=V.fin)     return CITA_ZONA.izq+CITA_ZONA.cen*(h-V.llamada)/(V.fin-V.llamada);
   return CITA_ZONA.izq+CITA_ZONA.cen+CITA_ZONA.der*(h-V.fin)/(V.fin2-V.fin);
 }
-function citaActo(lista, id){ return lista.filter(function(a){ return a.id===id; })[0] || null; }
-function citaElegidos(lista, ids, n){
-  return (ids||[]).slice(0, n).map(function(id){ return citaActo(lista, id); }).filter(Boolean);
-}
-function citaCuenta(ll, sa, doble, eL, eS){
+/* lo que cuesta llegar pronto o irse tarde: horas de margen con el míster */
+function citaCuenta(ll, sa, doble){
   var pen=doble?1.3:1;
   var dA=Math.min(3, Math.round(ll*0.75)), cA=Math.round(ll*1.5*pen);
   var dB=Math.round(sa*2/3),               cB=Math.round(sa*5/3*pen);
-  var lis=citaElegidos(CITA_ACT_LLEGADA, eL, Math.floor(ll)).concat(citaElegidos(CITA_ACT_SALIDA, eS, Math.floor(sa)));
-  var ejes=[], act=0, mis=0, fama=0;
-  lis.forEach(function(a){
-    act+=(a.forma||0); mis+=(a.mister||0); fama+=(a.fama||0);
-    if(a.eje) ejes.push({k:a.eje, v:a.ej});
-  });
-  return {ded:dA+dB, coste:cA+cB, act:act, mister:mis, fama:fama, ejes:ejes};
+  return {ded:dA+dB, coste:cA+cB};
 }
 function citaSigno(n){ return (n>0?"+":n<0?"−":"")+Math.abs(n); }
 function citaTextos(V, st){
-  var c=citaCuenta(st.ll, st.sa, V.doble, st.eL, st.eS), noche=faseVicio("noche");
-  var mis=c.mister+(c.ded>0? Math.round(c.ded*1.5) : 0);
-  var partes=["Forma "+citaSigno(c.act-c.coste)];
-  if(mis) partes.push("Míster "+citaSigno(mis));
-  if(c.fama) partes.push("Fama +"+c.fama);
+  var c=citaCuenta(st.ll, st.sa, V.doble), noche=faseVicio("noche");
+  var partes=["Forma "+citaSigno(-c.coste)];
   if(c.ded>0) partes.push("el míster lo apunta a tu favor");
   if(noche>=1 && c.ded>=1) partes.push("con la noche encima, pesa más");
-  var nL=Math.floor(st.ll), nS=Math.floor(st.sa);
   return {
     ll: st.ll? "Llegas a las "+horaFmt(V.llamada-st.ll)+" · "+st.ll+" h antes" : "Llegas a la hora ("+horaFmt(V.llamada)+")",
     sa: st.sa? "Te vas a las "+horaFmt(V.fin+st.sa)+" · "+st.sa+" h después" : "Te vas al terminar ("+horaFmt(V.fin)+")",
     ent: "Entreno "+horaFmt(V.llamada)+"–"+horaFmt(V.fin),
-    hL: nL? "Antes del entreno · "+st.eL.length+" de "+nL+" ejercicios" : "Antes del entreno · sin tiempo",
-    hS: nS? "Después del entreno · "+st.eS.length+" de "+nS+" ejercicios" : "Después del entreno · sin tiempo",
     fx: partes.join(" · ")
   };
-}
-function citaChipsHTML(lado, lista, st){
-  var ids = lado==="L"? st.eL : st.eS, n = lado==="L"? Math.floor(st.ll) : Math.floor(st.sa);
-  if(!n) return '<p class="note" style="margin:4px 2px">Sin margen: no hay tiempo para ejercicios.</p>';
-  return '<div class="chips full" style="grid-template-columns:repeat(2,1fr)">'+lista.map(function(a){
-    var on=ids.indexOf(a.id)>=0, lleno=!on && ids.length>=n;
-    return '<button class="chip'+(on?' on':'')+'"'+(lleno?' disabled style="opacity:.4"':'')+' title="'+esc(a.d)+'" onclick="citaToggle(\''+lado+'\',\''+a.id+'\')">'+esc(a.n)+'</button>';
-  }).join("")+'</div>';
 }
 function citaMisterHTML(){
   if(!S.contrato || S.lesion>0) return "";
@@ -2009,29 +1974,14 @@ function citaMisterHTML(){
     +'<div id="cita-llv" style="width:35%;color:#4FA3FF;padding-left:2px">'+esc(T.ll)+'</div>'
     +'<div id="cita-ent" style="width:30%;text-align:center;color:#FFC24B">'+esc(T.ent)+'</div>'
     +'<div id="cita-sav" style="width:35%;text-align:right;color:#4ADE80;padding-right:2px">'+esc(T.sa)+'</div></div>';
-  H+='<div class="eyebrow" id="cita-hL" style="color:#4FA3FF">'+esc(T.hL)+'</div>'
-    +'<div id="cita-actL">'+citaChipsHTML("L", CITA_ACT_LLEGADA, st)+'</div>';
-  H+='<div class="eyebrow" id="cita-hS" style="color:#4ADE80;margin-top:10px">'+esc(T.hS)+'</div>'
-    +'<div id="cita-actS">'+citaChipsHTML("S", CITA_ACT_SALIDA, st)+'</div>';
   H+='<p class="note" id="cita-fx" style="margin:8px 2px 10px">'+esc(T.fx)+'</p>';
   H+='<button class="gold-btn" onclick="elegirCita()">Confirmar la cita</button>';
   return H+'</div>';
 }
 function citaMueve(quien, v){
   var V=citaVentana(), st=citaEstado(), x=+v;
-  if(quien==="llegada"){
-    st.ll=Math.max(0, Math.min(CITA_LIM, Math.round((V.llamada-x)*2)/2));
-    st.eL=st.eL.slice(0, Math.floor(st.ll));          /* si acortas, sobran ejercicios: se quitan */
-  } else {
-    st.sa=Math.max(0, Math.min(CITA_LIM, Math.round((x-V.fin)*2)/2));
-    st.eS=st.eS.slice(0, Math.floor(st.sa));
-  }
-  citaPinta();
-}
-function citaToggle(lado, id){
-  var st=citaEstado(), ids=(lado==="L")? st.eL : st.eS, n=(lado==="L")? Math.floor(st.ll) : Math.floor(st.sa);
-  var i=ids.indexOf(id);
-  if(i>=0) ids.splice(i,1); else if(ids.length<n) ids.push(id);
+  if(quien==="llegada") st.ll=Math.max(0, Math.min(CITA_LIM, Math.round((V.llamada-x)*2)/2));
+  else                  st.sa=Math.max(0, Math.min(CITA_LIM, Math.round((x-V.fin)*2)/2));
   citaPinta();
 }
 function citaPinta(){
@@ -2040,37 +1990,32 @@ function citaPinta(){
   var llegada=V.llamada-st.ll, salida=V.fin+st.sa, pres=document.getElementById("cita-pres");
   if(pres){ pres.style.left=citaPos(llegada,V)+"%"; pres.style.width=(citaPos(salida,V)-citaPos(llegada,V))+"%"; }
   var set=function(id, txt){ var el=document.getElementById(id); if(el) el.textContent=txt; };
-  set("cita-llv", T.ll); set("cita-ent", T.ent); set("cita-sav", T.sa);
-  set("cita-hL", T.hL); set("cita-hS", T.hS); set("cita-fx", T.fx);
-  var cl=document.getElementById("cita-actL"); if(cl) cl.innerHTML=citaChipsHTML("L", CITA_ACT_LLEGADA, st);
-  var cs=document.getElementById("cita-actS"); if(cs) cs.innerHTML=citaChipsHTML("S", CITA_ACT_SALIDA, st);
+  set("cita-llv", T.ll); set("cita-ent", T.ent); set("cita-sav", T.sa); set("cita-fx", T.fx);
 }
 function elegirCita(){
   if(!S || S.puntualSem===S.jornada || S.lesion>0) return;
   var V=citaVentana(), st=citaEstado();
-  var c=citaCuenta(st.ll, st.sa, V.doble, st.eL, st.eS);
+  var c=citaCuenta(st.ll, st.sa, V.doble);
   var noche=faseVicio("noche");
   var penaliza = noche>=1 && c.ded>=1;
   if(penaliza){
     var extra=1.6+noche*0.35;
-    S.forma=clamp((S.forma===undefined?70:S.forma)-Math.round(c.coste*extra)+c.act,20,100);
-    S.mister=clamp(S.mister-Math.round(2*c.ded)+c.mister,5,95);
+    S.forma=clamp((S.forma===undefined?70:S.forma)-Math.round(c.coste*extra),20,100);
+    S.mister=clamp(S.mister-Math.round(2*c.ded),5,95);
     S.avisoMercado="Llegas con la noche todavía encima. "+(c.ded>=3?"El míster no dice nada, pero lo apunta.":"Cuesta más de lo que pensabas.");
     S.puntualBonus=0;
   } else {
-    S.forma=clamp((S.forma===undefined?70:S.forma)-c.coste+c.act,20,100);
-    S.mister=clamp(S.mister+(c.ded>0?Math.round(c.ded*1.5):0)+c.mister,5,95);
+    S.forma=clamp((S.forma===undefined?70:S.forma)-c.coste,20,100);
+    S.mister=clamp(S.mister+(c.ded>0?Math.round(c.ded*1.5):0),5,95);
     if(st.sa>0) tocarEje("companerismo", 1.2);
     if(c.ded>=3) tocarEje("disciplina", 1.4);
     S.puntualBonus=c.ded;
     S.avisoMercado = c.ded===0? "Cumples justo lo que toca." : "El cuerpo técnico se fija en quién llega distinto.";
   }
-  c.ejes.forEach(function(x){ tocarEje(x.k, x.v); });
-  if(c.fama) S.fama=clamp((S.fama||30)+c.fama,0,100);
   S.rachaExtra = c.ded>=2? (S.rachaExtra||0)+1 : 0;
   S.puntualSem=S.jornada;
-  regSemana("puntualidad", "llegada-"+st.ll+"["+st.eL.join("+")+"]-salida-"+st.sa+"["+st.eS.join("+")+"]");
-  CITA_UI={jor:-1, ll:0, sa:0, eL:[], eS:[]};
+  regSemana("puntualidad", "llegada-"+st.ll+"-salida-"+st.sa);
+  CITA_UI={jor:-1, ll:0, sa:0};
   guardar();
   irSub("equipo","entreno");
 }
@@ -6631,15 +6576,18 @@ function finPrueba(){
   $("scr-pos").classList.add("hidden");
   $("scr-pick").classList.remove("hidden");
   renderOfertas();
-  window.scrollTo(0,0);
+  SCR_KEY=null; window.scrollTo(0,0);
 }
 /* ================= HUB ================= */
 var SEC="inicio";
 var PARTIDA_ABIERTA=false;   /* solo el hub real la enciende: Opciones desde el título no desbloquea nada */
+/* al volver a pintar la misma pantalla no se sube al principio: solo al cambiar de pantalla */
+var SCR_KEY=null;
+function scrollSiCambia(k){ if(k!==SCR_KEY){ SCR_KEY=k; window.scrollTo(0,0); } }
 function volverTitulo(){
   ["scr-hub","scr-sec","scr-pos","scr-pick"].forEach(function(id){ var e=$(id); if(e) e.classList.add("hidden"); });
   $("menu").classList.add("hidden"); document.body.classList.remove("conmenu");
-  $("scr-title").classList.remove("hidden"); window.scrollTo(0,0);
+  $("scr-title").classList.remove("hidden"); SCR_KEY="titulo"; window.scrollTo(0,0);
 }
 var SUB={jugador:"ficha", equipo:"tabla", mercado:"hilos", cuentas:"dinero", ajustes:"info"};
 function resetSub(){ SUB={jugador:"ficha", equipo:"tabla", mercado:"hilos", cuentas:"dinero", ajustes:"info"}; }
@@ -6650,10 +6598,15 @@ var SUBS={
   mercado:[["hilos","Mover los hilos"],["agente","Agente"],["patros","Patrocinios"],["rumores","Rumores"],["fichajes","Fichajes"],["prensa","Prensa"]],
   ajustes:[["info","Información"],["codigo","Código"],["reportar","Reportar"]]
 };
+/* subpestañas desactivadas en el juego (siguen en el admin, marcadas como ocultas) */
+var SUB_OCULTAS={jugador:["caracter"], equipo:["plantilla"], mercado:["rumores","fichajes","prensa"]};
+function subVisible(sec,k){ return !(SUB_OCULTAS[sec]||[]).some(function(x){ return x===k; }); }
 function irSub(sec,k){ SUB[sec]=k; irSec(sec); }
 function subTabs(sec){
-  var n=SUBS[sec].length, cols=n>5? Math.ceil(n/2):n;
-  return '<div class="chips full" style="grid-template-columns:repeat('+cols+',1fr)">'+SUBS[sec].map(function(t){
+  var lista=SUBS[sec].filter(function(t){ return subVisible(sec,t[0]); });
+  if(lista.length && !subVisible(sec,SUB[sec])) SUB[sec]=lista[0][0];
+  var n=lista.length, cols=n>5? Math.ceil(n/2):n;
+  return '<div class="chips full" style="grid-template-columns:repeat('+cols+',1fr)">'+lista.map(function(t){
     return '<button class="chip'+(SUB[sec]===t[0]?' on':'')+'" onclick="irSub(\''+sec+'\',\''+t[0]+'\')">'+esc(t[1])+((sec==="ajustes" && t[0]==="codigo" && CHEATS_ON)? ' <span style="opacity:.75">●</span>' : '')+'</button>';
   }).join("")+'</div>';
 }
@@ -6665,7 +6618,7 @@ function irSec(k){
     $("menu").classList.add("hidden"); document.body.classList.remove("conmenu");
     $("scr-sec").classList.remove("hidden");
     $("sec-body").innerHTML='<button class="ghost" style="margin-bottom:12px" onclick="volverTitulo()">← Volver al menú</button>'+secAjustes();
-    window.scrollTo(0,0); return;
+    scrollSiCambia("ajustes"); return;
   }
   SEC=k;
   ["scr-title","scr-pick","scr-pos"].forEach(function(id){ $(id).classList.add("hidden"); });
@@ -6684,7 +6637,7 @@ function irSec(k){
   else if(k==="equipo") $("sec-body").innerHTML=secEquipo();
   else if(k==="mercado") $("sec-body").innerHTML=secMercado();
   else if(k==="ajustes") $("sec-body").innerHTML=secAjustes();
-  window.scrollTo(0,0);
+  scrollSiCambia("sec:"+k+":"+(SUB[k]||""));
 }
 /* ---------- PERFIL DE PARTIDO ---------- */
 /* el nombre del jugador sale en naranja dentro del texto de la crónica */
@@ -9851,7 +9804,7 @@ function renderMercado(){
     +'<p class="note" style="margin:8px 2px 0">'+(S.libre? 'Si no firmas por nadie antes de que arranque la liga, renovarás con la ficha recortada.' : 'El mercado se cierra cuando arranque la liga. Rechazar una oferta la retira de la mesa.')+'</p>';
   cont.innerHTML=H;
   $("scr-pick").classList.remove("hidden");
-  window.scrollTo(0,0);
+  scrollSiCambia("mercado");
 }
 function quedarmeMercado(){
   if(S.libre){
@@ -9936,7 +9889,7 @@ async function nuevaPartida(){
   document.body.classList.remove("conmenu");
   var bc=$("btn-continuar"); if(bc) bc.classList.add("hidden");
   $("scr-title").classList.remove("hidden");
-  window.scrollTo(0,0);
+  SCR_KEY=null; window.scrollTo(0,0);
 }
 /* ---------- AJUSTES + ÁRBOL DE DECISIONES ---------- */
 var ARBOL_FILTRO="todas";
@@ -10004,7 +9957,7 @@ function finPruebaCheat(){
   $("menu").classList.add("hidden"); document.body.classList.remove("conmenu");
   $("scr-pick").classList.remove("hidden");
   renderOfertas();
-  window.scrollTo(0,0);
+  SCR_KEY=null; window.scrollTo(0,0);
 }
 function chSaltarPrueba(){
   if(!CHEATS_ON) return;
@@ -10200,7 +10153,7 @@ function irArbol(){
   if(!S){ irSec("ajustes"); return; }
   $("scr-sec").classList.remove("hidden");
   $("sec-body").innerHTML=vistaArbol();
-  window.scrollTo(0,0);
+  scrollSiCambia("arbol");
 }
 function filtroArbol(k){ ARBOL_FILTRO=k; irArbol(); }
 function vistaArbol(){
@@ -10280,7 +10233,7 @@ function irEditor(){
   H+='<button class="gold-btn" onclick="guardarSituacion()">Guardar y añadir al juego</button>';
   H+='<button class="ghost" onclick="irSec(\'ajustes\')">Cancelar</button>';
   $("sec-body").innerHTML=H;
-  window.scrollTo(0,0);
+  scrollSiCambia("editor");
 }
 function val(id){ var n=$(id); return n? n.value.trim():""; }
 function num(id){ var v=parseFloat(val(id)); return isNaN(v)?0:v/100; }
@@ -10517,7 +10470,7 @@ function renderHub(){
   }
   $("hub-left").innerHTML=L;
   $("hub-right").innerHTML="";
-  window.scrollTo(0,0);
+  scrollSiCambia("hub");
 }
 /* ================= FIN DE TEMPORADA ================= */
 function finTemporada(){
@@ -10737,7 +10690,7 @@ function irElegir(){
   renderPierna();
   renderRoles();
   renderPos2();
-  window.scrollTo(0,0);
+  scrollSiCambia("elegir");
 }
 function renderPitch(){
   var H='<div class="mark pmid"></div><div class="mark pcirc"></div>'
@@ -11178,7 +11131,7 @@ function pintarNegociacion(){
       H+='<button class="ghost" onclick="rechazarOferta()">Rechazar esta oferta</button>';
       H+='<button class="ghost" onclick="renderMercado()">← Volver al mercado</button>';
       $("neg-wrap").innerHTML=H;
-      window.scrollTo(0,0);
+      scrollSiCambia("neg");
       return;
     }
   }
@@ -11208,7 +11161,7 @@ function pintarNegociacion(){
   if(PICK.traspaso) H+='<button class="ghost" onclick="renderMercado()">← Volver al mercado</button>';
   $("neg-wrap").innerHTML=H;
   refrescarNeg();
-  window.scrollTo(0,0);
+  scrollSiCambia("neg");
 }
 function sliderHTML(lb,k,v,min,max,step){
   var pct=Math.round((v-min)/(max-min)*100);
