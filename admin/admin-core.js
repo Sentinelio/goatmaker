@@ -1118,7 +1118,7 @@ V.pantallas=function(){
       fld(pre+".n","Nombre",P.n,{full:L+" · nombre",d:"Solo para el panel."})+
       fld(pre+".g","Tipo",PG.filter(function(g){return g[0]===P.g})[0][1],{type:"sel",opts:PG.map(function(g){return g[1]}),full:L+" · tipo"})+
       '<div class="diff"><span class="p mut">En el código</span><span class="mono small">'+esc(P.fn)+'</span></div>'+
-      (P.sub&&P.sub.length?'<div class="f"><label>Subpestañas<small>Se numeran '+P.id+'a, '+P.id+'b…</small></label><div>'+P.sub.map(function(x,i){return '<span class="tag" style="margin:0 4px 4px 0">'+P.id+String.fromCharCode(97+i)+' '+esc(x)+'</span>'}).join("")+'</div><div class="fab"></div></div>':"")+
+      (P.sub&&P.sub.length?'<div class="f"><label>Subpestañas<small>Se numeran '+P.id+'a, '+P.id+'b…</small></label><div>'+P.sub.map(function(x,i){var oc=(SUB_OCULTAS_ADMIN[P.id]||[]).indexOf(x)>=0; return '<span class="tag" style="margin:0 4px 4px 0'+(oc?';opacity:.5;text-decoration:line-through':'')+'" title="'+(oc?'Oculta en el juego':'Visible en el juego')+'">'+P.id+String.fromCharCode(97+i)+' '+esc(x)+(oc?' · oculta':'')+'</span>'}).join("")+'</div><div class="fab"></div></div>':"")+
       '<div class="f"><label>Se llega desde</label><div>'+(desde.map(pLink).join("")||'<span class="mut small">cualquier pantalla</span>')+'</div><div class="fab"></div></div>'+
       '<div class="f"><label>Lleva a</label><div>'+(P.a.map(pLink).join("")||'<span class="mut small">vuelve a donde estabas</span>')+'</div><div class="fab"></div></div>',
       P.nuevo?'<span class="tag vio">nueva</span>':"")+
@@ -1455,7 +1455,9 @@ var CAT=[
 var PB_URL="https://server-pc.tail3b4002.ts.net:8447";
 CUR_VER="0.03.001";
 var CUR_VER_DATE="2026-11-17T15:13:34+01:00";   /* fecha en que la versión del juego quedó integrada en el admin (se ve al pasar el ratón) */
-var ADMIN_VER="0.03.043", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+/* subpestañas ocultas en el juego (espejo de SUB_OCULTAS de index.html) */
+var SUB_OCULTAS_ADMIN={P11:["Carácter"], P12:["Vestuario"], P13:["Rumores","Fichajes","Prensa"]};
+var ADMIN_VER="0.03.044", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
   var g=$("gver"), e=$("ever");
