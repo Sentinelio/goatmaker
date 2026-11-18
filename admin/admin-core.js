@@ -1247,6 +1247,7 @@ function navMapaDibuja(){
   ctx.fillStyle="#070810"; ctx.fillRect(0,0,W,H);
   ctx.save(); ctx.setTransform(dpr*s,0,0,dpr*s,dpr*(W/2-NAVM.cx*s),dpr*(H/2-NAVM.cy*s));
   ctx.fillStyle="#1f2336"; ctx.fill(new Path2D(MAPA_MUNDO_D)); ctx.restore();
+  if(typeof MAPA_FRONT_D!=="undefined"){ ctx.save(); ctx.setTransform(dpr*s,0,0,dpr*s,dpr*(W/2-NAVM.cx*s),dpr*(H/2-NAVM.cy*s)); ctx.strokeStyle="#3a4068"; ctx.lineWidth=0.8/s; ctx.stroke(new Path2D(MAPA_FRONT_D)); ctx.restore(); }
   var DW=cv.width, DH=cv.height, dens=new Float32Array(DW*DH), R=Math.round(18*dpr), i;
   NAVM.pts.forEach(function(p){
     var x=X(p.xy.x)*dpr, y=Y(p.xy.y)*dpr;
@@ -1270,6 +1271,16 @@ function navMapaDibuja(){
   o.putImageData(img,0,0);
   ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(off,0,0);
   ctx.setTransform(dpr,0,0,dpr,0,0);
+  if(typeof MAPA_PAISES!=="undefined"){
+    ctx.textAlign="center"; ctx.font="10px system-ui, sans-serif"; ctx.fillStyle="#AEB6D0";
+    MAPA_PAISES.forEach(function(p){ if(p[3]*s*s<1500) return; var x=X(p[1]), y=Y(p[2]); if(x<-60||x>W+60||y<-10||y>H+10) return; ctx.fillText(p[0],x,y); });
+    ctx.textAlign="left";
+  }
+  if(typeof MAPA_CIUDADES!=="undefined" && NAVM.z>=3){
+    var umin= NAVM.z<5? 1000 : (NAVM.z<8? 300 : 100);
+    ctx.font="9px system-ui, sans-serif"; ctx.fillStyle="#8A93B2";
+    MAPA_CIUDADES.forEach(function(c){ if(c[3]<umin) return; var x=X(c[1]), y=Y(c[2]); if(x<0||x>W||y<0||y>H) return; ctx.fillRect(x-1,y-1,2,2); ctx.fillText(c[0],x+4,y+3); });
+  }
   var vis=NAVM.ciu.filter(function(p){ var x=X(p.xy.x), y=Y(p.xy.y); return x>-10&&x<W+10&&y>-10&&y<H+10; });
   var lim= NAVM.z<2.5? 0 : (NAVM.z<6? 12 : 999);
   ctx.font="11px system-ui, sans-serif"; ctx.lineWidth=3; ctx.strokeStyle="#070810";
@@ -1303,7 +1314,7 @@ function navMapa(ses){
   var lista= pa.length? pa.map(function(z){ return '<div class="hb"><span title="'+esc(z)+'">'+esc(z)+'</span><div class="tr"><i style="width:'+(ub[z]/paMax*100)+'%"></i></div><span>'+ub[z]+'</span></div>'; }).join("") : '<p class="mut small" style="margin:0">Ninguna sesión con ubicación en este periodo.</p>';
   var ctl='<div class="row" style="gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">'+btn("＋",function(){ navMapaZoom(1.5); },"sm")+btn("−",function(){ navMapaZoom(1/1.5); },"sm")+btn("Ver todo",function(){ NAVM.z=1; navMapaLimita(); navMapaDibuja(); },"sm")+'<span class="small mut">Rueda para acercar · arrastra para moverte</span></div>';
   var lienzo='<canvas id="nav-mapa-cv" style="width:100%;display:block;border-radius:8px;background:#070810;cursor:grab;touch-action:none"></canvas>';
-  return card("Desde dónde se conectan", '<div class="grid g2" style="gap:14px;align-items:start"><div>'+ctl+lienzo+'</div><div>'+lista+(sinUb? '<p class="small mut" style="margin:10px 0 0">'+nf(sinUb)+(sinUb===1?' sesión':' sesiones')+' sin ubicación (anteriores a la localización o IP privada).</p>' : '')+'</div></div><p class="note" style="margin:8px 2px 0">Ubicación aproximada por IP (ciudad y país). El brillo marca dónde hay más sesiones.</p>',"","");
+  return card("Desde dónde se conectan", '<div class="grid g2" style="gap:14px;align-items:start"><div>'+ctl+lienzo+'</div><div>'+lista+(sinUb? '<p class="small mut" style="margin:10px 0 0">'+nf(sinUb)+(sinUb===1?' sesión':' sesiones')+' sin ubicación (anteriores a la localización o IP privada).</p>' : '')+'</div></div><p class="note" style="margin:8px 2px 0">Ubicación aproximada por IP (ciudad y país). El brillo marca dónde hay más sesiones. Fronteras: Natural Earth · Ciudades: GeoNames (CC BY 4.0).</p>',"","");
 }
 V.navegacion=function(){
   if(!NAVD.ok && !NAVD.busy && !NAVD.err) setTimeout(navCargar,0);
@@ -1665,7 +1676,7 @@ var SUB_ID={P11:{"Ficha":"ficha","Físico":"fisico","Ánimo":"animo","Carácter"
   P14:{"Dinero":"dinero","Tienda":"tienda"},
   P15:{"Código":"codigo","Reportar":"reportar","Información":"info"}};
 var SUB_OCULTAS_ADMIN={P11:["Carácter"], P12:["Vestuario"], P13:["Rumores","Fichajes","Prensa"]};
-var ADMIN_VER="0.03.063", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.064", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 var _av=document.getElementById("adm-ver"); if(_av) _av.textContent="v"+ADMIN_VER;
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
