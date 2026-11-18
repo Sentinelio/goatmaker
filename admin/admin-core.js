@@ -1252,20 +1252,16 @@ function navInfoHTML(p){
   var bloque=function(i){
     var P=(PB.byInst||{})[i]||{}, e=P.estado||{}, pl=NAVD.pl[i]||{};
     var g=pbGrupoNom(P.adm_grupo||pl.g)||"Sin grupo";
-    return '<div style="border-top:1px solid #2a2f48;padding-top:6px;margin-top:6px">'
-      + '<div style="color:#8891AA">ID <a href="#" onclick="navVerFicha(\''+esc(i)+'\');return false" style="color:#FFC24B;font-family:monospace;font-size:11px;word-break:break-all">'+esc(i)+'</a></div>'
-      + row("Versión", esc(P.ver||"—"))
-      + row("Grupo", esc(g))
-      + row("Horas jugadas", nf((P.active_s||0)/3600,1)+" h")
-      + row("Dinero", typeof e.dinero==="number"? eur(e.dinero) : "—")
-      + (usr[i]>1? row("Sesiones en la zona", nf(usr[i])) : "")
+    return '<div style="border-top:1px solid #2a2f48;padding:5px 0">'
+      + '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><a href="#" onclick="navVerFicha(\''+esc(i)+'\');return false" style="color:#FFC24B;font-family:monospace;font-size:11px;word-break:break-all">'+esc(i)+'</a><span style="white-space:nowrap">'+esc(P.ver||"—")+'</span></div>'
+      + '<div style="color:#8891AA;font-size:11px">'+esc(g)+' · '+nf((P.active_s||0)/3600,1)+' h · '+(typeof e.dinero==="number"? eur(e.dinero) : "—")+' · '+usr[i]+' ses.</div>'
       + '</div>';
   };
   return '<div style="font-weight:700;font-size:13px;margin-bottom:2px">'+esc(p.c||"Sin ciudad")+'</div>'
     + '<div style="color:#8891AA;margin-bottom:4px">'+esc(p.p||"Sin país")+' · '+esc(navContinente(p.p))+'</div>'
     + '<div style="color:#8891AA;margin-top:6px">'+(ids.length===1?"Usuario":"Usuarios en esta zona")+'</div>'
-    + ids.slice(0,3).map(bloque).join("")
-    + (ids.length>3? '<div style="color:#8891AA;margin-top:6px">y '+nf(ids.length-3)+' usuarios más</div>' : "")
+    + ids.slice(0,5).map(bloque).join("")
+    + (ids.length>5? '<div style="color:#8891AA;font-size:11px;padding-top:4px">y '+nf(ids.length-5)+' usuarios más</div>' : "")
     + '<div style="border-top:1px solid #2a2f48;padding-top:6px;margin-top:6px">'
     + row("Sesiones", nf(n)+" ("+pct+"% del total)")
     + row("Jugadores distintos", nf(ids.length))
@@ -1299,9 +1295,10 @@ function navMapaEventos(cv){
     var h=cerca(e);
     if(!h.p){ t.style.display="none"; cv.style.cursor="grab"; return; }
     t.innerHTML=navInfoHTML(h.p); t.style.display="block";
-    var tw=t.offsetWidth, th=t.offsetHeight, left=h.mx+16, top=h.my+12;
+    t.style.maxHeight=(h.H-8)+"px"; t.style.overflowY="auto";
+    var tw=t.offsetWidth, th=Math.min(t.offsetHeight,h.H-8), left=h.mx+16, top=h.my+12;
     if(left+tw>h.W-4) left=h.mx-tw-16;
-    if(top+th>h.H-4) top=h.H-th-4;
+    top=Math.min(top, h.H-th-4);
     t.style.left=Math.max(4,left)+"px"; t.style.top=Math.max(4,top)+"px";
     cv.style.cursor="pointer";
   });
@@ -1748,7 +1745,7 @@ var SUB_ID={P11:{"Ficha":"ficha","Físico":"fisico","Ánimo":"animo","Carácter"
   P14:{"Dinero":"dinero","Tienda":"tienda"},
   P15:{"Código":"codigo","Reportar":"reportar","Información":"info"}};
 var SUB_OCULTAS_ADMIN={P11:["Carácter"], P12:["Vestuario"], P13:["Rumores","Fichajes","Prensa"]};
-var ADMIN_VER="0.03.070", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.071", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 var _av=document.getElementById("adm-ver"); if(_av) _av.textContent="v"+ADMIN_VER;
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
