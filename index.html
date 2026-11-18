@@ -3702,7 +3702,9 @@ function anotarGol(mio, quien){
     pushFlash({tipo:"gol", mio:mio, quien:quien, autor:(quien==="yo"?S.nombre:goleadorDe(mio?S.equipo:M.rival, S.nombre)),
                revisando:true, sc:[M.sc[0]+(mio?1:0), M.sc[1]+(mio?0:1)]});
   }
-  if(revision) pushFlash({tipo:"var", mio:mio, anula:anula, quien:quien, motivo:motivo});
+  /* si el VAR valida, la pantalla del VAR va DESPUÉS de la del gol (se pinta tras pushFlash del gol más abajo) */
+  var varValida = revision && !anula ? {tipo:"var", mio:mio, anula:false, quien:quien, motivo:motivo} : null;
+  if(revision && anula) pushFlash({tipo:"var", mio:mio, anula:true, quien:quien, motivo:motivo});
   if(anula){
     M.golesTramo.push(mio? "El gol sube al marcador… y el VAR lo borra: "+motivo+"." : "El rival celebra, pero el VAR lo anula: "+motivo+".");
     return false;
@@ -3741,6 +3743,7 @@ function anotarGol(mio, quien){
     else if(!mio && autor===M.rivalDirecto.nombre) sumarTension(M.rivalDirecto.nombre, M.rival, M.rivalDirecto.pos, 7, "Te la marcó en el "+M.min+"′.");
   }
   pushFlash({tipo:"gol", mio:mio, quien:quien, autor:autor, txt:relato});
+  if(varValida) pushFlash(varValida);
   tocaNotaMax();   /* el pico también sube con los goles narrados, no solo con tus decisiones */
   if(relato) M.golesTramo.push(relato);
   return true;
