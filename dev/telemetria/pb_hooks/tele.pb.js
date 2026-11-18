@@ -4,6 +4,23 @@
 // Un solo punto de entrada para los jugadores. Valida la clave, recorta tamaños y escribe en las colecciones tl_* (cerradas al público).
 // La clave: variable de entorno TELE_KEY o, si no existe, la primera línea del archivo pb_hooks/tele.key (cómodo en Windows).
 // Sin clave configurada, la ruta rechaza todo (503): no hay clave por defecto.
+// ubicación aproximada de una sesión nueva (ciudad y país). Solo se consulta; la IP no se guarda.
+function geoDe(ip) {
+  try {
+    if (!ip || /^(10\.|192\.168\.|127\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|::1|f[cd])/i.test(ip)) return null;
+    // ipinfo.io por HTTPS. Token opcional en la variable de entorno IPINFO_TOKEN del servidor.
+    const tok = $os.getenv("IPINFO_TOKEN");
+    const r = $http.send({ url: "https://ipinfo.io/" + encodeURIComponent(ip) + "/json" + (tok ? "?token=" + encodeURIComponent(tok) : ""), method: "GET", timeout: 3 });
+    if (r.statusCode !== 200) return null;
+    const j = r.json;
+    if (!j || !j.loc) return null;
+    const ll = String(j.loc).split(",");
+    const lat = Number(ll[0]), lon = Number(ll[1]);
+    if (!isFinite(lat) || !isFinite(lon)) return null;
+    return { lat: Math.round(lat * 10) / 10, lon: Math.round(lon * 10) / 10, pais: String(j.country || "").slice(0, 60), ciudad: String(j.city || "").slice(0, 60) };
+  } catch (_) { return null; }
+}
+
 routerAdd("POST", "/tele", (e) => {
   let KEY = $os.getenv("TELE_KEY") || "";
   if (!KEY) { try { KEY = String(toString($os.readFile(`${__hooks}/tele.key`))).split(/\r?\n/)[0].trim(); } catch (_) {} }
@@ -109,6 +126,10 @@ routerAdd("POST", "/tele", (e) => {
   const now = Date.now(), num = (v) => { v = Number(v); return isFinite(v) ? v : 0; };
   const ver = String(ctx.ver || "").slice(0, 20);
   let accepted = 0;
+  // sesión nueva: se localiza una vez (fuera de la transacción, porque hace una petición de red)
+  let nuevaSesion = false;
+  try { $app.findFirstRecordByData("tl_sessions", "sid", sid); } catch (_) { nuevaSesion = true; }
+  const geo = nuevaSesion ? geoDe(e.realIP()) : null;
   try {
     $app.runInTransaction((tx) => {
       // jugador (upsert)
@@ -123,6 +144,7 @@ routerAdd("POST", "/tele", (e) => {
       const antes = num(S.get("active_s"));
       S.set("last_t", now); S.set("ver", ver); S.set("ctx", { scr: ctx.scr, vp: ctx.vp, backend: ctx.backend, mem: ctx.mem, saveKB: ctx.saveKB, load_ms: ctx.load_ms, online: ctx.online });
       if (act > antes) S.set("active_s", act);
+      if (nueva && geo) { S.set("geo_lat", geo.lat); S.set("geo_lon", geo.lon); S.set("geo_pais", geo.pais); S.set("geo_ciudad", geo.ciudad); }
       tx.save(S);
       P.set("last_t", now); P.set("ver", ver);
       P.set("ua", String(ctx.ua || "").slice(0, 200)); P.set("scr", String(ctx.scr || "").slice(0, 40));

@@ -1195,6 +1195,26 @@ function navCalc(){
   return {ev:ev, ses:ses, cnt:cnt, tiempo:tiempo, jugadores:Object.keys(unicos).length, act:act, tz:tz, horas:horas};
 }
 function navMmss(s){ s=Math.round(s||0); return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); }
+function navMapa(ses){
+  var pts={}, paises={}, sinUb=0;
+  ses.forEach(function(s){
+    if(typeof s.geo_lat!=="number" || typeof s.geo_lon!=="number"){ sinUb++; return; }
+    var k=s.geo_lat+","+s.geo_lon;
+    pts[k]=pts[k]||{lat:s.geo_lat,lon:s.geo_lon,n:0,c:s.geo_ciudad||"",p:s.geo_pais||""};
+    pts[k].n++;
+    var pa=s.geo_pais||"Sin país"; paises[pa]=(paises[pa]||0)+1;
+  });
+  var L=Object.keys(pts).map(function(k){ return pts[k]; });
+  var mx=Math.max.apply(null,[1].concat(L.map(function(p){ return p.n; })));
+  var svg='<svg viewBox="0 0 '+MAPA_W+' '+MAPA_H+'" style="width:100%;height:auto;display:block;border-radius:8px;background:#070810"><path d="'+MAPA_MUNDO_D+'" fill="#1f2336" stroke="#2a2f48" stroke-width="0.6"/>';
+  L.forEach(function(p){ var q=mapaXY(p.lat,p.lon), r=3+9*Math.sqrt(p.n/mx);
+    svg+='<circle cx="'+q.x.toFixed(1)+'" cy="'+q.y.toFixed(1)+'" r="'+r.toFixed(1)+'" fill="#FFC24B" fill-opacity=".55" stroke="#FFC24B"><title>'+esc((p.c? p.c+", " : "")+(p.p||"Sin país")+" · "+p.n+(p.n===1?" sesión":" sesiones"))+'</title></circle>'; });
+  svg+='</svg>';
+  var pa=Object.keys(paises).sort(function(a,b){ return paises[b]-paises[a]; });
+  var paMax=pa.length? paises[pa[0]] : 1;
+  var lista= pa.length? pa.map(function(z){ return '<div class="hb"><span>'+esc(z)+'</span><div class="tr"><i style="width:'+(paises[z]/paMax*100)+'%"></i></div><span>'+paises[z]+'</span></div>'; }).join("") : '<p class="mut small" style="margin:0">Ninguna sesión con ubicación en este periodo.</p>';
+  return card("Desde dónde se conectan", '<div class="grid g2" style="gap:14px;align-items:start"><div>'+svg+'</div><div>'+lista+(sinUb? '<p class="small mut" style="margin:10px 0 0">'+nf(sinUb)+' sesiones sin ubicación (anteriores a la localización o IP privada).</p>' : '')+'</div></div><p class="note" style="margin:8px 2px 0">Ubicación aproximada por IP (ciudad y país). Cada punto agrupa las sesiones de un mismo lugar.</p>',"","");
+}
 V.navegacion=function(){
   if(!NAVD.ok && !NAVD.busy && !NAVD.err) setTimeout(navCargar,0);
   var rango=ST.sel.navRango!=null? ST.sel.navRango : 1, ex=navExcl();
@@ -1225,8 +1245,8 @@ V.navegacion=function(){
   var tzs=Object.keys(C.tz).sort(function(a,b){ return C.tz[b]-C.tz[a]; });
   var tzMax=tzs.length? C.tz[tzs[0]] : 1;
   var origenH=card("De dónde se conectan (zona horaria del navegador)", tzs.length? tzs.map(function(z){ return '<div class="hb"><span title="'+esc(z)+'">'+esc(z)+'</span><div class="tr"><i style="width:'+(C.tz[z]/tzMax*100)+'%"></i></div><span>'+C.tz[z]+'</span></div>'; }).join("") : '<p class="mut small" style="margin:0">Sin datos en este periodo.</p>', "", "");
-  var nota='<p class="note" style="margin:10px 2px 0">Mapa del mundo: pendiente. Hoy solo sabemos la zona horaria del navegador, no el lugar exacto. Para dibujar el mapa hace falta localizar la IP en el servidor con una base de datos de IPs; dime si la quieres y lo preparo.</p>';
-  return head+kp+'<div class="grid g2" style="margin-top:12px">'+excl+horasH+'</div>'+'<div style="margin-top:12px">'+mapaCalor+'</div>'+'<div class="grid g2" style="margin-top:12px">'+origenH+(otrasH||"")+'</div>'+nota;
+  var mundoH=navMapa(C.ses);
+  return head+kp+'<div style="margin-top:12px">'+mundoH+'</div>'+'<div class="grid g2" style="margin-top:12px">'+excl+horasH+'</div>'+'<div style="margin-top:12px">'+mapaCalor+'</div>'+'<div class="grid g2" style="margin-top:12px">'+origenH+(otrasH||"")+'</div>';
 };
 V.mapa=function(){
   var W=168, Hh=34, GX=188, pos={}, svg="", maxn=0;
@@ -1555,7 +1575,8 @@ var SUB_ID={P11:{"Ficha":"ficha","Físico":"fisico","Ánimo":"animo","Carácter"
   P14:{"Dinero":"dinero","Tienda":"tienda"},
   P15:{"Código":"codigo","Reportar":"reportar","Información":"info"}};
 var SUB_OCULTAS_ADMIN={P11:["Carácter"], P12:["Vestuario"], P13:["Rumores","Fichajes","Prensa"]};
-var ADMIN_VER="0.03.053", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.058", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var _av=document.getElementById("adm-ver"); if(_av) _av.textContent="v"+ADMIN_VER;
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
   var g=$("gver"), e=$("ever");

@@ -98,6 +98,7 @@ button{font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
 /* ---------- portada ---------- */
 #scr-title{min-height:88vh;display:flex;flex-direction:column;justify-content:center;text-align:center}
 #scr-title .big{font-size:clamp(56px,17vw,86px);line-height:.86;letter-spacing:-.035em;color:#fff}
+#scr-title .big .mk{background:none;color:#FFC24B;-webkit-text-fill-color:#FFC24B}
 @supports (-webkit-background-clip:text) or (background-clip:text){
   #scr-title .big{background:linear-gradient(180deg,#fff 30%,#B9BFD4);
     -webkit-background-clip:text;background-clip:text;color:transparent}
@@ -725,7 +726,7 @@ body.conmenu:has(#ov-match:not(.hidden)) #topbar{display:none}
 <div class="wrap">
   <!-- TÍTULO -->
   <div id="scr-title">
-    <div class="disp big">Goatmaker</div>
+    <div class="disp big"><span class="mk">Goat</span>maker</div>
     <div class="note" id="ver-portada" style="margin-top:8px;font-size:11px;letter-spacing:3px;color:var(--gold);font-weight:700">—</div>
     <p class="note" style="margin:22px 0 14px">Eliges puesto y perfil; los clubes eligen si te quieren. Treinta y ocho jornadas sobre el césped, decididas en un puñado de momentos.</p>
     <button class="gold-btn" onclick="irElegir()">Empezar carrera</button>
@@ -819,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.006";
+var VERSION="0.03.008";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
