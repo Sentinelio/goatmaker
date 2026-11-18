@@ -6617,6 +6617,14 @@ function subTabs(sec){
     return '<button class="chip'+(SUB[sec]===t[0]?' on':'')+'" onclick="irSub(\''+sec+'\',\''+t[0]+'\')">'+esc(t[1])+((sec==="ajustes" && t[0]==="codigo" && CHEATS_ON)? ' <span style="opacity:.75">●</span>' : '')+'</button>';
   }).join("")+'</div>';
 }
+/* al entrar en una pantalla se pide el contenido publicado; si ha cambiado, la pantalla se vuelve a pintar sin recargar el juego */
+function contAlEntrar(k){
+  var antes=CONT.n, pantAntes=JSON.stringify(PANT_OFF);
+  contSync(1500).then(function(){
+    if(SEC!==k) return;
+    if(CONT.n!==antes || JSON.stringify(PANT_OFF)!==pantAntes) irSec(k);
+  });
+}
 function irSec(k){
   if(!PARTIDA_ABIERTA){
     if(k!=="ajustes"){ volverTitulo(); return; }
@@ -6627,6 +6635,7 @@ function irSec(k){
     $("sec-body").innerHTML='<button class="ghost" style="margin-bottom:12px" onclick="volverTitulo()">← Volver al menú</button>'+secAjustes();
     scrollSiCambia("ajustes"); return;
   }
+  contAlEntrar(k);
   SEC=k;
   ["scr-title","scr-pick","scr-pos"].forEach(function(id){ $(id).classList.add("hidden"); });
   document.body.classList.add("conmenu");
