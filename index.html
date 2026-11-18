@@ -6600,7 +6600,14 @@ var SUBS={
 };
 /* subpestañas desactivadas en el juego (siguen en el admin, marcadas como ocultas) */
 var SUB_OCULTAS={jugador:["caracter"], equipo:["plantilla"], mercado:["rumores","fichajes","prensa"]};
-function subVisible(sec,k){ return !(SUB_OCULTAS[sec]||[]).some(function(x){ return x===k; }); }
+/* lo que el admin publica en «pantallas» (contAplicar lo rellena): PANT_OFF[P11].sub.caracter = true/false */
+var PANT_OFF={};
+var PANT_DE_SEC={jugador:"P11", equipo:"P12", mercado:"P13", cuentas:"P14", ajustes:"P15"};
+function subVisible(sec,k){
+  var pan=PANT_OFF[PANT_DE_SEC[sec]||""], sub=pan&&pan.sub;
+  if(sub && typeof sub[k]==="boolean") return sub[k];
+  return !(SUB_OCULTAS[sec]||[]).some(function(x){ return x===k; });
+}
 function irSub(sec,k){ SUB[sec]=k; irSec(sec); }
 function subTabs(sec){
   var lista=SUBS[sec].filter(function(t){ return subVisible(sec,t[0]); });
@@ -11584,6 +11591,7 @@ function contClon(v){ if(typeof v==="function") return v; if(Array.isArray(v)) r
 function contPlano(v){ if(typeof v==="function") return {"$fn":1}; if(Array.isArray(v)) return v.map(contPlano); if(v && typeof v==="object"){ var o={}; Object.keys(v).forEach(function(k){ o[k]=contPlano(v[k]); }); return o; } return v; }
 var CONT_ORIG={entrenos:contClon(ENTRENOS), talentos:contClon(TALENTOS), tienda:contClon(TIENDA), cats:contClon(TIENDA_CATS), sits:contClon(SITS), banq:contClon(SITS_BANQUILLO), reloj:contClon(RELOJ)};
 function contRestaurar(){
+  PANT_OFF={};
   var arr=function(dst,src){ dst.length=0; contClon(src).forEach(function(x){ dst.push(x); }); };
   var obj=function(dst,src){ Object.keys(dst).forEach(function(k){ delete dst[k]; }); var c=contClon(src); Object.keys(c).forEach(function(k){ dst[k]=c[k]; }); };
   arr(ENTRENOS,CONT_ORIG.entrenos); obj(TALENTOS,CONT_ORIG.talentos); obj(TIENDA,CONT_ORIG.tienda); arr(TIENDA_CATS,CONT_ORIG.cats);
@@ -11647,6 +11655,22 @@ function contAplicar(P){
       if(P.reloj.porSit!==undefined){ if(!esObj(P.reloj.porSit)){ rech.push("reloj.porSit: no es un objeto"); mal=true; } else { nr.porSit={}; Object.keys(P.reloj.porSit).forEach(function(id){ var v=num(P.reloj.porSit[id],R.reloj.seg,"reloj.porSit."+id); if(v!==null) nr.porSit[id]=v; }); } }
       if(nr.max<nr.min){ rech.push("reloj: el máximo no puede ser menor que el mínimo"); mal=true; }
       if(!mal) Object.keys(nr).forEach(function(k){ RELOJ[k]=nr[k]; }); }
+  }
+  /* —— pantallas: interruptores de «Activa en el juego» (subpestañas por id del juego) —— */
+  if(P.pantallas!==undefined){
+    if(!esObj(P.pantallas)) rech.push("pantallas: no es un objeto");
+    else { var npan={};
+      Object.keys(P.pantallas).forEach(function(id){
+        var e=P.pantallas[id];
+        if(!/^P\d\d$/.test(id) || !esObj(e)){ rech.push("pantallas."+id+": no válida"); return; }
+        var o={};
+        if(e.sub!==undefined){
+          if(!esObj(e.sub)) rech.push("pantallas."+id+".sub: no es un objeto");
+          else { o.sub={}; Object.keys(e.sub).forEach(function(k){ if(!/^[a-z]{3,12}$/.test(k) || typeof e.sub[k]!=="boolean"){ rech.push("pantallas."+id+".sub."+k+": no válida"); return; } o.sub[k]=e.sub[k]; }); }
+        }
+        npan[id]=o;
+      });
+      PANT_OFF=npan; }
   }
   /* —— partido: situaciones por partido y porcentajes de previa y resumen —— */
   if(P.partido!==undefined){

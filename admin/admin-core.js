@@ -1136,11 +1136,11 @@ V.pantallas=function(){
       P.nuevo?'<span class="tag vio">nueva</span>':"")+
     card("Activa en el juego",
       (function(){
-        var hid=SUB_OCULTAS_ADMIN[P.id]||[];
+        var hid=SUB_OCULTAS_ADMIN[P.id]||[], ids=SUB_ID[P.id]||{};
         function sw1(key,lbl,def){ reg(key,def,P.id+" · "+lbl+" · activa"); return '<div class="diff"><span class="p">'+esc(lbl)+'</span>'+sw(val(key),function(){ set(key,!val(key)); })+'</div>'; }
-        var H1=sw1(pre+".on",P.n,true);
-        (P.sub||[]).forEach(function(x,i){ H1+=sw1(pre+".sub"+i+".on",x,hid.indexOf(x)<0); });
-        return H1+'<p class="note" style="margin:8px 0 0">Apagado = no aparece en el juego. Sigue en el panel.</p>';
+        var H1="";
+        (P.sub||[]).forEach(function(x){ if(!ids[x]) return; H1+=sw1(pre+".sub."+ids[x]+".on",x,hid.indexOf(x)<0); });
+        return (H1||'<p class="mut small" style="margin:0">Esta pantalla no tiene subpestañas que se puedan apagar.</p>');
       })(),
       "")+
     card("Captura",'<div class="shot"><span class="mut">'+P.id+' · '+esc(P.n)+'</span></div><div class="row" style="margin-top:10px">'+btn("Tomar captura",T("Abre el juego en esa pantalla y guarda la imagen"),"sm")+btn("Abrir en el juego",T("Abre el juego directamente en "+P.id),"sm")+'<span class="small mut">Móvil 390 × 844</span></div>')+'</div>';
@@ -1477,8 +1477,14 @@ var PB_URL="https://server-pc.tail3b4002.ts.net:8447";
 CUR_VER="0.03.001";
 var CUR_VER_DATE="2026-11-17T15:13:34+01:00";   /* fecha en que la versión del juego quedó integrada en el admin (se ve al pasar el ratón) */
 /* subpestañas ocultas en el juego (espejo de SUB_OCULTAS de index.html) */
+/* subpestañas: etiqueta del panel → id que usa el juego (sin id = el juego no la puede apagar) */
+var SUB_ID={P11:{"Ficha":"ficha","Físico":"fisico","Ánimo":"animo","Carácter":"caracter","Fama":"fama","Números":"stats","Carrera":"hist"},
+  P12:{"Clasificación":"tabla","Vestuario":"plantilla","El míster":"mister","Entreno":"entreno","Resultados":"jornada"},
+  P13:{"Mover los hilos":"hilos","Agente":"agente","Patrocinios":"patros","Rumores":"rumores","Fichajes":"fichajes","Prensa":"prensa"},
+  P14:{"Dinero":"dinero","Tienda":"tienda"},
+  P15:{"Código":"codigo","Reportar":"reportar","Información":"info"}};
 var SUB_OCULTAS_ADMIN={P11:["Carácter"], P12:["Vestuario"], P13:["Rumores","Fichajes","Prensa"]};
-var ADMIN_VER="0.03.048", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.049", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
   var g=$("gver"), e=$("ever");
@@ -1571,7 +1577,30 @@ function cfgGuarda(pref, okMsg){
     toast(/404/.test(m)? "Falta la colección tl_widgets en el servidor (migración 1763000007)" : "No se guardó: "+m);
   });
 }
-function pantGuarda(){ cfgGuarda("pn.", "Pantallas guardadas en el servidor"); }
+/* «Guardar pantallas»: publica una versión nueva de tl_content (la que lee el juego) partiendo de la última publicada */
+function pantGuarda(){
+  var pan={}, touched=false;
+  Object.keys(SUB_ID).forEach(function(id){
+    var ids=SUB_ID[id], sub={};
+    Object.keys(ids).forEach(function(lbl){ var k="pn."+id+".sub."+ids[lbl]+".on", def=(SUB_OCULTAS_ADMIN[id]||[]).indexOf(lbl)<0, v=val(k); sub[ids[lbl]]= v===undefined? def : !!v; if(chg(k)) touched=true; });
+    pan[id]={sub:sub};
+  });
+  if(!touched){ toast("No hay cambios que guardar"); return; }
+  toast("Publicando pantallas…");
+  pbApi("/api/collections/tl_content/records?perPage=1&sort=-n&filter="+encodeURIComponent("(kind='ver')")).then(function(r){
+    var last=r.items&&r.items[0];
+    var pack=(last&&last.pack)? JSON.parse(JSON.stringify(last.pack)) : {v:1};
+    pack.v=1; pack.pantallas=pan;
+    return pbApi("/api/collections/tl_content/records",{method:"POST",headers:PB_JSON,body:JSON.stringify({kind:"ver",n:(last?last.n:0)+1,pack:pack,nota:"Pantallas: subpestañas activas/desactivadas",t:Date.now(),ver_juego:nextIter(ST.ver)})});
+  }).then(function(){
+    Object.keys(DRAFT).forEach(function(k){ if(k.indexOf("pn.")===0){ BASE[k]=DRAFT[k]; delete DRAFT[k]; } });
+    try{ guardarBorrador(); }catch(e){}
+    topbar(); go(); toast("Pantallas publicadas en el juego");
+  }).catch(function(e){
+    var m=String(e.message||e);
+    toast(/403|401/.test(m)? "Sin permiso para publicar en el servidor" : "No se publicó: "+m);
+  });
+}
 OK_BTN.push("Guardar pantallas");
 async function pbEntra(){
   $("l-err").textContent="";
