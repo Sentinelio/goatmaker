@@ -3986,9 +3986,10 @@ function pendientesSemana(){
   if(listas.length) p.push({t:"puntos para subir "+listas.length+" habilidad(es)", ir:function(){ SUB.jugador="fisico"; irSec("jugador"); }});
   return p;
 }
+var AVISOS_PREPARTIDO=false; /* aviso "Te dejas cosas por hacer" antes del partido: apagado por ahora */
 function iniciarJornada(){
   /* nada de diálogos del navegador: aviso del propio juego */
-  if(!M && !S.avisoSaltado){
+  if(AVISOS_PREPARTIDO && !M && !S.avisoSaltado){
     var pend=pendientesSemana();
     if(pend.length){
       S.avisoSaltado=false;
