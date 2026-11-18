@@ -1281,14 +1281,8 @@ function navMapaDibuja(){
     ctx.font="9px system-ui, sans-serif"; ctx.fillStyle="#8A93B2";
     MAPA_CIUDADES.forEach(function(c){ if(c[3]<umin) return; var x=X(c[1]), y=Y(c[2]); if(x<0||x>W||y<0||y>H) return; ctx.fillRect(x-1,y-1,2,2); ctx.fillText(c[0],x+4,y+3); });
   }
-  var vis=NAVM.ciu.filter(function(p){ var x=X(p.xy.x), y=Y(p.xy.y); return x>-10&&x<W+10&&y>-10&&y<H+10; });
-  var lim= NAVM.z<2.5? 0 : (NAVM.z<6? 12 : 999);
-  ctx.font="11px system-ui, sans-serif"; ctx.lineWidth=3; ctx.strokeStyle="#070810";
-  vis.slice(0,lim).forEach(function(p){
-    var x=X(p.xy.x), y=Y(p.xy.y), txt=p.c+" · "+p.n;
-    ctx.fillStyle="#FFF3B0"; ctx.beginPath(); ctx.arc(x,y,2.5,0,Math.PI*2); ctx.fill();
-    ctx.strokeText(txt,x+6,y+4); ctx.fillStyle="#EDF0F8"; ctx.fillText(txt,x+6,y+4);
-  });
+  ctx.fillStyle="#FFF3B0";
+  NAVM.pts.forEach(function(p){ var x=X(p.xy.x), y=Y(p.xy.y); if(x<-10||x>W+10||y<-10||y>H+10) return; ctx.beginPath(); ctx.arc(x,y,2,0,Math.PI*2); ctx.fill(); });
   ctx.fillStyle="#8891AA"; ctx.font="10px system-ui, sans-serif";
   ctx.fillText("Zoom "+NAVM.z.toFixed(1)+"×", 8, H-8);
 }
@@ -1676,7 +1670,7 @@ var SUB_ID={P11:{"Ficha":"ficha","Físico":"fisico","Ánimo":"animo","Carácter"
   P14:{"Dinero":"dinero","Tienda":"tienda"},
   P15:{"Código":"codigo","Reportar":"reportar","Información":"info"}};
 var SUB_OCULTAS_ADMIN={P11:["Carácter"], P12:["Vestuario"], P13:["Rumores","Fichajes","Prensa"]};
-var ADMIN_VER="0.03.064", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.065", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 var _av=document.getElementById("adm-ver"); if(_av) _av.textContent="v"+ADMIN_VER;
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
