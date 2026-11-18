@@ -39,7 +39,7 @@ var NAV=[
  ["Usuarios",[["jugadores","☺","Usuarios"],["grupos","❖","Grupos"],["codigos","✦","Códigos y regalos"],["reportes","⚑","Bandeja de reportes"],["errores","⚠","Bandeja de errores"]]],
  ["Juego · Mundo",[["mundo","⚽","Mundo"]]],
  ["Juego · Contenido",[["situaciones","◷","Situaciones"],["talentos","❋","Talentos"],["entrenos","↗","Entrenamientos"],["entrenadores","☗","Entrenadores"],["tienda","🛍","Vida y tienda"],["patrocinios","★","Patrocinios"],["agentes","✆","Agentes y maniobras"]]],
- ["Juego · Pantallas",[["pantallas","▣","Pantallas"],["mapa","⇄","Mapa de pantallas"],["widgets","▦","Widgets"]]],
+ ["Juego · Pantallas",[["pantallas","▣","Pantallas"],["mapa","⇄","Mapa de pantallas"],["navegacion","🔥","Mapa de calor"],["widgets","▦","Widgets"]]],
  ["Herramientas",[["tracker","✓","Tracker"]]],
  ["Juego · Reglas globales",[["eloreal","↕","Elo"],["personaje","♟","Personaje"],["piramide","△","Pirámide y edades"],["reloj","⏱","Reloj y probabilidades"],["economia","€","Economía"],["textos","❝","Textos generales"],["motor","⚙","Motor"]]],
  ["Otros",[["prioridades","≡","Prioridades"]]]
@@ -1158,6 +1158,76 @@ V.pantallas=function(){
   var i=PANT.indexOf(P);
   return hd("Pantallas","Cada pantalla del juego, numerada: qué hace, cuánto dura y qué quieres cambiar.",btnGuarda("Guardar pantallas",pantGuarda,"pn.")+" "+btn("‹",function(){ST.sel.pn=PANT[(i-1+PANT.length)%PANT.length].id;go()},"sm")+" "+btn("›",function(){ST.sel.pn=PANT[(i+1)%PANT.length].id;go()},"sm"))+'<div class="split">'+lst(items,P.id,function(id){ST.sel.pn=id;go()})+'<div>'+t+b+'</div></div>';
 };
+
+/* ============ MAPA DE CALOR: navegación de los jugadores (tl_events «pantalla», tl_sessions, tl_players) ============ */
+var NAVD={ok:false,busy:false,err:null,at:0,ev:[],ses:[],pl:{}};
+var NAV_RANGOS=[["Último día",86400000],["7 días",7*86400000],["30 días",30*86400000],["Todo",0]];
+var NAV_SEC={jugador:"P11",equipo:"P12",mercado:"P13",cuentas:"P14",ajustes:"P15"};
+function navExcl(){ try{ return JSON.parse(localStorage.getItem("gm-nav-excl")||"[]"); }catch(e){ return []; } }
+function navExclGuarda(a){ try{ localStorage.setItem("gm-nav-excl",JSON.stringify(a)); }catch(e){} }
+function navIncluye(install){ var p=NAVD.pl[install], ex=navExcl(); return !(p && p.g && ex.indexOf(p.g)>=0); }
+function navCargar(){
+  if(NAVD.busy) return; NAVD.busy=true; NAVD.err=null;
+  var r=(ST.sel.navRango!=null? ST.sel.navRango : 1), ms=NAV_RANGOS[r][1], desde=ms? Date.now()-ms : 0;
+  var fe="filter="+encodeURIComponent("tipo='pantalla' && t>"+desde)+"&sort=t";
+  var fs="filter="+encodeURIComponent("start_t>"+desde)+"&sort=start_t";
+  Promise.all([pbAll("tl_events",fe), pbAll("tl_sessions",fs), pbAll("tl_players","fields=install,adm_grupo,tz,lang")]).then(function(R){
+    NAVD.ev=R[0]; NAVD.ses=R[1]; NAVD.pl={};
+    R[2].forEach(function(p){ NAVD.pl[p.install]={g:p.adm_grupo||"", tz:p.tz||"", lang:p.lang||""}; });
+    NAVD.ok=true; NAVD.busy=false; NAVD.at=Date.now(); go();
+  }).catch(function(e){ NAVD.err=String(e.message||e); NAVD.busy=false; go(); });
+}
+function navCalc(){
+  var ev=NAVD.ev.filter(function(e){ return navIncluye(e.install); });
+  var ses=NAVD.ses.filter(function(s){ return navIncluye(s.install); });
+  var key=function(e){ var d=e.d||{}; return (d.k||"?")+"/"+(d.sub||""); };
+  var cnt={}, tiempo={}, porSid={}, unicos={};
+  ev.forEach(function(e){ cnt[key(e)]=(cnt[key(e)]||0)+1; (porSid[e.sid]=porSid[e.sid]||[]).push(e); });
+  Object.keys(porSid).forEach(function(sid){
+    var L=porSid[sid].slice().sort(function(a,b){ return a.t-b.t; });
+    for(var i=0;i<L.length-1;i++){ var dur=Math.min(600000, L[i+1].t-L[i].t)/1000; tiempo[key(L[i])]=(tiempo[key(L[i])]||0)+dur; }
+  });
+  ses.forEach(function(s){ unicos[s.install]=1; });
+  var act=ses.reduce(function(a,s){ return a+(s.active_s||0); },0);
+  var tz={}; ses.forEach(function(s){ var p=NAVD.pl[s.install], z=(p&&p.tz)||"sin dato"; tz[z]=(tz[z]||0)+1; });
+  var horas=[]; for(var h=0;h<24;h++) horas.push(0);
+  ses.forEach(function(s){ horas[new Date(s.start_t).getHours()]++; });
+  return {ev:ev, ses:ses, cnt:cnt, tiempo:tiempo, jugadores:Object.keys(unicos).length, act:act, tz:tz, horas:horas};
+}
+function navMmss(s){ s=Math.round(s||0); return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); }
+V.navegacion=function(){
+  if(!NAVD.ok && !NAVD.busy && !NAVD.err) setTimeout(navCargar,0);
+  var rango=ST.sel.navRango!=null? ST.sel.navRango : 1, ex=navExcl();
+  var barra='<div class="row" style="gap:8px;flex-wrap:wrap">'+NAV_RANGOS.map(function(r,i){ return btn(r[0],function(){ ST.sel.navRango=i; NAVD.ok=false; navCargar(); }, i===rango?"gold":"sm"); }).join("")+btn("Actualizar",function(){ navCargar(); },"sm")+'</div>';
+  var excl=card("Excluir de los datos", GRP.length? GRP.map(function(g){ return '<div class="diff"><span class="p">'+esc(g.n)+'</span>'+sw(ex.indexOf(g.id)>=0,function(){ var a=navExcl(), i=a.indexOf(g.id); if(i>=0) a.splice(i,1); else a.push(g.id); navExclGuarda(a); go(); })+'</div>'; }).join("") : '<p class="mut small" style="margin:0">Aún no hay grupos. Créalos en Grupos. Los jugadores sin grupo siempre cuentan.</p>', "", "");
+  var head=hd("Mapa de calor","Dónde pasan el tiempo los jugadores y cuánto tardan en cada pantalla. Excluye tus grupos de pruebas para ver solo datos reales.", barra);
+  if(NAVD.err) return head+card("Sin datos",'<p class="small" style="margin:0;color:var(--bad)">No se pudieron leer los datos: '+esc(NAVD.err)+'</p>');
+  if(!NAVD.ok) return head+card("Cargando",'<p class="small mut" style="margin:0">Leyendo la telemetría del servidor…</p>');
+  var C=navCalc(), totalEv=C.ev.length, max=0;
+  Object.keys(C.cnt).forEach(function(k){ if(C.cnt[k]>max) max=C.cnt[k]; });
+  var kp=kpis([["Sesiones",nf(C.ses.length),""],["Jugadores",nf(C.jugadores),"distintos"],["Tiempo activo medio", C.ses.length? navMmss(C.act/C.ses.length):"—","por sesión"],["Pantallas vistas",nf(totalEv),"cambios de pantalla"]]);
+  var celdas="";
+  Object.keys(NAV_SEC).forEach(function(sec){
+    var P=NAV_SEC[sec], ids=SUB_ID[P]||{}, lbls=Object.keys(ids);
+    var fila='<div class="f"><label>'+P+' · '+esc((PANT.filter(function(x){return x.id===P;})[0]||{}).n||"")+'</label><div style="display:flex;flex-wrap:wrap;gap:6px">';
+    lbls.forEach(function(lbl){
+      var k=sec+"/"+ids[lbl], c=C.cnt[k]||0, t=C.tiempo[k]||0, a=max? 0.1+0.85*(c/max) : 0.1;
+      fila+='<div title="'+esc(P+" · "+lbl)+'" style="min-width:118px;padding:8px 10px;border-radius:8px;background:rgba(255,194,75,'+a.toFixed(2)+');color:'+(a>0.5?'#111':'var(--tx)')+'"><div style="font-weight:600;font-size:12px">'+esc(lbl)+'</div><div class="small" style="opacity:.85">'+nf(c)+' vistas · '+navMmss(t)+'</div></div>';
+    });
+    fila+='</div></div>';
+    celdas+=fila;
+  });
+  var mapaCalor=card("Mapa de calor · pantallas y subpestañas", celdas, "", "");
+  var otras=Object.keys(C.cnt).filter(function(k){ var sec=k.split("/")[0]; return !NAV_SEC[sec]; });
+  var otrasH= otras.length? card("Otras pantallas", otras.map(function(k){ return '<div class="diff"><span class="p mono small">'+esc(k)+'</span><span>'+nf(C.cnt[k])+' vistas · '+navMmss(C.tiempo[k])+'</span></div>'; }).join(""), "", "") : "";
+  var hmax=Math.max.apply(null,C.horas)||1;
+  var horasH=card("Cuándo entran (hora de tu navegador)", '<div style="display:flex;align-items:flex-end;gap:3px;height:110px">'+C.horas.map(function(v,h){ return '<div title="'+h+' h: '+v+'" style="flex:1;background:var(--gold);opacity:.8;height:'+Math.max(2,Math.round(v/hmax*100))+'%;border-radius:3px 3px 0 0"></div>'; }).join("")+'</div><div class="small mut" style="display:flex;justify-content:space-between;margin-top:4px"><span>0 h</span><span>12 h</span><span>23 h</span></div>', "", "");
+  var tzs=Object.keys(C.tz).sort(function(a,b){ return C.tz[b]-C.tz[a]; });
+  var tzMax=tzs.length? C.tz[tzs[0]] : 1;
+  var origenH=card("De dónde se conectan (zona horaria del navegador)", tzs.length? tzs.map(function(z){ return '<div class="hb"><span title="'+esc(z)+'">'+esc(z)+'</span><div class="tr"><i style="width:'+(C.tz[z]/tzMax*100)+'%"></i></div><span>'+C.tz[z]+'</span></div>'; }).join("") : '<p class="mut small" style="margin:0">Sin datos en este periodo.</p>', "", "");
+  var nota='<p class="note" style="margin:10px 2px 0">Mapa del mundo: pendiente. Hoy solo sabemos la zona horaria del navegador, no el lugar exacto. Para dibujar el mapa hace falta localizar la IP en el servidor con una base de datos de IPs; dime si la quieres y lo preparo.</p>';
+  return head+kp+'<div class="grid g2" style="margin-top:12px">'+excl+horasH+'</div>'+'<div style="margin-top:12px">'+mapaCalor+'</div>'+'<div class="grid g2" style="margin-top:12px">'+origenH+(otrasH||"")+'</div>'+nota;
+};
 V.mapa=function(){
   var W=168, Hh=34, GX=188, pos={}, svg="", maxn=0;
   PG.forEach(function(g,gi){ var L=PANT.filter(function(p){return p.g===g[0]}); maxn=Math.max(maxn,L.length); L.forEach(function(p,i){ pos[p.id]=[14+gi*GX, 44+i*46]; }); });
@@ -1485,14 +1555,14 @@ var SUB_ID={P11:{"Ficha":"ficha","Físico":"fisico","Ánimo":"animo","Carácter"
   P14:{"Dinero":"dinero","Tienda":"tienda"},
   P15:{"Código":"codigo","Reportar":"reportar","Información":"info"}};
 var SUB_OCULTAS_ADMIN={P11:["Carácter"], P12:["Vestuario"], P13:["Rumores","Fichajes","Prensa"]};
-var ADMIN_VER="0.03.052", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.053", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
   var g=$("gver"), e=$("ever");
   if(g){ g.textContent="🎮 Juego v"+CUR_VER; g.title="Versión del juego integrada el "+fechaES(CUR_VER_DATE); }
   if(e){ e.textContent="🛠 Editor v"+ADMIN_VER; e.title="Versión del editor, cambiada el "+fechaES(ADMIN_VER_DATE); }
 }   /* versión actual del juego: el filtro «Versión antigua» compara con esto */
-var OK_NAV=["jugadores","grupos","codigos","reportes","situaciones","widgets","pantallas","mapa"];
+var OK_NAV=["jugadores","grupos","codigos","reportes","situaciones","widgets","pantallas","mapa","navegacion"];
 var PB={tok:"",byInst:{},raw:{pl:[],cod:[],can:[],rep:[]}};
 var PB_RT={bug:["🐞","Fallo"],idea:["💡","Idea"],otro:["💬","Otro"]};
 

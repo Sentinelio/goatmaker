@@ -11529,7 +11529,7 @@ var TELE=(function(){
       var r=f.apply(this,a); try{ if(despues) despues.call(this,ctx,a,r); }catch(e){} return r; };
   }
   envolver("guardar",null,function(){ TELE.alGuardar(); });
-  envolver("irSec",function(a){ return null; },function(c,a){ TELE.ev("pantalla",{k:a[0]}); });
+  envolver("irSec",function(a){ return null; },function(c,a){ TELE.ev("pantalla",{k:a[0], sub:(SUB[a[0]]||"")}); });
   envolver("modal",null,function(c,a){ var o=a[0]||{}; TELE.ev("modal",{t:String(o.t||"").slice(0,60)}); });
   envolver("elegirOpcion",function(i){ if(!M||!M.sitAct||!M.sitAct.o||!M.sitAct.o[i]) return null; var s=M.sitAct, o=s.o[i];
       return {s:s.id||null, i:i, l:String(o.l||"").slice(0,60), m:M.min, f:M.faseAct||null, sc:[M.sc[0],M.sc[1]]}; },
