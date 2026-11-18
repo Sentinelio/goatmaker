@@ -1259,12 +1259,19 @@ function navInfoHTML(p){
     + row("Zonas horarias", esc(lst(tz)))
     + row("Idiomas", esc(lst(lg)));
 }
+function navAgrupa(list){
+  if(!list.length) return null;
+  var best=list[0], ses=[], ciud={};
+  list.forEach(function(p){ if(p.n>best.n) best=p; ses=ses.concat(p.ses); ciud[(p.c||"")+"|"+(p.p||"")]=1; });
+  var k=Object.keys(ciud).length;
+  return {lat:best.lat, lon:best.lon, c:(best.c||"Sin ciudad")+(k>1? " y "+(k-1)+(k===2?" zona cercana":" zonas cercanas") : ""), p:best.p, ses:ses, n:ses.length};
+}
 function navMapaEventos(cv){
   var drag=null;
   function cerca(e){
-    var r=cv.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top, W=r.width, H=r.height, s=W/1000*NAVM.z, best=null, bd=144;
-    NAVM.pts.forEach(function(p){ var x=(p.xy.x-NAVM.cx)*s+W/2, y=(p.xy.y-NAVM.cy)*s+H/2, d=(x-mx)*(x-mx)+(y-my)*(y-my); if(d<bd){ bd=d; best=p; } });
-    return {p:best, mx:mx, my:my, W:W, H:H};
+    var r=cv.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top, W=r.width, H=r.height, s=W/1000*NAVM.z, cerc=[];
+    NAVM.pts.forEach(function(p){ var x=(p.xy.x-NAVM.cx)*s+W/2, y=(p.xy.y-NAVM.cy)*s+H/2, d=(x-mx)*(x-mx)+(y-my)*(y-my); if(d<196) cerc.push(p); });
+    return {p:navAgrupa(cerc), mx:mx, my:my, W:W, H:H};
   }
   function ocultar(){ var t=document.getElementById("nav-tip"); if(t) t.style.display="none"; }
   cv.addEventListener("wheel",function(e){ e.preventDefault(); ocultar(); var r=cv.getBoundingClientRect(); navMapaAlZoom(e.deltaY<0?1.25:1/1.25, e.clientX-r.left, e.clientY-r.top, r.width); },{passive:false});
@@ -1723,7 +1730,7 @@ var SUB_ID={P11:{"Ficha":"ficha","Físico":"fisico","Ánimo":"animo","Carácter"
   P14:{"Dinero":"dinero","Tienda":"tienda"},
   P15:{"Código":"codigo","Reportar":"reportar","Información":"info"}};
 var SUB_OCULTAS_ADMIN={P11:["Carácter"], P12:["Vestuario"], P13:["Rumores","Fichajes","Prensa"]};
-var ADMIN_VER="0.03.068", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.069", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 var _av=document.getElementById("adm-ver"); if(_av) _av.textContent="v"+ADMIN_VER;
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
