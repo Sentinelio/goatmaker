@@ -6627,6 +6627,8 @@ function contAlEntrar(k){
     if(CONT.n!==antes || JSON.stringify(PANT_OFF)!==pantAntes) irSec(k);
   });
 }
+function pendIrEntreno(){ SUB.equipo="entreno"; irSec("equipo"); }
+function pendIrSemana(){ SUB.jugador="animo"; irSec("jugador"); }
 function irSec(k){
   if(!PARTIDA_ABIERTA){
     if(k!=="ajustes"){ volverTitulo(); return; }
@@ -10399,7 +10401,13 @@ function renderHub(){
   var pend=[];
   if(S.lesion<=0 && libres>0) pend.push(libres+" sesión(es) de entrenamiento sin usar");
   if(S.semanaHecha!==S.jornada) pend.push("la semana personal sin decidir");
-  if(pend.length) L+='<div class="card" style="border-color:rgba(255,194,75,.35)"><div class="eyebrow" style="color:var(--gold)">Pendiente</div><p class="note" style="margin:0">Te queda '+esc(pend.join(" y "))+'.</p></div>';
+  if(pend.length){
+    var irPend = (S.lesion<=0 && libres>0)
+      ? {txt:"🏋️ Ir a entrenar", fn:"pendIrEntreno()"}
+      : {txt:"📝 Decidir la semana", fn:"pendIrSemana()"};
+    L+='<div class="card" style="border-color:rgba(255,194,75,.35)"><div class="eyebrow" style="color:var(--gold)">Pendiente</div><p class="note" style="margin:0 0 10px">Te queda '+esc(pend.join(" y "))+'.</p>'
+      +'<button class="btn" style="width:100%" onclick="'+irPend.fn+'">'+esc(irPend.txt)+'</button></div>';
+  }
   var mensajes=diaADia();
   mensajes.forEach(function(m){
     L+='<div class="msgcard" style="border-left-color:'+m.col+'">'
