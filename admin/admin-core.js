@@ -19,6 +19,7 @@ function on(f){ H.push(f); return "H["+(H.length-1)+"](this.value,this,event)"; 
 var OK_BTN=["Copiar","Regenerar","Desactivar","Activar","Borrar","+ Código","Crear código","Copiar para Claude","Descargar","Quitar selección","← Volver a la lista","‹ Anterior","Siguiente ›","Cancelar","Borrar datos","Borrar todos sus datos","Confirmar"];
 var OK_CHIP=["Todos","Activos hoy","Versión antigua","Nuevo","Visto","Hecho","Fallo","Idea"];
 var OK_TAB=["Ficha","Códigos","Canjes","Situaciones","Ajustes"];
+var OK_TAB_PN=["Datos","Comportamiento","Tiempos","Textos","Uso","Rediseño"];
 function btn(l,f,c){ var no=OK_BTN.indexOf(l)<0; return '<button class="b '+(c||"")+(no?" off":"")+'"'+(no?" disabled":"")+' onclick="'+on(f)+'">'+l+'</button>'; }
 function same(a,b){ return JSON.stringify(a)===JSON.stringify(b); }
 function reg(p,base,lbl){ if(!BASE.hasOwnProperty(p)){ BASE[p]=base; LBL[p]=lbl||p; } }
@@ -109,7 +110,7 @@ function restoreScroll(sn){ var m=$("main"); m.scrollTop=sn.top; var all=m.query
 function go(){ H=[]; CUR=ALIAS[ST.sec]||null; var f=V[CUR?CUR.v:ST.sec]||V.resumen; var mismaPant=(LAST_SEC===ST.sec), sn=mismaPant? snapScroll() : null; $("main").innerHTML=f(); if(mismaPant) restoreScroll(sn); LAST_SEC=ST.sec; if(!MOV && !ST.modal) apunta(); $("bback").disabled=HP<=0; $("bfwd").disabled=HP>=HIST.length-1; $("ov").innerHTML= ST.modal? '<div class="modal" onclick="if(event.target===this)modal()"><div class="card">'+ST.modal()+'</div></div>' : ""; side(); topbar(); montar(); guardarBorrador(); armaGuardados(); }
 function miga(extra){ var g=NAV.filter(function(g){return g[1].some(function(i){return i[0]===ST.sec})})[0], it=g&&g[1].filter(function(i){return i[0]===ST.sec})[0]; return '<div class="crumb">'+(g?g[0]:"")+' › <a onclick="nav(\''+ST.sec+'\')">'+(it?it[2]:"")+'</a>'+(extra?' › '+extra:'')+'</div>'; }
 function hd(t,s,extra){ if(CUR){ t=CUR.t||t; s=CUR.s||s; } var st=STXT[STAT[ST.sec]||"h"]; return miga()+'<div class="row" style="align-items:flex-start"><div style="flex:1;min-width:260px"><h1>'+t+' <span class="st '+st[0]+'">'+st[1]+'</span></h1><p class="sub">'+s+'</p></div>'+(extra||"")+'</div>'+flagsBar(); }
-function tabs(k,arr){ if(CUR&&CUR.tabs&&CUR.tabs[k]) arr=CUR.tabs[k]; if(arr.indexOf(ST.tab[k])<0) ST.tab[k]=arr[0]; if(CUR&&CUR.tabs&&CUR.tabs[k]&&arr.length===1) return ""; return '<div class="tabs">'+arr.map(function(t){var no=(k==="wd"?OK_TAB_WD:OK_TAB).indexOf(t)<0;return '<button class="'+(ST.tab[k]===t?"on":"")+(no?" off":"")+'"'+(no?" disabled":"")+' onclick="'+on(function(){ST.tab[k]=t;go()})+'">'+t+'</button>'}).join("")+'</div>'; }
+function tabs(k,arr){ if(CUR&&CUR.tabs&&CUR.tabs[k]) arr=CUR.tabs[k]; if(arr.indexOf(ST.tab[k])<0) ST.tab[k]=arr[0]; if(CUR&&CUR.tabs&&CUR.tabs[k]&&arr.length===1) return ""; return '<div class="tabs">'+arr.map(function(t){var no=(k==="wd"?OK_TAB_WD:k==="pn"?OK_TAB_PN:OK_TAB).indexOf(t)<0;return '<button class="'+(ST.tab[k]===t?"on":"")+(no?" off":"")+'"'+(no?" disabled":"")+' onclick="'+on(function(){ST.tab[k]=t;go()})+'">'+t+'</button>'}).join("")+'</div>'; }
 function card(t,body,extra,cls){ return '<div class="card '+(cls||"")+'">'+(t?'<h3>'+t+(extra?'<span class="sp"></span>'+extra:'')+'</h3>':'')+body+'</div>'; }
 function kpis(a){ return '<div class="grid g4">'+a.map(function(k){return '<div class="card kpi"><h3>'+k[0]+'</h3><div class="v">'+k[1]+'</div><div class="s">'+(k[2]||"")+'</div></div>'}).join("")+'</div>'; }
 function bars(a,col){ var m=Math.max.apply(null,a.map(function(x){return x[1]}))||1; return a.map(function(x){return '<div class="hb"><span title="'+esc(x[0])+'">'+esc(x[0])+'</span><div class="tr"><i style="width:'+(x[1]/m*100)+'%;'+(col?"background:"+col:"")+'"></i></div><span>'+(x[2]||nf(x[1]))+'</span></div>'}).join(""); }
@@ -1484,7 +1485,7 @@ var SUB_ID={P11:{"Ficha":"ficha","Físico":"fisico","Ánimo":"animo","Carácter"
   P14:{"Dinero":"dinero","Tienda":"tienda"},
   P15:{"Código":"codigo","Reportar":"reportar","Información":"info"}};
 var SUB_OCULTAS_ADMIN={P11:["Carácter"], P12:["Vestuario"], P13:["Rumores","Fichajes","Prensa"]};
-var ADMIN_VER="0.03.051", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.052", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
   var g=$("gver"), e=$("ever");
@@ -1588,15 +1589,17 @@ function cfgGuarda(pref, okMsg){
 }
 /* «Guardar pantallas»: publica una versión nueva de tl_content (la que lee el juego) partiendo de la última publicada */
 function pantGuarda(){
+  if(!chgPre("pn.")){ toast("No hay cambios que guardar"); return; }
   var pan={}, touched=false;
   Object.keys(SUB_ID).forEach(function(id){
     var ids=SUB_ID[id], sub={};
     Object.keys(ids).forEach(function(lbl){ var k="pn."+id+".sub."+ids[lbl]+".on", def=(SUB_OCULTAS_ADMIN[id]||[]).indexOf(lbl)<0, v=val(k); sub[ids[lbl]]= v===undefined? def : !!v; if(chg(k)) touched=true; });
     pan[id]={sub:sub};
   });
-  if(!touched){ toast("No hay cambios que guardar"); return; }
+  /* los interruptores van al juego (contenido); el resto de la página, al registro del panel */
+  var guardaResto=function(){ cfgGuarda("pn.", "Pantallas guardadas"); };
+  if(!touched){ guardaResto(); return; }
   toast("Publicando pantallas…");
-  /* el juego lee la última versión (modo publicado) o el borrador (modo en vivo): se escriben las dos */
   var fVer=encodeURIComponent("(kind='ver')"), fDr=encodeURIComponent("(kind='draft')");
   var base=null;
   pbApi("/api/collections/tl_content/records?perPage=1&sort=-n&filter="+fVer).then(function(r){
@@ -1612,11 +1615,7 @@ function pantGuarda(){
       return dr? pbApi("/api/collections/tl_content/records/"+dr.id,{method:"PATCH",headers:PB_JSON,body:drBody})
                : pbApi("/api/collections/tl_content/records",{method:"POST",headers:PB_JSON,body:drBody});
     });
-  }).then(function(){
-    Object.keys(DRAFT).forEach(function(k){ if(k.indexOf("pn.")===0){ BASE[k]=DRAFT[k]; delete DRAFT[k]; } });
-    try{ guardarBorrador(); }catch(e){}
-    topbar(); go(); toast("Pantallas publicadas en el juego");
-  }).catch(function(e){
+  }).then(function(){ guardaResto(); }).catch(function(e){
     var m=String(e.message||e);
     toast(/403|401/.test(m)? "Sin permiso para publicar en el servidor" : "No se publicó: "+m);
   });
