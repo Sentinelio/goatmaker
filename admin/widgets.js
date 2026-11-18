@@ -3,13 +3,13 @@ OK_BTN.push("Guardar widgets");
 var WSZ=["1x1","2x1","3x1","1x2","2x2","3x2","1x3","2x3","3x3"];
 var WID=[
  {id:"W01", pg:"Inicio",  tab:"partido",  n:"Partido de hoy",   def:"3x3", txt:"Jornada, escudos, estado de banquillo o titular y botón Continuar."},
- {id:"W02", pg:"Jugador", tab:"ficha",    n:"Ficha",            def:"2x1", txt:"Nombre, posición y media."},
- {id:"W03", pg:"Jugador", tab:"fisico",   n:"Físico",           def:"1x1", txt:"Valor de forma física principal."},
- {id:"W04", pg:"Jugador", tab:"animo",    n:"Ánimo",            def:"1x1", txt:"Valor de ánimo."},
- {id:"W05", pg:"Jugador", tab:"caracter", n:"Carácter",         def:"1x2", txt:"Ejes de carácter resumidos."},
- {id:"W06", pg:"Jugador", tab:"fama",     n:"Fama",             def:"1x1", txt:"Fama y seguidores."},
- {id:"W07", pg:"Jugador", tab:"stats",    n:"Números",          def:"2x2", txt:"Goles, asistencias, media y tendencia de notas."},
- {id:"W08", pg:"Jugador", tab:"hist",     n:"Carrera",          def:"3x1", txt:"Temporadas y totales de carrera."},
+ {id:"W02", pg:"Jugador", tab:"ficha",    n:"Ficha",            def:"2x1", txt:"Nombre, posición y media. Con más espacio: confianza y forma."},
+ {id:"W03", pg:"Jugador", tab:"fisico",   n:"Físico",           def:"1x1", txt:"Físico principal. Con más espacio: los atributos con su barra."},
+ {id:"W04", pg:"Jugador", tab:"animo",    n:"Ánimo",            def:"1x1", txt:"Ánimo. Con más espacio: forma, confianza y fama."},
+ {id:"W05", pg:"Jugador", tab:"caracter", n:"Carácter",         def:"1x2", txt:"Ejes de carácter con su barra. Con más espacio, los seis."},
+ {id:"W06", pg:"Jugador", tab:"fama",     n:"Fama",             def:"1x1", txt:"Seguidores y fama."},
+ {id:"W07", pg:"Jugador", tab:"stats",    n:"Números",          def:"2x2", txt:"Goles, asistencias, partidos y media. Con más espacio, las últimas notas."},
+ {id:"W08", pg:"Jugador", tab:"hist",     n:"Carrera",          def:"3x1", txt:"Temporadas y total de goles de la carrera."},
  {id:"W09", pg:"Equipo",  tab:"tabla",    n:"Clasificación",    def:"2x2", txt:"Clasificación con tu equipo resaltado."},
  {id:"W10", pg:"Equipo",  tab:"plantilla",n:"Vestuario",        def:"2x2", txt:"Compañeros con su afinidad."},
  {id:"W11", pg:"Equipo",  tab:"mister",   n:"El míster",        def:"2x1", txt:"Confianza y último mensaje."},
@@ -97,8 +97,17 @@ function partidoBody(z){
   return cabecera(jor(11),conNombres(70,14,22,16),pill());
 }
 function sampleBody(W,z){
-  var bg=bgLayer(W.id,z), inner= W.id==="W01"? partidoBody(z) : sampleBodyBase(W,z);
+  var bg=bgLayer(W.id,z), inner= W.id==="W01"? partidoBody(z) : (JUG_W[W.id]? jugadorBody(W,z) : sampleBodyBase(W,z));
   return bg? bg+'<div style="position:relative;height:100%;width:100%;box-sizing:border-box">'+inner+'</div>' : inner;
+}
+/* marco común de todos los widgets (mismas reglas que el partido de hoy):
+   1x1 → contenido centrado, sin etiqueta · una fila (2x1, 3x1) → etiqueta vertical a la izquierda · resto → etiqueta arriba */
+function marco(lbl,z,cuerpo){
+  var c=z.split("x"), cw=+c[0], ch=+c[1];
+  var centro=function(x){ return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;box-sizing:border-box">'+x+'</div>'; };
+  if(z==="1x1") return '<div style="display:flex;align-items:center;justify-content:center;height:100%;width:100%;box-sizing:border-box;padding:6px">'+centro(cuerpo)+'</div>';
+  if(cw>=2 && ch===1) return '<div style="display:flex;align-items:center;height:100%;width:100%;box-sizing:border-box;padding:0 6px 0 2px"><div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;color:#8891AA;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;flex:none">'+esc(lbl)+'</div><div style="flex:1;min-width:0;display:flex;align-items:center;justify-content:center">'+centro(cuerpo)+'</div></div>';
+  return '<div style="display:flex;flex-direction:column;align-items:center;height:100%;width:100%;box-sizing:border-box;padding:6px 0"><div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#8891AA;text-align:center">'+esc(lbl)+'</div><div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;width:100%">'+centro(cuerpo)+'</div></div>';
 }
 function sampleBodyBase(W,z){
   /* mismas reglas de diseño que el partido de hoy (W01):
@@ -120,11 +129,74 @@ function sampleBodyBase(W,z){
     if(z==="2x3") return big(m.v||"—",22)+small(m.s)+(m.f!=null?'<div style="width:80%;margin-top:10px">'+bar(m.f)+'</div>':'')+(m.r? '<div style="width:100%;margin-top:8px">'+rows(3)+'</div>' : '');
     return big(m.v||"—",24)+small(m.s)+(m.f!=null? '<div style="width:80%;margin-top:10px">'+bar(m.f)+'</div>' : '')+(m.r? '<div style="width:100%;margin-top:8px">'+rows(4)+'</div>' : '');
   };
-  var lbl=esc(m.l||W.n);
-  var centro=function(x){ return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;box-sizing:border-box">'+x+'</div>'; };
-  if(z==="1x1") return '<div style="display:flex;align-items:center;justify-content:center;height:100%;width:100%;box-sizing:border-box;padding:6px">'+centro(cuerpo())+'</div>';
-  if(cw>=2 && ch===1) return '<div style="display:flex;align-items:center;height:100%;width:100%;box-sizing:border-box;padding:0 6px 0 2px"><div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;color:#8891AA;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;flex:none">'+lbl+'</div><div style="flex:1;min-width:0;display:flex;align-items:center;justify-content:center">'+centro(cuerpo())+'</div></div>';
-  return '<div style="display:flex;flex-direction:column;align-items:center;height:100%;width:100%;box-sizing:border-box;padding:6px 0"><div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#8891AA;text-align:center">'+lbl+'</div><div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;width:100%">'+centro(cuerpo())+'</div></div>';
+  return marco(m.l||W.n, z, cuerpo());
+}
+/* jugador (datos de ejemplo con la misma forma que el juego): ficha, físico, ánimo, carácter, fama, números y carrera */
+var JJ={nombre:"J. de ejemplo", pos:"LI", media:68, atr:{TEC:64,FIS:72,TAC:61,DEF:70,MEN:58}, forma:74, animo:55, fama:38, conf:60,
+  seg:"1,2 k", estado:"Sano", goles:7, asist:3, partidos:14, mediaT:"6,8", notas:[6.4,7.1,6.8,5.9,7.4,6.7,6.2,7.0],
+  ejes:[["Ambición",70],["Disciplina",45],["Humor",60],["Liderazgo",52],["Riesgo",38],["Lealtad",66]],
+  carrera:[["2025-26","12 G · 3 A"],["2024-25","4 G · 1 A"]]};
+var JUG_W={W02:1,W03:1,W04:1,W05:1,W06:1,W07:1,W08:1};
+function jugadorBody(W,z){
+  var J=JJ, c=z.split("x"), cw=+c[0], ch=+c[1];
+  var big=function(t,px){ return '<div style="font-size:'+px+'px;font-weight:700;color:#FFC24B;line-height:1.1;text-align:center">'+esc(String(t))+'</div>'; };
+  var sm=function(t){ return '<div style="font-size:11px;color:#8891AA;line-height:1.35;margin-top:2px;text-align:center">'+esc(t)+'</div>'; };
+  var nom=function(t,px){ return '<div style="font-size:'+px+'px;font-weight:700;color:#E8EAF2;line-height:1.2;text-align:center">'+esc(t)+'</div>'; };
+  var bar=function(f,w){ return '<div style="height:6px;width:'+(w||100)+'%;border-radius:3px;background:#2A3149;overflow:hidden"><i style="display:block;height:100%;width:'+Math.round(Math.max(0,Math.min(1,f))*100)+'%;background:#FFC24B"></i></div>'; };
+  var fila=function(a,b,f){ return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;color:#E8EAF2;padding:4px 0;border-top:1px solid #232A40;width:100%"><span style="white-space:nowrap">'+esc(a)+'</span>'+(f!=null?'<div style="flex:1;min-width:24px">'+bar(f)+'</div>':'')+'<b>'+esc(String(b))+'</b></div>'; };
+  var mini=function(a,f){ return '<div style="flex:1;min-width:0"><div style="font-size:10px;color:#8891AA;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(a)+'</div>'+bar(f)+'</div>'; };
+  var stat=function(t,v){ return '<div style="text-align:center;flex:1"><div style="font-size:15px;font-weight:700;color:#FFC24B">'+esc(String(v))+'</div><div style="font-size:9px;color:#8891AA;text-transform:uppercase;letter-spacing:.06em">'+esc(t)+'</div></div>'; };
+  var A=J.atr, cuerpo;
+  if(W.id==="W02"){ /* Ficha: nombre, posición y media, como la cabecera de la ficha */
+    if(z==="1x1") cuerpo=big(J.media,22)+sm(J.pos);
+    else if(ch===1) cuerpo=nom(J.nombre,14)+sm(J.pos+" · media "+J.media);
+    else if(cw===1) cuerpo=nom(J.nombre,12)+big(J.media,16)+sm(J.pos);
+    else cuerpo=nom(J.nombre,16)+sm(J.pos)+'<div style="width:80%;margin-top:8px">'+bar(J.media/100)+'</div>'+'<div style="width:100%;margin-top:8px">'+fila("Confianza",J.conf)+fila("Forma",J.forma)+'</div>';
+  }
+  else if(W.id==="W03"){ /* Físico: atributos y su barra, como la pestaña Físico */
+    if(z==="1x1") cuerpo=big(A.FIS,22)+sm("Físico");
+    else if(z==="2x1") cuerpo=bar(A.FIS/100)+sm(J.estado);
+    else if(ch===1) cuerpo=big(A.FIS,16)+sm(J.estado);
+    else if(cw===1) cuerpo=big(A.FIS,18)+sm(J.estado);
+    else { var lista=ch>=3? ["TEC","FIS","TAC","DEF","MEN"] : ["TEC","FIS","TAC","DEF"];
+      cuerpo='<div style="width:100%">'+lista.map(function(k){ return fila(k,A[k],A[k]/100); }).join("")+'</div>'+(ch>=3? sm("Estado: "+J.estado):""); }
+  }
+  else if(W.id==="W04"){ /* Ánimo: ánimo y lo que lo acompaña, como la pestaña Ánimo */
+    if(z==="1x1") cuerpo=big(J.animo,22)+sm("Ánimo");
+    else if(ch===1 && cw===2) cuerpo=bar(J.animo/100)+sm("Ánimo "+J.animo);
+    else if(ch===1) cuerpo=big(J.animo,16)+sm("Forma "+J.forma);
+    else if(cw===1) cuerpo=big(J.animo,18)+sm("Forma "+J.forma);
+    else cuerpo='<div style="width:100%">'+fila("Forma",J.forma,J.forma/100)+fila("Ánimo",J.animo,J.animo/100)+fila("Confianza",J.conf,J.conf/100)+(ch>=3? fila("Fama",J.fama,J.fama/100):"")+'</div>';
+  }
+  else if(W.id==="W05"){ /* Carácter: los ejes, cada uno con su barra */
+    var ej=J.ejes;
+    if(z==="1x1") cuerpo=big(ej[0][1],22)+sm(ej[0][0]);
+    else if(ch===1 && cw===2) cuerpo=nom(ej[0][0],12)+bar(ej[0][1]/100)+sm(ej[0][1]+"");
+    else if(ch===1) cuerpo='<div style="display:flex;gap:10px;width:100%">'+ej.slice(0,3).map(function(e){ return mini(e[0],e[1]/100); }).join("")+'</div>';
+    else { var n=(cw===1||ch<=2&&cw<3)? 3 : 6; if(ch===2&&cw===2) n=3; cuerpo='<div style="width:100%">'+ej.slice(0,n).map(function(e){ return fila(e[0],e[1],e[1]/100); }).join("")+'</div>'; }
+  }
+  else if(W.id==="W06"){ /* Fama: seguidores y la fama */
+    if(z==="1x1") cuerpo=big(J.seg,20)+sm("seguidores");
+    else if(ch===1 && cw===2) cuerpo=bar(J.fama/100)+sm("Fama "+J.fama);
+    else if(ch===1 || cw===1) cuerpo=big(J.seg,16)+sm("Fama "+J.fama);
+    else cuerpo=big(J.seg,22)+sm("seguidores")+'<div style="width:80%;margin-top:8px">'+bar(J.fama/100)+'</div>'+sm("Fama "+J.fama);
+  }
+  else if(W.id==="W07"){ /* Números: temporada, con la forma de las últimas notas */
+    var chips='<div style="display:flex;gap:3px;width:100%">'+J.notas.map(function(v){ return '<div style="flex:1;text-align:center;font-size:9px;padding:2px 0;border-radius:3px;background:'+(v>=7?'#FFC24B':'#2A3149')+';color:'+(v>=7?'#111':'#E8EAF2')+'">'+v.toFixed(1)+'</div>'; }).join("")+'</div>';
+    if(z==="1x1") cuerpo=big(J.mediaT,22)+sm("media");
+    else if(ch===1 && cw===2) cuerpo=stat("goles",J.goles)+stat("asist.",J.asist);
+    else if(ch===1) cuerpo='<div style="display:flex;width:100%">'+stat("goles",J.goles)+stat("asist.",J.asist)+stat("media",J.mediaT)+'</div>';
+    else if(cw===1) cuerpo='<div style="width:100%">'+fila("Goles",J.goles)+fila("Asist.",J.asist)+fila("Media",J.mediaT)+'</div>';
+    else cuerpo='<div style="display:flex;width:100%;margin-bottom:8px">'+stat("goles",J.goles)+stat("asist.",J.asist)+stat("partidos",J.partidos)+stat("media",J.mediaT)+'</div>'+(ch>=2&&cw>=3? chips:'');
+  }
+  else { /* W08 Carrera: temporadas y total */
+    var tot=J.carrera.reduce(function(a,t){ return a+parseInt(t[1],10); },0);
+    if(z==="1x1") cuerpo=big(tot,22)+sm("goles");
+    else if(ch===1 && cw===2) cuerpo=sm(J.carrera[0][0])+nom(J.carrera[0][1],12);
+    else if(ch===1) cuerpo='<div style="display:flex;width:100%">'+J.carrera.slice(0,2).map(function(t){ return '<div style="flex:1;text-align:center"><div style="font-size:10px;color:#8891AA">'+esc(t[0])+'</div><div style="font-size:12px;font-weight:700;color:#E8EAF2">'+esc(t[1])+'</div></div>'; }).join("")+'</div>';
+    else cuerpo='<div style="width:100%">'+J.carrera.map(function(t){ return fila(t[0],t[1]); }).join("")+(ch>=2? fila("Total",tot+" goles"):"")+'</div>';
+  }
+  return marco(W.n, z, cuerpo);
 }
 var PH_C=3, PH_R=4;
 function inicioLayout(){
