@@ -322,6 +322,16 @@ function bgSubir(id,z,f){
 function bgCargar(id,z,el){
   var f=el.files&&el.files[0]; el.value=""; if(f) bgSubir(id,z,f);
 }
+/* arrastrar un archivo de imagen sobre el editor de fondo (mismo efecto que subirla) */
+document.addEventListener("dragover", function(ev){
+  if(ev.target.closest && ev.target.closest(".bgdrop") && ev.dataTransfer && Array.prototype.indexOf.call(ev.dataTransfer.types||[],"Files")>=0) ev.preventDefault();
+});
+document.addEventListener("drop", function(ev){
+  var zona=ev.target.closest && ev.target.closest(".bgdrop"); if(!zona) return;
+  ev.preventDefault();
+  var f=ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+  if(f) bgSubir(zona.getAttribute("data-w"), zona.getAttribute("data-z"), f);
+});
 document.addEventListener("paste", function(ev){
   var sel=ST.sel.bgp||""; if(!sel || !document.querySelector(".wdpz")) return;
   var t=ev.target; if(t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
@@ -365,8 +375,8 @@ function bgRueda(W,z,f){
 function bgPreview(W,z,ov){
   var img=wdBg(W.id,z), c=z.split("x"), f=frOf(W.id,z);
   var forma='width:100%;height:170px;box-sizing:border-box;border-radius:8px;';
-  if(!img) return '<div style="'+forma+'border:1px dashed #3A4262;display:flex;align-items:center;justify-content:center;color:#8891AA;font-size:12px;text-align:center;padding:10px">Sin imagen. Pega con Ctrl+V o sube una.</div>';
-  return '<div class="wdprev" title="Arrastra para mover · rueda para ampliar" '+
+  if(!img) return '<div class="bgdrop" data-w="'+W.id+'" data-z="'+z+'" style="'+forma+'border:1px dashed #3A4262;display:flex;align-items:center;justify-content:center;color:#8891AA;font-size:12px;text-align:center;padding:10px">Sin imagen. Pega con Ctrl+V o sube una.</div>';
+  return '<div class="wdprev bgdrop" data-w="'+W.id+'" data-z="'+z+'" title="Arrastra para mover · rueda para ampliar" '+
     'onpointerdown="'+bgDragIni(f)+'" onpointermove="'+bgDragMov()+'" onpointerup="'+bgDragFin(W,z)+'" onpointercancel="'+bgDragFin(W,z)+'" onwheel="'+bgRueda(W,z,f)+'" '+
     'style="position:relative;overflow:hidden;'+forma+'border:1px solid #3A4262;touch-action:none;cursor:grab;background:#0B0E18">'+
     '<img src="'+img+'" alt="" style="'+frStyle(f)+'">'+
@@ -385,13 +395,13 @@ function bgVivo(id,z,que,v){
 function bgControles(W,z){
   var pre="wd."+W.id, k=pre+".bg."+z, img=wdBg(W.id,z), ov=val(pre+".bgov."+z), f=frOf(W.id,z);
   var rot='font-size:12px;color:#8891AA;width:44px;flex:none';
-  return '<div style="display:flex;flex-direction:column;gap:10px">'+
+  return '<div class="bgdrop" data-w="'+W.id+'" data-z="'+z+'" style="display:flex;flex-direction:column;gap:10px">'+
     bgPreview(W,z,(Number(ov)||0)/100)+
     '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
       '<label class="b sm" style="cursor:pointer;text-align:center;padding:6px;flex:1">'+(img?'Cambiar imagen':'Subir imagen')+'<input type="file" accept="image/*" style="display:none" onchange="'+on(function(x,el){ bgCargar(W.id,z,el); })+'"></label>'+
       (img? '<button class="b sm" onclick="'+on(function(){ set(k,null); })+'">Quitar imagen</button>' : '')+
     '</div>'+
-    '<p class="mut" style="margin:0;font-size:12px">o pega una imagen con Ctrl+V</p>'+
+    '<p class="mut" style="margin:0;font-size:12px">o pega o arrastra una imagen aquí</p>'+
     (img? '<div style="display:flex;align-items:center;gap:8px"><span style="'+rot+'">Zoom</span><input type="range" min="100" max="400" step="5" value="'+f.s+'" style="flex:1" oninput="'+on(function(x,el){ bgVivo(W.id,z,'zoom',Number(x)); el.nextElementSibling.textContent=x+' %'; })+'" onchange="'+on(function(x){ set(pre+".bgz."+z,Number(x)); })+'"><span style="font-size:12px;color:#8891AA;width:48px;text-align:right;flex:none">'+f.s+' %</span></div>'+
       '<div style="display:flex;justify-content:space-between;align-items:center"><span class="mut" style="font-size:12px">Arrastra la imagen para encuadrarla</span><button class="b sm" onclick="'+on(function(){ set(pre+".bgz."+z,100); set(pre+".bgx."+z,0); set(pre+".bgy."+z,0); })+'">Centrar</button></div>' : '')+
     '<div style="display:flex;align-items:center;gap:8px"><span style="'+rot+'">Velo</span><input type="range" min="0" max="80" step="5" value="'+ov+'" style="flex:1" oninput="'+on(function(x,el){ bgVivo(W.id,z,'velo',Number(x)); el.nextElementSibling.textContent=x+' %'; })+'" onchange="'+on(function(x){ set(pre+".bgov."+z,Number(x)); })+'"><span style="font-size:12px;color:#8891AA;width:48px;text-align:right;flex:none">'+ov+' %</span></div>'+
