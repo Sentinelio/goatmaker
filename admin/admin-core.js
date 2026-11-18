@@ -1122,6 +1122,15 @@ V.pantallas=function(){
       '<div class="f"><label>Se llega desde</label><div>'+(desde.map(pLink).join("")||'<span class="mut small">cualquier pantalla</span>')+'</div><div class="fab"></div></div>'+
       '<div class="f"><label>Lleva a</label><div>'+(P.a.map(pLink).join("")||'<span class="mut small">vuelve a donde estabas</span>')+'</div><div class="fab"></div></div>',
       P.nuevo?'<span class="tag vio">nueva</span>':"")+
+    card("Activa en el juego",
+      (function(){
+        var hid=SUB_OCULTAS_ADMIN[P.id]||[];
+        function sw1(key,lbl,def){ reg(key,def,P.id+" · "+lbl+" · activa"); return '<div class="diff"><span class="p">'+esc(lbl)+'</span>'+sw(val(key),function(){ set(key,!val(key)); })+'</div>'; }
+        var H1=sw1(pre+".on",P.n,true);
+        (P.sub||[]).forEach(function(x,i){ H1+=sw1(pre+".sub"+i+".on",x,hid.indexOf(x)<0); });
+        return H1+'<p class="note" style="margin:8px 0 0">Apagado = no aparece en el juego. Sigue en el panel.</p>';
+      })(),
+      "")+
     card("Captura",'<div class="shot"><span class="mut">'+P.id+' · '+esc(P.n)+'</span></div><div class="row" style="margin-top:10px">'+btn("Tomar captura",T("Abre el juego en esa pantalla y guarda la imagen"),"sm")+btn("Abrir en el juego",T("Abre el juego directamente en "+P.id),"sm")+'<span class="small mut">Móvil 390 × 844</span></div>')+'</div>';
   else if(tb==="Comportamiento") b='<div class="grid">'+card("Al entrar y al salir",fld(pre+".in","Al entrar",P.in,{type:"area",rows:3,full:L+" · al entrar"})+fld(pre+".out","Al salir",P.out,{type:"area",rows:2,full:L+" · al salir"})+
       fld(pre+".fuera","Se cierra tocando fuera",P.g==="v",{type:"tog",full:L+" · se cierra tocando fuera",si:"Sí",no:"No"})+fld(pre+".menu","Muestra el menú inferior",P.g==="m",{type:"tog",full:L+" · menú inferior",si:"Sí",no:"No"})+
@@ -1457,14 +1466,14 @@ CUR_VER="0.03.001";
 var CUR_VER_DATE="2026-11-17T15:13:34+01:00";   /* fecha en que la versión del juego quedó integrada en el admin (se ve al pasar el ratón) */
 /* subpestañas ocultas en el juego (espejo de SUB_OCULTAS de index.html) */
 var SUB_OCULTAS_ADMIN={P11:["Carácter"], P12:["Vestuario"], P13:["Rumores","Fichajes","Prensa"]};
-var ADMIN_VER="0.03.044", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.045", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
   var g=$("gver"), e=$("ever");
   if(g){ g.textContent="🎮 Juego v"+CUR_VER; g.title="Versión del juego integrada el "+fechaES(CUR_VER_DATE); }
   if(e){ e.textContent="🛠 Editor v"+ADMIN_VER; e.title="Versión del editor, cambiada el "+fechaES(ADMIN_VER_DATE); }
 }   /* versión actual del juego: el filtro «Versión antigua» compara con esto */
-var OK_NAV=["jugadores","grupos","codigos","reportes","situaciones","widgets"];
+var OK_NAV=["jugadores","grupos","codigos","reportes","situaciones","widgets","pantallas","mapa"];
 var PB={tok:"",byInst:{},raw:{pl:[],cod:[],can:[],rep:[]}};
 var PB_RT={bug:["🐞","Fallo"],idea:["💡","Idea"],otro:["💬","Otro"]};
 
