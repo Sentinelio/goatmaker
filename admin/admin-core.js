@@ -1484,7 +1484,7 @@ var SUB_ID={P11:{"Ficha":"ficha","Físico":"fisico","Ánimo":"animo","Carácter"
   P14:{"Dinero":"dinero","Tienda":"tienda"},
   P15:{"Código":"codigo","Reportar":"reportar","Información":"info"}};
 var SUB_OCULTAS_ADMIN={P11:["Carácter"], P12:["Vestuario"], P13:["Rumores","Fichajes","Prensa"]};
-var ADMIN_VER="0.03.050", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.051", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
   var g=$("gver"), e=$("ever");
@@ -1532,6 +1532,14 @@ function pbAdapta(){
     REP.push({_rid:r.id,inst:r.install,ic:T[0],tipo:T[1],de:pbNombre(p)||r.install.slice(0,8),x:r.texto||"",est:r.estado||"nuevo",t:pbFecha(r.t),ctx:(cx.ver?"v"+cx.ver:"v?")+(e.club_n?" · "+e.club_n+" · T"+(e.temporada||0)+" J"+(e.jornada||0):""),save:!!cx.adjunta,nota:r.nota_admin||""});
   });
 }
+/* las subpestañas publicadas en «pantallas» vuelven a ser el valor de partida del panel */
+function pantCargaDe(pack){
+  var pan=pack&&pack.pantallas; if(!pan) return;
+  Object.keys(SUB_ID).forEach(function(id){
+    var ids=SUB_ID[id], p=pan[id]&&pan[id].sub; if(!p) return;
+    Object.keys(ids).forEach(function(lbl){ var gid=ids[lbl]; if(typeof p[gid]==="boolean") BASE["pn."+id+".sub."+gid+".on"]=p[gid]; });
+  });
+}
 async function pbCarga(){
   $("conn").innerHTML='<span class="dot on"></span>Conectado · servidor';
   PB.raw.grp=await pbAll("tl_grupos","sort=nombre");
@@ -1544,6 +1552,7 @@ async function pbCarga(){
   try{
     var ult=await pbApi("/api/collections/tl_content/records?perPage=1&sort=-n&filter="+encodeURIComponent("(kind='ver')"));
     var pp=ult.items&&ult.items[0]&&ult.items[0].pack&&ult.items[0].pack.partido;
+    pantCargaDe(ult.items&&ult.items[0]&&ult.items[0].pack);
     var ps=ult.items&&ult.items[0]&&ult.items[0].pack&&ult.items[0].pack.sits;
     if(ps){ var byId={}; sitLista().forEach(function(e){ byId[e.x.id]=e; });
       Object.keys(ps).forEach(function(id){ var e=byId[id], sx=ps[id]; if(!e||!sx) return; var pre=e.pre+"."+id;
