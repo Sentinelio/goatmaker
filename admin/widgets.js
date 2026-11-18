@@ -147,19 +147,24 @@ function jugadorBody(W,z){
   var mini=function(a,f){ return '<div style="flex:1;min-width:0"><div style="font-size:10px;color:#8891AA;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(a)+'</div>'+bar(f)+'</div>'; };
   var stat=function(t,v){ return '<div style="text-align:center;flex:1"><div style="font-size:15px;font-weight:700;color:#FFC24B;white-space:nowrap">'+esc(String(v))+'</div><div style="font-size:9px;color:#8891AA;text-transform:uppercase;letter-spacing:.06em">'+esc(t)+'</div></div>'; };
   var A=J.atr, cuerpo;
-  if(W.id==="W02"){ /* Ficha por niveles: el núcleo (media y forma) va en todos los tamaños; a más espacio se añade info menos importante. Nombre y club van en el banner. */
-    var n2=cw*ch>=2, n3=cw>=2&&ch>=2, n4=cw>=3&&ch>=2;
+  if(W.id==="W02"){ /* Ficha por niveles: cada cifra aparece una sola vez (los números de forma y confianza van en barras). Más espacio = cifras y barras más grandes, no más repetición. */
+    var n2=cw*ch>=2, n3=cw>=2&&ch>=2, n4=cw>=3&&ch>=2, big3=cw>=3&&ch>=3;
     if(z==="1x1") cuerpo=big(J.media,22)+sm("media · forma "+J.forma);
     else {
+      var px= cw>=3 ? 22 : 18, lb= big3?11:10;
+      var tile=function(t,v){ return '<div style="text-align:center;flex:1;min-width:0"><div style="font-size:'+px+'px;font-weight:700;color:#FFC24B;line-height:1.1;white-space:nowrap">'+esc(String(v))+'</div><div style="font-size:'+lb+'px;color:#8891AA;text-transform:uppercase;letter-spacing:.06em">'+esc(t)+'</div></div>'; };
       var st=[["media",J.media]];
       if(ch===1) st.push(["forma",J.forma]);
-      if(n2&&ch===1) st.push(["confianza",J.conf]);
+      if(ch===1&&n2) st.push(["confianza",J.conf]);
       if(n3) st.push(["valor",J.valor],["sueldo",J.salario]);
       if(n4) st.push(["edad",J.edad],["fin",J.fin]);
-      var cuad='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(52px,1fr));gap:6px 8px;width:100%">'+st.map(function(x){return stat(x[0],x[1]);}).join("")+'</div>';
-      var barras= ch>=2 ? '<div style="width:100%">'+fila("Forma",J.forma,J.forma/100)+(n2?fila("Confianza",J.conf,J.conf/100):"")+'</div>' : "";
+      var filas=[]; var pq= ch>=2 ? (cw===2?2:(cw>=3?3:st.length)) : st.length; for(var q=0;q<st.length;q+=pq) filas.push(st.slice(q,q+pq));
+      var cuad=filas.map(function(f){return '<div style="display:flex;justify-content:space-around;align-items:flex-start;gap:6px;width:100%">'+f.map(function(x){return tile(x[0],x[1]);}).join("")+'</div>';}).join('<div style="height:'+(big3?12:6)+'px"></div>');
+      var bh= big3?10:6;
+      var barraBig=function(a,v,f){ return '<div style="width:100%;margin:'+(big3?6:3)+'px 0"><div style="display:flex;justify-content:space-between;font-size:'+(big3?12:11)+'px;color:#E8EAF2;margin-bottom:3px"><span>'+esc(a)+'</span><b>'+esc(String(v))+'</b></div><div style="height:'+bh+'px;border-radius:'+(bh/2)+'px;background:#2A3149;overflow:hidden"><i style="display:block;height:100%;width:'+Math.round(Math.max(0,Math.min(1,f))*100)+'%;background:#FFC24B"></i></div></div>'; };
+      var barras= ch>=2 ? barraBig("Forma",J.forma,J.forma/100)+(n2?barraBig("Confianza",J.conf,J.conf/100):"") : "";
       var pie= n4 ? sm("Dorsal "+J.dorsal+" · "+J.rol) : "";
-      cuerpo='<div style="width:100%"><div style="margin:6px 0">'+cuad+'</div>'+barras+pie+'</div>';
+      cuerpo='<div style="width:100%;height:100%;display:flex;flex-direction:column;justify-content:center">'+cuad+barras+pie+'</div>';
     }
   }
   else if(W.id==="W03"){ /* Físico: atributos y su barra, como la pestaña Físico */
