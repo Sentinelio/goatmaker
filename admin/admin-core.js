@@ -1195,6 +1195,14 @@ function navCalc(){
   return {ev:ev, ses:ses, cnt:cnt, tiempo:tiempo, jugadores:Object.keys(unicos).length, act:act, tz:tz, horas:horas};
 }
 function navMmss(s){ s=Math.round(s||0); return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); }
+var NAV_CONT={EU:"Europa",AS:"Asia",AF:"África",NA:"América del Norte",SA:"América del Sur",OC:"Oceanía"};
+var NAV_PAIS_CONT={ES:"EU",FR:"EU",DE:"EU",IT:"EU",PT:"EU",GB:"EU",IE:"EU",NL:"EU",BE:"EU",LU:"EU",CH:"EU",AT:"EU",PL:"EU",CZ:"EU",SK:"EU",HU:"EU",RO:"EU",BG:"EU",GR:"EU",HR:"EU",SI:"EU",RS:"EU",BA:"EU",ME:"EU",MK:"EU",AL:"EU",XK:"EU",IS:"EU",NO:"EU",SE:"EU",FI:"EU",DK:"EU",EE:"EU",LV:"EU",LT:"EU",UA:"EU",BY:"EU",MD:"EU",RU:"EU",TR:"AS",CY:"EU",MT:"EU",AD:"EU",MC:"EU",LI:"EU",SM:"EU",VA:"EU",
+  CN:"AS",JP:"AS",KR:"AS",TW:"AS",HK:"AS",IN:"AS",PK:"AS",BD:"AS",LK:"AS",NP:"AS",TH:"AS",VN:"AS",MY:"AS",SG:"AS",ID:"AS",PH:"AS",KZ:"AS",UZ:"AS",KG:"AS",TJ:"AS",TM:"AS",AE:"AS",SA:"AS",QA:"AS",KW:"AS",BH:"AS",OM:"AS",IL:"AS",JO:"AS",LB:"AS",IR:"AS",IQ:"AS",SY:"AS",YE:"AS",AF:"AS",MN:"AS",MO:"AS",GE:"AS",AM:"AS",AZ:"AS",
+  MA:"AF",DZ:"AF",TN:"AF",LY:"AF",EG:"AF",SD:"AF",ET:"AF",KE:"AF",TZ:"AF",UG:"AF",RW:"AF",NG:"AF",GH:"AF",CI:"AF",SN:"AF",CM:"AF",GA:"AF",CD:"AF",AO:"AF",ZA:"AF",NA:"AF",BW:"AF",ZW:"AF",MZ:"AF",MG:"AF",SL:"AF",LR:"AF",TG:"AF",BJ:"AF",BF:"AF",ML:"AF",NE:"AF",TD:"AF",SO:"AF",DJ:"AF",ER:"AF",
+  US:"NA",CA:"NA",MX:"NA",GT:"NA",BZ:"NA",SV:"NA",HN:"NA",NI:"NA",CR:"NA",PA:"NA",CU:"NA",DO:"NA",HT:"NA",JM:"NA",PR:"NA",BS:"NA",TT:"NA",
+  CO:"SA",VE:"SA",GY:"SA",SR:"SA",EC:"SA",PE:"SA",BR:"SA",BO:"SA",PY:"SA",UY:"SA",AR:"SA",CL:"SA",
+  AU:"OC",NZ:"OC",FJ:"OC",PG:"OC"};
+function navContinente(pais){ var c=NAV_PAIS_CONT[pais]; return c? NAV_CONT[c] : "Otros"; }
 function navMapa(ses){
   var pts={}, paises={}, sinUb=0;
   ses.forEach(function(s){
@@ -1210,9 +1218,11 @@ function navMapa(ses){
   L.forEach(function(p){ var q=mapaXY(p.lat,p.lon), r=3+9*Math.sqrt(p.n/mx);
     svg+='<circle cx="'+q.x.toFixed(1)+'" cy="'+q.y.toFixed(1)+'" r="'+r.toFixed(1)+'" fill="#FFC24B" fill-opacity=".55" stroke="#FFC24B"><title>'+esc((p.c? p.c+", " : "")+(p.p||"Sin país")+" · "+p.n+(p.n===1?" sesión":" sesiones"))+'</title></circle>'; });
   svg+='</svg>';
-  var pa=Object.keys(paises).sort(function(a,b){ return paises[b]-paises[a]; });
-  var paMax=pa.length? paises[pa[0]] : 1;
-  var lista= pa.length? pa.map(function(z){ return '<div class="hb"><span>'+esc(z)+'</span><div class="tr"><i style="width:'+(paises[z]/paMax*100)+'%"></i></div><span>'+paises[z]+'</span></div>'; }).join("") : '<p class="mut small" style="margin:0">Ninguna sesión con ubicación en este periodo.</p>';
+  var ub={};
+  ses.forEach(function(s){ if(typeof s.geo_lat!=="number"||typeof s.geo_lon!=="number") return; var c=navContinente(s.geo_pais||""), k=c+" · "+(s.geo_pais||"Sin país")+" · "+(s.geo_ciudad||"Sin ciudad"); ub[k]=(ub[k]||0)+1; });
+  var pa=Object.keys(ub).sort(function(a,b){ return ub[b]-ub[a]; });
+  var paMax=pa.length? ub[pa[0]] : 1;
+  var lista= pa.length? pa.map(function(z){ return '<div class="hb"><span title="'+esc(z)+'">'+esc(z)+'</span><div class="tr"><i style="width:'+(ub[z]/paMax*100)+'%"></i></div><span>'+ub[z]+'</span></div>'; }).join("") : '<p class="mut small" style="margin:0">Ninguna sesión con ubicación en este periodo.</p>';
   return card("Desde dónde se conectan", '<div class="grid g2" style="gap:14px;align-items:start"><div>'+svg+'</div><div>'+lista+(sinUb? '<p class="small mut" style="margin:10px 0 0">'+nf(sinUb)+(sinUb===1?' sesión':' sesiones')+' sin ubicación (anteriores a la localización o IP privada).</p>' : '')+'</div></div><p class="note" style="margin:8px 2px 0">Ubicación aproximada por IP (ciudad y país). Cada punto agrupa las sesiones de un mismo lugar.</p>',"","");
 }
 V.navegacion=function(){
@@ -1575,7 +1585,7 @@ var SUB_ID={P11:{"Ficha":"ficha","Físico":"fisico","Ánimo":"animo","Carácter"
   P14:{"Dinero":"dinero","Tienda":"tienda"},
   P15:{"Código":"codigo","Reportar":"reportar","Información":"info"}};
 var SUB_OCULTAS_ADMIN={P11:["Carácter"], P12:["Vestuario"], P13:["Rumores","Fichajes","Prensa"]};
-var ADMIN_VER="0.03.060", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.061", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 var _av=document.getElementById("adm-ver"); if(_av) _av.textContent="v"+ADMIN_VER;
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
