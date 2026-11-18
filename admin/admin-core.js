@@ -1313,8 +1313,9 @@ function navMapaEventos(cv){
     var t=document.getElementById("nav-info"), h=cerca(e); if(!t||!h.p) return;
     t.innerHTML=navInfoHTML(h.p);
     lockUntil=Date.now()+2000; var mine=lockUntil;
-    t.style.borderColor="#FFC24B";
-    setTimeout(function(){ if(lockUntil===mine){ t.style.borderColor="#2a2f48"; } }, 2000);
+    var bar=document.getElementById("nav-cuenta"), fi=bar&&bar.firstChild;
+    if(bar){ bar.style.visibility="visible"; fi.style.animation="none"; void fi.offsetWidth; fi.style.animation="navVacia 2s linear forwards"; }
+    setTimeout(function(){ if(lockUntil===mine && bar) bar.style.visibility="hidden"; }, 2000);
   });
   var fin=function(){ drag=null; cv.style.cursor="grab"; };
   cv.addEventListener("pointerup",fin); cv.addEventListener("pointercancel",fin);
@@ -1396,7 +1397,7 @@ function navMapa(ses, ev){
   var lista= pa.length? pa.map(function(z){ return '<div class="hb"><span title="'+esc(z)+'">'+esc(z)+'</span><div class="tr"><i style="width:'+(ub[z]/paMax*100)+'%"></i></div><span>'+ub[z]+'</span></div>'; }).join("") : '<p class="mut small" style="margin:0">Ninguna sesión con ubicación en este periodo.</p>';
   var ctl='<div class="row" style="gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">'+btn("＋",function(){ navMapaZoom(1.5); },"sm")+btn("−",function(){ navMapaZoom(1/1.5); },"sm")+btn("Ver todo",function(){ NAVM.z=1; navMapaLimita(); navMapaDibuja(); },"sm")+'<span class="small mut">Rueda para acercar · arrastra para moverte · pasa el ratón sobre un punto</span></div>';
   var lienzo='<canvas id="nav-mapa-cv" style="width:100%;display:block;border-radius:8px;background:#070810;cursor:grab;touch-action:none"></canvas>';
-  return card("Desde dónde se conectan", ctl+'<div style="display:grid;grid-template-columns:minmax(0,1.25fr) 300px minmax(0,1fr);gap:14px;align-items:start"><div>'+lienzo+'</div><div id="nav-info" style="background:#0f1117;border:1px solid #2a2f48;border-radius:8px;padding:12px;font-size:12px;line-height:1.5;color:#EDF0F8;overflow-y:auto;box-sizing:border-box">'+NAV_INFO_VACIA+'</div><div><div id="nav-lista" style="overflow-y:auto;padding-right:6px">'+lista+'</div>'+(sinUb? '<p class="small mut" style="margin:10px 0 0">'+nf(sinUb)+(sinUb===1?' sesión':' sesiones')+' sin ubicación (anteriores a la localización o IP privada).</p>' : '')+'</div></div><p class="note" style="margin:8px 2px 0">Ubicación aproximada por IP (ciudad y país). El brillo marca dónde hay más sesiones. Fronteras: Natural Earth · Ciudades: GeoNames (CC BY 4.0).</p>',"","");
+  return card("Desde dónde se conectan", ctl+'<div style="display:grid;grid-template-columns:minmax(0,1.25fr) 300px minmax(0,1fr);gap:14px;align-items:start"><div>'+lienzo+'</div><div style="position:relative"><div id="nav-cuenta" style="position:absolute;left:1px;right:1px;top:0;height:3px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden;visibility:hidden;z-index:2"><i style="display:block;height:100%;width:100%;background:#7D8699"></i></div><div id="nav-info" style="background:#0f1117;border:1px solid #2a2f48;border-radius:8px;padding:12px;font-size:12px;line-height:1.5;color:#EDF0F8;overflow-y:auto;box-sizing:border-box">'+NAV_INFO_VACIA+'</div></div><div><div id="nav-lista" style="overflow-y:auto;padding-right:6px">'+lista+'</div>'+(sinUb? '<p class="small mut" style="margin:10px 0 0">'+nf(sinUb)+(sinUb===1?' sesión':' sesiones')+' sin ubicación (anteriores a la localización o IP privada).</p>' : '')+'</div></div><p class="note" style="margin:8px 2px 0">Ubicación aproximada por IP (ciudad y país). El brillo marca dónde hay más sesiones. Fronteras: Natural Earth · Ciudades: GeoNames (CC BY 4.0).</p>',"","");
 }
 V.navegacion=function(){
   if(!NAVD.ok && !NAVD.busy && !NAVD.err) setTimeout(navCargar,0);
@@ -1758,7 +1759,7 @@ var SUB_ID={P11:{"Ficha":"ficha","Físico":"fisico","Ánimo":"animo","Carácter"
   P14:{"Dinero":"dinero","Tienda":"tienda"},
   P15:{"Código":"codigo","Reportar":"reportar","Información":"info"}};
 var SUB_OCULTAS_ADMIN={P11:["Carácter"], P12:["Vestuario"], P13:["Rumores","Fichajes","Prensa"]};
-var ADMIN_VER="0.03.075", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.076", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 var _av=document.getElementById("adm-ver"); if(_av) _av.textContent="v"+ADMIN_VER;
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
