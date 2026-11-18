@@ -1147,7 +1147,7 @@ V.pantallas=function(){
       '<div class="row" style="margin-top:12px">'+btn("Copiar para Claude",T("Copiado: "+P.id+" con comportamiento, tiempos y notas"),"gold")+'<span class="small mut">Incluye número, comportamiento, tiempos y lo que quieres cambiar.</span></div>')+
     card("Reportes que la nombran",REP.slice(0,P.id==="P21"||P.id==="P13"?1:0).map(function(r){return '<div class="diff"><span>'+r.ic+'</span><span class="p">'+esc(r.x)+'</span><span class="tag">'+r.de+'</span></div>'}).join("")||'<p class="mut">Ninguno.</p>')+'</div>';
   var i=PANT.indexOf(P);
-  return hd("Pantallas","Cada pantalla del juego, numerada: qué hace, cuánto dura y qué quieres cambiar.",btn("‹",function(){ST.sel.pn=PANT[(i-1+PANT.length)%PANT.length].id;go()},"sm")+" "+btn("›",function(){ST.sel.pn=PANT[(i+1)%PANT.length].id;go()},"sm"))+'<div class="split">'+lst(items,P.id,function(id){ST.sel.pn=id;go()})+'<div>'+t+b+'</div></div>';
+  return hd("Pantallas","Cada pantalla del juego, numerada: qué hace, cuánto dura y qué quieres cambiar.",btn("Guardar pantallas",pantGuarda,"gold")+" "+btn("‹",function(){ST.sel.pn=PANT[(i-1+PANT.length)%PANT.length].id;go()},"sm")+" "+btn("›",function(){ST.sel.pn=PANT[(i+1)%PANT.length].id;go()},"sm"))+'<div class="split">'+lst(items,P.id,function(id){ST.sel.pn=id;go()})+'<div>'+t+b+'</div></div>';
 };
 V.mapa=function(){
   var W=168, Hh=34, GX=188, pos={}, svg="", maxn=0;
@@ -1470,7 +1470,7 @@ CUR_VER="0.03.001";
 var CUR_VER_DATE="2026-11-17T15:13:34+01:00";   /* fecha en que la versión del juego quedó integrada en el admin (se ve al pasar el ratón) */
 /* subpestañas ocultas en el juego (espejo de SUB_OCULTAS de index.html) */
 var SUB_OCULTAS_ADMIN={P11:["Carácter"], P12:["Vestuario"], P13:["Rumores","Fichajes","Prensa"]};
-var ADMIN_VER="0.03.046", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.047", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
   var g=$("gver"), e=$("ever");
@@ -1544,6 +1544,27 @@ async function pbCarga(){
   }catch(e){}
   PB.det={}; pbAdapta(); go();
 }
+/* guarda en el servidor las claves de un prefijo (p. ej. "pn.") dentro del registro cfg, sin pisar lo de otras páginas */
+function cfgGuarda(pref, okMsg){
+  var keys={}; Object.keys(BASE).concat(Object.keys(DRAFT)).forEach(function(k){ if(k.indexOf(pref)===0) keys[k]=true; });
+  var mine={}; Object.keys(keys).forEach(function(k){ var v=val(k); if(v!==undefined) mine[k]=v; });
+  toast("Guardando…");
+  pbApi("/api/collections/tl_widgets/records?perPage=1&filter="+encodeURIComponent("(kind='cfg')")).then(function(r){
+    var it=r.items&&r.items[0], pack=Object.assign({}, (it&&it.pack)||{}, mine);
+    var body=JSON.stringify({kind:"cfg", pack:pack, t:Date.now()});
+    return it? pbApi("/api/collections/tl_widgets/records/"+it.id,{method:"PATCH",headers:PB_JSON,body:body})
+             : pbApi("/api/collections/tl_widgets/records",{method:"POST",headers:PB_JSON,body:body});
+  }).then(function(){
+    Object.keys(mine).forEach(function(k){ BASE[k]=mine[k]; delete DRAFT[k]; });
+    try{ guardarBorrador(); }catch(e){}
+    topbar(); go(); toast(okMsg);
+  }).catch(function(e){
+    var m=String(e.message||e);
+    toast(/404/.test(m)? "Falta la colección tl_widgets en el servidor (migración 1763000007)" : "No se guardó: "+m);
+  });
+}
+function pantGuarda(){ cfgGuarda("pn.", "Pantallas guardadas en el servidor"); }
+OK_BTN.push("Guardar pantallas");
 async function pbEntra(){
   $("l-err").textContent="";
   try{
@@ -1577,7 +1598,8 @@ function side(){
 }
 /* barra superior: sin cambios de contenido (no integrado) */
 function topbar(){
-  $("bcam").innerHTML='Sin cambios'; $("bcam").disabled=true;
+  var n=nCam();
+  $("bcam").innerHTML= n? '<b style="color:var(--gold)">'+n+'</b> cambio'+(n>1?"s":"")+' sin guardar' : 'Sin cambios'; $("bcam").disabled=!n;
   $("bpub").disabled=true; $("bpub").classList.add("off");
   pintaVers();
   $("modo").innerHTML='<span class="dot"></span>Datos en vivo';

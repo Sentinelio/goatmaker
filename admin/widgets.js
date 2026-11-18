@@ -430,20 +430,4 @@ V.widgets=function(){
     t+'<div class="split">'+widgetList()+'<div style="min-width:0;flex:1 1 auto;width:100%">'+(tb==="Pantalla de inicio"? inicioView() : b)+'</div></div>';
 };
 
-function wdGuardar(){
-  var keys={}; Object.keys(BASE).concat(Object.keys(DRAFT)).forEach(function(k){ if(k.indexOf("wd.")===0) keys[k]=true; });
-  var pack={}; Object.keys(keys).forEach(function(k){ var v=val(k); if(v!==undefined) pack[k]=v; });
-  toast("Guardando widgets…");
-  pbApi("/api/collections/tl_widgets/records?perPage=1&filter="+encodeURIComponent("(kind='cfg')")).then(function(r){
-    var body=JSON.stringify({kind:"cfg", pack:pack, t:Date.now()}), it=r.items&&r.items[0];
-    return it? pbApi("/api/collections/tl_widgets/records/"+it.id,{method:"PATCH",headers:PB_JSON,body:body})
-             : pbApi("/api/collections/tl_widgets/records",{method:"POST",headers:PB_JSON,body:body});
-  }).then(function(){
-    Object.keys(pack).forEach(function(k){ BASE[k]=pack[k]; delete DRAFT[k]; });
-    try{ guardarBorrador(); }catch(e){}
-    go(); toast("Widgets guardados en el servidor");
-  }).catch(function(e){
-    var m=String(e.message||e);
-    toast(/404/.test(m)? "Falta la colección tl_widgets en el servidor (migración 1763000007)" : "No se guardaron los widgets: "+m);
-  });
-}
+function wdGuardar(){ cfgGuarda("wd.", "Widgets guardados en el servidor"); }
