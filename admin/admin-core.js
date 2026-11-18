@@ -1130,7 +1130,7 @@ V.pantallas=function(){
       fld(pre+".n","Nombre",P.n,{full:L+" · nombre",d:"Solo para el panel."})+
       fld(pre+".g","Tipo",PG.filter(function(g){return g[0]===P.g})[0][1],{type:"sel",opts:PG.map(function(g){return g[1]}),full:L+" · tipo"})+
       '<div class="diff"><span class="p mut">En el código</span><span class="mono small">'+esc(P.fn)+'</span></div>'+
-      (P.sub&&P.sub.length?'<div class="f"><label>Subpestañas<small>Se numeran '+P.id+'a, '+P.id+'b…</small></label><div>'+P.sub.map(function(x,i){var oc=(SUB_OCULTAS_ADMIN[P.id]||[]).indexOf(x)>=0; return '<span class="tag" style="margin:0 4px 4px 0'+(oc?';opacity:.5;text-decoration:line-through':'')+'" title="'+(oc?'Oculta en el juego':'Visible en el juego')+'">'+P.id+String.fromCharCode(97+i)+' '+esc(x)+(oc?' · oculta':'')+'</span>'}).join("")+'</div><div class="fab"></div></div>':"")+
+      (P.sub&&P.sub.length?'<div class="f"><label>Subpestañas<small>Se numeran '+P.id+'a, '+P.id+'b…</small></label><div>'+P.sub.map(function(x,i){var idS=(SUB_ID[P.id]||{})[x], kS="pn."+P.id+".sub."+idS+".on", oc= idS? (val(kS)===undefined? (SUB_OCULTAS_ADMIN[P.id]||[]).indexOf(x)>=0 : val(kS)===false) : false; return '<span class="tag" style="margin:0 4px 4px 0'+(oc?';opacity:.5;text-decoration:line-through':'')+'" title="'+(oc?'Oculta en el juego':'Visible en el juego')+'">'+P.id+String.fromCharCode(97+i)+' '+esc(x)+(oc?' · oculta':'')+'</span>'}).join("")+'</div><div class="fab"></div></div>':"")+
       '<div class="f"><label>Se llega desde</label><div>'+(desde.map(pLink).join("")||'<span class="mut small">cualquier pantalla</span>')+'</div><div class="fab"></div></div>'+
       '<div class="f"><label>Lleva a</label><div>'+(P.a.map(pLink).join("")||'<span class="mut small">vuelve a donde estabas</span>')+'</div><div class="fab"></div></div>',
       P.nuevo?'<span class="tag vio">nueva</span>':"")+
@@ -1484,7 +1484,7 @@ var SUB_ID={P11:{"Ficha":"ficha","Físico":"fisico","Ánimo":"animo","Carácter"
   P14:{"Dinero":"dinero","Tienda":"tienda"},
   P15:{"Código":"codigo","Reportar":"reportar","Información":"info"}};
 var SUB_OCULTAS_ADMIN={P11:["Carácter"], P12:["Vestuario"], P13:["Rumores","Fichajes","Prensa"]};
-var ADMIN_VER="0.03.049", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.050", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
   var g=$("gver"), e=$("ever");
@@ -1587,11 +1587,22 @@ function pantGuarda(){
   });
   if(!touched){ toast("No hay cambios que guardar"); return; }
   toast("Publicando pantallas…");
-  pbApi("/api/collections/tl_content/records?perPage=1&sort=-n&filter="+encodeURIComponent("(kind='ver')")).then(function(r){
-    var last=r.items&&r.items[0];
-    var pack=(last&&last.pack)? JSON.parse(JSON.stringify(last.pack)) : {v:1};
-    pack.v=1; pack.pantallas=pan;
-    return pbApi("/api/collections/tl_content/records",{method:"POST",headers:PB_JSON,body:JSON.stringify({kind:"ver",n:(last?last.n:0)+1,pack:pack,nota:"Pantallas: subpestañas activas/desactivadas",t:Date.now(),ver_juego:nextIter(ST.ver)})});
+  /* el juego lee la última versión (modo publicado) o el borrador (modo en vivo): se escriben las dos */
+  var fVer=encodeURIComponent("(kind='ver')"), fDr=encodeURIComponent("(kind='draft')");
+  var base=null;
+  pbApi("/api/collections/tl_content/records?perPage=1&sort=-n&filter="+fVer).then(function(r){
+    base=r.items&&r.items[0]||null;
+    return pbApi("/api/collections/tl_content/records?perPage=1&filter="+fDr);
+  }).then(function(rd){
+    var dr=rd.items&&rd.items[0]||null;
+    var src=(dr&&dr.pack)? dr.pack : (base&&base.pack)? base.pack : {v:1};
+    var pack=JSON.parse(JSON.stringify(src)); pack.v=1; pack.pantallas=pan;
+    var verBody=JSON.stringify({kind:"ver",n:(base?base.n:0)+1,pack:pack,nota:"Pantallas: subpestañas activas/desactivadas",t:Date.now(),ver_juego:nextIter(ST.ver)});
+    var drBody=JSON.stringify({kind:"draft",n:(dr?dr.n:0)+1,pack:pack,t:Date.now()});
+    return pbApi("/api/collections/tl_content/records",{method:"POST",headers:PB_JSON,body:verBody}).then(function(){
+      return dr? pbApi("/api/collections/tl_content/records/"+dr.id,{method:"PATCH",headers:PB_JSON,body:drBody})
+               : pbApi("/api/collections/tl_content/records",{method:"POST",headers:PB_JSON,body:drBody});
+    });
   }).then(function(){
     Object.keys(DRAFT).forEach(function(k){ if(k.indexOf("pn.")===0){ BASE[k]=DRAFT[k]; delete DRAFT[k]; } });
     try{ guardarBorrador(); }catch(e){}
