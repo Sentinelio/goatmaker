@@ -3,7 +3,7 @@ OK_BTN.push("Guardar widgets");
 var WSZ=["1x1","2x1","3x1","1x2","2x2","3x2","1x3","2x3","3x3"];
 var WID=[
  {id:"W01", pg:"Inicio",  tab:"partido",  n:"Partido de hoy",   def:"3x3", txt:"Jornada, escudos, estado de banquillo o titular y botón Continuar."},
- {id:"W02", pg:"Jugador", tab:"ficha",    n:"Ficha",            def:"2x1", txt:"Nombre, club, media, edad, valor, sueldo y contrato en todos los tamaños. Con altura, forma y confianza."},
+ {id:"W02", pg:"Jugador", tab:"ficha",    n:"Ficha",            def:"2x1", txt:"Media y forma en todos los tamaños. A más espacio se añaden confianza, club, valor, sueldo, edad, fin de contrato, dorsal y rol, por orden de importancia."},
  {id:"W03", pg:"Jugador", tab:"fisico",   n:"Físico",           def:"1x1", txt:"Físico principal. Con más espacio: los atributos con su barra."},
  {id:"W04", pg:"Jugador", tab:"animo",    n:"Ánimo",            def:"1x1", txt:"Ánimo. Con más espacio: forma, confianza y fama."},
  {id:"W05", pg:"Jugador", tab:"caracter", n:"Carácter",         def:"1x2", txt:"Ejes de carácter con su barra. Con más espacio, los seis."},
@@ -147,12 +147,20 @@ function jugadorBody(W,z){
   var mini=function(a,f){ return '<div style="flex:1;min-width:0"><div style="font-size:10px;color:#8891AA;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(a)+'</div>'+bar(f)+'</div>'; };
   var stat=function(t,v){ return '<div style="text-align:center;flex:1"><div style="font-size:15px;font-weight:700;color:#FFC24B;white-space:nowrap">'+esc(String(v))+'</div><div style="font-size:9px;color:#8891AA;text-transform:uppercase;letter-spacing:.06em">'+esc(t)+'</div></div>'; };
   var A=J.atr, cuerpo;
-  if(W.id==="W02"){ /* Ficha: el mismo contenido en todos los tamaños (nombre, club, media, edad, valor, sueldo, contrato y, si hay altura, forma y confianza); solo cambia el reparto */
-    var cab=(J.dorsal+" "+J.nombre);
-    var cuad='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(52px,1fr));gap:6px 8px;width:100%">'+stat("media",J.media)+stat("edad",J.edad)+stat("valor",J.valor)+stat("sueldo",J.salario)+stat("fin",J.fin)+'</div>';
-    if(z==="1x1") cuerpo=big(J.media,22)+sm("media");
-    else if(ch===1) cuerpo='<div style="width:100%"><div style="font-size:13px;font-weight:700;color:#E8EAF2;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(cab)+'</div>'+sm(J.club)+'<div style="margin-top:6px">'+cuad+'</div></div>';
-    else cuerpo='<div style="width:100%">'+nom(cab,cw===1?12:15)+sm(J.club)+'<div style="margin:8px 0">'+cuad+'</div>'+(ch>=2? '<div style="width:100%">'+fila("Forma",J.forma,J.forma/100)+fila("Confianza",J.conf,J.conf/100)+'</div>':'')+'</div>';
+  if(W.id==="W02"){ /* Ficha por niveles: el núcleo (media y forma) va en todos los tamaños; a más espacio se añade info menos importante. El nombre va en el banner. */
+    var n2=cw*ch>=2, n3=cw>=2&&ch>=2, n4=cw>=3&&ch>=2;
+    if(z==="1x1") cuerpo=big(J.media,22)+sm("media · forma "+J.forma);
+    else {
+      var st=[["media",J.media]];
+      if(ch===1) st.push(["forma",J.forma]);
+      if(n2&&ch===1) st.push(["confianza",J.conf]);
+      if(n3) st.push(["valor",J.valor],["sueldo",J.salario]);
+      if(n4) st.push(["edad",J.edad],["fin",J.fin]);
+      var cuad='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(52px,1fr));gap:6px 8px;width:100%">'+st.map(function(x){return stat(x[0],x[1]);}).join("")+'</div>';
+      var barras= ch>=2 ? '<div style="width:100%">'+fila("Forma",J.forma,J.forma/100)+(n2?fila("Confianza",J.conf,J.conf/100):"")+'</div>' : "";
+      var pie= n4 ? sm("Dorsal "+J.dorsal+" · "+J.rol) : "";
+      cuerpo='<div style="width:100%">'+(cw===1?"":sm(J.club))+'<div style="margin:6px 0">'+cuad+'</div>'+barras+pie+'</div>';
+    }
   }
   else if(W.id==="W03"){ /* Físico: atributos y su barra, como la pestaña Físico */
     if(z==="1x1") cuerpo=big(A.FIS,22)+sm("Físico");
