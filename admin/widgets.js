@@ -426,7 +426,7 @@ V.widgets=function(){
       '<div style="display:flex;flex-direction:column;gap:14px;min-width:0">'+datos+card("Tamaños permitidos", permitidos, '<span class="tag">'+WSZ.length+' tamaños</span>')+'</div>'+
       card("Tamaños como piezas · "+L, tetris(W,defS,selZ))+'</div>';
   }
-  return hd("Widgets","Cada pestaña del juego como widget independiente, para cambiar cada uno por separado.", btn("Guardar widgets",wdGuardar,"gold"))+
+  return hd("Widgets","Cada pestaña del juego como widget independiente, para cambiar cada uno por separado.", btnGuarda("Guardar widgets",wdGuardar,"wd."))+
     t+'<div class="split">'+widgetList()+'<div style="min-width:0;flex:1 1 auto;width:100%">'+(tb==="Pantalla de inicio"? inicioView() : b)+'</div></div>';
 };
 
