@@ -154,7 +154,7 @@ function jugadorBody(W,z){
       if(ch>=2) rows.push(fila("Confianza",J.conf,J.conf/100));
       if(ch>=3) rows.push(fila("Estado",J.estado), fila("Goles",J.goles), fila("Asist.",J.asist));
       if(ch>=4) rows.push(fila("Media",J.mediaT));
-      cuerpo='<div style="width:100%;height:100%;display:flex;flex-direction:column;justify-content:space-evenly">'+'<div style="text-align:center">'+big(J.forma,ch>=3?34:32)+sm("forma")+'</div><div style="width:100%">'+rows.join("")+'</div></div>';
+      cuerpo='<div style="width:100%;height:100%;box-sizing:border-box;padding:10px 14px;display:flex;flex-direction:column;justify-content:space-evenly">'+'<div style="text-align:center">'+big(J.forma,ch>=3?34:32)+sm("forma")+'</div><div style="width:100%">'+rows.join("")+'</div></div>';
     }
     else {
       var px= cw>=3 ? (ch>=3?28:(ch===1?16:20)) : (ch>=3?26:18), lb= ch>=3?12:10;
@@ -167,7 +167,7 @@ function jugadorBody(W,z){
       var bh= ch>=3?10:6;
       var barraBig=function(a,v,f){ return '<div style="width:100%;margin:'+(ch>=3?6:3)+'px 0"><div style="display:flex;justify-content:space-between;font-size:'+(ch>=3?12:11)+'px;color:#E8EAF2;margin-bottom:3px"><span>'+esc(a)+'</span><b>'+esc(String(v))+'</b></div><div style="height:'+bh+'px;border-radius:'+(bh/2)+'px;background:#2A3149;overflow:hidden"><i style="display:block;height:100%;width:'+Math.round(Math.max(0,Math.min(1,f))*100)+'%;background:#FFC24B"></i></div></div>'; };
       var barras= ch>=2 ? barraBig("Forma",J.forma,J.forma/100)+barraBig("Confianza",J.conf,J.conf/100) : "";
-      cuerpo='<div style="width:100%;height:100%;display:flex;flex-direction:column;justify-content:space-evenly">'+'<div style="width:100%">'+cuad+'</div>'+barras+'</div>';
+      cuerpo='<div style="width:100%;height:100%;box-sizing:border-box;padding:10px 14px;display:flex;flex-direction:column;justify-content:space-evenly">'+'<div style="width:100%">'+cuad+'</div>'+barras+'</div>';
     }
   }
   else if(W.id==="W03"){ /* Físico: atributos y su barra, como la pestaña Físico */
