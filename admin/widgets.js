@@ -101,21 +101,30 @@ function sampleBody(W,z){
   return bg? bg+'<div style="position:relative;height:100%;width:100%;box-sizing:border-box">'+inner+'</div>' : inner;
 }
 function sampleBodyBase(W,z){
-  var m=MUESTRA[W.id]||{}, c=z.split("x"), cw=+c[0], ch=+c[1], n=cw*ch;
-  var lbl='<div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#8891AA">'+esc(m.l||W.n)+'</div>';
-  var big=function(t,px){ return '<div style="font-size:'+px+'px;font-weight:700;color:#FFC24B;line-height:1.15">'+esc(t)+'</div>'; };
-  var small=function(t){ return t? '<div style="font-size:11px;color:#8891AA;line-height:1.35;margin-top:2px">'+esc(t)+'</div>' : ''; };
-  var bar=function(f){ return '<div style="height:8px;border-radius:4px;background:#2A3149;overflow:hidden"><i style="display:block;height:100%;width:'+Math.round(f*100)+'%;background:#FFC24B"></i></div>'; };
+  /* mismas reglas de diseño que el partido de hoy (W01):
+     1x1 → valor centrado, sin etiqueta · 2x1 y 3x1 (una fila) → etiqueta vertical a la izquierda
+     resto → etiqueta arriba y contenido centrado en el espacio que queda */
+  var m=MUESTRA[W.id]||{}, c=z.split("x"), cw=+c[0], ch=+c[1];
+  var big=function(t,px){ return '<div style="font-size:'+px+'px;font-weight:700;color:#FFC24B;line-height:1.15;text-align:center">'+esc(t)+'</div>'; };
+  var small=function(t){ return t? '<div style="font-size:11px;color:#8891AA;line-height:1.35;margin-top:2px;text-align:center">'+esc(t)+'</div>' : ''; };
+  var bar=function(f,w){ return '<div style="height:8px;width:'+(w||100)+'%;border-radius:4px;background:#2A3149;overflow:hidden"><i style="display:block;height:100%;width:'+Math.round(f*100)+'%;background:#FFC24B"></i></div>'; };
   var rows=function(k){ return (m.r||[]).slice(0,k).map(function(p){ return '<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;color:#E8EAF2;padding:4px 0;border-top:1px solid #232A40"><span>'+esc(p[0])+'</span><b>'+esc(p[1])+'</b></div>'; }).join(""); };
-  if(z==="1x1") return lbl+'<div style="margin-top:auto">'+big(m.v||"—",22)+'</div>';
-  if(z==="2x1") return lbl+'<div style="margin-top:auto">'+(m.f!=null? bar(m.f) : big(m.v||"—",16))+'</div>';
-  if(z==="3x1") return '<div style="display:flex;justify-content:space-between;align-items:center;height:100%;gap:12px"><div>'+lbl+'</div><div style="text-align:right">'+big(m.v||"—",16)+small(m.s)+'</div></div>';
-  if(z==="1x2") return lbl+'<div style="margin-top:auto">'+big(m.v||"—",16)+small(m.s)+'</div>';
-  if(z==="1x3") return lbl+'<div style="margin-top:auto">'+(m.r? rows(3) : big(m.v||"—",16)+small(m.s))+'</div>';
-  if(z==="2x2") return lbl+(m.r? '<div style="margin-top:auto">'+rows(3)+'</div>' : '<div style="margin-top:auto">'+big(m.v||"—",22)+small(m.s)+'</div>');
-  if(z==="3x2") return '<div style="display:flex;flex-direction:column;height:100%">'+lbl+'<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-top:auto"><div>'+big(m.v||"—",18)+small(m.s)+'</div>'+(m.f!=null?'<div style="width:40%">'+bar(m.f)+'</div>':'')+'</div><div style="margin-top:8px">'+rows(2)+'</div></div>';
-  if(z==="2x3") return lbl+'<div style="margin-top:6px">'+big(m.v||"—",22)+small(m.s)+'</div>'+(m.f!=null?'<div style="margin-top:10px">'+bar(m.f)+'</div>':'')+'<div style="margin-top:auto">'+rows(3)+'</div>';
-  return lbl+'<div style="margin-top:6px">'+big(m.v||"—",24)+small(m.s)+'</div>'+(m.f!=null? '<div style="margin-top:10px">'+bar(m.f)+'</div>' : '')+'<div style="margin-top:8px">'+rows(4)+'</div>';
+  var cuerpo=function(){
+    if(z==="1x1") return big(m.v||"—",22);
+    if(z==="2x1") return m.f!=null? bar(m.f) : big(m.v||"—",16);
+    if(z==="3x1") return big(m.v||"—",16)+small(m.s);
+    if(z==="1x2") return big(m.v||"—",16)+small(m.s);
+    if(z==="1x3") return m.r? rows(3) : big(m.v||"—",16)+small(m.s);
+    if(z==="2x2") return m.r? rows(3) : big(m.v||"—",22)+small(m.s);
+    if(z==="3x2") return '<div style="display:flex;align-items:center;justify-content:center;gap:14px;width:100%">'+'<div>'+big(m.v||"—",18)+small(m.s)+'</div>'+(m.f!=null?'<div style="width:40%">'+bar(m.f)+'</div>':'')+'</div>'+(m.r? '<div style="width:100%;margin-top:8px">'+rows(2)+'</div>' : '');
+    if(z==="2x3") return big(m.v||"—",22)+small(m.s)+(m.f!=null?'<div style="width:80%;margin-top:10px">'+bar(m.f)+'</div>':'')+(m.r? '<div style="width:100%;margin-top:8px">'+rows(3)+'</div>' : '');
+    return big(m.v||"—",24)+small(m.s)+(m.f!=null? '<div style="width:80%;margin-top:10px">'+bar(m.f)+'</div>' : '')+(m.r? '<div style="width:100%;margin-top:8px">'+rows(4)+'</div>' : '');
+  };
+  var lbl=esc(m.l||W.n);
+  var centro=function(x){ return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;box-sizing:border-box">'+x+'</div>'; };
+  if(z==="1x1") return '<div style="display:flex;align-items:center;justify-content:center;height:100%;width:100%;box-sizing:border-box;padding:6px">'+centro(cuerpo())+'</div>';
+  if(cw>=2 && ch===1) return '<div style="display:flex;align-items:center;height:100%;width:100%;box-sizing:border-box;padding:0 6px 0 2px"><div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;color:#8891AA;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;flex:none">'+lbl+'</div><div style="flex:1;min-width:0;display:flex;align-items:center;justify-content:center">'+centro(cuerpo())+'</div></div>';
+  return '<div style="display:flex;flex-direction:column;align-items:center;height:100%;width:100%;box-sizing:border-box;padding:6px 0"><div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#8891AA;text-align:center">'+lbl+'</div><div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;width:100%">'+centro(cuerpo())+'</div></div>';
 }
 var PH_C=3, PH_R=4;
 function inicioLayout(){
