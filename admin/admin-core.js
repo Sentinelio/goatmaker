@@ -109,7 +109,7 @@ function snapScroll(){ var m=$("main"), els=[]; m.querySelectorAll("*").forEach(
 function restoreScroll(sn){ var m=$("main"); m.scrollTop=sn.top; var all=m.querySelectorAll("*"); sn.els.forEach(function(x){ if(all[x[0]]) all[x[0]].scrollTop=x[1]; }); if(window.scrollY!==sn.win) window.scrollTo(0,sn.win); }
 function go(){ H=[]; CUR=ALIAS[ST.sec]||null; var f=V[CUR?CUR.v:ST.sec]||V.resumen; var mismaPant=(LAST_SEC===ST.sec), sn=mismaPant? snapScroll() : null; $("main").innerHTML=f(); if(mismaPant) restoreScroll(sn); LAST_SEC=ST.sec; if(!MOV && !ST.modal) apunta(); $("bback").disabled=HP<=0; $("bfwd").disabled=HP>=HIST.length-1; $("ov").innerHTML= ST.modal? '<div class="modal" onclick="if(event.target===this)modal()"><div class="card">'+ST.modal()+'</div></div>' : ""; side(); topbar(); montar(); guardarBorrador(); armaGuardados(); }
 function miga(extra){ var g=NAV.filter(function(g){return g[1].some(function(i){return i[0]===ST.sec})})[0], it=g&&g[1].filter(function(i){return i[0]===ST.sec})[0]; return '<div class="crumb">'+(g?g[0]:"")+' › <a onclick="nav(\''+ST.sec+'\')">'+(it?it[2]:"")+'</a>'+(extra?' › '+extra:'')+'</div>'; }
-function hd(t,s,extra){ if(CUR){ t=CUR.t||t; s=CUR.s||s; } var st=STXT[STAT[ST.sec]||"h"]; return miga()+'<div class="row" style="align-items:flex-start"><div style="flex:1;min-width:260px"><h1>'+t+' <span class="st '+st[0]+'">'+st[1]+'</span></h1><p class="sub">'+s+'</p></div>'+(extra||"")+'</div>'+flagsBar(); }
+function hd(t,s,extra){ if(CUR){ t=CUR.t||t; s=CUR.s||s; } var st=STXT[STAT[ST.sec]||"h"]; return miga()+'<div class="row" style="align-items:flex-start"><div style="flex:1;min-width:300px"><h1>'+t+' <span class="st '+st[0]+'">'+st[1]+'</span></h1><p class="sub">'+s+'</p></div>'+(extra||"")+'</div>'+flagsBar(); }
 function tabs(k,arr){ if(CUR&&CUR.tabs&&CUR.tabs[k]) arr=CUR.tabs[k]; if(arr.indexOf(ST.tab[k])<0) ST.tab[k]=arr[0]; if(CUR&&CUR.tabs&&CUR.tabs[k]&&arr.length===1) return ""; return '<div class="tabs">'+arr.map(function(t){var no=(k==="wd"?OK_TAB_WD:k==="pn"?OK_TAB_PN:OK_TAB).indexOf(t)<0;return '<button class="'+(ST.tab[k]===t?"on":"")+(no?" off":"")+'"'+(no?" disabled":"")+' onclick="'+on(function(){ST.tab[k]=t;go()})+'">'+t+'</button>'}).join("")+'</div>'; }
 function card(t,body,extra,cls){ return '<div class="card '+(cls||"")+'">'+(t?'<h3>'+t+(extra?'<span class="sp"></span>'+extra:'')+'</h3>':'')+body+'</div>'; }
 function kpis(a){ return '<div class="grid g4">'+a.map(function(k){return '<div class="card kpi"><h3>'+k[0]+'</h3><div class="v">'+k[1]+'</div><div class="s">'+(k[2]||"")+'</div></div>'}).join("")+'</div>'; }
@@ -1232,32 +1232,49 @@ function navNombrePantalla(k){
   var ids=SUB_ID[P]||{}, lbl=Object.keys(ids).filter(function(l){ return ids[l]===sub; })[0];
   return pn+(lbl? " · "+lbl : (sub? " · "+sub : ""));
 }
+function navVerFicha(id){
+  var t=document.getElementById("nav-tip"); if(t) t.style.display="none";
+  ST.sel.jug=id; ST.tab.jd="Ficha"; nav("jugadores");
+}
 function navInfoHTML(p){
-  var S=p.ses||[], n=S.length, inst={}, act=0, t1=Infinity, t2=0, cnt={}, tz={}, lg={};
+  var S=p.ses||[], n=S.length, usr={}, act=0, t1=Infinity, t2=0, tz={}, lg={};
   S.forEach(function(s){
-    inst[s.install]=1; act+=(s.active_s||0);
+    usr[s.install]=(usr[s.install]||0)+1; act+=(s.active_s||0);
     if(s.start_t<t1) t1=s.start_t; if(s.start_t>t2) t2=s.start_t;
-    (NAVM.evSid[s.sid]||[]).forEach(function(e){ if(e.install!==s.install) return; var k=(e.d&&e.d.k||"?")+"/"+((e.d&&e.d.sub)||""); cnt[k]=(cnt[k]||0)+1; });
   });
-  var nIn=Object.keys(inst);
-  nIn.forEach(function(i){ var pl=NAVD.pl[i]||{}; var z=pl.tz||"sin dato"; tz[z]=(tz[z]||0)+1; var l=pl.lang||"sin dato"; lg[l]=(lg[l]||0)+1; });
+  var ids=Object.keys(usr).sort(function(a,b){ return usr[b]-usr[a]; });
+  ids.forEach(function(i){ var pl=NAVD.pl[i]||{}; var z=pl.tz||"sin dato"; tz[z]=(tz[z]||0)+1; var l=pl.lang||"sin dato"; lg[l]=(lg[l]||0)+1; });
   var top=function(o,m){ return Object.keys(o).sort(function(a,b){ return o[b]-o[a]; }).slice(0,m).map(function(k){ return {k:k,v:o[k]}; }); };
-  var pant=top(cnt,3).map(function(x){ return esc(navNombrePantalla(x.k))+" · "+nf(x.v); }).join("<br>") || "—";
   var fmt=function(t){ return new Date(t).toLocaleString("es-ES",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}); };
   var pct=NAVM.totalSes? (n/NAVM.totalSes*100).toFixed(1) : "0";
   var row=function(a,b){ return '<div style="display:flex;justify-content:space-between;gap:12px"><span style="color:#8891AA">'+a+'</span><span style="text-align:right">'+b+'</span></div>'; };
   var lst=function(o){ return top(o,3).map(function(x){ return esc(x.k)+" ("+x.v+")"; }).join(", "); };
+  var bloque=function(i){
+    var P=(PB.byInst||{})[i]||{}, e=P.estado||{}, pl=NAVD.pl[i]||{};
+    var g=pbGrupoNom(P.adm_grupo||pl.g)||"Sin grupo";
+    return '<div style="border-top:1px solid #2a2f48;padding-top:6px;margin-top:6px">'
+      + '<div style="color:#8891AA">ID <a href="#" onclick="navVerFicha(\''+esc(i)+'\');return false" style="color:#FFC24B;font-family:monospace;font-size:11px;word-break:break-all">'+esc(i)+'</a></div>'
+      + row("Versión", esc(P.ver||"—"))
+      + row("Grupo", esc(g))
+      + row("Horas jugadas", nf((P.active_s||0)/3600,1)+" h")
+      + row("Dinero", typeof e.dinero==="number"? eur(e.dinero) : "—")
+      + (usr[i]>1? row("Sesiones en la zona", nf(usr[i])) : "")
+      + '</div>';
+  };
   return '<div style="font-weight:700;font-size:13px;margin-bottom:2px">'+esc(p.c||"Sin ciudad")+'</div>'
-    + '<div style="color:#8891AA;margin-bottom:8px">'+esc(p.p||"Sin país")+' · '+esc(navContinente(p.p))+'</div>'
+    + '<div style="color:#8891AA;margin-bottom:4px">'+esc(p.p||"Sin país")+' · '+esc(navContinente(p.p))+'</div>'
+    + '<div style="color:#8891AA;margin-top:6px">'+(ids.length===1?"Usuario":"Usuarios en esta zona")+'</div>'
+    + ids.slice(0,3).map(bloque).join("")
+    + (ids.length>3? '<div style="color:#8891AA;margin-top:6px">y '+nf(ids.length-3)+' usuarios más</div>' : "")
+    + '<div style="border-top:1px solid #2a2f48;padding-top:6px;margin-top:6px">'
     + row("Sesiones", nf(n)+" ("+pct+"% del total)")
-    + row("Jugadores distintos", nf(nIn.length))
+    + row("Jugadores distintos", nf(ids.length))
     + row("Tiempo activo medio", navMmss(n? act/n : 0))
     + row("Primera sesión", fmt(t1))
     + row("Última sesión", fmt(t2))
-    + row("Coordenadas", p.lat.toFixed(2)+", "+p.lon.toFixed(2))
-    + '<div style="margin-top:8px;color:#8891AA">Pantallas más vistas</div><div style="margin-bottom:6px">'+pant+'</div>'
     + row("Zonas horarias", esc(lst(tz)))
-    + row("Idiomas", esc(lst(lg)));
+    + row("Idiomas", esc(lst(lg)))
+    + '</div>';
 }
 function navAgrupa(list){
   if(!list.length) return null;
@@ -1288,7 +1305,8 @@ function navMapaEventos(cv){
     t.style.left=Math.max(4,left)+"px"; t.style.top=Math.max(4,top)+"px";
     cv.style.cursor="pointer";
   });
-  cv.addEventListener("pointerleave",function(){ if(!drag) ocultar(); });
+  cv.addEventListener("pointerleave",function(e){ var t=document.getElementById("nav-tip"); if(!drag && !(t && e.relatedTarget && t.contains(e.relatedTarget))) ocultar(); });
+  var tip=document.getElementById("nav-tip"); if(tip) tip.addEventListener("pointerleave",function(){ ocultar(); });
   var fin=function(){ drag=null; cv.style.cursor="grab"; };
   cv.addEventListener("pointerup",fin); cv.addEventListener("pointercancel",fin);
 }
@@ -1367,7 +1385,7 @@ function navMapa(ses, ev){
   var paMax=pa.length? ub[pa[0]] : 1;
   var lista= pa.length? pa.map(function(z){ return '<div class="hb"><span title="'+esc(z)+'">'+esc(z)+'</span><div class="tr"><i style="width:'+(ub[z]/paMax*100)+'%"></i></div><span>'+ub[z]+'</span></div>'; }).join("") : '<p class="mut small" style="margin:0">Ninguna sesión con ubicación en este periodo.</p>';
   var ctl='<div class="row" style="gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">'+btn("＋",function(){ navMapaZoom(1.5); },"sm")+btn("−",function(){ navMapaZoom(1/1.5); },"sm")+btn("Ver todo",function(){ NAVM.z=1; navMapaLimita(); navMapaDibuja(); },"sm")+'<span class="small mut">Rueda para acercar · arrastra para moverte · pasa el ratón sobre un punto</span></div>';
-  var lienzo='<div style="position:relative"><canvas id="nav-mapa-cv" style="width:100%;display:block;border-radius:8px;background:#070810;cursor:grab;touch-action:none"></canvas><div id="nav-tip" style="display:none;position:absolute;left:0;top:0;pointer-events:none;background:#0f1117;border:1px solid #2a2f48;border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.5;color:#EDF0F8;width:260px;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:5"></div></div>';
+  var lienzo='<div style="position:relative"><canvas id="nav-mapa-cv" style="width:100%;display:block;border-radius:8px;background:#070810;cursor:grab;touch-action:none"></canvas><div id="nav-tip" style="display:none;position:absolute;left:0;top:0;pointer-events:auto;background:#0f1117;border:1px solid #2a2f48;border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.5;color:#EDF0F8;width:300px;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:5"></div></div>';
   return card("Desde dónde se conectan", ctl+'<div class="grid g2" style="gap:14px;align-items:start"><div>'+lienzo+'</div><div><div id="nav-lista" style="overflow-y:auto;padding-right:6px">'+lista+'</div>'+(sinUb? '<p class="small mut" style="margin:10px 0 0">'+nf(sinUb)+(sinUb===1?' sesión':' sesiones')+' sin ubicación (anteriores a la localización o IP privada).</p>' : '')+'</div></div><p class="note" style="margin:8px 2px 0">Ubicación aproximada por IP (ciudad y país). El brillo marca dónde hay más sesiones. Fronteras: Natural Earth · Ciudades: GeoNames (CC BY 4.0).</p>',"","");
 }
 V.navegacion=function(){
@@ -1730,7 +1748,7 @@ var SUB_ID={P11:{"Ficha":"ficha","Físico":"fisico","Ánimo":"animo","Carácter"
   P14:{"Dinero":"dinero","Tienda":"tienda"},
   P15:{"Código":"codigo","Reportar":"reportar","Información":"info"}};
 var SUB_OCULTAS_ADMIN={P11:["Carácter"], P12:["Vestuario"], P13:["Rumores","Fichajes","Prensa"]};
-var ADMIN_VER="0.03.069", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.070", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 var _av=document.getElementById("adm-ver"); if(_av) _av.textContent="v"+ADMIN_VER;
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
