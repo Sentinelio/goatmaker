@@ -1203,7 +1203,7 @@ var NAV_PAIS_CONT={ES:"EU",FR:"EU",DE:"EU",IT:"EU",PT:"EU",GB:"EU",IE:"EU",NL:"E
   CO:"SA",VE:"SA",GY:"SA",SR:"SA",EC:"SA",PE:"SA",BR:"SA",BO:"SA",PY:"SA",UY:"SA",AR:"SA",CL:"SA",
   AU:"OC",NZ:"OC",FJ:"OC",PG:"OC"};
 function navContinente(pais){ var c=NAV_PAIS_CONT[pais]; return c? NAV_CONT[c] : "Otros"; }
-var NAVM={z:1,cx:500,cy:250,pts:[],max:1};
+var NAVM={z:1,cx:500,cy:250,pts:[],max:1,ciu:[]};
 var NAV_LUT=null;
 function navLut(){
   if(NAV_LUT) return NAV_LUT;
@@ -1247,35 +1247,34 @@ function navMapaDibuja(){
   ctx.fillStyle="#070810"; ctx.fillRect(0,0,W,H);
   ctx.save(); ctx.setTransform(dpr*s,0,0,dpr*s,dpr*(W/2-NAVM.cx*s),dpr*(H/2-NAVM.cy*s));
   ctx.fillStyle="#1f2336"; ctx.fill(new Path2D(MAPA_MUNDO_D)); ctx.restore();
-  var off=document.createElement("canvas"); off.width=cv.width; off.height=cv.height;
-  var o=off.getContext("2d"); o.globalCompositeOperation="lighter";
-  var R=16*dpr;
+  var DW=cv.width, DH=cv.height, dens=new Float32Array(DW*DH), R=Math.round(18*dpr), i;
   NAVM.pts.forEach(function(p){
-    var x=X(p.xy.x)*dpr, y=Y(p.xy.y)*dpr, a=Math.min(1,0.15+0.85*(p.n/NAVM.max));
-    var g=o.createRadialGradient(x,y,0,x,y,R);
-    g.addColorStop(0,"rgba(255,255,255,"+a.toFixed(3)+")"); g.addColorStop(1,"rgba(255,255,255,0)");
-    o.fillStyle=g; o.fillRect(x-R,y-R,2*R,2*R);
+    var x=X(p.xy.x)*dpr, y=Y(p.xy.y)*dpr;
+    var x0=Math.max(0,Math.floor(x-R)), x1=Math.min(DW-1,Math.ceil(x+R)), y0=Math.max(0,Math.floor(y-R)), y1=Math.min(DH-1,Math.ceil(y+R));
+    for(var yy=y0;yy<=y1;yy++) for(var xx=x0;xx<=x1;xx++){
+      var dx=xx-x, dy=yy-y, q=(dx*dx+dy*dy)/(R*R);
+      if(q<1) dens[yy*DW+xx]+=p.n*(1-q)*(1-q);
+    }
   });
-  var img=o.getImageData(0,0,off.width,off.height), d=img.data, mx=0, i;
-  for(i=3;i<d.length;i+=4){ if(d[i]>mx) mx=d[i]; }
+  var mx=0; for(i=0;i<dens.length;i++) if(dens[i]>mx) mx=dens[i];
+  var off=document.createElement("canvas"); off.width=DW; off.height=DH;
+  var o=off.getContext("2d"), img=o.createImageData(DW,DH), d=img.data;
   if(mx>0){
     var lut=navLut();
-    for(i=0;i<d.length;i+=4){
-      var a=d[i+3];
-      if(!a){ d[i+3]=0; continue; }
-      var k=Math.min(255,Math.round(Math.pow(a/mx,0.7)*255))*4;
-      d[i]=lut[k]; d[i+1]=lut[k+1]; d[i+2]=lut[k+2]; d[i+3]=lut[k+3];
+    for(i=0;i<dens.length;i++){
+      var t=dens[i]/mx; if(t<0.01) continue;
+      var k=Math.min(255,Math.round(Math.pow(t,0.55)*255))*4;
+      d[i*4]=lut[k]; d[i*4+1]=lut[k+1]; d[i*4+2]=lut[k+2]; d[i*4+3]=lut[k+3];
     }
   }
   o.putImageData(img,0,0);
   ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(off,0,0);
   ctx.setTransform(dpr,0,0,dpr,0,0);
-  var vis=NAVM.pts.filter(function(p){ var x=X(p.xy.x), y=Y(p.xy.y); return x>-10&&x<W+10&&y>-10&&y<H+10; });
-  vis.sort(function(a,b){ return b.n-a.n; });
+  var vis=NAVM.ciu.filter(function(p){ var x=X(p.xy.x), y=Y(p.xy.y); return x>-10&&x<W+10&&y>-10&&y<H+10; });
   var lim= NAVM.z<2.5? 0 : (NAVM.z<6? 12 : 999);
   ctx.font="11px system-ui, sans-serif"; ctx.lineWidth=3; ctx.strokeStyle="#070810";
   vis.slice(0,lim).forEach(function(p){
-    var x=X(p.xy.x), y=Y(p.xy.y), txt=(p.c||p.p||"Sin ciudad")+" · "+p.n;
+    var x=X(p.xy.x), y=Y(p.xy.y), txt=p.c+" · "+p.n;
     ctx.fillStyle="#FFF3B0"; ctx.beginPath(); ctx.arc(x,y,2.5,0,Math.PI*2); ctx.fill();
     ctx.strokeText(txt,x+6,y+4); ctx.fillStyle="#EDF0F8"; ctx.fillText(txt,x+6,y+4);
   });
@@ -1293,6 +1292,9 @@ function navMapa(ses){
   });
   var L=Object.keys(pts).map(function(k){ var q=pts[k]; q.xy=mapaXY(q.lat,q.lon); return q; });
   NAVM.pts=L; NAVM.max=Math.max.apply(null,[1].concat(L.map(function(p){ return p.n; })));
+  var cis={};
+  ses.forEach(function(s){ if(typeof s.geo_lat!=="number"||typeof s.geo_lon!=="number") return; var k=(s.geo_ciudad||"Sin ciudad")+"|"+(s.geo_pais||""); var c=cis[k]=cis[k]||{c:s.geo_ciudad||"Sin ciudad",p:s.geo_pais||"",n:0,sl:0,so:0}; c.n++; c.sl+=s.geo_lat; c.so+=s.geo_lon; });
+  NAVM.ciu=Object.keys(cis).map(function(k){ var c=cis[k]; c.xy=mapaXY(c.sl/c.n,c.so/c.n); return c; }).sort(function(a,b){ return b.n-a.n; });
   setTimeout(navMapaDibuja,0);
   var ub={};
   ses.forEach(function(s){ if(typeof s.geo_lat!=="number"||typeof s.geo_lon!=="number") return; var c=navContinente(s.geo_pais||""), k=c+" · "+(s.geo_pais||"Sin país")+" · "+(s.geo_ciudad||"Sin ciudad"); ub[k]=(ub[k]||0)+1; });
@@ -1663,7 +1665,7 @@ var SUB_ID={P11:{"Ficha":"ficha","Físico":"fisico","Ánimo":"animo","Carácter"
   P14:{"Dinero":"dinero","Tienda":"tienda"},
   P15:{"Código":"codigo","Reportar":"reportar","Información":"info"}};
 var SUB_OCULTAS_ADMIN={P11:["Carácter"], P12:["Vestuario"], P13:["Rumores","Fichajes","Prensa"]};
-var ADMIN_VER="0.03.062", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.063", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 var _av=document.getElementById("adm-ver"); if(_av) _av.textContent="v"+ADMIN_VER;
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
