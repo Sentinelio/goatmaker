@@ -1294,18 +1294,17 @@ function navMapaEventos(cv){
     NAVM.pts.forEach(function(p){ var x=(p.xy.x-NAVM.cx)*s+W/2, y=(p.xy.y-NAVM.cy)*s+H/2, d=(x-mx)*(x-mx)+(y-my)*(y-my); if(d<196) cerc.push(p); });
     return {p:navAgrupa(cerc), mx:mx, my:my, W:W, H:H};
   }
-  function ocultar(){ navInfoVacia(); }
+  function ocultar(){}  /* el panel fijo conserva el último punto */
   cv.addEventListener("wheel",function(e){ e.preventDefault(); ocultar(); var r=cv.getBoundingClientRect(); navMapaAlZoom(e.deltaY<0?1.25:1/1.25, e.clientX-r.left, e.clientY-r.top, r.width); },{passive:false});
   cv.addEventListener("pointerdown",function(e){ drag={x:e.clientX,y:e.clientY}; cv.setPointerCapture(e.pointerId); cv.style.cursor="grabbing"; ocultar(); });
   cv.addEventListener("pointermove",function(e){
     if(drag){ var s=cv.clientWidth/1000*NAVM.z; NAVM.cx-=(e.clientX-drag.x)/s; NAVM.cy-=(e.clientY-drag.y)/s; drag={x:e.clientX,y:e.clientY}; navMapaLimita(); navMapaDibuja(); return; }
     var t=document.getElementById("nav-info"); if(!t) return;
     var h=cerca(e);
-    if(!h.p){ navInfoVacia(); cv.style.cursor="grab"; return; }
+    if(!h.p){ cv.style.cursor="grab"; return; }
     t.innerHTML=navInfoHTML(h.p);
     cv.style.cursor="pointer";
   });
-  cv.addEventListener("pointerleave",function(){ if(!drag) navInfoVacia(); });
   var fin=function(){ drag=null; cv.style.cursor="grab"; };
   cv.addEventListener("pointerup",fin); cv.addEventListener("pointercancel",fin);
 }
@@ -1748,7 +1747,7 @@ var SUB_ID={P11:{"Ficha":"ficha","Físico":"fisico","Ánimo":"animo","Carácter"
   P14:{"Dinero":"dinero","Tienda":"tienda"},
   P15:{"Código":"codigo","Reportar":"reportar","Información":"info"}};
 var SUB_OCULTAS_ADMIN={P11:["Carácter"], P12:["Vestuario"], P13:["Rumores","Fichajes","Prensa"]};
-var ADMIN_VER="0.03.073", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
+var ADMIN_VER="0.03.074", ADMIN_VER_DATE="2026-11-17T21:45:00+01:00";   /* versión del editor: súbela al cambiar el admin */
 var _av=document.getElementById("adm-ver"); if(_av) _av.textContent="v"+ADMIN_VER;
 function fechaES(iso){ return new Date(iso).toLocaleString("es-ES",{timeZone:"Europe/Warsaw",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
 function pintaVers(){
