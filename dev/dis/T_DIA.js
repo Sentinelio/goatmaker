@@ -30,10 +30,14 @@ function nuevo(pos){
   __ok(S.dia.antes.length===1 && atr("DEF")>def0, "Duelos hecho y DEF sube ("+def0.toFixed(2)+"→"+atr("DEF").toFixed(2)+")");
   diaSaltar();
   __ok(S.dia.fase==="mister" && S.dia.antes[1].libre, "dejar la segunda hora libre pasa al míster");
-  __ok(S.dia.rondas.length===(V.doble?4:3), "el míster propone "+S.dia.rondas.length+" ejercicios");
-  __ok(entMisterHTML().indexOf("entMisterElige(0)")>0, "se ven las tres maneras de afrontar el ejercicio");
+  __ok(S.dia.rondas.length>=3 && S.dia.rondas.length<=(V.doble?4:3), "el míster propone "+S.dia.rondas.length+" jugadas");
+  __ok(entMisterHTML().indexOf("entMisterElige(1)")>0, "se ven las opciones de la jugada");
   u0=S.convU.u;
   while(S.dia.fase==="mister") entMisterElige(0);
+  __ok(S.dia.fase==="notaMister" && entMisterHTML().indexOf("diaSeguir()")>0, "tras la última jugada se ve la nota del míster antes de seguir");
+  __ok(S.dia.log.every(function(l){ return l.txt && l.n; }), "cada jugada muestra su resultado con el texto del partido");
+  diaSesion("tecnica"); __ok(S.dia.despues.length===0, "no se puede saltar la pantalla de la nota");
+  diaSeguir();
   __ok(S.dia.fase==="despues" && S.dia.nota>=3 && S.dia.nota<=10, "tras el míster (nota "+S.dia.nota+") toca después");
   __ok(!entMisterHecho(), "el día no está hecho hasta acabar lo de después");
   var f0=S.forma; diaSesion("recupera");
@@ -46,16 +50,18 @@ function nuevo(pos){
   __ok(entMisterHTML().indexOf("Nota del entreno")>0, "la tarjeta final resume el día");
   /* 4ª sesión = extra */
   nuevo("LAT"); var V2=citaVentana(); citaMueve("llegada", String(V2.llamada-2)); citaMueve("salida", String(V2.fin+2)); empezarDia();
-  diaSesion("tecnica"); diaSesion("mental"); while(S.dia.fase==="mister") entMisterElige(0); diaSesion("tactica"); diaSesion("tecnica");
+  diaSesion("tecnica"); diaSesion("mental"); while(S.dia.fase==="mister") entMisterElige(0); diaSeguir(); diaSesion("tactica"); diaSesion("tecnica");
   __ok(S.dia.despues.length===2 && S.dia.despues[1].extra===true && S.dia.despues[0].extra===false, "la cuarta sesión del día cuenta como extra");
 })();
 (function(){
-  /* jugar seguro con atributo alto da mejor nota que arriesgar con atributo bajo (de media) */
-  var notas=function(dif, a){ var t=0; for(var i=0;i<300;i++){ nuevo("MC"); S.attr[a]=a==="TEC"?72:45; empezarDia();
-      while(S.dia.fase==="mister"){ var dr=drillPorId(S.dia.rondas[S.dia.ronda]); var j=0; dr.ops.forEach(function(o,k){ if(o.dif===dif) j=k; }); entMisterElige(j); } t+=S.dia.nota; } return t/300; };
-  var seg=notas(0,"TEC"), arr=notas(2,"TEC");
-  console.log("  nota media MC (TEC 72): segura "+seg.toFixed(2)+" · arriesgada "+arr.toFixed(2));
-  __ok(seg>=5.5 && seg<=7.5, "jugar seguro da una nota normal ("+seg.toFixed(2)+")");
+  /* la opción más segura frente a la más arriesgada, de media */
+  var notas=function(segura){ var t=0; for(var i=0;i<300;i++){ nuevo("MC"); empezarDia();
+      while(S.dia.fase==="mister"){ var R=S.dia.rondas[S.dia.ronda], sit=sitEntrenoPorId(R.id), best=0, bv=segura?-1:2;
+        R.ops.forEach(function(oi,k){ var p=probsEntreno(sit.o[oi],S.dia).ok; if(segura? p>bv : p<bv){ bv=p; best=k; } }); entMisterElige(best); }
+      t+=S.dia.nota; } return t/300; };
+  var seg=notas(true), arr=notas(false);
+  console.log("  nota media MC: siempre lo más seguro "+seg.toFixed(2)+" · siempre lo más arriesgado "+arr.toFixed(2));
+  __ok(seg>=5.3 && seg<=7.8 && arr>=4 && arr<=7.8, "las notas caen en un rango normal");
 })();
 (function(){
   /* saltar al campo sin entrenar: se resuelve solo y castiga */
@@ -68,8 +74,8 @@ function nuevo(pos){
   /* lesionado: no hay día */
   nuevo("DC"); S.lesion=2; empezarDia(); __ok(!S.dia, "lesionado no empieza el día");
   /* portero: ejercicios de portero; delantero: nunca los de portero */
-  nuevo("POR"); __ok(drillsDisp().some(function(d){return d.cat==="porteria";}), "el portero tiene ejercicios de portería");
-  nuevo("DC");  __ok(!drillsDisp().some(function(d){return d.cat==="porteria";}), "el delantero no hace los del portero");
+  ["POR","DFC","LAT","MCD","MC","MCO","EXT","DC"].forEach(function(pp){ nuevo(pp); var L=sitsEntreno();
+    __ok(L.length>=4 && L.every(function(x){ return x.pos.indexOf(pp)>=0; }), pp+": "+L.length+" situaciones de partido de su puesto"); });
 })();
 (function(){
   /* la semana personal ya no tiene «Entrenamiento extra»; trae charlas y prensa */

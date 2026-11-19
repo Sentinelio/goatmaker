@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.012";
+var VERSION="0.03.013";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -2013,65 +2013,42 @@ function ejCarta(e, rec, extra){
     +(meta?'<span class="ejsk">'+esc(ejSkillTxt(meta))+'</span>':(r?'<span class="ejsk">'+(r===1?'1 sesión hecha':r+' sesiones hechas')+'</span>':''))
     +'</button>';
 }
-/* ---- el entreno del míster: ejercicios con tres maneras de afrontarlos ----
-   dif 0 = seguro · 1 = equilibrado · 2 = arriesgado. El atributo decide cuánto te sale. */
-var DRILLS=[
- {id:"rondo", cat:"tecnica", n:"Rondo 5 contra 2", d:"Dos dentro presionando, cinco fuera moviendo rápido.",
-  ops:[{l:"Al pie y a un toque", a:"TEC", dif:0, ok:"Circula limpio. Nadie se fija, que es lo que querías.", ko:"Se te va un control fácil. Te toca en medio."},
-       {l:"Aguantar, girar y salir", a:"TEC", dif:1, ok:"Giras con el defensor encima y la juegas. Murmullo en el rondo.", ko:"Te encierran contra la línea. Al medio."},
-       {l:"Filtrar el pase entre los dos", a:"TEC", dif:2, ok:"El pase pasa por donde no cabía. El míster sonríe de lado.", ko:"Lo cortan con la punta. Pierdes tú y lo pagas tú."}]},
- {id:"partidillo", cat:"tactica", n:"Partidillo a campo reducido", d:"Siete contra siete, porterías pequeñas, el míster parando cada jugada.",
-  ops:[{l:"Ocupar tu zona y jugar fácil", a:"TAC", dif:0, ok:"Siempre donde toca. Orden y cero errores.", ko:"Te despistas en una basculación y te para el juego delante de todos."},
-       {l:"Ofrecerte entre líneas", a:"TAC", dif:1, ok:"Apareces en el hueco tres veces. El míster lo señala.", ko:"Te ofreces donde ya había otro. «¡Ocupa espacios!»"},
-       {l:"Pedirla siempre y encarar", a:"TEC", dif:2, ok:"Rompes dos líneas y das el gol. Se para el partidillo para aplaudirte.", ko:"Pierdes tres balones en tres minutos. Te mandan al peto de suplente."}]},
- {id:"series", cat:"fisico", n:"Series de 200 metros", d:"Ocho repeticiones con poco descanso.",
-  ops:[{l:"Ritmo constante", a:"FIS", dif:0, ok:"Las ocho al mismo ritmo. Cumples.", ko:"Te quedas atrás en la quinta. Se nota."},
-       {l:"Tirar del grupo en las últimas", a:"FIS", dif:1, ok:"En la séptima te pones delante y arrastras a todos.", ko:"Te pones delante y en la octava te vacías. Llegas el último."},
-       {l:"A tope desde la primera", a:"FIS", dif:2, ok:"Primero en las ocho. El preparador apunta tu tiempo dos veces.", ko:"Revientas en la tercera. Terminas andando."}]},
- {id:"pizarra", cat:"tactica", n:"Pizarra y vídeo del rival", d:"Cuarenta minutos de vídeo y preguntas.",
-  ops:[{l:"Tomar notas y callar", a:"TAC", dif:0, ok:"Lo tienes todo apuntado. Lo justo.", ko:"Te pregunta algo de tu zona y dudas."},
-       {l:"Preguntar por tu marca", a:"MEN", dif:1, ok:"Buena pregunta: el míster amplía el plan sobre ti.", ko:"Preguntas algo que acaba de explicar. Risas al fondo."},
-       {l:"Proponer un ajuste", a:"TAC", dif:2, ok:"Te mira, piensa y lo cambia en la pizarra. Eso no se olvida.", ko:"«Cuando entrenes tú, lo hacemos así.» Silencio."}]},
- {id:"penaltis", cat:"mental", n:"Penaltis con castigo", d:"Quien falla, recoge balones.",
-  ops:[{l:"Elegir lado y no cambiar", a:"MEN", dif:0, ok:"Fuerte y al palo elegido. Dentro.", ko:"Muy centrado. El portero ni se mueve."},
-       {l:"Esperar al portero", a:"MEN", dif:1, ok:"Aguantas hasta el último instante. Al contrario.", ko:"Esperas demasiado y se la regalas."},
-       {l:"Lanzarla a lo Panenka", a:"TEC", dif:2, ok:"Picada perfecta. Medio vestuario grita.", ko:"El portero se queda quieto y la atrapa. Bronca y risas."}]},
- {id:"unouno", cat:"defensivo", pos:["DFC","LAT","MCD","MC"], n:"Uno contra uno defensivo", d:"El extremo encara, tú defiendes la banda.",
-  ops:[{l:"Temporizar y acompañar", a:"DEF", dif:0, ok:"Lo llevas a la línea sin tirarte. Ni centro.", ko:"Te gana el paso en carrera."},
-       {l:"Cerrar el pase interior", a:"TAC", dif:1, ok:"Le quitas el pase y lo obligas al error.", ko:"Cierras dentro y se va por fuera."},
-       {l:"Ir al robo", a:"DEF", dif:2, ok:"Le robas limpio y sales jugando. Aplausos del banquillo.", ko:"Te tiras, te sienta y centra solo."}]},
- {id:"pressing", cat:"defensivo", n:"Presión tras pérdida", d:"Cinco segundos para recuperar o replegar.",
-  ops:[{l:"Replegar y cerrar", a:"TAC", dif:0, ok:"Vuelves a tu sitio a tiempo. Bloque compacto.", ko:"Te quedas a medio camino."},
-       {l:"Morder al poseedor", a:"FIS", dif:1, ok:"Le caes encima en dos segundos. Balón recuperado.", ko:"Llegas tarde y salta la presión."},
-       {l:"Anticipar el pase", a:"DEF", dif:2, ok:"Lees el pase y lo cortas antes de que salga.", ko:"Te adelantas y te la cuelan a la espalda."}]},
- {id:"finaliza", cat:"tecnica", pos:["DC","EXT","MCO","MC"], n:"Finalización tras centro", d:"Centros desde las dos bandas, porteros de verdad.",
-  ops:[{l:"Colocarla al palo largo", a:"TEC", dif:0, ok:"Suave y lejos del portero. Dentro.", ko:"Te queda corta y la blocan."},
-       {l:"Primer palo y fuerte", a:"FIS", dif:1, ok:"Ganas el primer palo y la revientas.", ko:"Llegas tarde al primer palo."},
-       {l:"De volea, sin dejarla caer", a:"TEC", dif:2, ok:"Volea a la escuadra. El portero ni la ve.", ko:"La mandas a la grada del fondo."}]},
- {id:"reflejos", cat:"porteria", pos:["POR"], n:"Disparos a quemarropa", d:"Cinco metros, sin pausa.",
-  ops:[{l:"Ocupar portería y blocar", a:"POR", dif:0, ok:"Todo al cuerpo, todo blocado.", ko:"Rechazo al centro y gol."},
-       {l:"Reaccionar a la segunda jugada", a:"POR", dif:1, ok:"Paras el primero y el rechace.", ko:"Te levantas tarde para el segundo."},
-       {l:"Salir a los pies", a:"POR", dif:2, ok:"Te tiras a los pies y te la quedas.", ko:"Te regatea y marca a puerta vacía."}]}
-];
-function drillsDisp(){ var p=S.pos; return DRILLS.filter(function(d){ return (!d.pos || d.pos.indexOf(p)>=0) && (d.cat!=="porteria" || p==="POR"); }); }
-/* el estilo del míster decide qué ejercicios propone más a menudo */
-function elegirDrills(n){
-  var pool=drillsDisp().slice(), map=estiloMister().entreno||{}, out=[];
+/* ---- el entreno del míster: partidillo con SITUACIONES REALES DE PARTIDO ----
+   Usa el mismo banco de decisiones que los partidos (SITS) para tu puesto, con sus textos.
+   Aquí no hay marcador: cada decisión sale bien, regular o mal, y eso es lo que ve el míster. */
+function txtSit(v){ if(typeof v==="function"){ try{ v=v(null); }catch(e){ v=""; } } return v||""; }
+function opsEntreno(sit){
+  var ids=[];
+  sit.o.forEach(function(o,i){ if(o.cond) return; if(o.skill && !tieneSkill(o.skill)) return; ids.push(i); });
+  return ids;
+}
+function sitsBancoEntreno(){ return SITS.concat(SITS_CLUTCH||[], [SIT_PEN_L, SIT_PEN_P]); }
+function sitsEntreno(){
+  return sitsBancoEntreno().filter(function(s){ return s.pos && s.pos.indexOf(S.pos)>=0 && opsEntreno(s).length>=2 && txtSit(s.t) && txtSit(s.x); });
+}
+/* elige n situaciones distintas y fija hasta 3 opciones de cada una (como en el partido) */
+function elegirSitsEntreno(n){
+  var pool=sitsEntreno().slice(), out=[];
   while(out.length<n && pool.length){
-    var tot=0; pool.forEach(function(d){ tot+=(map[d.cat]||1); });
-    var x=rnd()*tot, j=0;
-    for(;j<pool.length;j++){ x-=(map[pool[j].cat]||1); if(x<=0) break; }
-    j=Math.min(j,pool.length-1);
-    out.push(pool[j].id); pool.splice(j,1);
+    var s=pool.splice(Math.floor(rnd()*pool.length),1)[0], ids=opsEntreno(s).slice();
+    while(ids.length>3) ids.splice(Math.floor(rnd()*ids.length),1);
+    out.push({id:s.id, ops:ids});
   }
   return out;
 }
-function drillPorId(id){ return DRILLS.filter(function(d){ return d.id===id; })[0]||null; }
-function probDrill(o, D){
-  var forma=(S.forma===undefined?70:S.forma);
-  return clamp(0.62+(atr(o.a)-60)/45+(forma-75)/150-o.dif*0.17-((D&&D.noche)?0.1:0), 0.08, 0.95);
+function sitEntrenoPorId(id){ var L=sitsBancoEntreno(); for(var i=0;i<L.length;i++) if(L[i].id===id) return L[i]; return null; }
+/* probabilidad de que la decisión salga bien / mal en el partidillo: lo que promete la opción,
+   tu nivel para el puesto y tu forma. Lo ambicioso (más nota) sale menos, pero luce más. */
+function probsEntreno(o, D){
+  var fx=o.fx||{}, ins=fx.inst||{};
+  var bueno=(ins.gol||0)+(ins.asis||0)+(ins.parada||0), malo=(ins.golR||0)+(fx.ta||0)*0.5+(fx.roja||0)*2+(fx.lesion||0);
+  var nivel=(miMedia()-62)/40, forma=((S.forma===undefined?70:S.forma)-75)/150, noche=(D&&D.noche)?0.1:0;
+  var pOk=clamp(0.42+bueno*1.1+nivel+forma-noche-Math.max(0,fx.nota||0)*0.06, 0.08, 0.9);
+  var pKo=clamp(0.10+malo*1.5-nivel/2+noche, 0.03, 0.6);
+  if(pOk+pKo>0.97) pKo=0.97-pOk;
+  return {ok:pOk, ko:pKo};
 }
-var DRILL_RIESGO=["Seguro","Equilibrado","Arriesgado"];
+function riesgoEntreno(p){ return p.ok>=0.6? "Segura" : p.ok>=0.42? "Equilibrada" : "Arriesgada"; }
 function entMisterHecho(){ return !!(S && S.dia && S.dia.jor===S.jornada && S.dia.fase==="fin"); }
 /* una sesión tuya dentro del día (usa el motor de siempre: atributos, habilidades, forma) */
 function sesionDia(id, extra){
@@ -2085,7 +2062,7 @@ function empezarDia(){
   if(!S || S.lesion>0) return;
   if(S.dia && S.dia.jor===S.jornada) return;
   var V=citaVentana(), st=citaEstado(), c=citaCuenta(st.ll, st.sa), noche=faseVicio("noche");
-  var D={jor:S.jornada, fase:(st.ll>0?"antes":"mister"), ronda:0, rondas:elegirDrills(V.doble?4:3), pts:0, log:[],
+  var D={jor:S.jornada, fase:(st.ll>0?"antes":"mister"), ronda:0, rondas:elegirSitsEntreno(V.doble?4:3), pts:0, log:[],
          antes:[], despues:[], ll:st.ll, sa:st.sa, mis0:S.mister, conf0:S.conf, forma0:S.forma};
   if(noche>=1 && st.ll>0){
     D.noche=true;
@@ -2131,27 +2108,34 @@ function diaSaltar(){
 }
 function entMisterElige(j){
   var D=S && S.dia; if(!D || D.jor!==S.jornada || D.fase!=="mister") return;
-  var dr=drillPorId(D.rondas[D.ronda]); if(!dr) return;
-  var o=dr.ops[j]; if(!o) return;
-  var p=probDrill(o, D), ok=rnd()<p, sc=ok? [1,2,3][o.dif] : [0,-0.5,-1][o.dif];
-  var gusto=(estiloMister().entreno||{})[dr.cat]||1;
-  if(ok && gusto>1.05) sc+=0.5;                                   /* le sale en lo que más le importa al míster */
+  var R=D.rondas[D.ronda], sit=R && sitEntrenoPorId(R.id); if(!sit) return;
+  var oi=R.ops[j]; if(oi===undefined) return;
+  var o=sit.o[oi], p=probsEntreno(o, D), r=rnd(), cls= r<p.ok? "ok" : r<p.ok+p.ko? "ko" : "mid";
+  var amb=Math.abs((o.fx&&o.fx.nota)||0);
+  var sc= cls==="ok"? 1+amb*0.6 : cls==="mid"? 0.25 : -(0.4+amb*0.4);
   var gan="";
-  if(ok){
-    var T=techoAtributoDe(o.a), v=atr(o.a);
-    if(v<T){ var g=Math.round(clamp((T-v)/52,0.05,1.1)*(0.25+o.dif*0.1)*100)/100; S.attr[o.a]=Math.min(T, v+g); gan=o.a+" +"+g.toFixed(2); }
+  if(cls==="ok"){   /* decidir bien en el partidillo te hace mejor leyendo el juego */
+    var a=atr("TAC")<=atr("MEN")? "TAC":"MEN", T=techoAtributoDe(a), v=atr(a);
+    if(v<T){ var g=Math.round(clamp((T-v)/52,0.05,1.1)*(0.25+amb*0.08)*100)/100; S.attr[a]=Math.min(T, v+g); gan=a+" +"+g.toFixed(2); }
   }
   S.forma=clamp((S.forma===undefined?70:S.forma)-2,20,100);
   D.pts+=sc;
-  D.log.push({n:dr.n, op:o.l, ok:ok, txt:ok?o.ok:o.ko, gan:gan, dif:o.dif});
+  D.log.push({n:txtSit(sit.t), op:txtSit(o.l), cls:cls, ok:cls==="ok", txt:txtSit(o[cls]), gan:gan});
   D.ronda++;
-  if(D.ronda>=D.rondas.length){ cerrarMister(D); if(D.sa>0) D.fase="despues"; else finDia(); }
+  if(D.ronda>=D.rondas.length){ cerrarMister(D); D.fase="notaMister"; }
+  guardar();
+  irSub("equipo","entreno");
+}
+/* tras ver la nota del míster, sigue el día */
+function diaSeguir(){
+  var D=S && S.dia; if(!D || D.jor!==S.jornada || D.fase!=="notaMister") return;
+  if(D.sa>0) D.fase="despues"; else finDia();
   guardar();
   irSub("equipo","entreno");
 }
 function notaEntreno(D){
   var N=Math.max(1, D.rondas.length);
-  return Math.round(clamp(4.5+(D.pts/(3*N))*5, 3, 10)*10)/10;
+  return Math.round(clamp(3.2+(D.pts/N)*2.0, 3, 10)*10)/10;
 }
 /* la nota del entreno del míster: se decide al acabar sus ejercicios */
 function cerrarMister(D, aMedias){
@@ -2185,7 +2169,7 @@ function diaPasos(D){
   if(D.ll) p.push({k:"antes", t:"🌅 Antes "+D.antes.length+"/"+D.ll});
   p.push({k:"mister", t:"⚽ Míster "+Math.min(D.ronda,D.rondas.length)+"/"+D.rondas.length});
   if(D.sa) p.push({k:"despues", t:"🌙 Después "+D.despues.length+"/"+D.sa});
-  var orden=["antes","mister","despues","fin"], ya=orden.indexOf(D.fase);
+  var orden=["antes","mister","despues","fin"], ya=orden.indexOf(D.fase==="notaMister"?"mister":D.fase);
   return '<div style="display:flex;gap:6px;margin:0 0 12px;flex-wrap:wrap">'+p.map(function(x){
     var i=orden.indexOf(x.k), est= i<ya? "opacity:.55" : i===ya? "border-color:var(--gold);color:var(--gold)" : "opacity:.35";
     return '<span class="chip" style="pointer-events:none;padding:4px 10px;font-size:12px;'+est+'">'+x.t+'</span>';
@@ -2195,7 +2179,8 @@ function diaFilas(lista, ico){
   return lista.map(function(h){ return '<div class="row2"><span>'+ico+' '+(h.extra?"➕ ":"")+esc(h.n)+'</span><b class="note" style="color:'+(h.libre?"#8891AA":"var(--gold)")+';text-align:right;max-width:58%">'+esc(h.sub)+'</b></div>'; }).join("");
 }
 function diaMisterFilas(D, conTexto){
-  return D.log.map(function(l){ return '<div class="row2"><span>'+(l.ok?"✓ ":"✗ ")+esc(l.n)+'</span><b class="note" style="text-align:right;max-width:60%;color:'+(l.ok?"var(--ok)":"var(--bad)")+'">'+esc(conTexto?l.txt:l.op)+(l.gan?" · "+esc(l.gan):"")+'</b></div>'; }).join("");
+  return D.log.map(function(l){ var c=l.cls||(l.ok?"ok":"ko"), ic=c==="ok"?"✓ ":c==="ko"?"✗ ":"· ", col=c==="ok"?"var(--ok)":c==="ko"?"var(--bad)":"#8891AA";
+    return '<div class="row2" style="align-items:flex-start"><span style="max-width:45%">'+ic+esc(l.n)+'</span><b class="note" style="text-align:right;max-width:55%;color:'+col+'">'+esc(l.op)+(conTexto&&l.txt?'<br><span style="font-weight:400;color:#AAB2C5">'+esc(l.txt)+'</span>':'')+(l.gan?" · "+esc(l.gan):"")+'</b></div>'; }).join("");
 }
 function entMisterHTML(){
   var D=S.dia, V=citaVentana(), H='<div class="card" style="border-color:var(--gold)">';
@@ -2216,14 +2201,21 @@ function entMisterHTML(){
     entrenosDisp().filter(esGeneral).forEach(function(x){ H+=ejCarta(x,rec,extra); });
     H+='</div><button class="ghost" style="margin-top:10px" onclick="diaSaltar()">Dejar esta hora libre</button>';
   } else if(D.fase==="mister"){
-    var dr=drillPorId(D.rondas[D.ronda]);
-    H+='<div class="eyebrow">Entreno del míster · ejercicio '+(D.ronda+1)+' de '+D.rondas.length+'</div>'+diaPasos(D);
-    H+=diaFilas(D.antes,"🌅")+diaMisterFilas(D,true);
-    H+='<h3 class="disp" style="margin:10px 0 4px">'+esc(dr.n)+'</h3><p class="note" style="margin:0 0 10px">'+esc(dr.d)+'</p>';
-    dr.ops.forEach(function(o,j){
-      H+='<button class="opt" onclick="entMisterElige('+j+')"><b>'+esc(o.l)+'</b><small>'+DRILL_RIESGO[o.dif]+' · '+esc(ATTR[o.a].n)+' '+Math.round(atr(o.a))+'</small></button>';
+    var R=D.rondas[D.ronda], sit=sitEntrenoPorId(R.id);
+    H+='<div class="eyebrow">Entreno del míster · partidillo · jugada '+(D.ronda+1)+' de '+D.rondas.length+'</div>'+diaPasos(D);
+    H+=diaMisterFilas(D,true);
+    H+='<h3 class="disp" style="margin:10px 0 4px">'+esc(txtSit(sit.t))+'</h3><p class="note" style="margin:0 0 10px">'+esc(txtSit(sit.x))+'</p>';
+    R.ops.forEach(function(oi,j){
+      var o=sit.o[oi];
+      H+='<button class="opt" onclick="entMisterElige('+j+')"><b>'+esc(txtSit(o.l))+'</b><small>'+riesgoEntreno(probsEntreno(o,D))+'</small></button>';
     });
-    H+='<p class="note" style="margin:8px 2px 0">Lo seguro rara vez falla; lo arriesgado luce más si te sale. Lo que el míster vea aquí cuenta para el domingo.</p>';
+    H+='<p class="note" style="margin:8px 2px 0">Las mismas decisiones que en un partido, pero en el partidillo: no hay marcador ni tarjetas de verdad. Lo que cuenta es lo que ve el míster, y eso pesa para el domingo.</p>';
+  } else if(D.fase==="notaMister"){
+    H+='<div class="eyebrow">Entreno del míster · terminado</div>'+diaPasos(D);
+    H+=diaMisterFilas(D,true);
+    H+='<p style="margin:12px 0 4px;font-size:15px">Nota del míster: <b style="color:var(--gold);font-size:20px">'+String(D.nota).replace(".",",")+'</b></p>';
+    H+='<p class="note" style="margin:0 0 12px">Míster '+citaSigno(S.mister-(D.mis0||S.mister))+' · Confianza '+citaSigno((S.conf||0)-(D.conf0||S.conf||0))+' en lo que va de día.</p>';
+    H+='<button class="gold-btn" onclick="diaSeguir()">'+(D.sa>0? "Seguir: tus sesiones de después" : "Terminar el día")+'</button>';
   } else {
     var conv=(S.lesion>0||S.sancion>0)? null : convocatoria();
     H+='<div class="eyebrow">Tu día · hecho</div>';
@@ -8439,7 +8431,7 @@ function ejSkillTxt(meta){
     var fal=[];
     if(rep<meta.req.n) fal.push((meta.req.n-Math.floor(rep))+" sesiones de "+nombreEj(meta.req.ej));
     if(atr(meta.req.attr)<meta.req.v) fal.push(meta.req.attr+" "+meta.req.v+" (ahora "+Math.round(atr(meta.req.attr))+")");
-    return "🔒 "+meta.n+": faltan "+fal.join(" y ")+" · "+pts+" pts guardados";
+    return "🎯 Desbloquea «"+meta.n+"»: "+fal.join(" y ").replace(" sesiones de "+nombreEj(meta.req.ej)," sesiones más de esto")+(rep>0? " · llevas "+Math.floor(rep):"");
   }
   return "★ "+meta.n+" · nivel "+sklNivel(meta.id)+" · "+pts+"/"+sklCoste(d.niv)+" pts para subir";
 }
