@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.011";
+var VERSION="0.03.012";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -1917,20 +1917,21 @@ function horaFmt(h){
   return (hh<0? (24+hh):hh)+":"+(mm<10?"0":"")+mm;
 }
 /* ===== TU DÍA EN LA CIUDAD DEPORTIVA =====
-   El míster marca la hora del entreno oficial (su estilo decide cuándo y si hay doble sesión).
-   Antes y después tienes huecos para TU trabajo: cada hora que llegas antes o te quedas
-   después es una sesión tuya (Técnica, Duelos, Recuperación…), máximo 2 por lado.
-   El entreno oficial es un minijuego corto: 3 ejercicios del míster (4 con doble sesión).
+   1) Planificas la cita: a qué hora llegas y a qué hora te vas (el míster marca su entreno).
+   2) Empiezas el día y va en orden, cada parte en su pantalla:
+      🌅 antes del entreno: una sesión tuya por cada hora que llegas antes (máx. 2)
+      ⚽ entreno del míster: 3 ejercicios suyos (4 con doble sesión), minijuego con nota
+      🌙 después del entreno: una sesión tuya por cada hora que te quedas (máx. 2)
    Tu trabajo te hace mejor jugador (atributos y habilidades); el entreno del míster decide
    cuánto confía en ti (míster, confianza y la titularidad del domingo). */
 var CITA_LIM=2, CITA_ZONA={izq:35, cen:30, der:35};
-var CITA_UI={jor:-1, ll:0, sa:0, eL:[], eS:[]};
+var CITA_UI={jor:-1, ll:0, sa:0};
 function citaVentana(){
   var e=estiloMister(), fin=e.entradaH+(e.doble?6:3);
   return {llamada:e.entradaH, fin:fin, doble:!!e.doble, ini:e.entradaH-CITA_LIM, fin2:fin+CITA_LIM};
 }
 function citaEstado(){
-  if(CITA_UI.jor!==S.jornada) CITA_UI={jor:S.jornada, ll:0, sa:0, eL:[], eS:[]};
+  if(CITA_UI.jor!==S.jornada) CITA_UI={jor:S.jornada, ll:0, sa:0};
   return CITA_UI;
 }
 /* posición 0-100 de una hora dentro de la barra (tramos fijos: 35 · 30 · 35) */
@@ -1941,50 +1942,27 @@ function citaPos(h, V){
 }
 function ejPorId(id){ return ENTRENOS.filter(function(e){ return e.id===id; })[0]||null; }
 function ejIdx(id){ for(var i=0;i<ENTRENOS.length;i++) if(ENTRENOS[i].id===id) return i; return -1; }
-/* lo que pide el día: forma de tus sesiones y puntos con el míster por las horas de más */
-function citaCuenta(ll, sa, eL, eS){
-  var lis=(eL||[]).slice(0,ll).concat((eS||[]).slice(0,sa));
-  var act=0; lis.forEach(function(id){ var e=ejPorId(id); if(e) act+=(e.forma||0); });
-  return {ded:ll+sa, act:act, n:lis.length};
-}
+/* las horas de más cuentan con el míster; la forma la deciden las sesiones que elijas luego */
+function citaCuenta(ll, sa){ return {ded:ll+sa}; }
 function citaSigno(n){ return (n>0?"+":n<0?"−":"")+Math.abs(Math.round(n)); }
 function citaTextos(V, st){
-  var c=citaCuenta(st.ll, st.sa, st.eL, st.eS), noche=faseVicio("noche");
-  var partes=[c.act? "Forma "+citaSigno(c.act)+" por tus sesiones" : "Sin coste de forma por tus sesiones"];
+  var c=citaCuenta(st.ll, st.sa), noche=faseVicio("noche"), n=st.ll+st.sa;
+  var partes=[n? (n===1?"Una sesión tuya":n+" sesiones tuyas")+": las eliges al llegar a cada hueco" : "Solo el entreno del míster"];
   if(c.ded>0 && !(noche>=1 && st.ll>0)) partes.push("Míster "+citaSigno(Math.round(c.ded*1.5))+" por las horas de más");
   if(noche>=1 && st.ll>0) partes.push("madrugar con la noche encima: forma −"+(3*st.ll)+" y el míster lo nota");
   return {
     ll: st.ll? "Llegas a las "+horaFmt(V.llamada-st.ll)+" · "+st.ll+" h antes" : "Llegas a la hora ("+horaFmt(V.llamada)+")",
     sa: st.sa? "Te vas a las "+horaFmt(V.fin+st.sa)+" · "+st.sa+" h después" : "Te vas al terminar ("+horaFmt(V.fin)+")",
     ent: "Entreno del míster "+horaFmt(V.llamada)+"–"+horaFmt(V.fin),
-    hL: st.ll? "Antes del entreno · "+st.eL.length+" de "+st.ll+" sesiones" : "Antes del entreno · llegas a la hora",
-    hS: st.sa? "Después del entreno · "+st.eS.length+" de "+st.sa+" sesiones" : "Después del entreno · te vas al terminar",
     fx: partes.join(" · ")
   };
-}
-/* una tarjeta por ejercicio: qué da, cuánto cuesta, su habilidad y dos botones (antes / después) */
-function ejCarta(e, rec, st){
-  var r=reps(e.id), meta=null;
-  skillsDisp().forEach(function(k){ if(k.req.ej===e.id && !meta) meta=k; });
-  var sube=Object.keys(e.sube).map(function(k){ return k+" +"+gananciaEntreno(e,k,false).toFixed(1); }).join(" ");
-  var coste=Math.round(e.forma||0), esRec=rec && rec.ej===e.id;
-  var onL=st.eL.indexOf(e.id)>=0, onS=st.eS.indexOf(e.id)>=0;
-  var llenoL=!onL && st.eL.length>=CITA_LIM, llenoS=!onS && st.eS.length>=CITA_LIM;
-  var bt=function(lado,on,lleno,txt){ return '<button class="chip'+(on?' on':'')+'" style="flex:1;padding:6px 4px;font-size:12px;white-space:nowrap;min-height:0'+(lleno?';opacity:.35':'')+'"'+(lleno?' disabled':'')+' onclick="citaToggle(\''+lado+'\',\''+e.id+'\')">'+(on?'✓ ':'')+txt+'</button>'; };
-  return '<div class="ejer'+(esRec?' rec':'')+'" style="cursor:default">'
-    +(esRec?'<span class="rectag">recomendado</span>':'')
-    +'<b>'+esc(e.n)+'</b>'
-    +'<span class="ejfx">'+esc(sube||"recupera")+'<i>'+(coste>0?"+":"")+coste+' forma</i></span>'
-    +(meta?'<span class="ejsk">'+esc(ejSkillTxt(meta))+'</span>':(r?'<span class="ejsk">'+r+' sesiones hechas</span>':''))
-    +'<div style="display:flex;gap:6px;margin-top:8px">'+bt("L",onL,llenoL,"Antes")+bt("S",onS,llenoS,"Después")+'</div>'
-    +'</div>';
 }
 function citaMisterHTML(){
   if(!S.contrato || S.lesion>0) return "";
   var e=estiloMister(), V=citaVentana(), st=citaEstado(), T=citaTextos(V,st);
   var llegada=V.llamada-st.ll, salida=V.fin+st.sa;
   var H='<div class="card" id="cita-card" style="border-color:var(--gold)"><div class="eyebrow">Tu día · la cita del míster</div>'
-    +'<p class="note" style="margin:2px 2px 8px">'+esc(e.n)+' quiere a todos a las <b>'+horaFmt(V.llamada)+'</b> para el entreno'
+    +'<p class="note" style="margin:2px 2px 8px">'+esc(mister().n)+' quiere a todos a las <b>'+horaFmt(V.llamada)+'</b> para el entreno'
     +(V.doble?' — hoy toca <b>doble sesión</b>: cuatro ejercicios suyos en vez de tres.':'.')
     +' Cada hora que llegues antes o te quedes después es una sesión tuya.'
     +(faseVicio("noche")>=1?' <span style="color:var(--bad)">Anoche saliste. El cuerpo lo sabe.</span>':'')+'</p>';
@@ -1994,45 +1972,25 @@ function citaMisterHTML(){
     +'<div style="position:absolute;top:0;bottom:0;left:65%;width:35%;border-radius:0 4px 4px 0;background:#4ADE80;opacity:.6"></div>'
     +'<div id="cita-pres" style="position:absolute;top:0;bottom:0;left:'+citaPos(llegada,V)+'%;width:'+(citaPos(salida,V)-citaPos(llegada,V))+'%;background:rgba(255,255,255,.22)"></div>'
     +'<input id="cita-ll" class="sl" type="range" min="'+V.ini+'" max="'+V.llamada+'" step="1" value="'+llegada+'" '
-    +'oninput="citaMueve(\'llegada\',this.value,true)" onchange="citaMueve(\'llegada\',this.value)" '
+    +'oninput="citaMueve(\'llegada\',this.value)" onchange="citaMueve(\'llegada\',this.value)" '
     +'style="position:absolute;top:-7px;left:0;width:35%;height:22px;margin:0;background:none;border:0;outline:0;padding:0;box-shadow:none">'
     +'<input id="cita-sa" class="sl" type="range" min="'+V.fin+'" max="'+V.fin2+'" step="1" value="'+salida+'" '
-    +'oninput="citaMueve(\'salida\',this.value,true)" onchange="citaMueve(\'salida\',this.value)" '
+    +'oninput="citaMueve(\'salida\',this.value)" onchange="citaMueve(\'salida\',this.value)" '
     +'style="position:absolute;top:-7px;left:65%;width:35%;height:22px;margin:0;background:none;border:0;outline:0;padding:0;box-shadow:none">'
     +'</div>';
   H+='<div style="display:flex;font-size:12px;margin:0 11px 12px;line-height:1.35">'
     +'<div id="cita-llv" style="width:35%;color:#4FA3FF;padding-left:2px">'+esc(T.ll)+'</div>'
     +'<div id="cita-ent" style="width:30%;text-align:center;color:#FFC24B">'+esc(T.ent)+'</div>'
     +'<div id="cita-sav" style="width:35%;text-align:right;color:#4ADE80;padding-right:2px">'+esc(T.sa)+'</div></div>';
-  H+='<div class="row2"><span id="cita-hL" style="color:#4FA3FF">'+esc(T.hL)+'</span><b class="note" style="text-align:right">'+esc(st.eL.map(nombreEj).join(" · ")||"—")+'</b></div>';
-  H+='<div class="row2"><span id="cita-hS" style="color:#4ADE80">'+esc(T.hS)+'</span><b class="note" style="text-align:right">'+esc(st.eS.map(nombreEj).join(" · ")||"—")+'</b></div>';
   H+='<p class="note" id="cita-fx" style="margin:8px 2px 10px">'+esc(T.fx)+'</p>';
   H+='<button class="gold-btn" onclick="empezarDia()">Empezar el día</button>';
-  H+='</div>';
-  /* tus sesiones: elige qué haces en cada hueco */
-  var rec=recomendacion();
-  H+='<div class="card"><div class="eyebrow">Tus sesiones · antes y después del entreno</div>';
-  if(rec) H+='<div class="recbox">🧑‍🏫 <b>El preparador:</b> «'+esc(rec.motivo)+'.» Te propone <b>'+esc(nombreEj(rec.ej))+'</b>, pero decides tú.</div>';
-  H+='<p class="note" style="margin:8px 0 4px">Específicos de '+esc(POS[S.pos].n.toLowerCase())+'</p><div class="ejgrid">';
-  entrenosDisp().filter(function(x){return !esGeneral(x);}).forEach(function(x){ H+=ejCarta(x,rec,st); });
-  H+='</div><p class="note" style="margin:10px 0 4px">Generales</p><div class="ejgrid">';
-  entrenosDisp().filter(esGeneral).forEach(function(x){ H+=ejCarta(x,rec,st); });
-  H+='</div><p class="note" style="margin:10px 2px 0">La cuarta sesión del día (dos antes y dos después) rinde más, pero arriesga sobrecarga.</p></div>';
-  return H;
+  return H+'</div>';
 }
-function citaMueve(quien, v, soloPinta){
+function citaMueve(quien, v){
   var V=citaVentana(), st=citaEstado(), x=+v;
-  if(quien==="llegada"){ st.ll=Math.max(0, Math.min(CITA_LIM, Math.round(V.llamada-x))); st.eL=st.eL.slice(0, st.ll); }
-  else { st.sa=Math.max(0, Math.min(CITA_LIM, Math.round(x-V.fin))); st.eS=st.eS.slice(0, st.sa); }
-  if(soloPinta) citaPinta(); else irSub("equipo","entreno");
-}
-/* elegir un ejercicio para un lado: si no queda hueco, se alarga el día una hora (hasta el máximo) */
-function citaToggle(lado, id){
-  var st=citaEstado(), ids=(lado==="L")? st.eL : st.eS, k=(lado==="L")? "ll" : "sa";
-  var i=ids.indexOf(id);
-  if(i>=0){ ids.splice(i,1); st[k]=Math.max(ids.length, 0); }
-  else if(ids.length<CITA_LIM){ ids.push(id); st[k]=Math.max(st[k], ids.length); }
-  irSub("equipo","entreno");
+  if(quien==="llegada") st.ll=Math.max(0, Math.min(CITA_LIM, Math.round(V.llamada-x)));
+  else                  st.sa=Math.max(0, Math.min(CITA_LIM, Math.round(x-V.fin)));
+  citaPinta();
 }
 function citaPinta(){
   var card=document.getElementById("cita-card"); if(!card) return;
@@ -2040,7 +1998,20 @@ function citaPinta(){
   var llegada=V.llamada-st.ll, salida=V.fin+st.sa, pres=document.getElementById("cita-pres");
   if(pres){ pres.style.left=citaPos(llegada,V)+"%"; pres.style.width=(citaPos(salida,V)-citaPos(llegada,V))+"%"; }
   var set=function(id, txt){ var el=document.getElementById(id); if(el) el.textContent=txt; };
-  set("cita-llv", T.ll); set("cita-ent", T.ent); set("cita-sav", T.sa); set("cita-fx", T.fx); set("cita-hL", T.hL); set("cita-hS", T.hS);
+  set("cita-llv", T.ll); set("cita-ent", T.ent); set("cita-sav", T.sa); set("cita-fx", T.fx);
+}
+/* tarjeta de una sesión tuya durante el día: tocarla es hacerla ya */
+function ejCarta(e, rec, extra){
+  var r=reps(e.id), meta=null;
+  skillsDisp().forEach(function(k){ if(k.req.ej===e.id && !meta) meta=k; });
+  var sube=Object.keys(e.sube).map(function(k){ return k+" +"+gananciaEntreno(e,k,extra).toFixed(1); }).join(" ");
+  var coste=Math.round((e.forma||0)*(extra?1.4:1)), esRec=rec && rec.ej===e.id;
+  return '<button class="ejer'+(esRec?' rec':'')+'" onclick="diaSesion(\''+e.id+'\')">'
+    +(esRec?'<span class="rectag">recomendado</span>':'')
+    +'<b>'+esc(e.n)+'</b>'
+    +'<span class="ejfx">'+esc(sube||"recupera")+'<i>'+(coste>0?"+":"")+coste+' forma</i></span>'
+    +(meta?'<span class="ejsk">'+esc(ejSkillTxt(meta))+'</span>':(r?'<span class="ejsk">'+(r===1?'1 sesión hecha':r+' sesiones hechas')+'</span>':''))
+    +'</button>';
 }
 /* ---- el entreno del míster: ejercicios con tres maneras de afrontarlos ----
    dif 0 = seguro · 1 = equilibrado · 2 = arriesgado. El atributo decide cuánto te sale. */
@@ -2113,9 +2084,9 @@ function sesionDia(id, extra){
 function empezarDia(){
   if(!S || S.lesion>0) return;
   if(S.dia && S.dia.jor===S.jornada) return;
-  var V=citaVentana(), st=citaEstado(), c=citaCuenta(st.ll, st.sa, st.eL, st.eS), noche=faseVicio("noche");
-  var D={jor:S.jornada, fase:"mister", ronda:0, rondas:elegirDrills(V.doble?4:3), pts:0, log:[], antes:[], despues:[],
-         eS:st.eS.slice(0, st.sa), ll:st.ll, sa:st.sa, mis0:S.mister, conf0:S.conf, forma0:S.forma};
+  var V=citaVentana(), st=citaEstado(), c=citaCuenta(st.ll, st.sa), noche=faseVicio("noche");
+  var D={jor:S.jornada, fase:(st.ll>0?"antes":"mister"), ronda:0, rondas:elegirDrills(V.doble?4:3), pts:0, log:[],
+         antes:[], despues:[], ll:st.ll, sa:st.sa, mis0:S.mister, conf0:S.conf, forma0:S.forma};
   if(noche>=1 && st.ll>0){
     D.noche=true;
     S.forma=clamp((S.forma===undefined?70:S.forma)-3*st.ll,20,100);
@@ -2129,10 +2100,32 @@ function empezarDia(){
   }
   S.rachaExtra = c.ded>=2? (S.rachaExtra||0)+1 : 0;
   S.puntualSem=S.jornada;
-  st.eL.slice(0, st.ll).forEach(function(id){ var r=sesionDia(id,false); if(r) D.antes.push(r); });
   S.dia=D;
-  regSemana("puntualidad", "llegada-"+st.ll+"["+st.eL.join("+")+"]-salida-"+st.sa+"["+st.eS.join("+")+"]");
-  CITA_UI={jor:-1, ll:0, sa:0, eL:[], eS:[]};
+  regSemana("puntualidad", "llegada-"+st.ll+"-salida-"+st.sa);
+  CITA_UI={jor:-1, ll:0, sa:0};
+  guardar();
+  irSub("equipo","entreno");
+}
+/* tocar una sesión en el hueco que toca: antes del entreno o después */
+function diaSesion(id){
+  var D=S && S.dia; if(!D || D.jor!==S.jornada || S.lesion>0) return;
+  if(D.fase==="antes" && D.antes.length<D.ll){
+    var r=sesionDia(id,false); if(r) D.antes.push(r);
+    if(D.antes.length>=D.ll) D.fase="mister";
+  } else if(D.fase==="despues" && D.despues.length<D.sa){
+    var esExtra=(D.antes.length+D.despues.length+1)>=4;   /* la cuarta del día rinde más y arriesga */
+    var r2=sesionDia(id,esExtra); if(r2) D.despues.push(r2);
+    if(D.despues.length>=D.sa) finDia();
+  } else return;
+  guardar();
+  irSub("equipo","entreno");
+}
+/* pasar un hueco sin hacer nada (la hora cuenta igual: estabas allí) */
+function diaSaltar(){
+  var D=S && S.dia; if(!D || D.jor!==S.jornada) return;
+  if(D.fase==="antes"){ D.antes.push({n:"Hueco libre", sub:"sin sesión", libre:true}); if(D.antes.length>=D.ll) D.fase="mister"; }
+  else if(D.fase==="despues"){ D.despues.push({n:"Hueco libre", sub:"sin sesión", libre:true}); if(D.despues.length>=D.sa) finDia(); }
+  else return;
   guardar();
   irSub("equipo","entreno");
 }
@@ -2152,7 +2145,7 @@ function entMisterElige(j){
   D.pts+=sc;
   D.log.push({n:dr.n, op:o.l, ok:ok, txt:ok?o.ok:o.ko, gan:gan, dif:o.dif});
   D.ronda++;
-  if(D.ronda>=D.rondas.length) finDia();
+  if(D.ronda>=D.rondas.length){ cerrarMister(D); if(D.sa>0) D.fase="despues"; else finDia(); }
   guardar();
   irSub("equipo","entreno");
 }
@@ -2160,37 +2153,72 @@ function notaEntreno(D){
   var N=Math.max(1, D.rondas.length);
   return Math.round(clamp(4.5+(D.pts/(3*N))*5, 3, 10)*10)/10;
 }
-function finDia(auto){
-  var D=S.dia; if(!D || D.fase==="fin") return;
-  var antesTotal=D.antes.length;
-  (D.eS||[]).forEach(function(id,i){ var r=sesionDia(id, (antesTotal+i+1)>=4); if(r) D.despues.push(r); });
+/* la nota del entreno del míster: se decide al acabar sus ejercicios */
+function cerrarMister(D, aMedias){
+  if(D.nota!=null) return;
   D.nota=notaEntreno(D);
-  if(auto && D.ronda<D.rondas.length) D.nota=Math.min(D.nota, 4.5);   /* dejarlo a medias se paga */
-  var dm=Math.round((D.nota-6)*1.5), dc=Math.round((D.nota-6)*1.2);
-  S.mister=clamp(S.mister+dm,5,95);
-  S.conf=clamp((S.conf||55)+dc,5,95);
+  if(aMedias) D.nota=Math.min(D.nota, 4.5);   /* dejarlo a medias se paga */
+  S.mister=clamp(S.mister+Math.round((D.nota-6)*1.5),5,95);
+  S.conf=clamp((S.conf||55)+Math.round((D.nota-6)*1.2),5,95);
   S.entMister={jor:S.jornada, nota:D.nota};
+}
+function finDia(){
+  var D=S.dia; if(!D || D.fase==="fin") return;
+  if(D.nota==null) cerrarMister(D, D.ronda<D.rondas.length);
   D.fase="fin";
   S.avisoMercado = D.nota>=7.5? "El míster te señala al terminar: «Así, todos los días.»"
                  : D.nota>=6? "Entreno serio. Cumples."
                  : "El míster te mira al salir y no dice nada. Mal día para dar que hablar.";
 }
-/* si llega el partido y no has hecho el entreno del míster, se resuelve solo (y mal) */
+/* si llega el partido sin terminar el día, se cierra solo (lo que no hiciste, no cuenta) */
 function cerrarEntrenoPendiente(){
   if(!S || S.lesion>0 || !S.contrato) return;
-  if(S.dia && S.dia.jor===S.jornada){ if(S.dia.fase!=="fin") finDia(true); return; }
+  if(S.dia && S.dia.jor===S.jornada){ if(S.dia.fase!=="fin") finDia(); return; }
   S.dia={jor:S.jornada, fase:"fin", rondas:[], ronda:0, pts:0, log:[], antes:[], despues:[], nota:4, auto:true};
   S.entMister={jor:S.jornada, nota:4, auto:true};
   S.mister=clamp(S.mister-3,5,95);
   S.avisoMercado="No te ve en el entreno de la semana. El míster lo apunta.";
 }
+/* el camino del día: dónde estás y qué queda */
+function diaPasos(D){
+  var p=[];
+  if(D.ll) p.push({k:"antes", t:"🌅 Antes "+D.antes.length+"/"+D.ll});
+  p.push({k:"mister", t:"⚽ Míster "+Math.min(D.ronda,D.rondas.length)+"/"+D.rondas.length});
+  if(D.sa) p.push({k:"despues", t:"🌙 Después "+D.despues.length+"/"+D.sa});
+  var orden=["antes","mister","despues","fin"], ya=orden.indexOf(D.fase);
+  return '<div style="display:flex;gap:6px;margin:0 0 12px;flex-wrap:wrap">'+p.map(function(x){
+    var i=orden.indexOf(x.k), est= i<ya? "opacity:.55" : i===ya? "border-color:var(--gold);color:var(--gold)" : "opacity:.35";
+    return '<span class="chip" style="pointer-events:none;padding:4px 10px;font-size:12px;'+est+'">'+x.t+'</span>';
+  }).join("")+'</div>';
+}
+function diaFilas(lista, ico){
+  return lista.map(function(h){ return '<div class="row2"><span>'+ico+' '+(h.extra?"➕ ":"")+esc(h.n)+'</span><b class="note" style="color:'+(h.libre?"#8891AA":"var(--gold)")+';text-align:right;max-width:58%">'+esc(h.sub)+'</b></div>'; }).join("");
+}
+function diaMisterFilas(D, conTexto){
+  return D.log.map(function(l){ return '<div class="row2"><span>'+(l.ok?"✓ ":"✗ ")+esc(l.n)+'</span><b class="note" style="text-align:right;max-width:60%;color:'+(l.ok?"var(--ok)":"var(--bad)")+'">'+esc(conTexto?l.txt:l.op)+(l.gan?" · "+esc(l.gan):"")+'</b></div>'; }).join("");
+}
 function entMisterHTML(){
-  var D=S.dia, H='<div class="card" style="border-color:var(--gold)">';
-  if(D.fase==="mister"){
-    var dr=drillPorId(D.rondas[D.ronda]), V=citaVentana();
-    H+='<div class="eyebrow">Entreno del míster · ejercicio '+(D.ronda+1)+' de '+D.rondas.length+'</div>';
-    if(D.antes.length) H+='<p class="note" style="margin:0 0 6px">Antes: '+esc(D.antes.map(function(x){return x.n;}).join(" · "))+'</p>';
-    D.log.forEach(function(l){ H+='<div class="row2"><span>'+(l.ok?"✓ ":"✗ ")+esc(l.n)+'</span><b class="note" style="text-align:right;max-width:60%;color:'+(l.ok?"var(--ok)":"var(--bad)")+'">'+esc(l.txt)+(l.gan?" ("+esc(l.gan)+")":"")+'</b></div>'; });
+  var D=S.dia, V=citaVentana(), H='<div class="card" style="border-color:var(--gold)">';
+  if(D.fase==="antes" || D.fase==="despues"){
+    var antes=D.fase==="antes", hecho=antes? D.antes.length : D.despues.length, tot=antes? D.ll : D.sa;
+    var extra=!antes && (D.antes.length+D.despues.length+1)>=4;
+    var hora=antes? horaFmt(V.llamada-D.ll+hecho) : horaFmt(V.fin+hecho);
+    H+='<div class="eyebrow">'+(antes?"Antes del entreno":"Después del entreno")+' · sesión '+(hecho+1)+' de '+tot+'</div>'+diaPasos(D);
+    if(!antes){ H+='<p class="note" style="margin:0 0 6px">Entreno del míster: nota <b style="color:var(--gold)">'+String(D.nota).replace(".",",")+'</b></p>'; }
+    H+=diaFilas(antes? D.antes : D.despues, antes?"🌅":"🌙");
+    H+='<p style="margin:8px 0 6px">Son las <b>'+hora+'</b>. ¿Qué haces en esta hora?</p>';
+    if(extra) H+='<p class="note" style="margin:0 0 6px;color:var(--bad)">Cuarta sesión del día: rinde más, pero puedes pasarte de carga.</p>';
+    var rec=recomendacion();
+    if(rec) H+='<div class="recbox">🧑‍🏫 <b>El preparador:</b> «'+esc(rec.motivo)+'.» Te propone <b>'+esc(nombreEj(rec.ej))+'</b>, pero decides tú.</div>';
+    H+='<p class="note" style="margin:8px 0 4px">Específicos de '+esc(POS[S.pos].n.toLowerCase())+'</p><div class="ejgrid">';
+    entrenosDisp().filter(function(x){return !esGeneral(x);}).forEach(function(x){ H+=ejCarta(x,rec,extra); });
+    H+='</div><p class="note" style="margin:10px 0 4px">Generales</p><div class="ejgrid">';
+    entrenosDisp().filter(esGeneral).forEach(function(x){ H+=ejCarta(x,rec,extra); });
+    H+='</div><button class="ghost" style="margin-top:10px" onclick="diaSaltar()">Dejar esta hora libre</button>';
+  } else if(D.fase==="mister"){
+    var dr=drillPorId(D.rondas[D.ronda]);
+    H+='<div class="eyebrow">Entreno del míster · ejercicio '+(D.ronda+1)+' de '+D.rondas.length+'</div>'+diaPasos(D);
+    H+=diaFilas(D.antes,"🌅")+diaMisterFilas(D,true);
     H+='<h3 class="disp" style="margin:10px 0 4px">'+esc(dr.n)+'</h3><p class="note" style="margin:0 0 10px">'+esc(dr.d)+'</p>';
     dr.ops.forEach(function(o,j){
       H+='<button class="opt" onclick="entMisterElige('+j+')"><b>'+esc(o.l)+'</b><small>'+DRILL_RIESGO[o.dif]+' · '+esc(ATTR[o.a].n)+' '+Math.round(atr(o.a))+'</small></button>';
@@ -2202,9 +2230,7 @@ function entMisterHTML(){
     if(D.auto){
       H+='<p style="margin:0">No hiciste el entreno del míster esta semana. Nota <b>4</b>.</p>';
     } else {
-      if(D.antes.length) D.antes.forEach(function(h){ H+='<div class="row2"><span>🌅 '+esc(h.n)+'</span><b class="note" style="color:var(--gold);text-align:right;max-width:58%">'+esc(h.sub)+'</b></div>'; });
-      D.log.forEach(function(l){ H+='<div class="row2"><span>'+(l.ok?"✓ ":"✗ ")+esc(l.n)+'</span><b class="note" style="text-align:right;max-width:58%;color:'+(l.ok?"var(--ok)":"var(--bad)")+'">'+esc(l.op)+(l.gan?" · "+esc(l.gan):"")+'</b></div>'; });
-      if(D.despues.length) D.despues.forEach(function(h){ H+='<div class="row2"><span>🌙 '+(h.extra?"➕ ":"")+esc(h.n)+'</span><b class="note" style="color:var(--gold);text-align:right;max-width:58%">'+esc(h.sub)+'</b></div>'; });
+      H+=diaFilas(D.antes,"🌅")+diaMisterFilas(D,false)+diaFilas(D.despues,"🌙");
       H+='<p style="margin:10px 0 0">Nota del entreno: <b style="color:var(--gold)">'+String(D.nota).replace(".",",")+'</b>'
         +' · Míster '+citaSigno(S.mister-(D.mis0||S.mister))+' · Confianza '+citaSigno((S.conf||0)-(D.conf0||S.conf||0))+'</p>';
     }
