@@ -14,7 +14,7 @@ console.log("  — mal partido —"); vocesPartido().forEach(function(v){ consol
 __ok(vocesPartido().some(function(v){ return /olvidar|no estuvo|banquillo|alguien|no ha sido|pido más|currar|cabeza/i.test(v.t); }), "un 4,2 se critica");
 jugar(null, [1,0], "sin minutos");
 console.log("  — sin jugar —"); vocesPartido().forEach(function(v){ console.log("  "+v.de+": "+v.t); });
-__ok(vocesPartido().length===2 && /inédito|Ni un minuto/.test(vocesPartido()[0].t), "sin jugar: hablan de tu ausencia");
+__ok(vocesPartido().length===1 && /inédito|Ni un minuto/.test(vocesPartido()[0].t), "sin jugar: hablan de tu ausencia");
 S.jornada++; __ok(vocesPartido().length===0, "la semana siguiente sin partido nuevo, desaparecen");
 S.publico={afic:20, prensa:20, seg:100}; S.jornada--; S.hist.pop(); jugar({nota:7, g:1, a:0, p:0, min:90, rs:1}, [1,0]);
 console.log("  — buen partido, prensa y grada en contra —"); vocesPartido().forEach(function(v){ console.log("  "+v.de+": "+v.t); });

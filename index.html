@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.014";
+var VERSION="0.03.015";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -2323,66 +2323,76 @@ function vozRng(semilla){
   for(var i=0;i<semilla.length;i++){ h^=semilla.charCodeAt(i); h=Math.imul(h,16777619)>>>0; }
   return function(){ h=(Math.imul(h^(h>>>15),2246822507)+0x9e3779b9)>>>0; return (h>>>0)/4294967296; };
 }
+function vozElige(arr,r,vistas){
+  var L=arr.filter(function(x){ return vistas.indexOf(x)<0; });
+  if(!L.length) L=arr;
+  return L[Math.floor(r()*L.length)];
+}
+/* Solo hablan las voces con algo que decir (máximo 2; 3 tras una gran actuación).
+   Cada frase se usa una vez y no vuelve a salir en la carrera. Fijas durante la semana. */
 function vocesPartido(){
   if(!S || !S.hist || !S.hist.length || !S.jornada) return [];
   var h=S.hist[S.hist.length-1];
   if(!h || h.jor!==S.jornada) return [];                  /* solo la semana siguiente al partido */
-  var r=vozRng((S.temporada||1)+"-"+h.jor+"-"+(S.nombre||"")), P=pub();
+  var clave=(S.temporada||1)+"-"+h.jor;
+  if(S.vocesClave===clave && S.vocesElegidas) return S.vocesElegidas;
+  var r=vozRng(clave+"-"+(S.nombre||"")), P=pub(), vistas=S.vocesVistas||[];
   var yo=h.yo, nom=S.nombre||"el chaval", riv=(EQ[h.rival]&&EQ[h.rival].c)||"el rival";
   var res=h.sc[0]-h.sc[1], marc=h.sc[0]+"–"+h.sc[1];
-  var out=[], compi=(function(){ var L=compis().filter(function(x){ return x.n && x.n!==S.nombre; }); return L.length? pick2(L,r).n : "un veterano"; })();
-  var mnom=mister_n();
+  var compi=(function(){ var L=compis().filter(function(x){ return x.n && x.n!==S.nombre; }); return L.length? pick2(L,r).n : "un veterano"; })();
+  var mnom=mister_n(), el=function(arr){ return vozElige(arr,r,vistas); };
+  var cand=[], max=2, banda=null;
+
   if(!yo){
     var motivo=h.sinTi||"decisión técnica";
-    out.push({de:"Prensa", col:"#4FA3FF", t:pick2([
+    cand.push({p:50, de:"Prensa", col:"#4FA3FF", t:el([
       "«"+nom+", inédito ante el "+riv+" ("+marc+"). El míster no le encuentra sitio.»",
-      "«Ni un minuto para "+nom+". "+(motivo==="sin minutos"?"Calentó y se volvió a sentar.":"El cuerpo técnico habla de "+motivo+".")+"»"],r)});
-    out.push({de:"La grada", col:"#4ADE80", t:pick2(P.afic>=55?
-      ["«Que juegue "+nom+" de una vez, que el banquillo no le pega.»","«No entiendo cómo "+nom+" no sale ni diez minutos.»"]
-      :["«Si no juega, por algo será.»","«"+nom+" tendrá que ganárselo en los entrenos.»"],r)});
-    return out;
+      "«Ni un minuto para "+nom+". "+(motivo==="sin minutos"?"Calentó y se volvió a sentar.":"El cuerpo técnico habla de "+motivo+".")+"»"])});
+  } else {
+    var n=yo.nota;
+    banda= n>=8? "top" : n>=6.5? "bien" : n>=5.5? "normal" : "mal";
+    var hecho= yo.g>1? "con doblete" : yo.g===1? "con gol" : yo.a>1? "con "+yo.a+" asistencias" : yo.a===1? "con una asistencia" : (S.pos==="POR"&&yo.p>=4)? "con "+yo.p+" paradas" : "";
+    var cabeza= P.prensa>=65? "favorable" : P.prensa<=35? "hostil" : "neutra";
+    if(banda==="top") max=3;
+
+    if(yo.tr){
+      cand.push({p:95, de:"Prensa", col:"#4FA3FF", t:el(["«La roja de "+nom+" condicionó el partido. Imperdonable.»","«Diez minutos menos y un partido perdido. Así no se gana.»"])});
+      cand.push({p:85, de:"El míster", quien:mnom, col:"#FFC24B", t:el(["«Con diez no hay partido. "+nom+" tiene que controlarse.»","«La roja nos ha costado el partido. Hablaré con él.»"])});
+    } else if(banda==="top"){
+      var PR=[ "«Exhibición de "+nom+" "+hecho+". El "+riv+" no supo pararle.»",
+               "«"+nom+" firma el partido de la jornada"+(hecho?" "+hecho:"")+": "+String(n).replace(".",",")+" en nuestra crónica.»",
+               "«Hay jugador. "+nom+" se echa el equipo a la espalda ("+marc+").»" ];
+      if(cabeza==="hostil") PR=["«Hasta "+nom+" tuvo su día. No nos acostumbremos.»","«"+nom+" cumple, que ya es noticia.»"];
+      cand.push({p:80, de:"Prensa", col:"#4FA3FF", t:el(PR)});
+      cand.push({p:70, de:"El míster", quien:mnom, col:"#FFC24B", t:el([
+        "«No voy a hablar de individualidades… bueno, de "+nom+" sí. Hoy ha sido diferente.»",
+        "«"+nom+" ha hecho lo que le pedimos y más.»"])});
+      var GR0=(yo.g? "Ese gol" : "Ese partido")+" de "+nom;
+      cand.push({p:60, de:"La grada", col:"#4ADE80", t:el(["«"+nom+" es otra cosa. Que le renueven YA.»","«Pagaría la entrada solo por ver a "+nom+".»","«"+GR0+" lo cuento a mis nietos.»"])});
+    } else if(banda==="bien"){
+      if(hecho) cand.push({p:45, de:"Prensa", col:"#4FA3FF", t:el(["«Buen partido de "+nom+" "+hecho+". Cumple y algo más.»","«"+nom+", de lo mejor de los suyos ante el "+riv+".»"])});
+      if(P.afic>=70) cand.push({p:35, de:"La grada", col:"#4ADE80", t:el(["«Me gusta "+nom+". Tiene cosas.»","«"+nom+" va a más, se nota.»"])});
+    } else if(banda==="mal"){
+      cand.push({p:65, de:"Prensa", col:"#4FA3FF", t:el(cabeza==="favorable"
+        ? ["«Un mal día lo tiene cualquiera. "+nom+" volverá.»","«"+nom+", lejos de su nivel. Excepción, no regla.»"]
+        : ["«Tarde para olvidar de "+nom+". El "+riv+" le pasó por encima.»","«"+nom+" no estuvo. Ni con balón ni sin él.»"])});
+      cand.push({p:55, de:"La grada", col:"#4ADE80", t:el(P.afic>=70
+        ? ["«Hoy no, pero con "+nom+" a muerte.»","«Un mal día. Seguimos contigo, "+nom+".»"]
+        : ["«"+nom+" al banquillo ya.»","«¿Alguien ha visto a "+nom+" hoy? Yo tampoco.»"])});
+      cand.push({p:40, de:"El míster", quien:mnom, col:"#FFC24B", t:el(["«Hoy no ha sido su día. Lo hablaremos dentro.»","«A "+nom+" le pido más. Y a todos.»"])});
+    }
+    /* vestuario o rival: solo si hubo goles, asistencias o una gran actuación */
+    if(banda && (banda==="top" || yo.g || yo.a) && !yo.tr){
+      cand.push({p:res<0?30:35, de:res<0?"El rival":"El vestuario", col:"#C084FC", t: res<0
+        ? el(["«Su "+(POS[S.pos].n||"jugador").toLowerCase()+" nos ha hecho daño todo el partido. Hay que seguirle.»","«"+nom+"? Muy bueno. No le dejamos respirar y aun así.»"])
+        : el(["«Con "+nom+" así, esto es más fácil» ("+compi+").","«Le dije en el descanso que hoy era su día» ("+compi+").", "«Hoy tiraba él. Y acertó» ("+compi+")."])});
+    }
   }
-  var n=yo.nota, banda= n>=8? "top" : n>=6.5? "bien" : n>=5.5? "normal" : "mal";
-  var hecho= yo.g>1? "con doblete" : yo.g===1? "con gol" : yo.a>1? "con "+yo.a+" asistencias" : yo.a===1? "con una asistencia" : (S.pos==="POR"&&yo.p>=4)? "con "+yo.p+" paradas" : "";
-  /* prensa: el tono depende de cómo te trata */
-  var cabeza= P.prensa>=65? "favorable" : P.prensa<=35? "hostil" : "neutra";
-  var PR={
-    top:["«Exhibición de "+nom+" "+hecho+". El "+riv+" no supo pararle.»","«"+nom+" firma el partido de la jornada"+(hecho?" "+hecho:"")+": "+String(n).replace(".",",")+" en nuestra crónica.»","«Hay jugador. "+nom+" se echa el equipo a la espalda ("+marc+").»"],
-    bien:["«Buen partido de "+nom+(hecho?" "+hecho:"")+". Cumple y algo más.»","«"+nom+", de lo mejor de los suyos ante el "+riv+".»"],
-    normal:["«"+nom+", correcto sin más ante el "+riv+".»","«Partido gris de "+nom+": ni frío ni calor.»"],
-    mal:["«Tarde para olvidar de "+nom+". El "+riv+" le pasó por encima.»","«"+nom+" no estuvo. Ni con balón ni sin él.»"]
-  };
-  var pr=pick2(PR[banda],r);
-  if(cabeza==="hostil" && banda!=="mal") pr=pick2(["«Hasta "+nom+" tuvo su día. No nos acostumbremos.»","«"+nom+" cumple, que ya es noticia.»"],r);
-  if(cabeza==="favorable" && banda==="mal") pr=pick2(["«Un mal día lo tiene cualquiera. "+nom+" volverá.»","«"+nom+", lejos de su nivel. Excepción, no regla.»"],r);
-  if(yo.tr) pr="«La roja de "+nom+" condicionó el partido. Imperdonable.»";
-  out.push({de:"Prensa", col:"#4FA3FF", t:pr});
-  /* la grada en redes */
-  var GR={
-    top:["«"+nom+" es otra cosa. Que le renueven YA.»","«Pagaría la entrada solo por ver a "+nom+".»","«"+(yo.g?"Ese gol":"Ese partido")+" de "+nom+" lo cuento a mis nietos.»"],
-    bien:["«Me gusta "+nom+". Tiene cosas.»","«"+nom+" va a más, se nota.»"],
-    normal:["«"+nom+" ni fu ni fa. Hay que pedirle más.»","«Ni bien ni mal. Siguiente.»"],
-    mal:["«"+nom+" al banquillo ya.»","«¿Alguien ha visto a "+nom+" hoy? Yo tampoco.»"]
-  };
-  var gr=pick2(GR[banda],r);
-  if(P.afic>=70 && banda==="mal") gr=pick2(["«Hoy no, pero con "+nom+" a muerte.»","«Un mal día. Seguimos contigo, "+nom+".»"],r);
-  if(P.afic<=30 && banda!=="mal" && banda!=="top") gr=pick2(["«No me convence. Ni hoy.»","«Un buen día no tapa todo lo demás.»"],r);
-  out.push({de:"La grada", col:"#4ADE80", t:gr});
-  /* el míster en rueda de prensa */
-  var MI={
-    top:["«No voy a hablar de individualidades… bueno, de "+nom+" sí. Hoy ha sido diferente.»","«"+nom+" ha hecho lo que le pedimos y más.»"],
-    bien:["«Estoy contento con "+nom+". Va en la línea que queremos.»","«"+nom+" ha cumplido. A seguir.»"],
-    normal:["«"+nom+" puede dar más y lo sabe.»","«Correcto. Nos quedamos con lo bueno.»"],
-    mal:["«Hoy no ha sido su día. Lo hablaremos dentro.»","«A "+nom+" le pido más. Y a todos.»"]
-  };
-  out.push({de:"El míster", quien:mnom, col:"#FFC24B", t:pick2(MI[banda],r)});
-  /* alguien del vestuario o del rival, solo si hay algo que contar */
-  if(banda==="top" || yo.g || yo.a)
-    out.push({de:res<0?"El rival":"El vestuario", col:"#C084FC", t: res<0
-      ? pick2(["«Su "+(POS[S.pos].n||"jugador").toLowerCase()+" nos ha hecho daño todo el partido. Hay que seguirle.»","«"+nom+"? Muy bueno. No le dejamos respirar y aun así.»"],r)
-      : pick2(["«Con "+nom+" así, esto es más fácil» ("+compi+").","«Le dije en el descanso que hoy era su día» ("+compi+")."],r)});
-  else if(banda==="mal")
-    out.push({de:"El vestuario", col:"#C084FC", t:pick2(["«Mañana a currar, que el domingo hay otra» ("+compi+").","«Le hemos dicho que la cabeza alta» ("+compi+")."],r)});
+  cand.sort(function(a,b){ return b.p-a.p; });
+  var out=cand.slice(0,max);
+  S.vocesClave=clave;
+  S.vocesElegidas=out;
+  S.vocesVistas=vistas.concat(out.map(function(v){ return v.t; })).slice(-60);
   return out;
 }
 function mister_n(){ var m=mister(); return (m&&m.n)? m.n : "El míster"; }
