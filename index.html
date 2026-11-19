@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.010";
+var VERSION="0.03.011";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -8722,31 +8722,44 @@ function bonusTienda(){
 }
 function misterHit(d){ S.mister=clamp(S.mister - d*bonusTienda().amortMister, 5, 95); }
 /* ===== EL MÍSTER TAMBIÉN HABLA ENTRE SEMANA: no solo cifras, también un despacho ===== */
+/* por qué no juegas, en palabras del míster: el factor que más pesa en la convocatoria */
+function motivoBanquillo(){
+  var mia=Math.round(miMedia()), riv=compis().filter(function(x){ return x.pos===S.pos && !x.lesion && !x.sancion; })
+    .sort(function(a,b){ return b.media-a.media; })[0];
+  var forma=Math.round(S.forma===undefined?70:S.forma), nota=(S.entMister && S.entMister.jor===S.jornada)? S.entMister.nota : null;
+  var m=[];
+  if(riv && riv.media>mia) m.push({p:(riv.media-mia)*1.2, t:esc(riv.n)+" está por delante: tiene "+riv.media+" de media y tú "+mia+"."});
+  if(forma<62) m.push({p:(62-forma)/4, t:"Te veo justo de piernas. Llegas a los partidos con la forma en "+forma+"."});
+  if(nota!=null && nota<5.5) m.push({p:(5.5-nota)*2, t:"En los entrenos no me das razones: esta semana, un "+String(nota).replace(".",",")+"."});
+  if(S.mister<50) m.push({p:(50-S.mister)/5, t:"Todavía no me fío de ti cuando el partido aprieta."});
+  m.sort(function(a,b){ return b.p-a.p; });
+  return m.length? m[0].t : "No es nada tuyo: ahora mismo el equipo funciona así y no quiero tocarlo.";
+}
 function conversacionMister(){
-  var e=estiloMister(), sin=jornadasSinJugar(), notas=notasRecientes(3);
+  var e=estiloMister(), sin=jornadasSinJugar(), notas=notasRecientes(3), mn=esc(mister().n);
   var brillas = notas.length>=2 && (notas.reduce(function(a,b){return a+b;},0)/notas.length)>=7.3;
   if(S.mister<40){
-    return {t:"Te llama a su despacho", x:"«"+e.n.split(" ")[0]+", cierra la puerta.» "+pick(["No le ha gustado tu actitud últimamente.","Nota que algo no va bien contigo.","Quiere las cosas claras, sin rodeos."]),
+    return {t:"Te llama a su despacho", x:mn+" te llama a su despacho y cierra la puerta. "+pick(["«No me está gustando tu actitud estas semanas.»","«Algo no va bien contigo y quiero saber qué es.»","«Vamos a hablar claro, sin rodeos.»"]),
       ops:[
         {l:"Escuchar y comprometerte", fx:function(){ S.mister=clamp(S.mister+6,5,95); tocarEje("disciplina",2); S.avisoMercado="Sales del despacho con los deberes claros."; regSemana("mister","comprometerte"); }},
         {l:"Defender tu versión", fx:function(){ var ok=rnd()<(0.35+eje("disciplina")/300); if(ok){ S.mister=clamp(S.mister+3,5,95); S.avisoMercado="Se queda pensando. Puede que tengas razón."; } else { S.mister=clamp(S.mister-4,5,95); tocarEje("temperamento",2); S.avisoMercado="No es lo que quería oír."; } regSemana("mister","defenderte"); }}
       ]};
   }
   if(sin>=2){
-    return {t:"Te explica por qué no cuentas", x:"«"+e.n.split(" ")[0]+" te para en el pasillo.» \"Sé que no estás jugando. Déjame que te lo explique.\"",
+    return {t:"Te explica por qué no cuentas", x:mn+" te para en el pasillo de la ciudad deportiva. Llevas "+sin+" partidos sin jugar. «Sé que te pesa, así que te lo digo a la cara. "+motivoBanquillo()+"»",
       ops:[
         {l:"Pedir minutos claros", fx:function(){ if(rnd()<0.5){ S.garantia=Math.max(S.garantia||0,3); S.avisoMercado="Te promete una ventana de minutos. Habrá que ganársela."; } else { S.avisoMercado="Te escucha, pero no promete nada."; } S.mister=clamp(S.mister+2,5,95); regSemana("mister","pedir-minutos"); }},
         {l:"Aceptar y seguir trabajando", fx:function(){ S.conf=clamp(S.conf+3,5,95); S.mister=clamp(S.mister+4,5,95); S.avisoMercado="Se va con buena cara. Se nota que valora la paciencia."; regSemana("mister","aceptar"); }}
       ]};
   }
   if(brillas && S.mister>=55){
-    return {t:"Quiere darte más peso", x:"«"+e.n.split(" ")[0]+" te busca tras el entreno.» \"Estás para más. ¿Te ves llevando más peso en el vestuario?\"",
+    return {t:"Quiere darte más peso", x:mn+" te busca al terminar el entreno. Tus últimos partidos salen a "+String(Math.round(notas.reduce(function(a,b){return a+b;},0)/notas.length*10)/10).replace(".",",")+" de media. «Estás para más. ¿Te ves llevando más peso en el vestuario?»",
       ops:[
         {l:"Aceptar el reto", fx:function(){ tocarEje("liderazgo",3); S.mister=clamp(S.mister+3,5,95); S.avisoMercado="Asientes. A partir de ahora, más se espera de ti."; regSemana("mister","aceptar-peso"); }},
         {l:"Mantener el perfil bajo", fx:function(){ S.avisoMercado="Prefieres seguir a lo tuyo. Él lo respeta."; regSemana("mister","perfil-bajo"); }}
       ]};
   }
-  return {t:"Charla de pasillo", x:"«"+e.n.split(" ")[0]+" se sienta a tu lado en el autobús.» "+pick(["Habla del rival del sábado, sin más.","Te pregunta por el vestuario, cómo lo ves.","Comenta la mania de siempre: "+esc(e.mania||pick(e.manias)).toLowerCase()+"."]),
+  return {t:"Charla en el autobús", x:mn+" se sienta a tu lado en el autobús del equipo. "+pick(["Habla del rival del domingo, sin más.","«¿Cómo ves el vestuario estos días?»","Saca su manía de siempre: "+esc(mister().mania||pick(e.manias||[""])).toLowerCase()+"."]),
     ops:[
       {l:"Seguirle la conversación", fx:function(){ S.mister=clamp(S.mister+3,5,95); tocarEje("companerismo",0.8); S.avisoMercado="Se anima con tus preguntas. Lo anota a tu favor."; regSemana("mister","charla"); }},
       {l:"Responder con monosílabos", fx:function(){ S.mister=clamp(S.mister-3,5,95); S.avisoMercado="Te despide con un gesto seco. Lo anota en contra."; regSemana("mister","distante"); }}
