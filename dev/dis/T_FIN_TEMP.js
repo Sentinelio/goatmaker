@@ -14,7 +14,7 @@ function html(){
   var cl=clasificacion(), pos=miPosicion();
   var dentro=cl.slice(0,4).concat(cl.slice(17)).some(function(r){ return r.id===yo; });
   var h=html();
-  var resaltado=(h.match(/◀ tú/g)||[]).length;
+  var resaltado=(h.match(/font-weight:700/g)||[]).length;
   __ok(dentro? resaltado===1 : resaltado===0, "tu equipo se marca solo si sale en las listas (sale="+dentro+", marcas="+resaltado+")");
   console.log("FIN_TEMP: "+__o+" ok · "+__f+" fallos (posición "+pos+")");
 })();
@@ -24,7 +24,7 @@ function html(){
   [1,18].forEach(function(idx){
     clasificacion=function(){ var c=orig().slice(); var k=c.findIndex(function(r){ return r.id===S.equipo; }); var f=c.splice(k,1)[0]; c.splice(idx,0,f); return c; };
     var h=html();
-    __ok((h.match(/◀ tú/g)||[]).length===1, "tu equipo en el puesto "+(idx+1)+" se resalta");
+    __ok((h.match(/font-weight:700/g)||[]).length===1, "tu equipo en el puesto "+(idx+1)+" se resalta");
     __ok(h.indexOf("font-weight:700")>0, "la fila resaltada va en negrita dorada");
   });
   clasificacion=orig;
