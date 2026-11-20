@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.015";
+var VERSION="0.03.016";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -8315,7 +8315,7 @@ function secTalentos(){
   var gastadoTotal=puntosTalentoGastados(), presu=talentoPresupuesto(), libres=Math.max(0, presu-gastadoTotal);
   if(!TAL_RAMA || TALENTO_ORDEN.indexOf(TAL_RAMA)<0) TAL_RAMA=TALENTO_ORDEN[0];
   var H='<div class="card" style="border-color:var(--gold)"><div class="eyebrow">Talentos</div>'
-    +'<p class="note" style="margin:0">Nivel '+(S.nivel||1)+' · '+gastadoTotal+' / '+presu+' puntos invertidos'
+    +'<p class="note" style="margin:0">'+gastadoTotal+' / '+presu+' puntos invertidos'
     +(libres>0? ' · <b style="color:var(--gold)">'+libres+' por asignar ahora mismo</b>' : ' · no te quedan puntos libres')+'</p></div>';
   H+='<div class="chips full" style="grid-template-columns:repeat(3,1fr)">'+TALENTO_ORDEN.map(function(rama){
     var g=0; TALENTOS[rama].nodes.forEach(function(n){ g+=talentoRango(rama,n.id); });
@@ -8413,6 +8413,10 @@ function secNivel(){
   H+='<div class="card" style="border-color:var(--gold)"><div class="eyebrow">Nivel '+S.nivel+(S.nivel>=99?" · TOPE":"")+'</div>'
     +'<div class="pubbar"><i style="width:'+pct+'%"></i></div>'
     +'<p class="note" style="margin:4px 2px 0">'+(S.nivel>=99? "Has llegado arriba del todo. Una carrera para la historia." : S.xp+" / "+falta+" XP para el nivel "+(S.nivel+1))+'</p></div>';
+  return H;
+}
+function secTecho(){
+  var H="";
   if((S.techoPend||0)>0){
     H+='<div class="card" style="border-color:var(--gold)"><div class="eyebrow">Puntos de techo sin asignar: '+S.techoPend+'</div>'
       +'<p class="note" style="margin:0 0 8px">Elige en qué atributo abres margen. Solo el entreno lo rellena de verdad — esto solo abre la puerta.</p>';
@@ -8436,6 +8440,7 @@ function secAtributos(){
       H+='<div class="row2"><span>'+esc(ATTR[a].n)+'</span><b class="note" style="max-width:60%;text-align:right">'+esc(ATTR[a].d)+'</b></div>';
     });
     H+='</div>';
+    H+=secTecho();
   
   return H;
 }
