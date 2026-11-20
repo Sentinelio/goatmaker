@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.019";
+var VERSION="0.03.020";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -1767,9 +1767,10 @@ function sk(campo){
    por edad pesa distinto según cuánto dependa tu puesto de ese atributo
    (un extremo pierde el techo de FIS mucho antes que un portero). ===== */
 function tasaDeclive(k){ return {TEC:0.35, FIS:1.0, TAC:0.30, DEF:0.55, MEN:0.20, POR:0.40}[k]||0.5; }
+var TECHO_BASE=68, TECHO_INC=0.5;   /* techo de partida y lo que sube por cada punto de nivel que asignas */
 function techoAtributoDe(k){
   if(!S) return 88;
-  var base=68, inc=0.28;
+  var base=TECHO_BASE, inc=TECHO_INC;
   var pts=(S.techos&&S.techos[k])||0;
   var techo=base+pts*inc;
   var e=S.edad||22;
@@ -1948,7 +1949,7 @@ function citaSigno(n){ return (n>0?"+":n<0?"−":"")+Math.abs(Math.round(n)); }
 function citaTextos(V, st){
   var c=citaCuenta(st.ll, st.sa), noche=faseVicio("noche"), n=st.ll+st.sa;
   var partes=[n? (n===1?"Una sesión tuya":n+" sesiones tuyas")+": las eliges al llegar a cada hueco" : "Solo el entreno del míster"];
-  if(c.ded>0 && !(noche>=1 && st.ll>0)) partes.push("Míster "+citaSigno(Math.round(c.ded*1.5))+" por las horas de más");
+  if(c.ded>0 && !(noche>=1 && st.ll>0)) partes.push("Míster hasta "+citaSigno(Math.round(c.ded*1.5))+" si usas esas horas");
   if(noche>=1 && st.ll>0) partes.push("madrugar con la noche encima: forma −"+(3*st.ll)+" y el míster lo nota");
   return {
     ll: st.ll? "Llegas a las "+horaFmt(V.llamada-st.ll)+" · "+st.ll+" h antes" : "Llegas a la hora ("+horaFmt(V.llamada)+")",
@@ -2070,12 +2071,9 @@ function empezarDia(){
     S.mister=clamp(S.mister-2*st.ll,5,95);
     S.puntualBonus=0;
   } else {
-    S.mister=clamp(S.mister+Math.round(c.ded*1.5),5,95);
-    if(st.sa>0) tocarEje("companerismo", 1.2);
-    if(c.ded>=3) tocarEje("disciplina", 1.4);
+    D.bonus=true;      /* el míster y el vestuario puntúan las horas USADAS: estar de cuerpo presente no da nada */
     S.puntualBonus=c.ded;
   }
-  S.rachaExtra = c.ded>=2? (S.rachaExtra||0)+1 : 0;
   S.puntualSem=S.jornada;
   S.dia=D;
   regSemana("puntualidad", "llegada-"+st.ll+"-salida-"+st.sa);
@@ -2083,21 +2081,33 @@ function empezarDia(){
   guardar();
   irSub("equipo","entreno");
 }
+/* sesiones tuyas de verdad (las horas libres no cuentan) */
+function diaReales(D){ return D.antes.concat(D.despues).filter(function(x){ return !x.libre; }).length; }
+/* lo que gana el día por cada sesión usada: míster +1.5 por sesión, disciplina con la tercera, compañerismo con la primera de después */
+function diaPremio(D, despues){
+  var n=diaReales(D);
+  if(D.bonus){
+    S.mister=clamp(S.mister+1.5,5,95);
+    if(despues && D.despues.filter(function(x){ return !x.libre; }).length===1) tocarEje("companerismo", 1.2);
+    if(n===3) tocarEje("disciplina", 1.4);
+  }
+  if(n===2) S.rachaExtra=(S.rachaExtra||0)+1;   /* dos sesiones tuyas en la semana = racha de carga */
+}
 /* tocar una sesión en el hueco que toca: antes del entreno o después */
 function diaSesion(id){
   var D=S && S.dia; if(!D || D.jor!==S.jornada || S.lesion>0) return;
   if(D.fase==="antes" && D.antes.length<D.ll){
-    var r=sesionDia(id,false); if(r) D.antes.push(r);
+    var r=sesionDia(id,false); if(r){ D.antes.push(r); diaPremio(D,false); }
     if(D.antes.length>=D.ll) D.fase="mister";
   } else if(D.fase==="despues" && D.despues.length<D.sa){
-    var esExtra=(D.antes.length+D.despues.length+1)>=4;   /* la cuarta del día rinde más y arriesga */
-    var r2=sesionDia(id,esExtra); if(r2) D.despues.push(r2);
+    var esExtra=(diaReales(D)+1)>=4;   /* la cuarta sesión REAL del día rinde más y arriesga */
+    var r2=sesionDia(id,esExtra); if(r2){ D.despues.push(r2); diaPremio(D,true); }
     if(D.despues.length>=D.sa) finDia();
   } else return;
   guardar();
   irSub("equipo","entreno");
 }
-/* pasar un hueco sin hacer nada (la hora cuenta igual: estabas allí) */
+/* pasar un hueco sin hacer nada (no suma míster ni cuenta como sesión) */
 function diaSaltar(){
   var D=S && S.dia; if(!D || D.jor!==S.jornada) return;
   if(D.fase==="antes"){ D.antes.push({n:"Hueco libre", sub:"sin sesión", libre:true}); if(D.antes.length>=D.ll) D.fase="mister"; }
@@ -2150,7 +2160,8 @@ function finDia(){
   var D=S.dia; if(!D || D.fase==="fin") return;
   if(D.nota==null) cerrarMister(D, D.ronda<D.rondas.length);
   D.fase="fin";
-  S.avisoMercado = D.nota>=7.5? "El míster te señala al terminar: «Así, todos los días.»"
+  if(diaReales(D)<2) S.rachaExtra=0;
+  S.avisoEntreno = D.nota>=7.5? "El míster te señala al terminar: «Así, todos los días.»"
                  : D.nota>=6? "Entreno serio. Cumples."
                  : "El míster te mira al salir y no dice nada. Mal día para dar que hablar.";
 }
@@ -2161,7 +2172,8 @@ function cerrarEntrenoPendiente(){
   S.dia={jor:S.jornada, fase:"fin", rondas:[], ronda:0, pts:0, log:[], antes:[], despues:[], nota:4, auto:true};
   S.entMister={jor:S.jornada, nota:4, auto:true};
   S.mister=clamp(S.mister-3,5,95);
-  S.avisoMercado="No te ve en el entreno de la semana. El míster lo apunta.";
+  S.rachaExtra=0;
+  S.avisoEntreno="No te ve en el entreno de la semana. El míster lo apunta.";
 }
 /* el camino del día: dónde estás y qué queda */
 function diaPasos(D){
@@ -2186,7 +2198,7 @@ function entMisterHTML(){
   var D=S.dia, V=citaVentana(), H='<div class="card" style="border-color:var(--gold)">';
   if(D.fase==="antes" || D.fase==="despues"){
     var antes=D.fase==="antes", hecho=antes? D.antes.length : D.despues.length, tot=antes? D.ll : D.sa;
-    var extra=!antes && (D.antes.length+D.despues.length+1)>=4;
+    var extra=!antes && (diaReales(D)+1)>=4;
     var hora=antes? horaFmt(V.llamada-D.ll+hecho) : horaFmt(V.fin+hecho);
     H+='<div class="eyebrow">'+(antes?"Antes del entreno":"Después del entreno")+' · sesión '+(hecho+1)+' de '+tot+'</div>'+diaPasos(D);
     if(!antes){ H+='<p class="note" style="margin:0 0 6px">Entreno del míster: nota <b style="color:var(--gold)">'+String(D.nota).replace(".",",")+'</b></p>'; }
@@ -8438,7 +8450,7 @@ function secAtributos(){
     H+='<p class="note" style="margin:0 0 8px;color:var(--ok)"><b>✔ '+esc(ATTR[TECHO_OK.k].n)+'</b>: techo '+TECHO_OK.de.toFixed(1)+' → '+TECHO_OK.a.toFixed(1)+' (+'+(TECHO_OK.a-TECHO_OK.de).toFixed(2)+')</p>';
     TECHO_OK=null;
   }
-  if(pend>0) H+='<p class="note" style="margin:0 0 4px">Puntos de techo sin asignar: <b style="color:var(--gold)">'+pend+'</b>. Pulsa <b>+ 1</b> en el atributo que quieras; cada punto sube su techo 0.28. Solo el entreno lo rellena de verdad.</p>';
+  if(pend>0) H+='<p class="note" style="margin:0 0 4px">Puntos de techo sin asignar: <b style="color:var(--gold)">'+pend+'</b>. Pulsa <b>+ 1</b> en el atributo que quieras; cada punto sube su techo '+TECHO_INC.toFixed(2)+'. Solo el entreno lo rellena de verdad.</p>';
   POSA.forEach(function(a){ H+=filaAtributo(a,pend); });
   H+='<p class="note" style="margin:10px 0 0">Se entrenan en Vida → Entrenamiento, tres sesiones por semana.</p></div>';
   return H;
@@ -10782,6 +10794,11 @@ function renderHub(){
     L+='<div class="card" style="border-color:rgba(255,194,75,.35)"><div class="eyebrow" style="color:var(--gold)">Mercado</div>'
       +'<p style="margin:0;font-size:14px">'+esc(S.avisoMercado)+'</p></div>';
     S.avisoMercado=null;
+  }
+  if(S.avisoEntreno){
+    L+='<div class="card" style="border-color:rgba(255,194,75,.35)"><div class="eyebrow" style="color:var(--gold)">Entreno</div>'
+      +'<p style="margin:0;font-size:14px">'+esc(S.avisoEntreno)+'</p></div>';
+    S.avisoEntreno=null;
   }
   if(S.renovado){
     L+='<div class="card" style="border-color:var(--ok)"><div class="eyebrow" style="color:var(--ok)">Renovación</div>'

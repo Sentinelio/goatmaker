@@ -11,9 +11,9 @@ function __ok(c,m){ if(c) __o++; else { __f++; console.log("✘ "+m); } }
   var cap=""; var orig=chRefreshUI_; chRefreshUI_=function(){ cap=secAtributos(); };
   sumarTecho("TEC");
   chRefreshUI_=orig;
-  __ok(Math.abs(techoAtributoDe("TEC")-(t0+0.28))<1e-9, "un clic sube el techo 0.28");
+  __ok(Math.abs(techoAtributoDe("TEC")-(t0+TECHO_INC))<1e-9, "un clic sube el techo lo que marca TECHO_INC");
   __ok(S.techoPend===2, "un punto menos disponible");
-  __ok(cap.indexOf("✔")>0 && cap.indexOf(t0.toFixed(1)+" → "+(t0+0.28).toFixed(1))>0, "feedback en el render: techo antes → después");
+  __ok(cap.indexOf("✔")>0 && cap.indexOf(t0.toFixed(1)+" → "+(t0+TECHO_INC).toFixed(1))>0, "feedback en el render: techo antes → después");
   __ok(secAtributos().indexOf("✔")<0, "el feedback se muestra una sola vez");
   chRefreshUI_=function(){}; sumarTecho("TEC"); sumarTecho("TEC");
   __ok(S.techoPend===0 && secAtributos().indexOf("+ 1")<0, "sin puntos no hay botones +");
