@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.017";
+var VERSION="0.03.018";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -8416,15 +8416,30 @@ function secNivel(){
   return H;
 }
 function chRefreshUI_(){ SUB.jugador="fisico"; irSec("jugador"); }
+var TECHO_OK=null;   /* feedback de la última asignación; se muestra una vez */
+function sumarTecho(k){
+  var antes=techoAtributoDe(k);
+  if(!asignarTecho(k)) return;
+  TECHO_OK={k:k, de:antes, a:techoAtributoDe(k)};
+  chRefreshUI_();
+}
+function filaAtributo(a,pend){
+  var t=techoAtributoDe(a);
+  var btn = pend>0 ? '<button class="opt" style="width:auto;min-width:44px;padding:6px 12px;margin:4px 0 0" onclick="sumarTecho(\''+a+'\')" aria-label="Sumar un punto de techo a '+esc(ATTR[a].n)+'">+ 1</button>' : '';
+  return '<div style="display:flex;gap:12px;align-items:center;margin:10px 0">'
+    +'<div style="flex:1;min-width:0">'+barraAttr(a)+'<div class="note" style="margin:2px 0 0">'+esc(ATTR[a].d)+'</div></div>'
+    +'<div style="text-align:right;flex:0 0 auto"><div class="note" style="font-size:12px;margin:0">Techo</div>'
+    +'<b class="mono" style="font-size:18px">'+t.toFixed(1)+'</b>'+(btn?'<div>'+btn+'</div>':'')+'</div></div>';
+}
 function secAtributos(){
   var pend=S.techoPend||0, POSA=ATTR_ORDEN.concat(S.pos==="POR"?["POR"]:[]);
   var H='<div class="card"'+(pend>0?' style="border-color:var(--gold)"':'')+'><div class="eyebrow">Atributos</div>';
-  if(pend>0) H+='<p class="note" style="margin:0 0 8px">Puntos de techo sin asignar: <b style="color:var(--gold)">'+pend+'</b>. Toca un atributo para abrirle margen. Solo el entreno lo rellena de verdad.</p>';
-  POSA.forEach(function(a){
-    var desc='<div class="note" style="margin:2px 0 0">'+esc(ATTR[a].d)+(pend>0? ' · techo '+techoAtributoDe(a).toFixed(1)+' · toca para +1' : '')+'</div>';
-    if(pend>0) H+='<button class="opt" style="width:100%;margin:6px 0" onclick="asignarTecho(\''+a+'\');chRefreshUI_();">'+barraAttr(a)+desc+'</button>';
-    else H+='<div style="margin:8px 0">'+barraAttr(a)+desc+'</div>';
-  });
+  if(TECHO_OK){
+    H+='<p class="note" style="margin:0 0 8px;color:var(--ok)"><b>✔ '+esc(ATTR[TECHO_OK.k].n)+'</b>: techo '+TECHO_OK.de.toFixed(1)+' → '+TECHO_OK.a.toFixed(1)+' (+'+(TECHO_OK.a-TECHO_OK.de).toFixed(2)+')</p>';
+    TECHO_OK=null;
+  }
+  if(pend>0) H+='<p class="note" style="margin:0 0 4px">Puntos de techo sin asignar: <b style="color:var(--gold)">'+pend+'</b>. Pulsa <b>+ 1</b> en el atributo que quieras; cada punto sube su techo 0.28. Solo el entreno lo rellena de verdad.</p>';
+  POSA.forEach(function(a){ H+=filaAtributo(a,pend); });
   H+='<p class="note" style="margin:10px 0 0">Se entrenan en Vida → Entrenamiento, tres sesiones por semana.</p></div>';
   return H;
 }
