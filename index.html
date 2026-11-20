@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.016";
+var VERSION="0.03.017";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -8415,33 +8415,17 @@ function secNivel(){
     +'<p class="note" style="margin:4px 2px 0">'+(S.nivel>=99? "Has llegado arriba del todo. Una carrera para la historia." : S.xp+" / "+falta+" XP para el nivel "+(S.nivel+1))+'</p></div>';
   return H;
 }
-function secTecho(){
-  var H="";
-  if((S.techoPend||0)>0){
-    H+='<div class="card" style="border-color:var(--gold)"><div class="eyebrow">Puntos de techo sin asignar: '+S.techoPend+'</div>'
-      +'<p class="note" style="margin:0 0 8px">Elige en qué atributo abres margen. Solo el entreno lo rellena de verdad — esto solo abre la puerta.</p>';
-    ATTR_ORDEN.concat(S.pos==="POR"?["POR"]:[]).forEach(function(a){
-      H+='<button class="opt" onclick="asignarTecho(\''+a+'\');chRefreshUI_();"><b>'+esc(ATTR[a].n)+'</b><small>techo actual '+techoAtributoDe(a).toFixed(1)+' · '+esc(ATTR[a].d)+'</small></button>';
-    });
-    H+='</div>';
-  }
-  return H;
-}
 function chRefreshUI_(){ SUB.jugador="fisico"; irSec("jugador"); }
 function secAtributos(){
-  var H="";
-
-    H+='<div class="card"><div class="eyebrow">Atributos</div>';
-    ATTR_ORDEN.forEach(function(a){ H+=barraAttr(a); });
-    if(S.pos==="POR") H+=barraAttr("POR");
-    H+='<p class="note" style="margin:10px 0 0">Se entrenan en Vida → Entrenamiento, tres sesiones por semana.</p></div>';
-    H+='<div class="card"><div class="eyebrow">Qué hace cada uno</div>';
-    ATTR_ORDEN.concat(S.pos==="POR"?["POR"]:[]).forEach(function(a){
-      H+='<div class="row2"><span>'+esc(ATTR[a].n)+'</span><b class="note" style="max-width:60%;text-align:right">'+esc(ATTR[a].d)+'</b></div>';
-    });
-    H+='</div>';
-    H+=secTecho();
-  
+  var pend=S.techoPend||0, POSA=ATTR_ORDEN.concat(S.pos==="POR"?["POR"]:[]);
+  var H='<div class="card"'+(pend>0?' style="border-color:var(--gold)"':'')+'><div class="eyebrow">Atributos</div>';
+  if(pend>0) H+='<p class="note" style="margin:0 0 8px">Puntos de techo sin asignar: <b style="color:var(--gold)">'+pend+'</b>. Toca un atributo para abrirle margen. Solo el entreno lo rellena de verdad.</p>';
+  POSA.forEach(function(a){
+    var desc='<div class="note" style="margin:2px 0 0">'+esc(ATTR[a].d)+(pend>0? ' · techo '+techoAtributoDe(a).toFixed(1)+' · toca para +1' : '')+'</div>';
+    if(pend>0) H+='<button class="opt" style="width:100%;margin:6px 0" onclick="asignarTecho(\''+a+'\');chRefreshUI_();">'+barraAttr(a)+desc+'</button>';
+    else H+='<div style="margin:8px 0">'+barraAttr(a)+desc+'</div>';
+  });
+  H+='<p class="note" style="margin:10px 0 0">Se entrenan en Vida → Entrenamiento, tres sesiones por semana.</p></div>';
   return H;
 }
 function secCuentas(){
