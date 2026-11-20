@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.021";
+var VERSION="0.03.022";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -2027,7 +2027,163 @@ function opsEntreno(sit){
   sit.o.forEach(function(o,i){ if(o.cond) return; if(o.skill && !tieneSkill(o.skill)) return; ids.push(i); });
   return ids;
 }
-function sitsBancoEntreno(){ return SITS.concat(SITS_CLUTCH||[], [SIT_PEN_L, SIT_PEN_P]); }
+/* jugadas SOLO para el entreno del míster (no salen en partido): cubren los puestos con menos situaciones propias */
+var SITS_ENTRENO_EXTRA=[
+ {id:"ent-dc-espalda", pos:["DC"],
+  t:"Balón largo a tu espalda",
+  x:"El central se gira tarde y el balón cae a tu espalda con el defensa ya encima. Tienes medio segundo para decidir.",
+  o:[
+   {l:"Controlar y girarte hacia la portería", fx:{inst:{gol:0.2}, nota:2},
+    ok:"Controlas con el pecho, te giras y el central se queda sentado. Ocasión clara.",
+    ko:"El control sale largo y el central te roba sin problema.",
+    mid:"Te giras, pero el central llega a tiempo y despeja."},
+   {l:"Pasar al hueco que se abre a tu lado", fx:{inst:{asis:0.2}, nota:1},
+    ok:"Un toque al hueco y el compañero llega solo. Sencillo y eficaz.",
+    ko:"El pase llega sin fuerza y se lo quedan.",
+    mid:"El compañero llega tarde, pero la jugada sigue viva."},
+   {l:"Protegerlo de espaldas y esperar apoyo", fx:{nota:0},
+    ok:"Aguantas el cuerpo, el apoyo llega y el balón vuelve a tu pie.",
+    ko:"Te empuja y pierdes el balón sin que nadie lo recoja.",
+    mid:"Aguantas, pero el balón se queda sin dueño durante un momento."}
+  ]},
+ {id:"ent-dc-cabeza", pos:["DC"],
+  t:"Centro desde la banda, de pie al segundo palo",
+  x:"El lateral centra raso al segundo palo. Tienes que decidir entre rematar de primeras o amortiguar para que llegue otro.",
+  o:[
+   {l:"Rematar de primeras", fx:{inst:{gol:0.25, golR:0.1}, nota:2},
+    ok:"Remate seco al palo corto. El portero solo mira cómo entra.",
+    ko:"Lo mandas a las gradas sin mirar la portería.",
+    mid:"El remate sale desviado y el portero se estira."},
+   {l:"Amortiguar para el que llega detrás", fx:{inst:{asis:0.15}, nota:1},
+    ok:"Lo dejas al hueco y el que llega remata a placer.",
+    ko:"Amortiguas tanto que el balón se queda para el portero.",
+    mid:"El balón llega al compañero, pero ya sin ventaja."},
+   {l:"Esperar y no arriesgar", fx:{nota:0},
+    ok:"Te quedas quieto, el defensa se confía y lo recuperas sin riesgo.",
+    ko:"Cuando reaccionas ya te han tapado la línea.",
+    mid:"Se pierde la jugada sin más."}
+  ]},
+ {id:"ent-dc-presion", pos:["DC"],
+  t:"Presionar al central rival",
+  x:"El central rival tiene el balón parado. Si lo presionas bien, el equipo sube de golpe. Si llegas tarde, te quedas a la espalda de la línea.",
+  o:[
+   {l:"Presionar en diagonal y cortar la salida", fx:{inst:{gol:0.1}, nota:1},
+    ok:"Cierras la salida por dentro y el central pierde la pelota. Recuperación en campo rival.",
+    ko:"Llegas en diagonal tarde y el central se la pasa a su lateral sin pegar.",
+    mid:"Presionas bien, pero el balón sale en largo sin peligro."},
+   {l:"Presión directa y fuerte", fx:{inst:{gol:0.1}, ta:1, nota:2},
+    ok:"Te lanzas con todo y el balón se va al suelo. Recuperación limpia.",
+    ko:"Entras de lleno y el árbitro te amonesta.",
+    mid:"Robas el balón, pero llegas un pelo tarde para el segundo."},
+   {l:"Ordenar a los compañeros y esperar", fx:{nota:0},
+    ok:"Organizas la línea y el central se da la vuelta sin opciones.",
+    ko:"Nadie te escucha y el equipo queda descolgado.",
+    mid:"El central sale con el balón sin problemas."}
+  ]},
+ {id:"ent-ext-centro-bajo", pos:["EXT","MCO"],
+  t:"Lateral en la línea de fondo",
+  x:"Has llegado hasta la línea de fondo con la defensa de costado. Puedes centrar raso, al primer palo o buscar el remate tú mismo.",
+  o:[
+   {l:"Centro raso al área", fx:{inst:{asis:0.2}, nota:1},
+    ok:"Pasa entre el portero y el defensa. Quien remata lo tiene fácil.",
+    ko:"El centro se queda corto y lo despeja el portero.",
+    mid:"El centro llega, pero sin nadie que lo toque."},
+   {l:"Centro al primer palo", fx:{inst:{asis:0.15, gol:0.1}, nota:1},
+    ok:"Tu centro pica en el primer palo y el delantero la mete.",
+    ko:"Demasiado alto: el defensa se la lleva de cabeza.",
+    mid:"Llega a la altura del primer palo, pero el remate sale desviado."},
+   {l:"Buscar el tiro de cerca", fx:{inst:{gol:0.15, golR:0.15}, nota:2},
+    ok:"Ángulo cerrado, pero el disparo entra. Golazo de los que se recuerdan.",
+    ko:"Disparas al cuerpo del portero y se acaba la jugada.",
+    mid:"El disparo sale desviado y no pasa nada."}
+  ]},
+ {id:"ent-lat-solapa", pos:["LAT","EXT"],
+  t:"Solapamiento por dentro",
+  x:"Tu extremo se abre a la banda y te pide que llegues por dentro. El hueco existe, pero también la cobertura del central.",
+  o:[
+   {l:"Llegar por dentro sin balón", fx:{inst:{gol:0.1}, nota:1},
+    ok:"Llegas solo al segundo palo porque el central se quedó con el extremo.",
+    ko:"Llegas tarde y el central te cierra la puerta.",
+    mid:"Te quedas al borde del área, y el balón se escapa."},
+   {l:"Pedir el pase en profundidad", fx:{inst:{asis:0.15}, nota:2},
+    ok:"Pase al espacio y tú en carrera. Centro al área con el hueco abierto.",
+    ko:"El pase llega largo y el defensa lo ataja.",
+    mid:"Se pierde el balón en el área, sin remate."},
+   {l:"Quedarte y cubrir la banda", fx:{nota:0},
+    ok:"Te quedas y el equipo se mantiene ordenado. No hace falta ser el protagonista.",
+    ko:"Te quedas, pero en el contragolpe pierdes la marca.",
+    mid:"Cubres sin problemas. Nada que destacar."}
+  ]},
+ {id:"ent-dfc-salida-presion", pos:["DFC","MCD"],
+  t:"Salida bajo presión",
+  x:"El delantero rival te presiona arriba. Tienes el balón en la línea de tu área y el portero pide la pelota.",
+  o:[
+   {l:"Pasar al portero", fx:{inst:{}, nota:0},
+    ok:"El portero la saca con limpieza y la presión rival se queda sin efecto.",
+    ko:"El pase llega flojo y el delantero la roba.",
+    mid:"El portero la despeja sin mucho sentido."},
+   {l:"Sacar jugado por abajo al pivote", fx:{inst:{}, nota:2},
+    ok:"El pivote se la quita al primer toque y el equipo sale en limpio.",
+    ko:"El pivote se la pasa al rival y acabas en tu área.",
+    mid:"Sales jugado, pero con poco ritmo."},
+   {l:"Despejar largo", fx:{nota:1},
+    ok:"Un despeje limpio y la pelota aleja el peligro durante un rato.",
+    ko:"Despejas de cualquier manera y el rival recupera en tu campo.",
+    mid:"El balón sale largo sin dueño. Ni mal ni bien."}
+  ]},
+ {id:"ent-dfc-anticipar", pos:["DFC","LAT"],
+  t:"Anticipar el pase al hueco",
+  x:"Ves que el delantero rival va a recibir de espaldas al hueco entre tú y el lateral. Si cortas el pase, sales jugado; si no, llega ocasión.",
+  o:[
+   {l:"Adelantarte y cortar el pase", fx:{inst:{}, nota:1},
+    ok:"Cortas el pase y sales con el balón en la mano. Buena lectura.",
+    ko:"Te adelantas y el delantero te pasa por encima.",
+    mid:"Llegas tarde al corte, pero el balón sale por la línea."},
+   {l:"Mantener la línea y esperar", fx:{nota:0},
+    ok:"Mantienes la distancia y el delantero se da la vuelta sin peligro.",
+    ko:"Esperas demasiado y recibe con espacio.",
+    mid:"Se queda en el pie del delantero, sin riesgo ni premio."},
+   {l:"Hacer falta táctica", fx:{ta:1, nota:0},
+    ok:"Falta a tiempo, el árbitro la pita y se corta la jugada.",
+    ko:"La falta es tan evidente que el árbitro saca la amarilla.",
+    mid:"Falta sin más. El rival tira la falta lejos del área."}
+  ]},
+ {id:"ent-mc-cambio-juego", pos:["MC","MCO"],
+  t:"Cambio de juego a la banda contraria",
+  x:"El balón está en el centro y el lateral contrario está libre. Un pase largo puede cambiar el partido; uno corto mantiene la posesión.",
+  o:[
+   {l:"Cambio de juego largo", fx:{inst:{asis:0.2}, nota:2},
+    ok:"Pase largo perfecto y el lateral se planta en el área con tiempo.",
+    ko:"El pase se va largo y el rival cabecea a su favor.",
+    mid:"El lateral recibe, pero sin espacio para avanzar."},
+   {l:"Pase corto y ritmo", fx:{nota:1},
+    ok:"Mueves el balón con ritmo y el equipo sube ordenado.",
+    ko:"El pase corto se queda corto y el rival recupera.",
+    mid:"Mantienes la posesión, sin más."},
+   {l:"Atraer al rival y luego soltarlo", fx:{nota:1},
+    ok:"Atraes al rival al centro y el cambio llega cuando nadie lo espera.",
+    ko:"Atraes a demasiados y el cambio llega tarde.",
+    mid:"El rival se aleja y la jugada se queda sin premio."}
+  ]},
+ {id:"ent-mc-recuperar", pos:["MC","MCD"],
+  t:"Recuperar tras una pérdida",
+  x:"Acabas de perder el balón en el medio campo. Dos rivales vienen a por ti al contragolpe. Tienes que decidir ya.",
+  o:[
+   {l:"Presionar al que lleva el balón", fx:{ta:1, nota:2},
+    ok:"Le quitas el balón al primer toque. El contragolpe muere antes de nacer.",
+    ko:"Llegas tarde, el rival te pasa y el contragolpe es letal.",
+    mid:"Presionas y el rival se lo pasa al compañero sin problema."},
+   {l:"Replegar y cerrar el carril", fx:{nota:0},
+    ok:"Cierras el carril y el rival se queda sin pase. El equipo se recoloca.",
+    ko:"Cierras mal el carril y el rival entra solo.",
+    mid:"El rival se entretiene y el equipo recupera posición."},
+   {l:"Hacer falta para cortar la jugada", fx:{ta:1, nota:0},
+    ok:"Falta justa, el balón para y el equipo se recoloca.",
+    ko:"La falta es dura y la amarilla llega sin dudar.",
+    mid:"Falta, la jugada se para y el rival tira la falta lejos."}
+  ]}
+];
+function sitsBancoEntreno(){ return SITS.concat(SITS_CLUTCH||[], [SIT_PEN_L, SIT_PEN_P], SITS_ENTRENO_EXTRA); }
 function sitsEntreno(){
   return sitsBancoEntreno().filter(function(s){ return s.pos && s.pos.indexOf(S.pos)>=0 && opsEntreno(s).length>=2 && txtSit(s.t) && txtSit(s.x); });
 }
