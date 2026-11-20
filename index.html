@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.023";
+var VERSION="0.03.024";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -4345,7 +4345,8 @@ function flashSeguir(){
 /* ================= FLUJO DE PARTIDO ================= */
 var M=null, M_ficha=null;
 function partidoDe(jornada){
-  var jor=S.fixture[jornada];
+  var jor=S.fixture && S.fixture[jornada];
+  if(!jor) return null;          /* tras la 38 no hay más partidos: la liga ha terminado */
   for(var i=0;i<jor.length;i++){
     if(jor[i].h===S.equipo || jor[i].a===S.equipo) return jor[i];
   }
@@ -10838,6 +10839,14 @@ function renderTopbar(){
   +'</div>';
 }
 function renderHub(){
+  /* liga terminada (la jornada ya pasó de la 38) y aún sin ver el resumen: se ofrece en vez de un partido */
+  if(S && S.jornada>38){
+    $("hub-left").innerHTML='<div class="card"><div class="eyebrow">Fin de temporada</div>'
+      +'<p class="note" style="margin:0 0 10px">La liga ha terminado. Mira cómo ha ido.</p>'
+      +'<button class="gold-btn" onclick="finTemporada()">Ver el resumen</button></div>';
+    $("hub-right").innerHTML="";
+    return;
+  }
   PARTIDA_ABIERTA=true;
   setTimeout(drenarOvsem,0);   /* lo que quedó esperando a que hubiera menú */
   $("scr-title").classList.add("hidden");
