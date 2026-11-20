@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.024";
+var VERSION="0.03.025";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -10840,7 +10840,7 @@ function renderTopbar(){
 }
 function renderHub(){
   /* liga terminada (la jornada ya pasó de la 38) y aún sin ver el resumen: se ofrece en vez de un partido */
-  if(S && S.jornada>38){
+  if(S && S.jornada>=38){
     $("hub-left").innerHTML='<div class="card"><div class="eyebrow">Fin de temporada</div>'
       +'<p class="note" style="margin:0 0 10px">La liga ha terminado. Mira cómo ha ido.</p>'
       +'<button class="gold-btn" onclick="finTemporada()">Ver el resumen</button></div>';
@@ -11001,7 +11001,8 @@ function renderHub(){
 }
 /* ================= FIN DE TEMPORADA ================= */
 function finTemporada(){
-  pagarObjetivo();
+  /* la prima se cobra una vez por temporada, aunque se abra el resumen varias veces */
+  if(S.objPagadoT!==S.temporada){ pagarObjetivo(); S.objPagadoT=S.temporada; }
   var cl=clasificacion(), pos=miPosicion(), yo=EQ[S.equipo], obj=objetivoDe(rankDe(yo.id));
   var cumplido=pos<=obj.pos, seg=(S.division==="2");
   var titulo = seg? (pos<=3? "¡ASCENSO A PRIMERA!"
