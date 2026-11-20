@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.020";
+var VERSION="0.03.021";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -2005,7 +2005,11 @@ function citaPinta(){
 function ejCarta(e, rec, extra){
   var r=reps(e.id), meta=null;
   skillsDisp().forEach(function(k){ if(k.req.ej===e.id && !meta) meta=k; });
-  var sube=Object.keys(e.sube).map(function(k){ return k+" +"+gananciaEntreno(e,k,extra).toFixed(1); }).join(" ");
+  var sube=Object.keys(e.sube).map(function(k){
+    var g=gananciaEntreno(e,k,extra);
+    if(g>0) return k+" +"+g.toFixed(1);
+    return atr(k)>=techoAtributoDe(k)? k+" al techo" : k+" +0.0";
+  }).join(" ");
   var coste=Math.round((e.forma||0)*(extra?1.4:1)), esRec=rec && rec.ej===e.id;
   return '<button class="ejer'+(esRec?' rec':'')+'" onclick="diaSesion(\''+e.id+'\')">'
     +(esRec?'<span class="rectag">recomendado</span>':'')
@@ -2030,11 +2034,15 @@ function sitsEntreno(){
 /* elige n situaciones distintas y fija hasta 3 opciones de cada una (como en el partido) */
 function elegirSitsEntreno(n){
   var pool=sitsEntreno().slice(), out=[];
+  /* las jugadas usadas en las últimas semanas van al final: si hay de sobra, no se repiten */
+  var rec=(S&&S.sitsRec)||[];
+  pool.sort(function(a,b){ return (rec.indexOf(a.id)>=0) - (rec.indexOf(b.id)>=0) || (rnd()-0.5); });
   while(out.length<n && pool.length){
-    var s=pool.splice(Math.floor(rnd()*pool.length),1)[0], ids=opsEntreno(s).slice();
+    var s=pool.shift(), ids=opsEntreno(s).slice();
     while(ids.length>3) ids.splice(Math.floor(rnd()*ids.length),1);
     out.push({id:s.id, ops:ids});
   }
+  if(S){ S.sitsRec=rec.concat(out.map(function(o){ return o.id; })).slice(-12); }
   return out;
 }
 function sitEntrenoPorId(id){ var L=sitsBancoEntreno(); for(var i=0;i<L.length;i++) if(L[i].id===id) return L[i]; return null; }
@@ -2335,6 +2343,8 @@ function vozRng(semilla){
   for(var i=0;i<semilla.length;i++){ h^=semilla.charCodeAt(i); h=Math.imul(h,16777619)>>>0; }
   return function(){ h=(Math.imul(h^(h>>>15),2246822507)+0x9e3779b9)>>>0; return (h>>>0)/4294967296; };
 }
+/* nombre de club para una frase con «el»: «R. Madrid» pasa a «Real Madrid» */
+function nombreClubVoz(c){ return String(c||"").replace(/^R\.\s*/,"Real "); }
 function vozElige(arr,r,vistas){
   var L=arr.filter(function(x){ return vistas.indexOf(x)<0; });
   if(!L.length) L=arr;
@@ -2349,7 +2359,7 @@ function vocesPartido(){
   var clave=(S.temporada||1)+"-"+h.jor;
   if(S.vocesClave===clave && S.vocesElegidas) return S.vocesElegidas;
   var r=vozRng(clave+"-"+(S.nombre||"")), P=pub(), vistas=S.vocesVistas||[];
-  var yo=h.yo, nom=S.nombre||"el chaval", riv=(EQ[h.rival]&&EQ[h.rival].c)||"el rival";
+  var yo=h.yo, nom=S.nombre||"el chaval", riv=(EQ[h.rival]&&EQ[h.rival].c)||"el rival", rivN=nombreClubVoz(riv);
   var res=h.sc[0]-h.sc[1], marc=h.sc[0]+"–"+h.sc[1];
   var compi=(function(){ var L=compis().filter(function(x){ return x.n && x.n!==S.nombre; }); return L.length? pick2(L,r).n : "un veterano"; })();
   var mnom=mister_n(), el=function(arr){ return vozElige(arr,r,vistas); };
@@ -2358,7 +2368,7 @@ function vocesPartido(){
   if(!yo){
     var motivo=h.sinTi||"decisión técnica";
     cand.push({p:50, de:"Prensa", col:"#4FA3FF", t:el([
-      "«"+nom+", inédito ante el "+riv+" ("+marc+"). El míster no le encuentra sitio.»",
+      "«"+nom+", inédito ante el "+rivN+" ("+marc+"). El míster no le encuentra sitio.»",
       "«Ni un minuto para "+nom+". "+(motivo==="sin minutos"?"Calentó y se volvió a sentar.":"El cuerpo técnico habla de "+motivo+".")+"»"])});
   } else {
     var n=yo.nota;
@@ -2371,7 +2381,7 @@ function vocesPartido(){
       cand.push({p:95, de:"Prensa", col:"#4FA3FF", t:el(["«La roja de "+nom+" condicionó el partido. Imperdonable.»","«Diez minutos menos y un partido perdido. Así no se gana.»"])});
       cand.push({p:85, de:"El míster", quien:mnom, col:"#FFC24B", t:el(["«Con diez no hay partido. "+nom+" tiene que controlarse.»","«La roja nos ha costado el partido. Hablaré con él.»"])});
     } else if(banda==="top"){
-      var PR=[ "«Exhibición de "+nom+" "+hecho+". El "+riv+" no supo pararle.»",
+      var PR=[ "«Exhibición de "+nom+" "+hecho+". El "+rivN+" no supo pararle.»",
                "«"+nom+" firma el partido de la jornada"+(hecho?" "+hecho:"")+": "+String(n).replace(".",",")+" en nuestra crónica.»",
                "«Hay jugador. "+nom+" se echa el equipo a la espalda ("+marc+").»" ];
       if(cabeza==="hostil") PR=["«Hasta "+nom+" tuvo su día. No nos acostumbremos.»","«"+nom+" cumple, que ya es noticia.»"];
@@ -2382,12 +2392,12 @@ function vocesPartido(){
       var GR0=(yo.g? "Ese gol" : "Ese partido")+" de "+nom;
       cand.push({p:60, de:"La grada", col:"#4ADE80", t:el(["«"+nom+" es otra cosa. Que le renueven YA.»","«Pagaría la entrada solo por ver a "+nom+".»","«"+GR0+" lo cuento a mis nietos.»"])});
     } else if(banda==="bien"){
-      if(hecho) cand.push({p:45, de:"Prensa", col:"#4FA3FF", t:el(["«Buen partido de "+nom+" "+hecho+". Cumple y algo más.»","«"+nom+", de lo mejor de los suyos ante el "+riv+".»"])});
+      if(hecho) cand.push({p:45, de:"Prensa", col:"#4FA3FF", t:el(["«Buen partido de "+nom+" "+hecho+". Cumple y algo más.»","«"+nom+", de lo mejor de los suyos ante el "+rivN+".»"])});
       if(P.afic>=70) cand.push({p:35, de:"La grada", col:"#4ADE80", t:el(["«Me gusta "+nom+". Tiene cosas.»","«"+nom+" va a más, se nota.»"])});
     } else if(banda==="mal"){
       cand.push({p:65, de:"Prensa", col:"#4FA3FF", t:el(cabeza==="favorable"
         ? ["«Un mal día lo tiene cualquiera. "+nom+" volverá.»","«"+nom+", lejos de su nivel. Excepción, no regla.»"]
-        : ["«Tarde para olvidar de "+nom+". El "+riv+" le pasó por encima.»","«"+nom+" no estuvo. Ni con balón ni sin él.»"])});
+        : ["«Tarde para olvidar de "+nom+". El "+rivN+" le pasó por encima.»","«"+nom+" no estuvo. Ni con balón ni sin él.»"])});
       cand.push({p:55, de:"La grada", col:"#4ADE80", t:el(P.afic>=70
         ? ["«Hoy no, pero con "+nom+" a muerte.»","«Un mal día. Seguimos contigo, "+nom+".»"]
         : ["«"+nom+" al banquillo ya.»","«¿Alguien ha visto a "+nom+" hoy? Yo tampoco.»"])});
@@ -2411,7 +2421,7 @@ function mister_n(){ var m=mister(); return (m&&m.n)? m.n : "El míster"; }
 function vocesHTML(){
   var V=vocesPartido(); if(!V.length) return "";
   var h=S.hist[S.hist.length-1], riv=(EQ[h.rival]&&EQ[h.rival].c)||"el rival";
-  var H='<div class="card"><div class="eyebrow">Lo que se dice de ti · tras el partido ante el '+esc(riv)+'</div>';
+  var H='<div class="card"><div class="eyebrow">Lo que se dice de ti · tras el partido ante el '+esc(nombreClubVoz(riv))+'</div>';
   V.forEach(function(v){
     H+='<div class="msgcard" style="border-left-color:'+v.col+';margin:8px 0 0">'
       +'<div class="msgde" style="color:'+v.col+'">'+esc(v.de)+(v.quien?' · '+esc(v.quien):'')+'</div>'
