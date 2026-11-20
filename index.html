@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.027";
+var VERSION="0.03.028";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -11044,8 +11044,7 @@ function finTemporada(){
   H+='<p class="mono" style="font-size:15px;margin:4px 0">'+S.dorsal+' · '+esc(S.nombre)+' — '+esc(POS[S.pos].n)+'</p>';
   H+='<p class="note mono" style="margin:2px 0">'+Y.pj+' partidos · media '+(Y.notaN?med.toFixed(2):"—")+(Y.mvp?" · ⭐ "+Y.mvp+" veces mejor del partido":"")+'</p>';
   H+='<p class="note mono" style="margin:2px 0">'+(S.pos==="POR"? Y.paradas+" paradas decisivas" : Y.g+" goles · "+Y.a+" asistencias")+' · 🟨'+Y.ta+' 🟥'+Y.tr+'</p>';
-  H+='<button class="gold-btn" style="margin-top:14px" onclick="nuevaTemporada()">Nueva temporada (misma camiseta)</button>';
-  H+='<button class="ghost" style="margin-top:8px" onclick="pedirNuevaPartida()">Empezar una carrera nueva</button>';
+  H+='<button class="gold-btn" style="margin-top:14px" onclick="nuevaTemporada()">Continuar</button>';
   H+='</div>';
   $("ov-fin-inner").innerHTML=H;
   $("ov-fin").classList.remove("hidden");
