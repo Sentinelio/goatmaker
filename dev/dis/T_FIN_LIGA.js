@@ -5,11 +5,12 @@ guardar=function(){}; irSub=function(){}; irSec=function(){};
   S=nuevoEstado("BET","LAT","B",7,"D",ROLES.LAT[0].id,22);
   __ok(partidoDe(0)!==null, "la jornada 0 tiene partido");
   __ok(partidoDe(38)===null, "tras la última jornada no hay partido y no revienta");
-  S.jornada=38; var err="", cap="", o=$;
-  $=function(id){ return {set innerHTML(v){ if(id==="hub-left") cap=v; }, get innerHTML(){ return cap; }, classList:{remove:function(){}, add:function(){}}}; };
-  try{ renderHub(); }catch(e){ err=e.message; }
+  S.jornada=38; var err="", cap="", o=$, abierto=false;
+  $=function(id){ return {set innerHTML(v){ if(id==="hub-left") cap=v; }, get innerHTML(){ return cap; }, classList:{remove:function(c){ if(id==="scr-hub"&&c==="hidden") abierto=true; }, add:function(){}}, getElementsByTagName:function(){ return []; }}; };
+  try{ continuar(); }catch(e){ err=e.message; }
   $=o;
   __ok(err==="", "el inicio no falla con la liga terminada ("+err+")");
+  __ok(abierto, "«Continuar temporada» abre el menú de la liga terminada");
   __ok(cap.indexOf("Ver el resumen")>0, "con la liga terminada se ofrece «Ver el resumen»");
   S.contrato=S.contrato||{}; S.contrato.obj={k:"g", n:0, pago:1000, t:"goles"}; S.yo=S.yo||{}; S.yo.g=0;
   S.dinero=S.dinero||0; var d0=S.dinero; S.objPagadoT=null; finTemporada(); finTemporada();

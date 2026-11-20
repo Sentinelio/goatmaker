@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.025";
+var VERSION="0.03.026";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -10839,14 +10839,6 @@ function renderTopbar(){
   +'</div>';
 }
 function renderHub(){
-  /* liga terminada (la jornada ya pasó de la 38) y aún sin ver el resumen: se ofrece en vez de un partido */
-  if(S && S.jornada>=38){
-    $("hub-left").innerHTML='<div class="card"><div class="eyebrow">Fin de temporada</div>'
-      +'<p class="note" style="margin:0 0 10px">La liga ha terminado. Mira cómo ha ido.</p>'
-      +'<button class="gold-btn" onclick="finTemporada()">Ver el resumen</button></div>';
-    $("hub-right").innerHTML="";
-    return;
-  }
   PARTIDA_ABIERTA=true;
   setTimeout(drenarOvsem,0);   /* lo que quedó esperando a que hubiera menú */
   $("scr-title").classList.add("hidden");
@@ -10859,6 +10851,14 @@ function renderHub(){
   renderTopbar();
   var bs=$("menu").getElementsByTagName("button");
   for(var i=0;i<bs.length;i++){ bs[i].className = bs[i].getAttribute("data-s")==="inicio"? "on":""; }
+  /* liga terminada (la jornada ya pasó de la 38) y aún sin ver el resumen: se ofrece en vez de un partido */
+  if(S && S.jornada>=38){
+    $("hub-left").innerHTML='<div class="card"><div class="eyebrow">Fin de temporada</div>'
+      +'<p class="note" style="margin:0 0 10px">La liga ha terminado. Mira cómo ha ido.</p>'
+      +'<button class="gold-btn" onclick="finTemporada()">Ver el resumen</button></div>';
+    $("hub-right").innerHTML="";
+    return;
+  }
   var yo=EQ[S.equipo], p=partidoDe(S.jornada), casa=p&&p.h===S.equipo, rival=p?(casa?p.a:p.h):null;
   var pos=miPosicion(), L="";
   var c=convocatoria();
