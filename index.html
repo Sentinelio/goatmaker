@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.022";
+var VERSION="0.03.023";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -11017,10 +11017,17 @@ function finTemporada(){
     +'<h2 class="disp" style="letter-spacing:2px;margin-top:6px">'+esc(titulo)+'</h2>'
     +'<p style="font-size:14px">'+esc(frase)+'</p>'
     +'<div class="mline"><span>'+(seg?"Suben a Primera":"Champions")+'</span></div>';
-  cl.slice(0,seg?3:4).forEach(function(r,i){ H+='<p class="note mono" style="margin:2px 0">'+(i+1)+'º '+esc(EQ[r.id].c)+' · '+r.t.pts+' pts</p>'; });
+  /* una fila de la clasificación; si es tu equipo, se destaca en dorado */
+  function filaClasi(r,n){
+    var yo=r.id===S.equipo;
+    return '<p class="mono" style="margin:2px 0;font-size:'+(yo?'15px':'13px')+';'
+      +(yo?'color:var(--gold);font-weight:700;background:rgba(255,194,75,.12);border-radius:8px;padding:3px 0':'color:var(--muted,#8a93a6)')+'">'
+      +n+'º '+esc(EQ[r.id].c)+' · '+r.t.pts+' pts'+(yo?' ◀ tú':'')+'</p>';
+  }
+  cl.slice(0,seg?3:4).forEach(function(r,i){ H+=filaClasi(r,i+1); });
   if(!seg){
     H+='<div class="mline"><span>Descienden</span></div>';
-    cl.slice(17).forEach(function(r,i){ H+='<p class="note mono" style="margin:2px 0">'+(18+i)+'º '+esc(EQ[r.id].c)+' · '+r.t.pts+' pts</p>'; });
+    cl.slice(17).forEach(function(r,i){ H+=filaClasi(r,18+i); });
   }
   var Y=S.yo, med=Y.notaN?(Y.notaSum/Y.notaN):0;
   H+='<div class="mline"><span>Tu temporada</span></div>';
