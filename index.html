@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.042";
+var VERSION="0.03.043";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -6839,10 +6839,18 @@ var INDECISION={
   descanso:["Te quedas callado mirando el suelo. La segunda parte empieza sin que hayas aportado nada."],
   post:["Pasas de largo ante los micrófonos sin decir palabra. Mañana lo contarán a su manera."]
 };
+/* cada decisión que el reloj se lleva sin que elijas: cuenta para la temporada y para tu carrera */
+function registrarIndecision(){
+  if(S.indecTempT!==S.temporada){ S.indecTemp=0; }
+  S.indecTempT=S.temporada;
+  S.indecTemp=(S.indecTemp||0)+1;
+  S.indecTot=(S.indecTot||0)+1;
+}
 function decisionExpirada(){
   var fase=M.faseAct||"juego";
   var txt=pick(INDECISION[fase]||INDECISION.juego);
   M.sitAct=null;
+  if(fase!=="post") registrarIndecision();
   if(fase==="juego"){
     M.nota-=0.75;
     (M.dec=M.dec||[]).push([M.min||0, "indecision", "", "x", "ko", -75, -1, -750]);
@@ -8170,6 +8178,11 @@ function secJugador(){
       +'<div class="row2"><span>⭐ Mejor del partido</span><b>'+Y.mvp+'</b></div>'
       +'<div class="row2"><span>Amarillas</span><b>'+Y.ta+' <span class="note">('+S.ciclo+'/5 del ciclo)</span></b></div>'
       +'<div class="row2"><span>Rojas</span><b>'+Y.tr+'</b></div></div>';
+    /* --- decisiones que se te fueron sin elegir: siempre visible, aunque no hayas jugado de titular --- */
+    var indT=(S.indecTempT===S.temporada? (S.indecTemp||0) : 0), indC=(S.indecTot||0);
+    H+='<div class="card"><div class="eyebrow">Decisiones sin tomar</div><div class="statgrid2">'
+      +celda(indT,"Esta temporada")+celda(indC,"En tu carrera")+'</div>'
+      +'<p class="note" style="margin:6px 2px 0">'+(indC? "Cada vez que el reloj se acaba y no eliges, el balón sigue sin ti. Lo que no decides, el partido lo decide por ti." : "Ninguna todavía: has decidido siempre a tiempo.")+'</p></div>';
     /* --- vista general de atributos, con tus veranos para comparar --- */
     var snaps=(S.carrera||[]).filter(function(r){ return r.at; });
     H+='<div class="card"><div class="eyebrow">Vista general de atributos</div>'+radarSVG();
