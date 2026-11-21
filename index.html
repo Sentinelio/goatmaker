@@ -403,6 +403,9 @@ textarea{background:var(--raise);border:1px solid var(--hair);color:var(--ink);b
     rgba(5,6,11,.97);
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
 .overlay .inner{width:100%;max-width:520px;flex:1;min-height:0;display:flex;flex-direction:column}
+/* fin de temporada: el contenido puede ser más alto que la pantalla; se desplaza y el botón Continuar siempre se alcanza */
+#ov-fin{overflow-y:auto;-webkit-overflow-scrolling:touch;justify-content:flex-start}
+#ov-fin .inner{flex:none;min-height:auto;padding-bottom:28px}
 #ov-match{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 #ov-match .inner{max-width:none}
 @media (min-width:1100px){#ov-match .inner{max-width:1000px}}
@@ -820,7 +823,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.046";
+var VERSION="0.03.047";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
