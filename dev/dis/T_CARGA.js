@@ -26,6 +26,11 @@ function nuevo(pos){
   nuevo("DC"); S.forma=30; S.rachaExtra=5; var lesFuera=0;
   for(var k=0;k<400;k++){ S.lesion=0; aplicarEntreno(ejIdx("post-piscina"), true); if(S.lesion>0) lesFuera++; }
   __ok(lesFuera===0, "la piscina como cuarta sesión no lesiona nunca ("+lesFuera+" lesiones en 400)");
+  /* llegas pronto: el preparador manda calentar y ponerte a tono */
+  nuevo("DC"); S.forma=80; empezarDia(); var hp=entMisterHTML();
+  __ok(hp.indexOf("llegado pronto")>0 && hp.indexOf('class="ejer rec" onclick="diaSesion(\'pre-trote\')"')>0, "llegar pronto: se recomienda calentar y aparece destacado");
+  nuevo("DC"); S.forma=80; var Vj=citaVentana(); citaMueve("llegada", String(Vj.llamada)); empezarDia(); var hj=entMisterHTML();
+  __ok(hj.indexOf("llegado pronto")<0 && S.dia.ll===0, "llegar justo a la hora: no hay aviso de calentamiento");
   /* demasiada carga: parar */
   nuevo("DC"); S.forma=30; empezarDia();
   h=entMisterHTML();

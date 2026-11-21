@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.033";
+var VERSION="0.03.034";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -2049,8 +2049,9 @@ function cargaDia(D){
 }
 function cartasHora(D, fase){
   D.cartas=D.cartas||{};
-  var carga=cargaDia(D);
-  if(D.cartas[fase] && D.cartas[fase].c===carga) return D.cartas[fase].ids.map(ejEnt);
+  var carga=cargaDia(D), pronto=(fase==="antes" && carga===0 && D.ll>=1);
+  var clave=carga+(pronto?"p":"");
+  if(D.cartas[fase] && D.cartas[fase].c===clave) return D.cartas[fase].ids.map(ejEnt);
   S.horaRec=S.horaRec||{antes:[],despues:[]};
   var rr=S.horaRec[fase]||[], p=S.pos;
   var orden=function(a,b){ return (rr.indexOf(a.id)>=0)-(rr.indexOf(b.id)>=0) || (rnd()-0.5); };
@@ -2065,12 +2066,19 @@ function cartasHora(D, fase){
     lista=forz.concat(resto1.slice(0,2));
   } else {
     var propias=ENTRENOS.filter(function(e){ return e.cuando===fase && (!e.pos || e.pos.indexOf(p)>=0); }).sort(orden).slice(0,4);
-    var resto=entrenosDisp().sort(orden), rec=recomendacion(), elegidas=[];
-    if(rec && rec.ej && resto.some(function(e){ return e.id===rec.ej; })) elegidas.push(ejEnt(rec.ej));
-    resto.forEach(function(e){ if(elegidas.length<2 && elegidas.indexOf(e)<0) elegidas.push(e); });
-    lista=propias.concat(elegidas.slice(0,2));
+    if(pronto){
+      /* has llegado pronto: el calentamiento va primero, para ponerte a tono */
+      var calienta=ejEnt("pre-trote");
+      propias=[calienta].concat(propias.filter(function(e){ return e!==calienta; })).slice(0,4);
+      lista=propias;
+    } else {
+      var resto=entrenosDisp().sort(orden), rec=recomendacion(), elegidas=[];
+      if(rec && rec.ej && resto.some(function(e){ return e.id===rec.ej; })) elegidas.push(ejEnt(rec.ej));
+      resto.forEach(function(e){ if(elegidas.length<2 && elegidas.indexOf(e)<0) elegidas.push(e); });
+      lista=propias.concat(elegidas.slice(0,2));
+    }
   }
-  D.cartas[fase]={c:carga, ids:lista.map(function(e){ return e.id; })};
+  D.cartas[fase]={c:clave, ids:lista.map(function(e){ return e.id; })};
   S.horaRec[fase]=rr.concat(D.cartas[fase].ids).slice(-12);
   return lista;
 }
@@ -2446,9 +2454,10 @@ function entMisterHTML(){
     var carga=cargaDia(D), rec=recomendacion();
     if(carga===2) H+='<div class="recbox" style="border-color:var(--bad)">🧑‍🏫 <b>El preparador:</b> «Hoy ya has trabajado bastante y vas sin fuerzas. Para no lesionarte, para: deja esta hora libre.»</div>';
     else if(carga===1) H+='<div class="recbox">🧑‍🏫 <b>El preparador:</b> «Llevas '+diaReales(D)+' sesiones hoy y vas justo de forma. Hoy toca recuperar: estiramientos o piscina.»</div>';
+    else if(antes && D.ll>=1) H+='<div class="recbox">🧑‍🏫 <b>El preparador:</b> «Has llegado pronto: calienta y ponte a tono para el resto del entreno. Te propone <b>Trote y series cortas</b>, pero decides tú.»</div>';
     else if(rec) H+='<div class="recbox">🧑‍🏫 <b>El preparador:</b> «'+esc(rec.motivo)+'.» Te propone <b>'+esc(nombreEj(rec.ej))+'</b>, pero decides tú.</div>';
     H+='<p class="note" style="margin:8px 0 4px">'+(antes? "Antes de entrenar: calentar para entrar en calor" : "Después de entrenar: recuperación suave")+'</p><div class="ejgrid">';
-    var recMostrado = carga===1? {ej:"post-estira"} : (carga===0? rec : null);   /* lo recomendado es lo que dice el aviso */
+    var recMostrado = carga===1? {ej:"post-estira"} : carga===2? null : (antes && D.ll>=1? {ej:"pre-trote"} : rec);   /* lo recomendado es lo que dice el aviso */
     cartasHora(D, antes?"antes":"despues").forEach(function(x){ H+=ejCarta(x,recMostrado,extra); });
     H+='</div><button class="ghost" style="margin-top:10px'+(carga===2?';border-color:var(--bad);color:var(--bad)':'')+'" onclick="diaSaltar()">'+(carga===2?'Parar: dejar esta hora libre':'Dejar esta hora libre')+'</button>';
   } else if(D.fase==="mister"){
