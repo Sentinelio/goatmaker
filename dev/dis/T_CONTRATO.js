@@ -20,7 +20,7 @@ __ok(h.indexOf("no tiene primas")>=0, "sin primas, lo dice");
 /* 4 · libre y sin contrato */
 S.contrato={salario:500000,anos:0,clausula:1000000,firmadoT:2,exige:50}; S.libre=true;
 h=secMercado();
-__ok(h.indexOf("Estás libre")>=0, "libre: lo indica");
+__ok(h.indexOf("Sin contrato")>=0 && h.indexOf("Escuchar ofertas")>=0, "libre: lo indica y ofrece escuchar ofertas");
 S.contrato=null; S.libre=null;
 h=secMercado();
 __ok(h.indexOf("No tienes contrato firmado")>=0, "sin contrato: lo indica sin fallar");

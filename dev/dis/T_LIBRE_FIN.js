@@ -17,22 +17,13 @@ function finHtml(){
   __ok(S.contrato.anos===0, "al acabar el último año el contrato queda en 0 temporadas ("+S.contrato.anos+")");
   __ok(S.libre===true && S.libreFin===true, "al acabar sin renovar eres agente libre");
   __ok(!S.renovado, "no hay renovación automática de dos años");
-  __ok(S.ofertasVerano===true, "el mercado de verano se abre");
-  /* 2 · te quedas con el club: dos temporadas con tu ficha, sin recorte */
-  var sal=S.contrato.salario;
-  quedarseConClub();
-  __ok(S.libre===null && S.libreFin===null && S.contrato.anos===2, "quedarse con el club: dos temporadas");
-  __ok(S.contrato.salario>=Math.round(sal*0.9), "quedarse tras fin de contrato no recorta la ficha ("+S.contrato.salario+" vs "+sal+")");
-  /* 3 · descenso con cláusula: sigue recortada un 45% */
-  S.contrato={salario:1e6,anos:2,clausula:1e7,exige:60}; S.libre=true; S.libreFin=null;
-  quedarseConClub();
-  __ok(S.contrato.salario===550000 && S.contrato.anos===2, "descenso: la ficha se recorta un 45% como antes");
-  /* 4 · libre sin ninguna mesa: sigues libre y el aviso lo dice */
+  __ok(!S.ofertasVerano, "sin contrato no hay mercado de verano que cerrar: las ofertas se escuchan desde el hub");
+  /* 2 · libre sin ninguna mesa: sigues libre y el aviso lo dice */
   S.contrato={salario:1e6,anos:0,clausula:1e7,exige:60}; S.libre=true; S.libreFin=true; S.ofertasVerano=true;
   var gt=generarTanda; generarTanda=function(){ return []; };
   abrirMercado();
   generarTanda=gt;
-  __ok(S.libre===true && S.ofertasVerano===true, "sin mesas sigues libre y el mercado sigue abierto para la liga");
-  __ok(/Ningún club llama/.test(S.avisoMercado||""), "sin mesas se avisa de que nadie llama");
+  __ok(S.libre===true, "sin mesas sigues libre");
+  __ok(/ningún club llama/i.test(S.avisoMercado||""), "sin mesas se avisa de que nadie llama");
   console.log("LIBRE_FIN: "+__o+" ok · "+__f+" fallos");
 })();

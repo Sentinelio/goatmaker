@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.044";
+var VERSION="0.03.045";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -4763,9 +4763,18 @@ function pendientesSemana(){
   return p;
 }
 var AVISOS_PREPARTIDO=false; /* aviso "Te dejas cosas por hacer" antes del partido: apagado por ahora */
+/* sin contrato no hay club: eres agente libre y todo lo del equipo queda desactivado hasta que firmes */
+function sinClub(){ return !!(S && S.libre); }
+/* últimos seis meses de la última temporada de contrato: ya puedes hablar con otros clubes para la siguiente */
+function ventanaPrecontrato(){ return !!(S && !S.libre && S.contrato && (S.contrato.anos||0)===1 && S.jornada>=19 && S.jornada<38); }
+var TANDA_LIBRE=null;   /* las ofertas de la semana no se reparten otra vez si vuelves a abrir la mesa */
+function cardSinEquipo(t){
+  return '<div class="card"><div class="eyebrow">Sin equipo</div><p class="note" style="margin:0 0 10px">'+t
+    +'</p><button class="gold-btn" onclick="abrirMercado()">📞 Escuchar ofertas</button></div>';
+}
 function iniciarJornada(){
   /* nada de diálogos del navegador: aviso del propio juego */
-  if(AVISOS_PREPARTIDO && !M && !S.avisoSaltado){
+  if(AVISOS_PREPARTIDO && !M && !S.avisoSaltado && !sinClub()){
     var pend=pendientesSemana();
     if(pend.length){
       S.avisoSaltado=false;
@@ -4788,23 +4797,17 @@ function iniciarJornada(){
     semanaTienda();     /* y el bazar cobra, regenera, tienta y a veces roba */
   } finally { SEMANA_CORRE=false; }
   /* arranca la jornada: el mercado de verano se cierra solo */
-  if(S.libre && S.libreFin){
-    /* contrato terminado: nadie te renueva por ti. Sigues libre; la renovación la decides tú en la mesa */
-    S.avisoMercado="Arranca la liga sin contrato: sigues libre. Decides tú si renuevas o esperas una oferta mejor.";
+  if(S.libre){
+    /* sin contrato no hay club: ni renovación automática ni partido. Las ofertas las escuchas tú, cuando quieras */
+    if(S.jornada===0) S.avisoMercado="Arranca la liga y sigues sin equipo. Escucha ofertas o espera una mejor.";
   } else if(S.ofertasVerano){
     S.ofertasVerano=null;
-    if(S.libre){
-      var eraFin=!!S.libreFin;
-      quedarseConClub();
-      if(!eraFin) S.avisoMercado="Arranca la liga y el mercado se cierra: renuevas con el "+EQ[S.equipo].c+" con la ficha recortada un 45%.";
-    } else {
-      S.avisoMercado="Arranca la liga: el mercado de verano queda cerrado.";
-    }
+    S.avisoMercado="Arranca la liga: el mercado de verano queda cerrado.";
     guardar();
   }
   cerrarEntrenoPendiente();
-  /* sin contrato no hay equipo: el club juega la jornada sin ti, como con una baja */
-  if(S.libre && S.libreFin){ jornadaSinTi(); return; }
+  /* sin contrato no hay equipo: la liga sigue sin ti */
+  if(sinClub()){ jornadaSinTi(); return; }
   var conv=convocatoria();
   if(conv.rol==="lesion" || conv.rol==="sancion"){ jornadaSinTi(); return; }
   var p=partidoDe(S.jornada);
@@ -6712,7 +6715,7 @@ function partidoSinMinutos(){
   $("ov-match").classList.remove("hidden");
 }
 function jornadaSinTi(){
-  var motivo = (S.libre && S.libreFin)? "sin equipo" : S.sancion>0? (S.motivoBaja||"sanción") : "lesión";
+  var motivo = S.libre? "sin equipo" : S.sancion>0? (S.motivoBaja||"sanción") : "lesión";
   var p=partidoDe(S.jornada), casa=p.h===S.equipo, rival=casa?p.a:p.h;
   var r = casa? simRapido(p.h,p.a) : simRapido(p.h,p.a);
   aplicarResultado(p.h,p.a,r[0],r[1]);
@@ -6735,9 +6738,11 @@ function jornadaSinTi(){
       if(rnd()<0.035){ c.lesion=1+Math.floor(rnd()*4); }
     }
   });
-  repartirGoles(mios, 0);
-  S.racha.push(res>0?"V":res<0?"D":"E");
-  S.moral=clamp(S.moral+(res>0?2:res<0?-2:0),30,78);
+  if(!sinClub()){
+    repartirGoles(mios, 0);
+    S.racha.push(res>0?"V":res<0?"D":"E");
+    S.moral=clamp(S.moral+(res>0?2:res<0?-2:0),30,78);
+  }
   S.hist.push({jor:S.jornada+1, rival:rival, casa:casa, sc:[mios,suyos], goles:[], otros:otros, sinTi:motivo});
   if(S.sancion>0 && S._castJor!==jorAbs()) S.sancion--;
   else if(S.lesion>0){
@@ -8120,7 +8125,7 @@ function secJugador(){
     var sinJugar=jornadasSinJugar();
     var _fm=fraseMister(), mrel=_fm.txt;
     H+='<div class="card"><div class="eyebrow">Situación</div>'
-      +(S.contrato? '<div class="row2"><span>Salario</span><b style="color:var(--gold)">'+fmtDinero(S.contrato.salario)+'/año</b></div>'
+      +(S.contrato && !sinClub()? '<div class="row2"><span>Salario</span><b style="color:var(--gold)">'+fmtDinero(S.contrato.salario)+'/año</b></div>'
           +'<div class="row2"><span>Contrato</span><b>'+S.contrato.anos+' temporadas · cláusula '+fmtDinero(S.contrato.clausula)+'</b></div>'
           +(S.contrato.primaFichaje? '<div class="row2"><span>Prima de fichaje</span><b>'+fmtDinero(S.contrato.primaFichaje)+' cobrada</b></div>':'')
           +(S.contrato.primaGol? '<div class="row2"><span>Prima por gol</span><b>'+fmtDinero(S.contrato.primaGol)+'</b></div>':'')
@@ -8724,8 +8729,8 @@ function secDinero(){
     H+='<div class="card"><div class="statgrid2">'
       +celda(fmtDinero(S.dinero||0),"En el banco")
       +celda(fmtDinero(S.dineroCarrera||0),"Carrera")
-      +celda(fmtDinero(S.contrato?Math.round(S.contrato.salario/38):0),"Nómina/jornada")
-      +celda(fmtDinero(S.contrato?S.contrato.salario:0),"Ficha anual")+'</div></div>';
+      +celda(fmtDinero(S.contrato&&!sinClub()?Math.round(S.contrato.salario/38):0),"Nómina/jornada")
+      +celda(fmtDinero(S.contrato&&!sinClub()?S.contrato.salario:0),"Ficha anual")+'</div></div>';
     H+='<p class="note" style="margin:6px 2px 0">Coche, casa y tu equipo personal viven ahora en la <b>Tienda</b>.</p>';
     H+='<div class="card"><div class="eyebrow">La grada</div>';
     if(!v.dona) H+='<button class="opt" onclick="comprarVida(\'grada\')">'+esc(TIENDA.grada.n)+' · <b>'+fmtDinero(TIENDA.grada.precio)+'</b><small>'+esc(TIENDA.grada.d)+'</small></button>';
@@ -9058,8 +9063,9 @@ function elegirVida(i){
 /* ---------- EQUIPO ---------- */
 function secEquipo(){
   var yo=EQ[S.equipo], k=SUB.equipo||"tabla";
-  var H='<div class="eyebrow">'+esc(ligaNombre()+" · temporada "+S.temporada)+'</div><h2 class="disp">'+esc(yo.c)+'</h2>'+subTabs("equipo");
-  if(k==="entreno"){ H+=secEntreno(); }
+  var H='<div class="eyebrow">'+esc(ligaNombre()+" · temporada "+S.temporada)+'</div><h2 class="disp">'+esc(sinClub()? "Agente libre" : yo.c)+'</h2>'+subTabs("equipo");
+  if(sinClub() && (k==="entreno"||k==="plantilla"||k==="mister")){ H+=cardSinEquipo("Sin contrato no hay entreno, vestuario ni míster: nada de esto existe hasta que firmes por un club."); }
+  else if(k==="entreno"){ H+=secEntreno(); }
   else if(k==="plantilla"){
     var L=compis().slice().sort(function(a,b){return b.afin-a.afin;});
     H+='<div class="card"><div class="eyebrow">Vestuario · afinidad media '+Math.round(afinMedia())+'</div>';
@@ -9502,6 +9508,12 @@ function mercadoSemanal(){
       if(r.vivo && r.tipo==="mundo" && r.verd && r.fuerza>=0.55 && rnd()<0.6) traspasoMundo(r);
     });
   }
+  /* sin equipo: no hay míster, vestuario ni ficha. Solo el mundo, tu agente y tus marcas */
+  if(sinClub()){
+    propuestaAgente(); patroSemanal();
+    S.rumores=S.rumores.slice(-10); S.traspasos=S.traspasos.slice(-24); S.rumorLog=S.rumorLog.slice(-16);
+    return;
+  }
   /* 3 · tu nombre en las quinielas: las actuaciones lo alimentan */
   var ry=rumorYo();
   var notas=notasRecientes(3);
@@ -9532,7 +9544,11 @@ function mercadoSemanal(){
              {l:"Guárdalo", fx:function(){ regSemana("agente","cajon"); }}]});
     }
   }
-  if(enVentana() && !S.ofertaInv && !S.movClub){
+  if(ventanaPrecontrato() && !S.precontrato && S.preAvisoT!==S.temporada){
+    S.preAvisoT=S.temporada;
+    S.avisoMercado="Te quedan seis meses de contrato: ya puedes escuchar ofertas de otros clubes para la próxima temporada.";
+  }
+  if(enVentana() && !S.ofertaInv && !S.movClub && !S.precontrato){
     var f=(ry? ry.fuerza:0);
     if(!S.portazo && (S.transferPed || S.azuzado || f>=0.65)){
       var club=(ry && ry.a) || pick(clubsAjenos());
@@ -9545,7 +9561,7 @@ function mercadoSemanal(){
   if(enVentana() && !S.movClub && rnd()<0.45){
     S.movClub=true;
     var exVen=(S.contrato && S.contrato.exige)||60, miVen=miMedia();
-    if(miVen<exVen-8 && rnd()<0.5 && S.contrato) clubTeRescinde();
+    if(miVen<exVen-8 && rnd()<0.5 && S.contrato && !S.precontrato) clubTeRescinde();
     else if(miVen>=exVen+3 && rnd()<0.5) clubPonTeEnVenta();
     else if(rnd()<0.4) fichajeEnTuPuesto(); else ventaCompi();
   }
@@ -10131,14 +10147,14 @@ function bonusAgente(){
   return e? e.bonus:0;
 }
 function comisionSemanal(){
-  if(!S.agente || !S.contrato) return;
+  if(!S.agente || !S.contrato || sinClub()) return;
   var cuota=Math.round(S.contrato.salario*S.agente.pct/38);
   if((S.dinero||0)>=cuota){ S.dinero-=cuota; }
   else { S.avisoMercado=S.agente.n+" no cobra dos veces: se va dando un portazo."; S.agente=null; S.mister=clamp(S.mister-2,5,95); }
 }
 /* la renovación proactiva: el año final no te pilla dormido — y la fidelidad, POR FIN, paga */
 function renovacionProactiva(){
-  if(!S.contrato || S.contrato.anos!==1) return;
+  if(!S.contrato || S.contrato.anos!==1 || sinClub() || S.precontrato) return;
   if(S.jornada<24 || S.jornada>30 || S.renovProc) return;
   if(S.mister<45) return;
   /* el club solo pone mesa de renovación si te ve en sus planes; si no, el contrato acaba y quedas libre */
@@ -10158,7 +10174,7 @@ function secAgente(){
     H+='<div class="card"><div class="eyebrow">Tu agente</div>'
       +'<div style="font-size:13.5px"><b>'+esc(S.agente.n)+'</b> · '+e.n+' · nivel '+agNivel()+' ('+NIVELES_AG[agNivel()-1].nom+')</div>'
       +'<p class="note" style="margin:6px 2px">'+esc(e.d)+'</p>'
-      +'<div class="row2" style="font-size:12px"><span>Comisión: '+Math.round(S.agente.pct*100)+'% de tu ficha ('+fmtDinero(Math.round(S.contrato.salario*S.agente.pct/38))+'/sem)</span>'
+      +'<div class="row2" style="font-size:12px"><span>Comisión: '+Math.round(S.agente.pct*100)+'% de tu ficha ('+(sinClub()? 'sin contrato, sin comisión' : fmtDinero(Math.round(S.contrato.salario*S.agente.pct/38))+'/sem')+')</span>'
       +'<button class="chip" onclick="despedirAgente()">despedir</button></div></div>';
     H+='<div class="card"><button class="gold-btn" onclick="buscarPatro()">Buscar patrocinio esta semana</button></div>';
     if(S.propAg) H+='<div class="card" style="border-color:var(--gold)"><p class="note" style="margin:2px">📞 '+esc(S.propAg.n.split(" ")[0])+' ('+esc(NIVELES_AG[S.propAg.nivel-1].nom)+') sigue llamando. '+(S.propAg.coste? 'Rescisión: '+fmtDinero(S.propAg.coste)+'.' : 'Sin rescisión.')+'</p><button class="opt" onclick="aceptarPropAg()">Escuchar y cambiar</button> <button class="chip" onclick="S.propAg=null;guardar();irSec(\'mercado\')">Descartar</button></div>';
@@ -10549,6 +10565,7 @@ function fraseSituacion(){
 /* resumen de lo firmado con el club: años, salario, cláusula, primas y objetivo */
 function secContrato(){
   var c=S.contrato;
+  if(sinClub()) return '<div class="card"><div class="eyebrow">Sin contrato</div><p class="note" style="margin:0 0 10px">Tu contrato con el '+esc(EQ[S.equipo].c)+' terminó. No perteneces a ningún club: sin ficha, sin primas y sin renovación posible. Solo un club nuevo puede ofrecerte contrato.</p><button class="gold-btn" onclick="abrirMercado()">📞 Escuchar ofertas</button></div>';
   if(!c) return '<div class="card"><p class="note">No tienes contrato firmado ahora mismo.</p></div>';
   var money=function(v){ return (v===undefined||v===null)? "—" : fmtDinero(v); };
   var row=function(l,v){ return '<div class="row2"><span>'+l+'</span><b>'+v+'</b></div>'; };
@@ -10573,6 +10590,15 @@ function secContrato(){
     H+='<div class="card"><div class="eyebrow">Tu agente</div>'
       +row("Comisión de "+esc(S.agente.n), Math.round(S.agente.pct*100)+"% · "+money(cuota)+"/año")+'</div>';
   }
+  if(S.precontrato){
+    var pc=S.precontrato;
+    H+='<div class="card" style="border-color:var(--ok)"><div class="eyebrow" style="color:var(--ok)">Precontrato firmado</div>'
+      +row("Club", esc(EQ[pc.eq].c))+row("Salario", money(pc.contrato.salario)+"/año")+row("Contrato", pc.contrato.anos+" temporadas")+row("Empiezas", "al arrancar la próxima temporada")+'</div>';
+  } else if(ventanaPrecontrato()){
+    H+='<div class="card" style="border-color:var(--gold)"><div class="eyebrow" style="color:var(--gold)">Últimos seis meses</div>'
+      +'<p class="note" style="margin:0 0 10px">Ya puedes escuchar ofertas de otros clubes para la próxima temporada. Si firmas, empiezas directamente allí.</p>'
+      +'<button class="gold-btn" onclick="abrirMercado(true)">📞 Escuchar ofertas</button></div>';
+  }
   return H;
 }
 function secMercado(){
@@ -10582,6 +10608,7 @@ function secMercado(){
   if(t==="contrato") return H+secContrato();
   if(t==="agente") return H+secAgente();
   if(t==="patros") return H+secPatros();
+  if(t==="hilos" && sinClub()) return H+cardSinEquipo("Sin club no hay con quién mover los hilos. Tu agente y tus ofertas son tu única baza.");
   if(t==="hilos"){
     H+='<div class="card"><div class="eyebrow">Tu situación</div><div style="font-size:12.5px;line-height:1.65">'
       + fraseSituacion().map(function(x){ return '<div>'+x+'</div>'; }).join("") + '</div></div>';
@@ -10591,7 +10618,7 @@ function secMercado(){
         +'<div style="font-size:13px;line-height:1.6"><b>'+esc(cl)+'</b> · '+fmtDinero(o.salario)+'/año · prima '+fmtDinero(o.prima)+' · '+o.anos+' años</div>'
         +'<button class="opt" style="margin-top:10px" onclick="sitOferta()">Volver a la mesa</button></div>';
     }
-    if(S.contrato && !S.ofertaInv){
+    if(S.contrato && !S.ofertaInv && !S.precontrato){
       var puedeRenov = jorAbs()>=(S.renovCd||0);
       H+='<div class="card"><div class="eyebrow">Tu contrato</div>'
         +'<div style="font-size:13px;line-height:1.6">'+fmtDinero(S.contrato.salario)+'/año · '+S.contrato.anos+' '+(S.contrato.anos===1?"temporada restante":"temporadas restantes")+' · cláusula '+fmtDinero(S.contrato.clausula)+'</div>'
@@ -10687,7 +10714,7 @@ function presupuestoDe(eq){
 }
 /* la operación entre clubes: cláusula, acuerdo, bloqueo… o libre. Se calcula UNA vez por oferta. */
 function operacionDe(o){
-  if(S.libre) return {tipo:"libre", fee:0, piden:0, ponen:0};
+  if(S.libre || (PICK && PICK.pre)) return {tipo:"libre", fee:0, piden:0, ponen:0};
   var cl=(S.contrato&&S.contrato.clausula)||valorJugador()*2;
   var piden=Math.min(cl, Math.round(valorJugador()*(1.35-0.55*ganasDeVender())/100000)*100000);
   piden=Math.max(100000, piden);
@@ -10701,24 +10728,32 @@ function probForzar(o){
   return clamp(0.35 + ganasDeVender()*0.4 + clamp(o.op.ponen/Math.max(1,o.op.piden),0,1)*0.2, 0.15, 0.9);
 }
 function opTexto(op){
-  if(op.tipo==="libre")    return {t:"Llegas libre: no hay traspaso que pagar", col:"var(--ok)"};
+  if(op.tipo==="libre")    return {t:(PICK&&PICK.pre)? "Precontrato: no hay traspaso, llegas en verano" : "Llegas libre: no hay traspaso que pagar", col:"var(--ok)"};
   if(op.tipo==="clausula") return {t:"Pagan tu cláusula: "+fmtDinero(op.fee), col:"var(--ok)"};
   if(op.tipo==="acuerdo")  return {t:"Acuerdo entre clubes por "+fmtDinero(op.fee), col:"var(--gold)"};
   return {t:"Ponen "+fmtDinero(op.ponen)+" y tu club pide "+fmtDinero(op.piden), col:"var(--bad)"};
 }
-function abrirMercado(){
+function abrirMercado(pre){
+  pre = (pre===true) && ventanaPrecontrato() && !S.precontrato;   /* precontrato: ofertas para la próxima temporada */
   PICK={eq:null, pos:S.pos, rol:S.rol, pierna:S.pierna, esperas:0, attrBonus:0,
         edad:S.edad, nombre:S.nombre, dorsal:S.dorsal, tanda:null, notaPrueba:undefined,
-        traspaso:true, clubActual:S.equipo};
+        traspaso:true, clubActual:S.equipo, pre:pre};
   var mia=miMedia();
-  mediaAspiranteReal=mediaAspirante;
-  mediaAspirante=function(){ return mia; };
-  PICK.tanda=generarTanda().filter(function(o){ return o.id!==S.equipo; });
-  mediaAspirante=mediaAspiranteReal;
+  var cache=(S.libre||pre) && TANDA_LIBRE && TANDA_LIBRE.ja===jorAbs() && TANDA_LIBRE.pre===pre;
+  if(cache){
+    PICK.tanda=TANDA_LIBRE.tanda;
+  } else {
+    mediaAspiranteReal=mediaAspirante;
+    mediaAspirante=function(){ return mia; };
+    PICK.tanda=generarTanda().filter(function(o){ return o.id!==S.equipo; });
+    mediaAspirante=mediaAspiranteReal;
+    if(S.libre||pre) TANDA_LIBRE={ja:jorAbs(), pre:pre, tanda:PICK.tanda};
+  }
   if(!PICK.tanda.length){
-    /* libre sin ninguna mesa: sigues libre, y puedes renovar en la mesa si nadie llama */
-    if(S.libre){ S.avisoMercado="Ningún club llama a tu puerta este verano. Si nadie te firma, puedes renovar en la mesa del club o esperar."; }
+    if(S.libre) S.avisoMercado="Esta semana ningún club llama a tu puerta. Vuelve a escuchar la semana que viene.";
+    else if(pre) S.avisoMercado="Ningún club se interesa por ti todavía para la próxima temporada.";
     else S.ofertasVerano=null;
+    PICK.traspaso=false; PICK.pre=false;
     renderHub(); return;
   }
   /* tu última temporada habla por ti en la mesa (tras generar la tanda: no infla la franja) */
@@ -10734,10 +10769,11 @@ function abrirMercado(){
 function renderMercado(){
   cerrarOverlays();
   var cont=$("scr-pick");
-  var H='<div class="eyebrow">Mercado de verano · '+S.edad+' años'+(S.libre?' · agente libre':'')+'</div>'
+  var H='<div class="eyebrow">'+(PICK.pre? 'Precontrato · próxima temporada' : S.libre? 'Mercado · agente libre' : 'Mercado de verano')+' · '+S.edad+' años</div>'
     +'<h2 class="disp">Quién te quiere</h2>'
     +'<p class="note" style="margin:0 0 14px">'
-    +(S.libre? (S.libreFin? 'Tu contrato ha terminado o el club te ha rescindido: <b>eres libre</b>. Ningún club paga traspaso por ti; solo te firma quien te quiera a tu ficha.' : 'El descenso activó tu cláusula de salida: <b>eres libre</b> y nadie tiene que pagar por ti.')
+    +(PICK.pre? 'Te quedan seis meses de contrato con el '+esc(EQ[S.equipo].c)+'. Quien firme contigo ahora te recibe <b>al empezar la próxima temporada</b>, sin traspaso. Hasta entonces sigues defendiendo esta camiseta.'
+      : S.libre? 'No perteneces a ningún club: <b>eres libre</b>. Ningún club paga traspaso por ti; solo te firma quien te quiera a tu ficha.'
              : 'Tu media es <b>'+miMedia()+'</b> y tu cláusula, '+fmtDinero((S.contrato&&S.contrato.clausula)||0)+'. Quien no llegue a ella tendrá que convencer a tu club.')
     +'</p><div id="ofertas"></div>';
   PICK.tanda.forEach(function(o,i){
@@ -10762,25 +10798,21 @@ function renderMercado(){
       +'<button class="gold-btn" style="margin-top:12px" onclick="renderNegociacion('+i+')">'+(o.op.tipo==="bloqueado"?"✊ Sentarte igualmente":"✍ Sentarte a negociar")+'</button>'
       +'</div>';
   });
-  H+='<button class="ghost" onclick="quedarmeMercado()">'+(S.libre? (S.libreFin? 'Renovar con el '+esc(EQ[S.equipo].c)+' (mesa de renovación)' : 'Renovar con el '+esc(EQ[S.equipo].c)+' (ficha −45%)') : 'Quedarme en el '+esc(EQ[S.equipo].c))+'</button>'
-    +'<p class="note" style="margin:8px 2px 0">'+(S.libre? (S.libreFin? 'Sin contrato, nadie renueva por ti: si quieres quedarte, renegocias en la mesa y decides tú.' : 'Si no firmas por nadie antes de que arranque la liga, renovarás con la ficha recortada.') : 'El mercado se cierra cuando arranque la liga. Rechazar una oferta la retira de la mesa.')+'</p>';
+  H+='<button class="ghost" onclick="'+((S.libre||PICK.pre)? 'salirMercado()' : 'quedarmeMercado()')+'">'+(PICK.pre? 'Volver · sigo con el '+esc(EQ[S.equipo].c) : S.libre? 'Volver · sigo sin equipo' : 'Quedarme en el '+esc(EQ[S.equipo].c))+'</button>'
+    +'<p class="note" style="margin:8px 2px 0">'+(PICK.pre? 'Las ofertas de esta semana se quedan sobre la mesa. Con un precontrato firmado, la renovación con tu club ya no está disponible.' : S.libre? 'Las ofertas de esta semana se quedan sobre la mesa; nuevas llamadas, la semana que viene.' : 'El mercado se cierra cuando arranque la liga. Rechazar una oferta la retira de la mesa.')+'</p>';
   cont.innerHTML=H;
   $("scr-pick").classList.remove("hidden");
   scrollSiCambia("mercado");
 }
+/* cierras la mesa sin firmar: sigues como estabas (libre, o con tu club hasta fin de contrato) */
+function salirMercado(){
+  if(PICK){ PICK.traspaso=false; PICK.pre=false; PICK.contraOK=null; }
+  CONTRA=null;
+  guardar(); renderHub();
+}
 function quedarmeMercado(){
-  if(S.libre && S.libreFin){
-    /* sin contrato: la renovación va por la mesa, y allí contraofertas o aceptas tú */
-    abrirMesaRenov();
-    return;
-  }
-  if(S.libre && !S.libreFin){
-    modal({ico:"🖊", peligro:true, t:"Renovar en Segunda",
-      x:"Renovar con el "+esc(EQ[S.equipo].c)+" tras el descenso implica aceptar la ficha recortada un 45%: de "+fmtDinero(S.contrato?S.contrato.salario:0)+" a <b>"+fmtDinero(Math.round((S.contrato?S.contrato.salario:0)*0.55))+"</b> al año.",
-      okTxt:"Renovar y quedarme", cancelTxt:"Volver al mercado",
-      onOk:function(){ cerrarMercado(true, null); }});
-    return;
-  }
+  /* sin contrato no hay renovación: solo se renueva perteneciendo al club (mesa de renovación) */
+  if(S.libre){ salirMercado(); return; }
   cerrarMercado(true, null);
 }
 /* te quedas con tu club cuando no firmas por nadie:
@@ -10796,15 +10828,15 @@ function quedarseConClub(){
   S.libre=null; S.libreFin=null;
 }
 function cerrarMercado(voluntario, aviso){
-  S.ofertasVerano=null;
   if(S.libre){
-    var eraFin=!!S.libreFin;
-    quedarseConClub();
-    S.avisoMercado=aviso || (eraFin? null : "Renuevas con el "+EQ[S.equipo].c+" en Segunda con la ficha recortada un 45%. La afición te lo agradece.");
-    S.publico.afic=clamp(S.publico.afic+8,0,100);
-  } else {
-    S.avisoMercado=aviso || (voluntario? "Te quedas en el "+EQ[S.equipo].c+". El mercado queda cerrado." : null);
+    S.avisoMercado="Sigues sin equipo. Escucha ofertas cuando quieras.";
+    if(PICK){ PICK.traspaso=false; PICK.pre=false; PICK.contraOK=null; }
+    CONTRA=null; guardar(); renderHub(); return;
   }
+  S.ofertasVerano=null;
+  if(PICK && PICK.pre) S.avisoMercado="Sigues en el "+EQ[S.equipo].c+" hasta que acabe tu contrato.";
+  else S.avisoMercado=aviso || (voluntario? "Te quedas en el "+EQ[S.equipo].c+". El mercado queda cerrado." : null);
+  if(PICK) PICK.pre=false;
   if(PICK){ PICK.traspaso=false; PICK.contraOK=null; }
   CONTRA=null;
   guardar(); renderHub();
@@ -11306,7 +11338,7 @@ function renderTopbar(){
       +'<circle cx="22" cy="22" r="19" fill="none" stroke="var(--gold)" stroke-width="3" stroke-linecap="round" stroke-dasharray="'+(pct*119.38).toFixed(2)+' 119.38" transform="rotate(-90 22 22)"/>'
     +'</svg><b>'+nv+'</b></div>'
     +'<div class="tbtxt"><div class="tbn">'+esc(S.nombre||"")+'</div>'
-      +'<div class="tbs">'+esc(POS[S.pos]? POS[S.pos].n : "")+(club? ' · '+esc(club):'')+'</div></div>'
+      +'<div class="tbs">'+esc(POS[S.pos]? POS[S.pos].n : "")+(S.libre? ' · agente libre' : club? ' · '+esc(club):'')+'</div></div>'
     +'<button class="tbbtn" disabled aria-label="Notificaciones (próximamente)" title="Notificaciones (próximamente)">🔔</button>'
     +'<button class="tbbtn" aria-label="Pantalla completa" title="Pantalla completa" onclick="pantallaCompleta()"'+(FS_OK?'':' disabled')+'>⛶</button>'
     +'<button class="tbbtn" aria-label="Ajustes" onclick="irSec(\'ajustes\')">⚙️</button>'
@@ -11335,24 +11367,35 @@ function renderHub(){
   }
   var yo=EQ[S.equipo], p=partidoDe(S.jornada), casa=p&&p.h===S.equipo, rival=p?(casa?p.a:p.h):null;
   var pos=miPosicion(), L="";
-  var c=convocatoria();
+  var libre=sinClub();
+  if(libre) S.misterNuevo=null;
+  var c=libre? {rol:"fuera", txt:"", det:""} : convocatoria();
   var ROLCOL={titular:"var(--ok)", suplente:"var(--gold)", fuera:"var(--bad)", lesion:"var(--bad)", sancion:"var(--bad)"};
   var BOTON={titular:"⚽ Saltar al campo", suplente:"Continuar", fuera:"Continuar",
              lesion:"Continuar", sancion:"Continuar"};
   /* tu estado en una línea */
   var Y=S.yo, med=Y.notaN?(Y.notaSum/Y.notaN):0;
-  L+='<div class="card"><div class="eyebrow">'+esc(yo.c)+' · '+pos+'º · '+esc(mister().n)+'</div>'
+  L+='<div class="card"><div class="eyebrow">'+(libre? 'Agente libre · sin equipo' : esc(yo.c)+' · '+pos+'º · '+esc(mister().n))+'</div>'
     +'<div class="statgrid2">'
     +celda(miMedia(),"Media")
     +celda(Y.notaN?med.toFixed(1):"—","Nota")
     +celda(S.pos==="POR"?Y.paradas:Y.g, S.pos==="POR"?"Paradas":"Goles")
     +celda(Math.round(S.forma===undefined?70:S.forma),"Forma")
     +'</div>';
-  L+='<div class="forma">'+(function(){
+  L+=(libre? '' : '<div class="forma">'+(function(){
     var ult=S.racha.slice(-5); while(ult.length<5) ult.unshift(null);
     return ult.map(function(v){ return '<div class="fdot '+(v?("f"+v):"f-")+'">'+(v||"·")+'</div>'; }).join("");
-  })()+'</div></div>';
-  if(p){
+  })()+'</div>')+'</div>';
+  if(libre){
+    /* donde iría el partido de la jornada: sin contrato no hay partido, solo el teléfono */
+    L+='<div class="nextcard">'
+      +'<div class="tagline">Jornada '+(S.jornada+1)+' de 38 · sin equipo</div>'
+      +'<div class="disp" style="font-size:28px;letter-spacing:3px;margin:12px 0 6px;text-align:center">AGENTE LIBRE</div>'
+      +'<p class="note" style="margin:0 0 14px;text-align:center">No perteneces a ningún club: sin míster, sin vestuario, sin entreno y sin ficha. La liga sigue sin ti. Escucha ofertas o espera una mejor.</p>'
+      +'<button class="gold-btn" onclick="abrirMercado()">📞 Escuchar ofertas</button>'
+      +'<button class="ghost" style="margin-top:8px" onclick="iniciarJornada()">Esperar a la siguiente jornada</button>'
+      +'</div>';
+  } else if(p){
     L+='<div class="nextcard">'
       +'<div class="tagline">Jornada '+(S.jornada+1)+' de 38 · '+esc(casa?yo.est:EQ[rival].est)+'</div>'
       +'<div class="vsrow">'
@@ -11366,9 +11409,9 @@ function renderHub(){
       +'<button class="gold-btn" onclick="iniciarJornada()">'+BOTON[c.rol]+'</button>'
       +'</div>';
   }
-  L+=vocesHTML();
+  if(!libre) L+=vocesHTML();
   /* aviso si tienes cosas pendientes esta semana */
-  var pend=[], sinEntreno=(S.lesion<=0 && S.contrato && !entMisterHecho());
+  var pend=[], sinEntreno=(!libre && S.lesion<=0 && S.contrato && !entMisterHecho());
   if(sinEntreno) pend.push("el entreno del míster sin hacer");
   if(S.semanaHecha!==S.jornada) pend.push("la semana personal sin decidir");
   if(pend.length){
@@ -11378,7 +11421,7 @@ function renderHub(){
     L+='<div class="card" style="border-color:rgba(255,194,75,.35)"><div class="eyebrow" style="color:var(--gold)">Pendiente</div><p class="note" style="margin:0 0 10px">Te queda '+esc(pend.join(" y "))+'.</p>'
       +'<button class="btn" style="width:100%" onclick="'+irPend.fn+'">'+esc(irPend.txt)+'</button></div>';
   }
-  var mensajes=diaADia();
+  var mensajes=libre? [] : diaADia();
   mensajes.forEach(function(m){
     L+='<div class="msgcard" style="border-left-color:'+m.col+'">'
       +'<div class="msgde" style="color:'+m.col+'">'+esc({mister:"El míster","míster":"El míster",club:"El club",vestuario:"El vestuario"}[m.de]||m.de)+' · '+esc(m.n)+'</div>'
@@ -11425,7 +11468,16 @@ function renderHub(){
       +' Vestuario nuevo, mote nuevo: todo se gana otra vez.</p></div>';
     S.trasp=null;
   }
-  if(S.ofertasVerano){
+  if(!libre && S.precontrato){
+    var _pc=S.precontrato;
+    L+='<div class="card" style="border-color:var(--ok)"><div class="eyebrow" style="color:var(--ok)">Precontrato firmado</div>'
+      +'<p style="margin:0;font-size:14px">Empezarás la próxima temporada en el <b>'+esc(EQ[_pc.eq].c)+'</b> ('+fmtDinero(_pc.contrato.salario)+' al año, '+_pc.contrato.anos+' temporadas). Hasta entonces, sigues siendo del '+esc(EQ[S.equipo].c)+'.</p></div>';
+  } else if(ventanaPrecontrato()){
+    L+='<div class="card" style="border-color:var(--gold)"><div class="eyebrow" style="color:var(--gold)">Últimos seis meses de contrato</div>'
+      +'<p style="margin:0 0 8px;font-size:14px">Tu contrato con el '+esc(EQ[S.equipo].c)+' acaba en verano. Otros clubes ya pueden hablar contigo para la próxima temporada, en la que empezarías directamente en el nuevo.</p>'
+      +'<button class="gold-btn" onclick="abrirMercado(true)">📞 Escuchar ofertas</button></div>';
+  }
+  if(S.ofertasVerano && !libre){
     if(S.libre){
       L+='<div class="card" style="border-color:var(--gold)"><div class="eyebrow" style="color:var(--gold)">Mercado · agente libre</div>'
         +'<p style="margin:0 0 8px;font-size:14px">'+(S.libreFin? 'Tu contrato ha terminado o el club te ha rescindido. Sin traspaso de por medio, cualquier club puede firmarte a tu ficha. Sin contrato, nadie renueva por ti: si quieres quedarte, renegocias en la mesa y decides tú.' : 'Sin traspaso de por medio, cualquier club puede firmarte. Si te quedas, renuevas con el '+esc(EQ[S.equipo].c)+' en Segunda con la ficha recortada un 45%.')+'</p>'
@@ -11476,7 +11528,7 @@ function renderHub(){
 /* ================= FIN DE TEMPORADA ================= */
 function finTemporada(){
   /* la prima se cobra una vez por temporada, aunque se abra el resumen varias veces */
-  if(S.objPagadoT!==S.temporada){ pagarObjetivo(); S.objPagadoT=S.temporada; }
+  if(S.objPagadoT!==S.temporada){ if(!sinClub()) pagarObjetivo(); S.objPagadoT=S.temporada; }
   var cl=clasificacion(), pos=miPosicion(), yo=EQ[S.equipo], obj=objetivoDe(rankDe(yo.id));
   var cumplido=pos<=obj.pos, seg=(S.division==="2");
   var titulo = seg? (pos<=3? "¡ASCENSO A PRIMERA!"
@@ -11494,10 +11546,10 @@ function finTemporada(){
     : pos>=18? "El vestuario en silencio y una categoría entera esperando abajo. El fútbol también es esto."
     : cumplido? "Objetivo cumplido: "+obj.t+". La directiva sonríe en el palco."
     : "El objetivo era "+obj.t+" y se quedó a "+(pos-obj.pos)+" puesto(s). Habrá preguntas.";
+  if(sinClub()){ titulo="Una temporada sin equipo"; frase="La liga ha seguido sin ti. Sin club no hubo partidos ni ficha: la próxima, a elegir bien."; }
   var H='<div class="matchcard" style="text-align:center">'
     +'<div class="mtag">Temporada '+S.temporada+' · Jornada 38 de 38</div>'
-    +crestSVG(yo.id,64)
-    +'<div class="finpos disp mono">'+pos+'º</div>'
+    +(sinClub()? '' : crestSVG(yo.id,64)+'<div class="finpos disp mono">'+pos+'º</div>')
     +'<h2 class="disp" style="letter-spacing:2px;margin-top:6px">'+esc(titulo)+'</h2>'
     +'<p style="font-size:14px">'+esc(frase)+'</p>'
     +'<div class="mline"><span>'+(seg?"Suben a Primera":"Champions")+'</span></div>';
@@ -11525,6 +11577,7 @@ function finTemporada(){
 }
 function nuevaTemporada(){
   var Y=S.yo;
+  var eraLibre=!!S.libre, pre=S.precontrato||null;   /* sin club no se evalúa ni se sube ni baja la ficha de nadie */
   var divPrev=S.division||"1";
   var finalPrev=Object.keys(S.tabla).map(function(k){ return {id:k,t:S.tabla[k]}; })
     .sort(function(x,y){ return (y.t.pts-x.t.pts)||((y.t.gf-y.t.gc)-(x.t.gf-x.t.gc))||(y.t.gf-x.t.gf); })
@@ -11559,8 +11612,8 @@ function nuevaTemporada(){
   evolucionarMundo(finalPrev, divPrev);
   if(divPrev==="2" && posFinalPrev<=3){
     S.division="1";
-    S.ascendido={prima: guarda.contrato? Math.round(guarda.contrato.salario*0.25/1000)*1000 : 60000};
-    if(guarda.contrato) guarda.contrato.salario=Math.round(guarda.contrato.salario*1.30);
+    S.ascendido=eraLibre? null : {prima: guarda.contrato? Math.round(guarda.contrato.salario*0.25/1000)*1000 : 60000};
+    if(guarda.contrato && !eraLibre) guarda.contrato.salario=Math.round(guarda.contrato.salario*1.30);
     S.fama=(S.fama||30)+6;
     S.publico.afic=clamp((S.publico.afic||50)+12,0,100);
     S.prensa=(S.prensa||[]).concat([{jor:1, t:S.nombre+" devuelve al "+EQ[eq].c+" a Primera. La ciudad entera lo firma."}]);
@@ -11599,8 +11652,8 @@ function nuevaTemporada(){
   if(S.ascendido && S.ascendido.prima) S.dinero+=S.ascendido.prima;
   S.garantia=0; S.castigo=0; S.ciclo=0; S.sancion=0; S.lesion=0; S.desafios=0;
   /* el club evalúa tu temporada (con los números reales de la que acaba) */
-  S.evaluacion=evalPrev;
-  if(guarda.contrato){
+  S.evaluacion=eraLibre? null : evalPrev;
+  if(guarda.contrato && !eraLibre){
     if(evalPrev.cump===3){ guarda.contrato.salario=Math.round(guarda.contrato.salario*1.18); S.subidaSueldo=true; }
     else if(evalPrev.cump===0){ guarda.contrato.salario=Math.round(guarda.contrato.salario*0.9); S.bajadaSueldo=true; }
   }
@@ -11608,9 +11661,9 @@ function nuevaTemporada(){
   /* si el equipo desciende, el mundo cambia */
   var posFinal=posFinalPrev;
   if(divPrev==="1" && posFinal>=18){
-    S.descendido=true;
-    if(guarda.contrato && guarda.contrato.salidaDescenso){ S.libre=true; }
-    else if(guarda.contrato){ guarda.contrato.salario=Math.round(guarda.contrato.salario*0.55); }
+    S.descendido=!eraLibre;
+    if(guarda.contrato && guarda.contrato.salidaDescenso && !eraLibre){ S.libre=true; S.libreFin=true; }
+    else if(guarda.contrato && !eraLibre){ guarda.contrato.salario=Math.round(guarda.contrato.salario*0.55); }
   }
   /* el contrato corre: una temporada menos */
   if(S.contrato){
@@ -11624,7 +11677,7 @@ function nuevaTemporada(){
   /* ¿te quieren fuera? si has superado a tu club, llaman de arriba */
   var miaAhora=miMedia(), exigeClub=franjaDe(rankDe(eq)).exige;
   if(S.libre){
-    S.ofertasVerano=true;   /* el descenso con cláusula de salida desemboca en el mercado */
+    S.ofertasVerano=null;   /* sin contrato no hay mercado de verano que cerrar: las ofertas se escuchan desde el hub */
   } else if(miaAhora>=exigeClub+6 && S.temporada>=2 && rnd()<clamp((miaAhora-exigeClub)/22,0.15,0.85)){
     S.ofertasVerano=true;
   }
@@ -11638,6 +11691,8 @@ function nuevaTemporada(){
     /* técnico nuevo, hoja en blanco: la relación vuelve cerca del punto neutro */
     S.mister=clamp(50+(S.mister-50)*0.25, 25, 75);
   }
+  /* precontrato firmado: se acaba el contrato y empiezas la temporada directamente en el club nuevo */
+  if(pre && !eraLibre && S.libre){ aplicarTraspaso(pre.eq, pre.contrato, pre.op); }
   guardar();
   $("ov-fin").classList.add("hidden");
   renderHub();
@@ -11765,46 +11820,59 @@ function aplicarFirma(c, of){
   if(!(PICK.contraOK && of && PICK.contraOK.club===of.id)) return;
   aplicarExtrasContrato(c, PICK.contraOK);
 }
+/* cambias de club sin perder tu carrera (todo lo de LLEVAR ya viaja contigo). Sirve para fichajes en verano, con el club libre y para precontratos */
+function aplicarTraspaso(eqId, cc, op){
+  var deNombre=EQ[S.equipo].c, deId=S.equipo;
+  S.equipo=eqId;
+  S.division="1"; S.descendido=null; S.ascendido=null;
+  montarLiga();
+  (S.fichajes=S.fichajes||[]).push({temp:S.temporada, de:deId, a:eqId, fee:op.fee||0, tipo:op.tipo});
+  if(S.fichajes.length>12) S.fichajes.shift();
+  S.compis=crearCompis(eqId, S.nombre);          /* vestuario nuevo: afinidad de recién llegado */
+  S.entrenador=crearEntrenador(eqId);
+  S.misterNuevo=true;
+  S.mister=52;
+  S.bienvenida=null; S.mote=null;                 /* mote y bienvenida se ganan otra vez */
+  S.objetivo=null; S.objPers=null;                /* el encargo pasa a ser el del club nuevo */
+  S.acuerdo=null; S.garantia=0;
+  S.contrato=cc; if(S.contrato) S.contrato.firmadoT=S.temporada;
+  S.precontrato=null; S.tandaMer=null;
+  /* la afición nueva te espera; cuanto más cara la operación, más se espera de ti */
+  S.publico.afic=clamp(50+(S.publico.afic-50)*0.4 + (op.fee>=12000000?5:0) - (op.forzado?6:0), 20, 85);
+  S.publico.seg=Math.round((S.publico.seg||1200)*1.08)+40;
+  var dFama = op.tipo==="libre"?2 : op.fee>=40000000?12 : op.fee>=12000000?8 : op.fee>=3000000?5 : 3;
+  S.fama=(S.fama||30)+dFama;
+  S.trasp={de:deNombre, fee:op.fee, tipo:op.tipo, forzado:!!op.forzado};
+  S.prensa=(S.prensa||[]).concat([{jor:S.jornada+1, t:(op.tipo==="libre"
+    ? S.nombre+" firma como agente libre por el "+EQ[eqId].c+"."
+    : S.nombre+" ya es del "+EQ[eqId].c+": "+fmtDinero(op.fee)+(op.forzado?" y un portazo que se oyó en toda la ciudad.":" y muchas expectativas."))}]);
+  if(S.prensa.length>12) S.prensa.shift();
+  S.muro.unshift({jor:S.jornada+1, u:pick(["PeñaNueva","AbonadoNuevo","GolNorte"]),
+    t:pick(["Bienvenido, "+S.nombre+". Aquí se viene a sudar la camiseta.",
+            S.nombre+", demuéstranos que valías ese dinero.",
+            "Ojo con el fichaje. Dicen que "+S.nombre+" viene con hambre."]), bien:true});
+  if(S.muro.length>16) S.muro.pop();
+  (S.vidaLog=S.vidaLog||[]).push("Fichas por el "+EQ[eqId].c+(op.tipo==="libre"?" como agente libre":" por "+fmtDinero(op.fee)));
+  S.libre=null; S.libreFin=null; S.ofertasVerano=null;
+}
 function empezarCarrera(){
   if(!PICK.pos || !PICK.eq) return;
   cerrarOverlays();
   if(PICK.traspaso && S){
-    /* traspaso: cambias de club sin perder tu carrera (todo lo de LLEVAR ya viaja contigo) */
     var of2=(PICK.tanda&&PICK.tanda[PICK.negIdx])||null;
     var op=(of2&&of2.op)||{tipo:(S.libre?"libre":"acuerdo"), fee:0, forzado:false};
-    var deNombre=EQ[S.equipo].c, deId=S.equipo;
-    S.equipo=PICK.eq;
-    S.division="1"; S.descendido=null; S.ascendido=null;
-    montarLiga();
-    (S.fichajes=S.fichajes||[]).push({temp:S.temporada, de:deId, a:PICK.eq, fee:(of2&&of2.op?of2.op.fee:0), tipo:(of2&&of2.op?of2.op.tipo:(S.libre?"libre":"acuerdo"))});
-    if(S.fichajes.length>12) S.fichajes.shift();
-    S.compis=crearCompis(PICK.eq, S.nombre);          /* vestuario nuevo: afinidad de recién llegado */
-    S.entrenador=crearEntrenador(PICK.eq);
-    S.misterNuevo=true;
-    S.mister=52;
-    S.bienvenida=null; S.mote=null;                    /* mote y bienvenida se ganan otra vez */
-    S.objetivo=null; S.objPers=null;                   /* el encargo pasa a ser el del club nuevo */
-    S.acuerdo=null; S.garantia=0;
     var cc=of2? JSON.parse(JSON.stringify(of2.contrato)) : S.contrato;
     aplicarFirma(cc, of2);
-    S.contrato=cc; if(S.contrato) S.contrato.firmadoT=S.temporada;
-    /* la afición nueva te espera; cuanto más cara la operación, más se espera de ti */
-    S.publico.afic=clamp(50+(S.publico.afic-50)*0.4 + (op.fee>=12000000?5:0) - (op.forzado?6:0), 20, 85);
-    S.publico.seg=Math.round((S.publico.seg||1200)*1.08)+40;
-    var dFama = op.tipo==="libre"?2 : op.fee>=40000000?12 : op.fee>=12000000?8 : op.fee>=3000000?5 : 3;
-    S.fama=(S.fama||30)+dFama;
-    S.trasp={de:deNombre, fee:op.fee, tipo:op.tipo, forzado:!!op.forzado};
-    S.prensa=(S.prensa||[]).concat([{jor:S.jornada+1, t:(op.tipo==="libre"
-      ? S.nombre+" firma libre por el "+EQ[PICK.eq].c+" tras el descenso: la cláusula de salida mejor pagada del año."
-      : S.nombre+" ya es del "+EQ[PICK.eq].c+": "+fmtDinero(op.fee)+(op.forzado?" y un portazo que se oyó en toda la ciudad.":" y muchas expectativas."))}]);
-    if(S.prensa.length>12) S.prensa.shift();
-    S.muro.unshift({jor:S.jornada+1, u:pick(["PeñaNueva","AbonadoNuevo","GolNorte"]),
-      t:pick(["Bienvenido, "+S.nombre+". Aquí se viene a sudar la camiseta.",
-              S.nombre+", demuéstranos que valías ese dinero.",
-              "Ojo con el fichaje. Dicen que "+S.nombre+" viene con hambre."]), bien:true});
-    if(S.muro.length>16) S.muro.pop();
-    (S.vidaLog=S.vidaLog||[]).push("Verano: fichas por el "+EQ[PICK.eq].c+(op.tipo==="libre"?" como agente libre":" por "+fmtDinero(op.fee)));
-    S.libre=null; S.libreFin=null; S.ofertasVerano=null;
+    TANDA_LIBRE=null;
+    if(PICK.pre){
+      /* precontrato: sigues en tu club hasta que acabe el contrato; el verano empiezas ya en el nuevo */
+      S.precontrato={eq:PICK.eq, contrato:cc, op:{tipo:"libre", fee:0, forzado:false}, jor:S.jornada};
+      S.avisoMercado="Precontrato firmado con el "+EQ[PICK.eq].c+": empezarás la próxima temporada directamente allí. Hasta entonces, sigues siendo del "+EQ[S.equipo].c+".";
+      (S.vidaLog=S.vidaLog||[]).push("Precontrato firmado con el "+EQ[PICK.eq].c+" para la próxima temporada");
+      PICK.contraOK=null; CONTRA=null; PICK.traspaso=false; PICK.pre=false;
+      guardar(); renderHub(); return;
+    }
+    aplicarTraspaso(PICK.eq, cc, op);
     PICK.contraOK=null; CONTRA=null; PICK.traspaso=false;
     guardar(); renderHub(); return;
   }

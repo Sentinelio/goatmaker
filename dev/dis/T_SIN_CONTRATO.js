@@ -9,8 +9,8 @@ S.contrato={salario:1e6,anos:0,clausula:1e7,exige:60,firmadoT:1};
 S.libre=true; S.libreFin=true; S.ofertasVerano=true;
 /* 1 · el botón de renovar abre la mesa, no renueva */
 quedarmeMercado();
-__ok(__mesa===1, "sin contrato, renovar abre la mesa de renovación");
-__ok(S.libre===true && S.contrato.anos===0, "abrir la mesa no renueva nada por ti");
+__ok(__mesa===0, "sin contrato no hay mesa de renovación: solo se renueva perteneciendo al club");
+__ok(S.libre===true && S.contrato.anos===0, "pulsar renovar sin club no renueva nada por ti");
 /* 2 · firmar en la mesa te saca del mercado */
 NEG={modo:"renov", club:S.equipo, salario:1100000, anos:2, clausula:2400000, extras:{}, base:{salario:1100000}};
 cerrarNegConAcuerdo(NEG);
