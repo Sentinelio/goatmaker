@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.035";
+var VERSION="0.03.036";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -4791,9 +4791,9 @@ function iniciarJornada(){
   if(S.ofertasVerano){
     S.ofertasVerano=null;
     if(S.libre){
-      if(S.contrato) S.contrato.salario=Math.round(S.contrato.salario*0.55);
-      S.libre=null;
-      S.avisoMercado="Arranca la liga y el mercado se cierra: renuevas con el "+EQ[S.equipo].c+" con la ficha recortada un 45%.";
+      var eraFin=!!S.libreFin;
+      quedarseConClub();
+      if(!eraFin) S.avisoMercado="Arranca la liga y el mercado se cierra: renuevas con el "+EQ[S.equipo].c+" con la ficha recortada un 45%.";
     } else {
       S.avisoMercado="Arranca la liga: el mercado de verano queda cerrado.";
     }
@@ -10558,7 +10558,12 @@ function abrirMercado(){
   mediaAspirante=function(){ return mia; };
   PICK.tanda=generarTanda().filter(function(o){ return o.id!==S.equipo; });
   mediaAspirante=mediaAspiranteReal;
-  if(!PICK.tanda.length){ S.ofertasVerano=null; renderHub(); return; }
+  if(!PICK.tanda.length){
+    /* libre sin ninguna mesa: sigues libre, y el club te renueva si nadie llama antes de la liga */
+    if(S.libre){ S.avisoMercado="Ningún club llama a tu puerta este verano. Si nadie te firma antes de la liga, el "+EQ[S.equipo].c+" te renueva."; }
+    else S.ofertasVerano=null;
+    renderHub(); return;
+  }
   /* tu última temporada habla por ti en la mesa (tras generar la tanda: no infla la franja) */
   var ult=(S.carrera&&S.carrera.length)? S.carrera[S.carrera.length-1] : null;
   PICK.notaPrueba = (ult&&ult.med)? Math.round(ult.med*10)/10 : undefined;
@@ -10575,7 +10580,7 @@ function renderMercado(){
   var H='<div class="eyebrow">Mercado de verano · '+S.edad+' años'+(S.libre?' · agente libre':'')+'</div>'
     +'<h2 class="disp">Quién te quiere</h2>'
     +'<p class="note" style="margin:0 0 14px">'
-    +(S.libre? 'El descenso activó tu cláusula de salida: <b>eres libre</b> y nadie tiene que pagar por ti.'
+    +(S.libre? (S.libreFin? 'Se acabó tu contrato y no lo renovaste: <b>eres libre</b>. Ningún club paga traspaso por ti; solo te firma quien te quiera a tu ficha.' : 'El descenso activó tu cláusula de salida: <b>eres libre</b> y nadie tiene que pagar por ti.')
              : 'Tu media es <b>'+miMedia()+'</b> y tu cláusula, '+fmtDinero((S.contrato&&S.contrato.clausula)||0)+'. Quien no llegue a ella tendrá que convencer a tu club.')
     +'</p><div id="ofertas"></div>';
   PICK.tanda.forEach(function(o,i){
@@ -10600,14 +10605,14 @@ function renderMercado(){
       +'<button class="gold-btn" style="margin-top:12px" onclick="renderNegociacion('+i+')">'+(o.op.tipo==="bloqueado"?"✊ Sentarte igualmente":"✍ Sentarte a negociar")+'</button>'
       +'</div>';
   });
-  H+='<button class="ghost" onclick="quedarmeMercado()">'+(S.libre? 'Renovar con el '+esc(EQ[S.equipo].c)+' (ficha −45%)' : 'Quedarme en el '+esc(EQ[S.equipo].c))+'</button>'
-    +'<p class="note" style="margin:8px 2px 0">'+(S.libre? 'Si no firmas por nadie antes de que arranque la liga, renovarás con la ficha recortada.' : 'El mercado se cierra cuando arranque la liga. Rechazar una oferta la retira de la mesa.')+'</p>';
+  H+='<button class="ghost" onclick="quedarmeMercado()">'+(S.libre? (S.libreFin? 'Renovar con el '+esc(EQ[S.equipo].c)+' (tu ficha actual)' : 'Renovar con el '+esc(EQ[S.equipo].c)+' (ficha −45%)') : 'Quedarme en el '+esc(EQ[S.equipo].c))+'</button>'
+    +'<p class="note" style="margin:8px 2px 0">'+(S.libre? (S.libreFin? 'Si no firmas por nadie antes de que arranque la liga, el club te renueva dos temporadas con tu ficha actual.' : 'Si no firmas por nadie antes de que arranque la liga, renovarás con la ficha recortada.') : 'El mercado se cierra cuando arranque la liga. Rechazar una oferta la retira de la mesa.')+'</p>';
   cont.innerHTML=H;
   $("scr-pick").classList.remove("hidden");
   scrollSiCambia("mercado");
 }
 function quedarmeMercado(){
-  if(S.libre){
+  if(S.libre && !S.libreFin){
     modal({ico:"🖊", peligro:true, t:"Renovar en Segunda",
       x:"Renovar con el "+esc(EQ[S.equipo].c)+" tras el descenso implica aceptar la ficha recortada un 45%: de "+fmtDinero(S.contrato?S.contrato.salario:0)+" a <b>"+fmtDinero(Math.round((S.contrato?S.contrato.salario:0)*0.55))+"</b> al año.",
       okTxt:"Renovar y quedarme", cancelTxt:"Volver al mercado",
@@ -10616,12 +10621,24 @@ function quedarmeMercado(){
   }
   cerrarMercado(true, null);
 }
+/* te quedas con tu club cuando no firmas por nadie:
+   - fin de contrato: dos temporadas con tu ficha, subida según tu media (la renovación normal);
+   - descenso con cláusula: ficha recortada un 45% */
+function quedarseConClub(){
+  if(S.contrato){
+    if(S.libreFin){
+      S.contrato.salario=Math.round(S.contrato.salario*(1+clamp((miMedia()-65)/100,-0.1,0.35)));
+      S.contrato.anos=2; S.renovado=true;
+    } else S.contrato.salario=Math.round(S.contrato.salario*0.55);
+  }
+  S.libre=null; S.libreFin=null;
+}
 function cerrarMercado(voluntario, aviso){
   S.ofertasVerano=null;
   if(S.libre){
-    if(S.contrato) S.contrato.salario=Math.round(S.contrato.salario*0.55);
-    S.libre=null;
-    S.avisoMercado=aviso || "Renuevas con el "+EQ[S.equipo].c+" en Segunda con la ficha recortada un 45%. La afición te lo agradece.";
+    var eraFin=!!S.libreFin;
+    quedarseConClub();
+    S.avisoMercado=aviso || (eraFin? null : "Renuevas con el "+EQ[S.equipo].c+" en Segunda con la ficha recortada un 45%. La afición te lo agradece.");
     S.publico.afic=clamp(S.publico.afic+8,0,100);
   } else {
     S.avisoMercado=aviso || (voluntario? "Te quedas en el "+EQ[S.equipo].c+". El mercado queda cerrado." : null);
@@ -11249,9 +11266,9 @@ function renderHub(){
   if(S.ofertasVerano){
     if(S.libre){
       L+='<div class="card" style="border-color:var(--gold)"><div class="eyebrow" style="color:var(--gold)">Mercado · agente libre</div>'
-        +'<p style="margin:0 0 8px;font-size:14px">Sin traspaso de por medio, cualquier club puede firmarte. Si te quedas, renuevas con el '+esc(EQ[S.equipo].c)+' en Segunda con la ficha recortada un 45%.</p>'
+        +'<p style="margin:0 0 8px;font-size:14px">'+(S.libreFin? 'Se acabó tu contrato. Sin traspaso de por medio, cualquier club puede firmarte a tu ficha. Si no firmas por nadie, el '+esc(EQ[S.equipo].c)+' te renueva dos temporadas con tu ficha actual.' : 'Sin traspaso de por medio, cualquier club puede firmarte. Si te quedas, renuevas con el '+esc(EQ[S.equipo].c)+' en Segunda con la ficha recortada un 45%.')+'</p>'
         +'<button class="gold-btn" onclick="abrirMercado()">Escuchar ofertas</button>'
-        +'<button class="ghost" onclick="quedarmeMercado()">Renovar con el '+esc(EQ[S.equipo].c)+' (ficha −45%)</button></div>';
+        +'<button class="ghost" onclick="quedarmeMercado()">Renovar con el '+esc(EQ[S.equipo].c)+(S.libreFin? ' (tu ficha actual)' : ' (ficha −45%)')+'</button></div>';
     } else {
       L+='<div class="card" style="border-color:var(--gold)"><div class="eyebrow" style="color:var(--gold)">Mercado</div>'
         +'<p style="margin:0 0 8px;font-size:14px">Tu media ('+miMedia()+') se ha quedado grande para el '+esc(EQ[S.equipo].c)
@@ -11436,11 +11453,8 @@ function nuevaTemporada(){
   /* el contrato corre: una temporada menos */
   if(S.contrato){
     S.contrato.anos=Math.max(0,(S.contrato.anos||1)-1);
-    if(S.contrato.anos===0){
-      S.contrato.anos=2;
-      S.contrato.salario=Math.round(S.contrato.salario*(1+clamp((miMedia()-65)/100,-0.1,0.35)));
-      S.renovado=true;
-    }
+    /* se acabó el contrato sin renovar: eres agente libre y el mercado decide (no hay renovación automática) */
+    if(S.contrato.anos===0){ S.libre=true; S.libreFin=true; }
   }
   /* la plantilla cambia en verano, y los que siguen cumplen años */
   S.compis=crearCompis(eq, no);
@@ -11628,7 +11642,7 @@ function empezarCarrera(){
               "Ojo con el fichaje. Dicen que "+S.nombre+" viene con hambre."]), bien:true});
     if(S.muro.length>16) S.muro.pop();
     (S.vidaLog=S.vidaLog||[]).push("Verano: fichas por el "+EQ[PICK.eq].c+(op.tipo==="libre"?" como agente libre":" por "+fmtDinero(op.fee)));
-    S.libre=null; S.ofertasVerano=null;
+    S.libre=null; S.libreFin=null; S.ofertasVerano=null;
     PICK.contraOK=null; CONTRA=null; PICK.traspaso=false;
     guardar(); renderHub(); return;
   }
