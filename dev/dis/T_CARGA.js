@@ -21,6 +21,11 @@ function nuevo(pos){
   nuevo("DC"); S.forma=45; empezarDia();
   h=entMisterHTML();
   __ok(h.indexOf("Hoy toca recuperar")>0 && h.indexOf("diaSesion('post-estira')")>0, "forma 45: el preparador sugiere recuperar con estiramientos");
+  __ok(h.indexOf('class="ejer rec" onclick="diaSesion(\'post-estira\')"')>0 && h.indexOf("diaSesion('tecnica')")<0, "forma 45: lo destacado como recomendado es la recuperación del aviso, y no sale entreno");
+  /* una recuperación nunca lesiona, aunque sea la cuarta sesión y con mucha carga */
+  nuevo("DC"); S.forma=30; S.rachaExtra=5; var lesFuera=0;
+  for(var k=0;k<400;k++){ S.lesion=0; aplicarEntreno(ejIdx("post-piscina"), true); if(S.lesion>0) lesFuera++; }
+  __ok(lesFuera===0, "la piscina como cuarta sesión no lesiona nunca ("+lesFuera+" lesiones en 400)");
   /* demasiada carga: parar */
   nuevo("DC"); S.forma=30; empezarDia();
   h=entMisterHTML();
