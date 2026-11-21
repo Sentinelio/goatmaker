@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.034";
+var VERSION="0.03.035";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -2047,36 +2047,48 @@ function cargaDia(D){
   if(n>=3 || f<50) return 1;
   return 0;
 }
+/* qué toca en cada hora según cuántas has elegido:
+   antes: la 1.ª calentar, las siguientes ejercicios interesantes;
+   después: con 2 o más horas, la 1.ª interesante y la última recuperación; con 1, recuperación.
+   Carga alta: parar o recuperar, siempre. */
+function horaModo(D, fase){
+  var carga=cargaDia(D);
+  if(carga>=2) return "parar";
+  if(carga===1) return "recuperar";
+  if(fase==="antes") return D.antes.length===0 ? "calentar" : "interesante";
+  return (D.sa>=2 && D.despues.length<D.sa-1) ? "interesante" : "recuperar";
+}
 function cartasHora(D, fase){
   D.cartas=D.cartas||{};
-  var carga=cargaDia(D), pronto=(fase==="antes" && carga===0 && D.ll>=1);
-  var clave=carga+(pronto?"p":"");
+  var carga=cargaDia(D), modo=horaModo(D, fase), slot=(fase==="antes"? D.antes.length : D.despues.length);
+  var clave=modo+":"+slot+":"+carga;
   if(D.cartas[fase] && D.cartas[fase].c===clave) return D.cartas[fase].ids.map(ejEnt);
   S.horaRec=S.horaRec||{antes:[],despues:[]};
   var rr=S.horaRec[fase]||[], p=S.pos;
   var orden=function(a,b){ return (rr.indexOf(a.id)>=0)-(rr.indexOf(b.id)>=0) || (rnd()-0.5); };
   var lista;
-  if(carga>=2){
+  if(modo==="parar"){
     /* el preparador manda parar: solo recuperación suave */
     lista=["post-estira","post-piscina","post-masaje","post-trote"].map(ejEnt);
-  } else if(carga===1){
+  } else if(modo==="recuperar" && carga===1){
     /* vas cargado: recuperación primero, y nada de entreno que sume carga */
     var forz=["post-estira","post-piscina"].map(ejEnt);
     var resto1=ENTRENOS.filter(function(e){ return esSuave(e) && forz.indexOf(e)<0 && (!e.pos || e.pos.indexOf(p)>=0); }).sort(orden);
     lista=forz.concat(resto1.slice(0,2));
+  } else if(modo==="calentar"){
+    /* has llegado pronto: el calentamiento va primero, para ponerte a tono */
+    var calienta=ejEnt("pre-trote");
+    var propiasA=ENTRENOS.filter(function(e){ return e.cuando===fase && (!e.pos || e.pos.indexOf(p)>=0); }).sort(orden);
+    lista=[calienta].concat(propiasA.filter(function(e){ return e!==calienta; })).slice(0,4);
+  } else if(modo==="recuperar"){
+    /* recuperación suave de después: lo primero que ves es lo que te propone el preparador */
+    lista=ENTRENOS.filter(function(e){ return e.cuando===fase && (!e.pos || e.pos.indexOf(p)>=0); }).sort(orden).slice(0,4);
   } else {
-    var propias=ENTRENOS.filter(function(e){ return e.cuando===fase && (!e.pos || e.pos.indexOf(p)>=0); }).sort(orden).slice(0,4);
-    if(pronto){
-      /* has llegado pronto: el calentamiento va primero, para ponerte a tono */
-      var calienta=ejEnt("pre-trote");
-      propias=[calienta].concat(propias.filter(function(e){ return e!==calienta; })).slice(0,4);
-      lista=propias;
-    } else {
-      var resto=entrenosDisp().sort(orden), rec=recomendacion(), elegidas=[];
-      if(rec && rec.ej && resto.some(function(e){ return e.id===rec.ej; })) elegidas.push(ejEnt(rec.ej));
-      resto.forEach(function(e){ if(elegidas.length<2 && elegidas.indexOf(e)<0) elegidas.push(e); });
-      lista=propias.concat(elegidas.slice(0,2));
-    }
+    /* ejercicios interesantes: lo recomendado primero, luego el resto del catálogo */
+    var resto=entrenosDisp().sort(orden), rec=recomendacion(), elegidas=[];
+    if(rec && rec.ej && resto.some(function(e){ return e.id===rec.ej; })) elegidas.push(ejEnt(rec.ej));
+    resto.forEach(function(e){ if(elegidas.length<4 && elegidas.indexOf(e)<0) elegidas.push(e); });
+    lista=elegidas;
   }
   D.cartas[fase]={c:clave, ids:lista.map(function(e){ return e.id; })};
   S.horaRec[fase]=rr.concat(D.cartas[fase].ids).slice(-12);
@@ -2451,14 +2463,18 @@ function entMisterHTML(){
     H+=diaFilas(antes? D.antes : D.despues, antes?"🌅":"🌙");
     H+='<p style="margin:8px 0 6px">Son las <b>'+hora+'</b>. ¿Qué haces en esta hora?</p>';
     if(extra) H+='<p class="note" style="margin:0 0 6px;color:var(--bad)">Cuarta sesión del día: rinde más, pero puedes pasarte de carga.</p>';
-    var carga=cargaDia(D), rec=recomendacion();
-    if(carga===2) H+='<div class="recbox" style="border-color:var(--bad)">🧑‍🏫 <b>El preparador:</b> «Hoy ya has trabajado bastante y vas sin fuerzas. Para no lesionarte, para: deja esta hora libre.»</div>';
-    else if(carga===1) H+='<div class="recbox">🧑‍🏫 <b>El preparador:</b> «Llevas '+diaReales(D)+' sesiones hoy y vas justo de forma. Hoy toca recuperar: estiramientos o piscina.»</div>';
-    else if(antes && D.ll>=1) H+='<div class="recbox">🧑‍🏫 <b>El preparador:</b> «Has llegado pronto: calienta y ponte a tono para el resto del entreno. Te propone <b>Trote y series cortas</b>, pero decides tú.»</div>';
-    else if(rec) H+='<div class="recbox">🧑‍🏫 <b>El preparador:</b> «'+esc(rec.motivo)+'.» Te propone <b>'+esc(nombreEj(rec.ej))+'</b>, pero decides tú.</div>';
-    H+='<p class="note" style="margin:8px 0 4px">'+(antes? "Antes de entrenar: calentar para entrar en calor" : "Después de entrenar: recuperación suave")+'</p><div class="ejgrid">';
-    var recMostrado = carga===1? {ej:"post-estira"} : carga===2? null : (antes && D.ll>=1? {ej:"pre-trote"} : rec);   /* lo recomendado es lo que dice el aviso */
-    cartasHora(D, antes?"antes":"despues").forEach(function(x){ H+=ejCarta(x,recMostrado,extra); });
+    var carga=cargaDia(D), rec=recomendacion(), modo=horaModo(D, antes?"antes":"despues");
+    var cartas=cartasHora(D, antes?"antes":"despues");
+    /* lo recomendado es lo que dice el aviso, y el aviso solo nombra lo que se ve abajo */
+    var recMostrado = modo==="parar"? null : (modo==="recuperar" && carga===1)? {ej:"post-estira"} : (modo==="calentar" || modo==="recuperar")? {ej:cartas[0].id} : (rec && cartas.some(function(x){ return x.id===rec.ej; })? rec : null);
+    if(modo==="parar") H+='<div class="recbox" style="border-color:var(--bad)">🧑‍🏫 <b>El preparador:</b> «Hoy ya has trabajado bastante y vas sin fuerzas. Para no lesionarte, para: deja esta hora libre.»</div>';
+    else if(modo==="recuperar" && carga===1) H+='<div class="recbox">🧑‍🏫 <b>El preparador:</b> «Llevas '+diaReales(D)+' sesiones hoy y vas justo de forma. Hoy toca recuperar: estiramientos o piscina.»</div>';
+    else if(modo==="calentar") H+='<div class="recbox">🧑‍🏫 <b>El preparador:</b> «Has llegado pronto: calienta y ponte a tono para el resto del entreno. Te propone <b>'+esc(nombreEj("pre-trote"))+'</b>, pero decides tú.»</div>';
+    else if(modo==="recuperar") H+='<div class="recbox">🧑‍🏫 <b>El preparador:</b> «Después de entrenar toca bajar el ritmo, sin sumar carga. Te propone <b>'+esc(nombreEj(recMostrado.ej))+'</b>, pero decides tú.»</div>';
+    else if(recMostrado) H+='<div class="recbox">🧑‍🏫 <b>El preparador:</b> «'+esc(recMostrado.motivo)+'.» Te propone <b>'+esc(nombreEj(recMostrado.ej))+'</b>, pero decides tú.</div>';
+    var etiq = modo==="calentar"? "Antes de entrenar: calentar para entrar en calor" : modo==="interesante"? (antes? "Antes de entrenar: ejercicios interesantes para ti" : "Después de entrenar: ejercicios interesantes; la última hora, recuperación") : "Recuperación suave: sin sumar carga";
+    H+='<p class="note" style="margin:8px 0 4px">'+etiq+'</p><div class="ejgrid">';
+    cartas.forEach(function(x){ H+=ejCarta(x,recMostrado,extra); });
     H+='</div><button class="ghost" style="margin-top:10px'+(carga===2?';border-color:var(--bad);color:var(--bad)':'')+'" onclick="diaSaltar()">'+(carga===2?'Parar: dejar esta hora libre':'Dejar esta hora libre')+'</button>';
   } else if(D.fase==="mister"){
     var R=D.rondas[D.ronda], sit=R? sitEntrenoPorId(R.id) : null;
