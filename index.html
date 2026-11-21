@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.039";
+var VERSION="0.03.040";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -4788,7 +4788,10 @@ function iniciarJornada(){
     semanaTienda();     /* y el bazar cobra, regenera, tienta y a veces roba */
   } finally { SEMANA_CORRE=false; }
   /* arranca la jornada: el mercado de verano se cierra solo */
-  if(S.ofertasVerano){
+  if(S.libre && S.libreFin){
+    /* contrato terminado: nadie te renueva por ti. Sigues libre; la renovación la decides tú en la mesa */
+    S.avisoMercado="Arranca la liga sin contrato: sigues libre. Decides tú si renuevas o esperas una oferta mejor.";
+  } else if(S.ofertasVerano){
     S.ofertasVerano=null;
     if(S.libre){
       var eraFin=!!S.libreFin;
@@ -9792,6 +9795,7 @@ function cerrarNegConAcuerdo(neg){
     aplicarExtrasContrato(S.contrato, neg);
   } else {
     S.contrato.salario=neg.salario; S.contrato.anos=neg.anos; S.contrato.clausula=neg.clausula; S.contrato.firmadoT=S.temporada;
+    S.libre=null; S.libreFin=null; S.ofertasVerano=null;   /* firmar la renovación te saca del mercado */
     S.contrato.obj=objetivoPorPos(S.pos, neg.salario);
     aplicarExtrasContrato(S.contrato, neg);
     S.mister=clamp(S.mister+4,5,95);
@@ -10697,8 +10701,8 @@ function abrirMercado(){
   PICK.tanda=generarTanda().filter(function(o){ return o.id!==S.equipo; });
   mediaAspirante=mediaAspiranteReal;
   if(!PICK.tanda.length){
-    /* libre sin ninguna mesa: sigues libre, y el club te renueva si nadie llama antes de la liga */
-    if(S.libre){ S.avisoMercado="Ningún club llama a tu puerta este verano. Si nadie te firma antes de la liga, el "+EQ[S.equipo].c+" te renueva."; }
+    /* libre sin ninguna mesa: sigues libre, y puedes renovar en la mesa si nadie llama */
+    if(S.libre){ S.avisoMercado="Ningún club llama a tu puerta este verano. Si nadie te firma, puedes renovar en la mesa del club o esperar."; }
     else S.ofertasVerano=null;
     renderHub(); return;
   }
@@ -10743,13 +10747,18 @@ function renderMercado(){
       +'<button class="gold-btn" style="margin-top:12px" onclick="renderNegociacion('+i+')">'+(o.op.tipo==="bloqueado"?"✊ Sentarte igualmente":"✍ Sentarte a negociar")+'</button>'
       +'</div>';
   });
-  H+='<button class="ghost" onclick="quedarmeMercado()">'+(S.libre? (S.libreFin? 'Renovar con el '+esc(EQ[S.equipo].c)+' (tu ficha actual)' : 'Renovar con el '+esc(EQ[S.equipo].c)+' (ficha −45%)') : 'Quedarme en el '+esc(EQ[S.equipo].c))+'</button>'
-    +'<p class="note" style="margin:8px 2px 0">'+(S.libre? (S.libreFin? 'Si no firmas por nadie antes de que arranque la liga, el club te renueva dos temporadas con tu ficha actual.' : 'Si no firmas por nadie antes de que arranque la liga, renovarás con la ficha recortada.') : 'El mercado se cierra cuando arranque la liga. Rechazar una oferta la retira de la mesa.')+'</p>';
+  H+='<button class="ghost" onclick="quedarmeMercado()">'+(S.libre? (S.libreFin? 'Renovar con el '+esc(EQ[S.equipo].c)+' (mesa de renovación)' : 'Renovar con el '+esc(EQ[S.equipo].c)+' (ficha −45%)') : 'Quedarme en el '+esc(EQ[S.equipo].c))+'</button>'
+    +'<p class="note" style="margin:8px 2px 0">'+(S.libre? (S.libreFin? 'Sin contrato, nadie renueva por ti: si quieres quedarte, renegocias en la mesa y decides tú.' : 'Si no firmas por nadie antes de que arranque la liga, renovarás con la ficha recortada.') : 'El mercado se cierra cuando arranque la liga. Rechazar una oferta la retira de la mesa.')+'</p>';
   cont.innerHTML=H;
   $("scr-pick").classList.remove("hidden");
   scrollSiCambia("mercado");
 }
 function quedarmeMercado(){
+  if(S.libre && S.libreFin){
+    /* sin contrato: la renovación va por la mesa, y allí contraofertas o aceptas tú */
+    abrirMesaRenov();
+    return;
+  }
   if(S.libre && !S.libreFin){
     modal({ico:"🖊", peligro:true, t:"Renovar en Segunda",
       x:"Renovar con el "+esc(EQ[S.equipo].c)+" tras el descenso implica aceptar la ficha recortada un 45%: de "+fmtDinero(S.contrato?S.contrato.salario:0)+" a <b>"+fmtDinero(Math.round((S.contrato?S.contrato.salario:0)*0.55))+"</b> al año.",
@@ -11404,9 +11413,9 @@ function renderHub(){
   if(S.ofertasVerano){
     if(S.libre){
       L+='<div class="card" style="border-color:var(--gold)"><div class="eyebrow" style="color:var(--gold)">Mercado · agente libre</div>'
-        +'<p style="margin:0 0 8px;font-size:14px">'+(S.libreFin? 'Tu contrato ha terminado o el club te ha rescindido. Sin traspaso de por medio, cualquier club puede firmarte a tu ficha. Si no firmas por nadie, el '+esc(EQ[S.equipo].c)+' te renueva dos temporadas con tu ficha actual.' : 'Sin traspaso de por medio, cualquier club puede firmarte. Si te quedas, renuevas con el '+esc(EQ[S.equipo].c)+' en Segunda con la ficha recortada un 45%.')+'</p>'
+        +'<p style="margin:0 0 8px;font-size:14px">'+(S.libreFin? 'Tu contrato ha terminado o el club te ha rescindido. Sin traspaso de por medio, cualquier club puede firmarte a tu ficha. Sin contrato, nadie renueva por ti: si quieres quedarte, renegocias en la mesa y decides tú.' : 'Sin traspaso de por medio, cualquier club puede firmarte. Si te quedas, renuevas con el '+esc(EQ[S.equipo].c)+' en Segunda con la ficha recortada un 45%.')+'</p>'
         +'<button class="gold-btn" onclick="abrirMercado()">Escuchar ofertas</button>'
-        +'<button class="ghost" onclick="quedarmeMercado()">Renovar con el '+esc(EQ[S.equipo].c)+(S.libreFin? ' (tu ficha actual)' : ' (ficha −45%)')+'</button></div>';
+        +'<button class="ghost" onclick="quedarmeMercado()">Renovar con el '+esc(EQ[S.equipo].c)+(S.libreFin? ' (mesa de renovación)' : ' (ficha −45%)')+'</button></div>';
     } else {
       L+='<div class="card" style="border-color:var(--gold)"><div class="eyebrow" style="color:var(--gold)">Mercado</div>'
         +'<p style="margin:0 0 8px;font-size:14px">Tu media ('+miMedia()+') se ha quedado grande para el '+esc(EQ[S.equipo].c)
