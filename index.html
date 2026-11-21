@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.031";
+var VERSION="0.03.032";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -2461,7 +2461,6 @@ function entMisterHTML(){
       var o=sit.o[oi];
       H+='<button class="opt" onclick="entMisterElige('+j+')"><b>'+esc(txtSit(o.l))+'</b><small>'+riesgoEntreno(probsEntreno(o,D))+'</small></button>';
     });
-    H+='<p class="note" style="margin:8px 2px 0">Las mismas decisiones que en un partido, pero en el partidillo: no hay marcador ni tarjetas de verdad. Lo que cuenta es lo que ve el míster, y eso pesa para el domingo.</p>';
   } else if(D.fase==="notaMister"){
     H+='<div class="eyebrow">Entreno del míster · terminado</div>'+diaPasos(D);
     H+=diaMisterFilas(D,true);
