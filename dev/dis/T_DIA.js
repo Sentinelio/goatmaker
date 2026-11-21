@@ -1,3 +1,4 @@
+function avanzaMister(f){ var D=S.dia; if(D.ultimo){ if(D.ronda>=D.rondas.length) diaCerrarMister(); else diaSiguienteJugada(); return; } entMisterElige(f); }
 /* ===== TEST · tu día en la ciudad deportiva (0.03.012: por fases) =====
    Uso: HTML=/ruta/index.html dis/correr.sh T_DIA.js
    Antes y después del entreno: máx. 2 sesiones tuyas por lado (cada hora = una sesión).
@@ -34,8 +35,10 @@ function nuevo(pos){
   __ok(S.dia.fase==="mister" && S.dia.antes[1].libre, "dejar la segunda hora libre pasa al míster");
   __ok(S.dia.rondas.length>=3 && S.dia.rondas.length<=(V.doble?4:3), "el míster propone "+S.dia.rondas.length+" jugadas");
   __ok(entMisterHTML().indexOf("entMisterElige(1)")>0, "se ven las opciones de la jugada");
+  entMisterElige(0); var hr=entMisterHTML();
+  __ok(hr.indexOf("diaSiguienteJugada()")>0 && hr.indexOf("entMisterElige(")<0 && S.dia.log.length===1, "tras cada decisión solo se ve su resultado y el botón de seguir");
   u0=S.convU.u;
-  while(S.dia.fase==="mister") entMisterElige(0);
+  while(S.dia.fase==="mister") avanzaMister(0);
   __ok(S.dia.fase==="notaMister" && entMisterHTML().indexOf("diaSeguir()")>0, "tras la última jugada se ve la nota del míster antes de seguir");
   __ok(S.dia.log.every(function(l){ return l.txt && l.n; }), "cada jugada muestra su resultado con el texto del partido");
   diaSesion("tecnica"); __ok(S.dia.despues.length===0, "no se puede saltar la pantalla de la nota");
@@ -52,13 +55,13 @@ function nuevo(pos){
   __ok(entMisterHTML().indexOf("Nota del entreno")>0, "la tarjeta final resume el día");
   /* 4ª sesión = extra */
   nuevo("LAT"); var V2=citaVentana(); citaMueve("llegada", String(V2.llamada-2)); citaMueve("salida", String(V2.fin+2)); empezarDia();
-  diaSesion("tecnica"); diaSesion("mental"); while(S.dia.fase==="mister") entMisterElige(0); diaSeguir(); diaSesion("tactica"); diaSesion("tecnica");
+  diaSesion("tecnica"); diaSesion("mental"); while(S.dia.fase==="mister") avanzaMister(0); diaSeguir(); diaSesion("tactica"); diaSesion("tecnica");
   __ok(S.dia.despues.length===2 && S.dia.despues[1].extra===true && S.dia.despues[0].extra===false, "la cuarta sesión del día cuenta como extra");
 })();
 (function(){
   /* la opción más segura frente a la más arriesgada, de media */
   var notas=function(segura){ var t=0; for(var i=0;i<300;i++){ nuevo("MC"); empezarDia();
-      while(S.dia.fase==="mister"){ var R=S.dia.rondas[S.dia.ronda], sit=sitEntrenoPorId(R.id), best=0, bv=segura?-1:2;
+      while(S.dia.fase==="mister"){ if(S.dia.ultimo){ avanzaMister(0); continue; } var R=S.dia.rondas[S.dia.ronda], sit=sitEntrenoPorId(R.id), best=0, bv=segura?-1:2;
         R.ops.forEach(function(oi,k){ var p=probsEntreno(sit.o[oi],S.dia).ok; if(segura? p>bv : p<bv){ bv=p; best=k; } }); entMisterElige(best); }
       t+=S.dia.nota; } return t/300; };
   var seg=notas(true), arr=notas(false);

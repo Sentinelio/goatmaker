@@ -4,7 +4,7 @@ function __ok(c,m){ if(c) __o++; else { __f++; console.log("✘ "+m); } }
 guardar=function(){}; irSub=function(){}; irSec=function(){};
 function nuevo(){ S=nuevoEstado("BET","LAT","B",7,"D",ROLES.LAT[0].id,22); S.contrato=S.contrato||{salario:900000,anos:3,exige:60}; S.lesion=0; S.sancion=0; S.jornada=5; S.forma=90; S.mister=55; S.conf=55; S.dia=null; S.entMister=null; S.rachaExtra=0; S.avisoMercado=null; S.avisoEntreno=null; S.car=S.car||{}; }
 function cita(ll,sa){ CITA_UI={jor:S.jornada,ll:ll,sa:sa}; empezarDia(); }
-function haceMister(){ while(S.dia.fase==="mister") entMisterElige(0); if(S.dia.fase==="notaMister") diaSeguir(); }
+function haceMister(){ while(S.dia.fase==="mister"){ if(S.dia.ultimo){ if(S.dia.ronda>=S.dia.rondas.length) diaCerrarMister(); else diaSiguienteJugada(); } else entMisterElige(0); } if(S.dia.fase==="notaMister") diaSeguir(); }
 (function(){
   /* 1 · presencia sin sesiones: nada gratis */
   nuevo(); var m0=S.mister; cita(2,2); diaSaltar(); diaSaltar(); haceMister(); diaSaltar(); diaSaltar();

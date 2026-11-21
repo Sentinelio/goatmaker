@@ -47,6 +47,7 @@ poss.forEach(function(p){
         if(pasos>abandona){ break; }
         var ph=S.dia.fase, ant=snap(), ar=[S.forma,S.mister,S.conf];
         if(ph==="antes"||ph==="despues"){ if(S.lesion>0) break; if(rr(3)===0) diaSaltar(); else diaSesion(ENTRENOS[rr(ENTRENOS.length)].id); }
+        else if(ph==="mister" && S.dia.ultimo){ if(S.dia.ronda>=S.dia.rondas.length) diaCerrarMister(); else diaSiguienteJugada(); }
         else if(ph==="mister"){ var R=S.dia.rondas[S.dia.ronda]; if(!R){ __ok(false,"DIA: fase míster sin ronda ("+p+")"); break; } entMisterElige(rr(R.ops.length)); }
         else if(ph==="notaMister") diaSeguir();
         var des=snap(); ATT.concat(["POR"]).forEach(function(k){ __ok(des[k]>=ant[k]-1e-9, "ATRIB: entrenar BAJA "+k+" ("+ant[k]+"→"+des[k]+")"); });
