@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.043";
+var VERSION="0.03.044";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -4803,6 +4803,8 @@ function iniciarJornada(){
     guardar();
   }
   cerrarEntrenoPendiente();
+  /* sin contrato no hay equipo: el club juega la jornada sin ti, como con una baja */
+  if(S.libre && S.libreFin){ jornadaSinTi(); return; }
   var conv=convocatoria();
   if(conv.rol==="lesion" || conv.rol==="sancion"){ jornadaSinTi(); return; }
   var p=partidoDe(S.jornada);
@@ -6710,7 +6712,7 @@ function partidoSinMinutos(){
   $("ov-match").classList.remove("hidden");
 }
 function jornadaSinTi(){
-  var motivo = S.sancion>0? (S.motivoBaja||"sanción") : "lesión";
+  var motivo = (S.libre && S.libreFin)? "sin equipo" : S.sancion>0? (S.motivoBaja||"sanción") : "lesión";
   var p=partidoDe(S.jornada), casa=p.h===S.equipo, rival=casa?p.a:p.h;
   var r = casa? simRapido(p.h,p.a) : simRapido(p.h,p.a);
   aplicarResultado(p.h,p.a,r[0],r[1]);
