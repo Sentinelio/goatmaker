@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.037";
+var VERSION="0.03.038";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -9523,10 +9523,13 @@ function mercadoSemanal(){
       alMenu(sitOferta);
     }
   }
-  /* 5 · tu club también mueve ficha (una vez por ventana) */
+  /* 5 · tu club también mueve ficha (una vez por ventana), por sus canales: venta, rescisión o fichaje en tu puesto */
   if(enVentana() && !S.movClub && rnd()<0.45){
     S.movClub=true;
-    if(rnd()<0.4) fichajeEnTuPuesto(); else ventaCompi();
+    var exVen=(S.contrato && S.contrato.exige)||60, miVen=miMedia();
+    if(miVen<exVen-8 && rnd()<0.5 && S.contrato) clubTeRescinde();
+    else if(miVen>=exVen+3 && rnd()<0.5) clubPonTeEnVenta();
+    else if(rnd()<0.4) fichajeEnTuPuesto(); else ventaCompi();
   }
   if(S.jornada===23) S.movClub=false;
   if(S.jornada<=1) S.portazo=false;
@@ -9570,6 +9573,26 @@ function ventaCompi(){
                  rasgo:RASGOS[Math.floor(rnd()*RASGOS.length)].id, afin:34, pj:0,g:0,a:0,ta:0,tr:0,lesion:0,sancion:0,ciclo:0});
   if(dolor) S.conf=clamp(S.conf-3,5,95);
   S.avisoMercado="El club vende a "+v.n+" al "+(EQ[dest]?EQ[dest].c:dest)+"."+(dolor? " El vestuario lo siente.":"");
+}
+/* el club te pone en venta: las ofertas llegan por el mercado oficial, con traspaso y negociación */
+function clubPonTeEnVenta(){
+  ovSemana({t:"Tu club te pone en venta",
+    x:"El "+esc(EQ[S.equipo].c)+" da tu nombre a los clubes. Las ofertas llegan por los canales de siempre: traspaso y negociación con tu ficha.",
+    ops:[
+      {l:"Escuchar las ofertas", fx:function(){ regSemana("club-venta","escuchar"); abrirMercado(); }},
+      {l:"Negarte a salir", fx:function(){ S.mister=clamp(S.mister-3,5,95); S.conf=clamp(S.conf+2,5,95); regSemana("club-venta","negarte"); }}
+    ]});
+}
+/* el club te rescinde: indemnización de medio año de ficha; quedas libre para negociar */
+function clubTeRescinde(){
+  var c=S.contrato; if(!c) return;
+  var comp=Math.round(c.salario*0.5);
+  ovSemana({t:"El club quiere rescindir",
+    x:"El "+esc(EQ[S.equipo].c)+" te ofrece rescindir el contrato con una indemnización de <b>"+fmtDinero(comp)+"</b>. Si aceptas, quedas libre para negociar con cualquiera.",
+    ops:[
+      {l:"Aceptar la indemnización", fx:function(){ S.dinero=(S.dinero||0)+comp; S.libre=true; S.libreFin=true; c.anos=0; S.ofertasVerano=true; S.avisoMercado="Rescisión firmada: "+fmtDinero(comp)+" de indemnización. Ahora eres libre."; regSemana("club-rescision","aceptar"); }},
+      {l:"Seguir en el club", fx:function(){ S.mister=clamp(S.mister-2,5,95); regSemana("club-rescision","seguir"); }}
+    ]});
 }
 /* ---------- decisiones de semana: overlay propio, efectos reales, todo registrado ---------- */
 var OVSEM=null;
@@ -10099,6 +10122,11 @@ function renovacionProactiva(){
   if(!S.contrato || S.contrato.anos!==1) return;
   if(S.jornada<24 || S.jornada>30 || S.renovProc) return;
   if(S.mister<45) return;
+  /* el club solo pone mesa de renovación si te ve en sus planes; si no, el contrato acaba y quedas libre */
+  if(miMedia() < ((S.contrato.exige||60)-4)){
+    if(S.renovNoAv!==S.temporada){ S.renovNoAv=S.temporada; S.avisoMercado="El club no te incluye en sus planes: no hay mesa de renovación."; }
+    return;
+  }
   var fid=Math.min(3, S.fidelidad||0);
   var subida=1.10 + 0.04*fid + (S.agente? (S.agente.estilo==="tiburon"?0.05:0.03) : 0);
   var salN=Math.round(S.contrato.salario*subida/1000)*1000;
@@ -10660,7 +10688,7 @@ function renderMercado(){
   var H='<div class="eyebrow">Mercado de verano · '+S.edad+' años'+(S.libre?' · agente libre':'')+'</div>'
     +'<h2 class="disp">Quién te quiere</h2>'
     +'<p class="note" style="margin:0 0 14px">'
-    +(S.libre? (S.libreFin? 'Se acabó tu contrato y no lo renovaste: <b>eres libre</b>. Ningún club paga traspaso por ti; solo te firma quien te quiera a tu ficha.' : 'El descenso activó tu cláusula de salida: <b>eres libre</b> y nadie tiene que pagar por ti.')
+    +(S.libre? (S.libreFin? 'Tu contrato ha terminado o el club te ha rescindido: <b>eres libre</b>. Ningún club paga traspaso por ti; solo te firma quien te quiera a tu ficha.' : 'El descenso activó tu cláusula de salida: <b>eres libre</b> y nadie tiene que pagar por ti.')
              : 'Tu media es <b>'+miMedia()+'</b> y tu cláusula, '+fmtDinero((S.contrato&&S.contrato.clausula)||0)+'. Quien no llegue a ella tendrá que convencer a tu club.')
     +'</p><div id="ofertas"></div>';
   PICK.tanda.forEach(function(o,i){
@@ -11346,7 +11374,7 @@ function renderHub(){
   if(S.ofertasVerano){
     if(S.libre){
       L+='<div class="card" style="border-color:var(--gold)"><div class="eyebrow" style="color:var(--gold)">Mercado · agente libre</div>'
-        +'<p style="margin:0 0 8px;font-size:14px">'+(S.libreFin? 'Se acabó tu contrato. Sin traspaso de por medio, cualquier club puede firmarte a tu ficha. Si no firmas por nadie, el '+esc(EQ[S.equipo].c)+' te renueva dos temporadas con tu ficha actual.' : 'Sin traspaso de por medio, cualquier club puede firmarte. Si te quedas, renuevas con el '+esc(EQ[S.equipo].c)+' en Segunda con la ficha recortada un 45%.')+'</p>'
+        +'<p style="margin:0 0 8px;font-size:14px">'+(S.libreFin? 'Tu contrato ha terminado o el club te ha rescindido. Sin traspaso de por medio, cualquier club puede firmarte a tu ficha. Si no firmas por nadie, el '+esc(EQ[S.equipo].c)+' te renueva dos temporadas con tu ficha actual.' : 'Sin traspaso de por medio, cualquier club puede firmarte. Si te quedas, renuevas con el '+esc(EQ[S.equipo].c)+' en Segunda con la ficha recortada un 45%.')+'</p>'
         +'<button class="gold-btn" onclick="abrirMercado()">Escuchar ofertas</button>'
         +'<button class="ghost" onclick="quedarmeMercado()">Renovar con el '+esc(EQ[S.equipo].c)+(S.libreFin? ' (tu ficha actual)' : ' (ficha −45%)')+'</button></div>';
     } else {
