@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.036";
+var VERSION="0.03.037";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -9531,6 +9531,7 @@ function mercadoSemanal(){
   if(S.jornada===23) S.movClub=false;
   if(S.jornada<=1) S.portazo=false;
   comisionSemanal();
+  propuestaAgente();
   renovacionProactiva();
   patroSemanal();
   S.rumores=S.rumores.slice(-10); S.traspasos=S.traspasos.slice(-24); S.rumorLog=S.rumorLog.slice(-16);
@@ -9990,19 +9991,91 @@ var ESTILOS_AG=[
  {id:"cercano",  n:"cercano",  d:"Te cuida como a un hijo. Negocia bien y el vestuario ni se entera.",                pct:0.05, bonus:0.07},
  {id:"discreto", n:"discreto", d:"Ni una filtración en veinte años. Cobra poco, promete poco, cumple.",               pct:0.03, bonus:0.05}
 ];
+/* ===== NIVELES DE AGENTE (0.03.037): ocho escalones según tu carrera (fama y franja del club) ===== */
+var NIVELES_AG=[
+ {n:1, nom:"Conocido con móvil",       fama:0,  franja:0, com:0.06, mesas:1, desp:0, cats:["sport","bebida"]},
+ {n:2, nom:"Representante de cantera", fama:15, franja:1, com:0.07, mesas:2, desp:0, cats:["sport","bebida","botas"]},
+ {n:3, nom:"Agente de Segunda",        fama:25, franja:1, com:0.07, mesas:2, desp:0, cats:["sport","bebida","botas","moda"]},
+ {n:4, nom:"Agente regional",          fama:35, franja:2, com:0.08, mesas:3, desp:1, cats:["sport","bebida","botas","moda","reloj"]},
+ {n:5, nom:"Agente de Primera",        fama:50, franja:3, com:0.08, mesas:3, desp:1, cats:["sport","bebida","botas","moda","reloj","motos"]},
+ {n:6, nom:"Negociador de élite",      fama:62, franja:4, com:0.09, mesas:4, desp:1, cats:["sport","bebida","botas","moda","reloj","motos","coches"]},
+ {n:7, nom:"Superagente",              fama:75, franja:4, com:0.09, mesas:5, desp:2, cats:null},
+ {n:8, nom:"Mánager de estrellas",     fama:88, franja:5, com:0.10, mesas:5, desp:2, cats:null}
+];
+/* nivel que te aceptaría un agente hoy: fama mínima y franja actual del club */
+function nivelCarrera(){
+  var fam=(S.fama===undefined? 30 : S.fama), fr=FRANJAS.indexOf(franjaDe(rankDe(S.equipo)).n), nv=1;
+  NIVELES_AG.forEach(function(L){ if(fam>=L.fama && fr>=L.franja) nv=L.n; });
+  return nv;
+}
+function agNivel(){ return (S.agente && S.agente.nivel) || 1; }
+/* comisión del nivel; el estilo discreto cobra un punto menos */
+function pctAgente(estilo, nivel){ var base=NIVELES_AG[nivel-1].com; return estilo==="discreto"? base-0.01 : base; }
+/* marcas a las que llega tu agente (null = todas) */
+function catsAgente(){ if(!S.agente) return null; return NIVELES_AG[agNivel()-1].cats; }
+/* mesas que llegan y desplazamiento de franja. Sin agente: una mesa, una franja por debajo, y con media de franja 0-1 ninguna */
+function mesasMercado(mia){
+  var ag=(typeof S!=="undefined" && S && S.agente)? S.agente : null;
+  if(!ag) return {mesas: franjaPorMedia(mia)<=1? 0 : 1, desp:-1};
+  var L=NIVELES_AG[(ag.nivel||1)-1];
+  return {mesas: Math.min(5, L.mesas+(ag.estilo==="tiburon"?1:0)), desp:L.desp};
+}
+function tablaNiveles(){
+  var cur=agNivel(), niv=nivelCarrera();
+  var H='<div class="card"><div class="eyebrow">Niveles de agente</div>';
+  NIVELES_AG.forEach(function(L){
+    H+='<div class="row2" style="font-size:12px;'+(L.n===cur?'color:var(--gold)':'')+'"><span>'+L.n+'. '+L.nom+'</span><b>'+Math.round(L.com*100)+'% · '+L.mesas+' mesa'+(L.mesas>1?'s':'')+'</b></div>';
+  });
+  if(cur<8){ var sig=NIVELES_AG[cur]; H+='<p class="note" style="margin:6px 2px">Para '+sig.nom+': fama '+sig.fama+' y franja de club '+sig.franja+'. Hoy tu carrera llega al nivel '+niv+'.</p>'; }
+  return H+'</div>';
+}
 function candidatosAgente(){
-  var out=[];
+  var out=[], niv=nivelCarrera();
   for(var i=0;i<3;i++){
     var r=lcgDe("agente-"+S.temporada+"-"+i);
-    out.push({n:genPersona(r), estilo:ESTILOS_AG[i].id});
+    out.push({n:genPersona(r), estilo:ESTILOS_AG[i].id, nivel:niv});
   }
   return out;
 }
 function ficharAgente(i){
   var c=candidatosAgente()[i]; if(!c) return;
-  var e=ESTILOS_AG.filter(function(x){return x.id===c.estilo;})[0];
-  S.agente={n:c.n, estilo:c.estilo, pct:e.pct, desde:jorAbs()};
-  S.avisoMercado=c.n+" lleva tu carrera desde hoy ("+Math.round(e.pct*100)+"% de tu ficha).";
+  var pct=pctAgente(c.estilo, c.nivel);
+  S.agente={n:c.n, estilo:c.estilo, pct:pct, nivel:c.nivel, desde:jorAbs()};
+  S.avisoMercado=c.n+" lleva tu carrera desde hoy ("+NIVELES_AG[c.nivel-1].nom+", "+Math.round(pct*100)+"% de tu ficha).";
+  guardar(); if(SEC==="mercado") irSec("mercado");
+}
+/* otro agente, de nivel superior, te llama: cambiar es siempre decisión tuya */
+function propuestaAgente(){
+  if(S.propAg && S.propAg.hasta<jorAbs()) S.propAg=null;
+  if(!S.agente || S.propAg) return;
+  var niv=nivelCarrera(), act=agNivel();
+  if(niv<=act || rnd()>0.3) return;
+  var est=ESTILOS_AG[Math.floor(rnd()*ESTILOS_AG.length)];
+  var n=genPersona(lcgDe("ofag-"+S.temporada+"-"+jorAbs()));
+  var cuota=Math.round((S.contrato? S.contrato.salario:0)*S.agente.pct/38);
+  var coste=(niv-act>=2)? 0 : 4*cuota;
+  S.propAg={n:n, estilo:est.id, nivel:niv, coste:coste, hasta:jorAbs()};
+  ovSemana({t:"Otro agente te llama",
+    x:n.split(" ")[0]+" ("+NIVELES_AG[niv-1].nom+") quiere llevarte. "+(coste? "Sales de tu agente pagando "+fmtDinero(coste)+" de rescisión." : "Tu agente está dos niveles por debajo: no hay rescisión."),
+    ops:[{l:"Escuchar y cambiar", fx:aceptarPropAg}, {l:"Seguir con mi agente", fx:function(){ S.propAg=null; guardar(); }}]});
+}
+function aceptarPropAg(){
+  var p=S.propAg; if(!p || !S.agente) return;
+  if(p.coste && (S.dinero||0)<p.coste){ S.avisoMercado="No tienes dinero para la rescisión: "+S.agente.n+" no se mueve."; S.propAg=null; guardar(); return; }
+  S.dinero=(S.dinero||0)-(p.coste||0);
+  S.avisoMercado=S.agente.n.split(" ")[0]+" se va. "+p.n+" lleva tu carrera desde hoy.";
+  S.agente={n:p.n, estilo:p.estilo, pct:pctAgente(p.estilo,p.nivel), nivel:p.nivel, desde:jorAbs()};
+  S.propAg=null; guardar(); if(SEC==="mercado") irSec("mercado");
+}
+/* buscar patrocinio: el agente sale a por marcas, una vez por semana */
+function buscarPatro(){
+  if(!S.agente) return;
+  if(S.buscoSem===jorAbs()) S.avisoMercado="Ya has buscado marca esta semana. Tu agente vuelve a llamar la próxima.";
+  else if(S.patroOferta) S.avisoMercado="Tu agente ya tiene una marca sobre la mesa.";
+  else {
+    S.buscoSem=jorAbs(); genOfertaPatro(false,false,true);
+    if(!S.patroOferta) S.avisoMercado=S.agente.n.split(" ")[0]+" vuelve sin marcas esta vez.";
+  }
   guardar(); if(SEC==="mercado") irSec("mercado");
 }
 function despedirAgente(){
@@ -10036,10 +10109,12 @@ function secAgente(){
   if(S.agente){
     var e=ESTILOS_AG.filter(function(x){return x.id===S.agente.estilo;})[0];
     H+='<div class="card"><div class="eyebrow">Tu agente</div>'
-      +'<div style="font-size:13.5px"><b>'+esc(S.agente.n)+'</b> · '+e.n+'</div>'
+      +'<div style="font-size:13.5px"><b>'+esc(S.agente.n)+'</b> · '+e.n+' · nivel '+agNivel()+' ('+NIVELES_AG[agNivel()-1].nom+')</div>'
       +'<p class="note" style="margin:6px 2px">'+esc(e.d)+'</p>'
       +'<div class="row2" style="font-size:12px"><span>Comisión: '+Math.round(S.agente.pct*100)+'% de tu ficha ('+fmtDinero(Math.round(S.contrato.salario*S.agente.pct/38))+'/sem)</span>'
       +'<button class="chip" onclick="despedirAgente()">despedir</button></div></div>';
+    H+='<div class="card"><button class="gold-btn" onclick="buscarPatro()">Buscar patrocinio esta semana</button></div>';
+    if(S.propAg) H+='<div class="card" style="border-color:var(--gold)"><p class="note" style="margin:2px">📞 '+esc(S.propAg.n.split(" ")[0])+' ('+esc(NIVELES_AG[S.propAg.nivel-1].nom)+') sigue llamando. '+(S.propAg.coste? 'Rescisión: '+fmtDinero(S.propAg.coste)+'.' : 'Sin rescisión.')+'</p><button class="opt" onclick="aceptarPropAg()">Escuchar y cambiar</button> <button class="chip" onclick="S.propAg=null;guardar();irSec(\'mercado\')">Descartar</button></div>';
     if(S.jornada>=16 && S.jornada<18) H+='<div class="card"><p class="note" style="margin:2px">📞 «'+esc(S.agente.n.split(" ")[0])+' al aparato: la ventana abre en '+(18-S.jornada)+' semana'+(18-S.jornada>1?"s":"")+'. Dime cómo quieres llegar.»</p></div>';
     if(S.contrato && S.contrato.anos===1) H+='<div class="card"><p class="note" style="margin:2px">⚠ Último año de contrato. '+(S.renovProc? "La renovación ya se habló.":"El club moverá ficha antes de primavera.")+'</p></div>';
   } else {
@@ -10048,9 +10123,10 @@ function secAgente(){
       var e=ESTILOS_AG.filter(function(x){return x.id===c.estilo;})[0];
       H+='<div class="card"><div style="font-size:13px"><b>'+esc(c.n)+'</b> · '+e.n+'</div>'
         +'<p class="note" style="margin:6px 2px">'+esc(e.d)+'</p>'
-        +'<button class="opt" onclick="ficharAgente('+i+')">Ficharlo · '+Math.round(e.pct*100)+'% de tu ficha</button></div>';
+        +'<button class="opt" onclick="ficharAgente('+i+')">Ficharlo · nivel '+c.nivel+' · '+Math.round(pctAgente(c.estilo,c.nivel)*100)+'% de tu ficha</button></div>';
     });
   }
+  H+=tablaNiveles();
   return H;
 }
 /* ===== PATROCINIOS: las marcas te quieren (y tú les atas las botas delante de la prensa) ===== */
@@ -10140,12 +10216,14 @@ function patroInit(){ S.patros=S.patros||[]; }
 function patroCap(){ return Math.min(20, 2+Math.floor((S.fama||30)/12)+Math.floor(nivelSegNum()/2)); }
 function nivelSegNum(){ var s=pub().seg; return s>=200000?6:s>=80000?5:s>=30000?4:s>=12000?3:s>=5000?2:s>=2000?1:0; }
 function tienePatroCat(cat){ patroInit(); return S.patros.some(function(p){return p.cat===cat && p.hasta>=jorAbs();}); }
-function genOfertaPatro(force,forzarCounter){
+function genOfertaPatro(force,forzarCounter,busqueda){
   patroInit();
   if(S.patroOferta) return;
   var med=mediaJug(), fam=(S.fama||30);
   if(S.patros.filter(function(p){return p.hasta>=jorAbs();}).length>=patroCap()) return;
-  var p=(med<56? 0.015:0.06)+fam/500+nivelSegNum()*0.02+(S.agente?(S.agente.estilo==="tiburon"?0.07:0.04):0);
+  /* el agente suma +4 puntos por nivel (+2 si es tiburón); buscarlo a mano suma +5 */
+  var p=(med<56? 0.015:0.06)+fam/500+nivelSegNum()*0.02
+    +(S.agente? 0.04*agNivel()+(S.agente.estilo==="tiburon"?0.02:0) : 0)+(busqueda? 0.05:0);
   if(!force && rnd()>=p) return;
   /* contraoferta: la competencia quiere robarte a una marca */
   var ocupadas=S.patros.filter(function(x){return x.hasta>=jorAbs() && x.tipo!=="puntual";});
@@ -10166,6 +10244,8 @@ function genOfertaPatro(force,forzarCounter){
     }
   }
   var libres=PATRO_CATS.filter(function(c){return !tienePatroCat(c.id);});
+  var permitidas=catsAgente();
+  if(permitidas) libres=libres.filter(function(c){ return permitidas.indexOf(c.id)>=0; });   /* tu nivel de agente decide qué marcas llegan */
   if(!libres.length) return;
   var c=libres[Math.floor(rnd()*libres.length)], L=PATRO_LIB[c.id];
   if(med<58 && fam<40){   /* a los don nadies solo les llama el comercio del barrio */
@@ -11704,10 +11784,13 @@ function generarTanda(){
     else if(n>=7.6) nivel+=1;
     else if(n<5.0) nivel-=1;
   }
+  /* tu agente decide cuántas mesas llegan y a qué franja apuntan (sin agente: una, por debajo) */
+  var mm=mesasMercado(mia);
+  nivel+=mm.desp;
   nivel-=Math.floor((PICK.esperas||0)/2);
   nivel=clamp(nivel,0,5);
-  /* cinco mesas entre las dos divisiones: una por encima, dos a tu nivel, dos por debajo */
-  var objetivos=[Math.min(5,nivel+1), nivel, nivel, Math.max(0,nivel-1), Math.max(0,nivel-2)];
+  /* hasta cinco mesas entre las dos divisiones: una por encima, dos a tu nivel, dos por debajo */
+  var objetivos=[Math.min(5,nivel+1), nivel, nivel, Math.max(0,nivel-1), Math.max(0,nivel-2)].slice(0,mm.mesas);
   var usados=[], out=[];
   objetivos.forEach(function(fx,i){
     var pool=clubsDeFranja(FRANJAS[fx]).filter(function(e){ return usados.indexOf(e.id)<0; });
@@ -11727,12 +11810,12 @@ function generarTanda(){
     out.push(ofertaDe(eq, mia, i));
   });
   /* los ojeadores que te vieron entran si encajan con tu nivel */
-  if(PICK.ojeadores && PICK.ojeadores.length && out.length>=4 && rnd()<0.6){
+  if(PICK.ojeadores && PICK.ojeadores.length && out.length>=2 && rnd()<0.6){
     var oj=PICK.ojeadores.filter(function(id){
       return usados.indexOf(id)<0 && Math.abs(franjaPorMedia(mia)-FRANJAS.indexOf(franjaDe(rankDe(id)).n))<=1;
     });
     if(oj.length){
-      var idx=1+Math.floor(rnd()*2);   /* ocupa una mesa central: sigue habiendo cinco */
+      var idx=out.length>2? 1+Math.floor(rnd()*2) : out.length-1;   /* ocupa una mesa central si hay cinco; si hay menos, la última */
       out[idx]=ofertaDe(EQ[pick(oj)], mia, idx);
     }
   }

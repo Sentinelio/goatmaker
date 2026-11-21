@@ -356,7 +356,14 @@ var CORE=(function(){
     if(nota!==undefined){ if(nota>=8.6) nivel+=2; else if(nota>=7.6) nivel+=1; else if(nota<5.0) nivel-=1; }
     return clamp(nivel,0,5);
   }
-  function tandaHoy(mia, nota){ var n=nivelHoy(mia,nota); return [Math.min(5,n+1), n, n, Math.max(0,n-1), Math.max(0,n-2)]; }
+  /* ag = {mesas, desp} del agente (ver mesasMercado en index.html); sin agente (null): una mesa, una franja por debajo, y con media de franja 0-1 ninguna */
+  function tandaHoy(mia, nota, ag){
+    if(!ag){ if(franjaPorMedia(mia)<=1) return []; ag={mesas:1, desp:-1}; }
+    var nv=franjaPorMedia(mia);
+    if(nota!==undefined){ if(nota>=8.6) nv+=2; else if(nota>=7.6) nv+=1; else if(nota<5.0) nv-=1; }
+    var n=clamp(nv+ag.desp,0,5);
+    return [Math.min(5,n+1), n, n, Math.max(0,n-1), Math.max(0,n-2)].slice(0,ag.mesas);
+  }
   /* ---- el papel que te ofrece un club (ofertaDe) ---- */
   function rolDe(dif){ return dif>=2? 0 : dif>=-5? 1 : dif>=-12? 2 : 3; }
   var ROLES=["Titular desde el primer día","Pelearás el puesto","Rotaciones y minutos sueltos","Banquillo y mucha paciencia"];
