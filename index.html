@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.040";
+var VERSION="0.03.041";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -7378,8 +7378,8 @@ function volverTitulo(){
   $("menu").classList.add("hidden"); document.body.classList.remove("conmenu");
   $("scr-title").classList.remove("hidden"); SCR_KEY="titulo"; window.scrollTo(0,0);
 }
-var SUB={jugador:"ficha", equipo:"tabla", mercado:"hilos", cuentas:"dinero", ajustes:"info"};
-function resetSub(){ SUB={jugador:"ficha", equipo:"tabla", mercado:"hilos", cuentas:"dinero", ajustes:"info"}; }
+var SUB={jugador:"ficha", equipo:"tabla", mercado:"contrato", cuentas:"dinero", ajustes:"info"};
+function resetSub(){ SUB={jugador:"ficha", equipo:"tabla", mercado:"contrato", cuentas:"dinero", ajustes:"info"}; }
 var SUBS={
   jugador:[["ficha","Ficha"],["fisico","Físico"],["animo","Ánimo"],["caracter","Carácter"],["fama","Fama"],["stats","Números"],["hist","Carrera"]],
   equipo:[["tabla","Clasificación"],["plantilla","Vestuario"],["mister","El míster"],["entreno","Entreno"],["jornada","Resultados"]],
