@@ -239,7 +239,7 @@ button{font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .ejer .ejfx{font-size:10.5px;color:var(--muted);font-family:ui-monospace,monospace;display:flex;
   justify-content:space-between;gap:6px;flex-wrap:wrap}
 .ejer .ejfx i{font-style:normal;color:var(--dim)}
-.ejer .ejsk{font-size:10px;color:var(--bloom);font-weight:700;margin-top:auto}
+.ejer .ejsk{font-size:10px;color:var(--muted);font-weight:700;margin-top:auto}
 .ejer.rec{border-color:var(--gold);background:rgba(255,194,75,.09)}
 .ejer .rectag{position:absolute;top:-7px;right:8px;background:var(--gold);color:#231703;font-size:8.5px;
   font-weight:800;letter-spacing:.08em;text-transform:uppercase;border-radius:6px;padding:2px 6px}
@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.029";
+var VERSION="0.03.030";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -1447,11 +1447,27 @@ var ENTRENOS=[
  /* ataque */
  {id:"definicion",n:"Definición",        d:"Mil remates a portería vacía y con portero.",pos:["DC","EXT","MCO"], sube:{TEC:0.9,MEN:0.4}, forma:-4},
  {id:"regate",   n:"Uno contra uno",     d:"Encarar, recortar y salir.",     pos:["EXT","MCO","DC"], sube:{TEC:0.8,FIS:0.4}, forma:-5},
- {id:"remate",   n:"Juego aéreo y espaldas",d:"Fijar centrales, pelear y rematar de cabeza.",pos:["DC","DFC"], sube:{FIS:0.7,DEF:0.4,TEC:0.3}, forma:-6}
+ {id:"remate",   n:"Juego aéreo y espaldas",d:"Fijar centrales, pelear y rematar de cabeza.",pos:["DC","DFC"], sube:{FIS:0.7,DEF:0.4,TEC:0.3}, forma:-6},
+ /* antes del entreno: llegar fino, sin gastar */
+ {id:"pre-activa", n:"Activación muscular", d:"Bandas y movilidad para llegar fino.", cuando:"antes", pos:null, sube:{FIS:0.3}, forma:-1},
+ {id:"pre-toques", n:"Toques de calentamiento", d:"Pases y control suave antes del grupo.", cuando:"antes", pos:null, sube:{TEC:0.3}, forma:-2},
+ {id:"pre-disparos", n:"Disparos de calentamiento", d:"Remates sueltos para coger el ritmo de portería.", cuando:"antes", pos:["DC","EXT","MCO","MC"], sube:{TEC:0.3,MEN:0.1}, forma:-2},
+ {id:"pre-porteria", n:"Calentar con los porteros", d:"Paradas básicas y colocación antes que los demás.", cuando:"antes", pos:["POR"], sube:{POR:0.4}, forma:-1},
+ {id:"pre-pizarra", n:"Repaso de pizarra", d:"Ver el once rival y tu zona de trabajo.", cuando:"antes", pos:null, sube:{TAC:0.4}, forma:0},
+ {id:"pre-foco", n:"Concentración", d:"Cinco minutos de respiración antes de la sesión.", cuando:"antes", pos:null, sube:{MEN:0.4}, forma:0},
+ {id:"pre-gimnasio", n:"Gimnasio ligero", d:"Core y pesos suaves, sin llegar cansado.", cuando:"antes", pos:null, sube:{FIS:0.3}, forma:-2},
+ /* después del entreno: recuperar o rematar lo que se ha quedado */
+ {id:"post-estira", n:"Estiramientos", d:"Soltar piernas y evitar contracturas.", cuando:"despues", pos:null, sube:{}, forma:6},
+ {id:"post-piscina", n:"Piscina y bici suave", d:"Recuperación sin impacto tras el esfuerzo.", cuando:"despues", pos:null, sube:{}, forma:8},
+ {id:"post-video", n:"Vídeo de tus errores", d:"Repasar tus acciones de la sesión.", cuando:"despues", pos:null, sube:{TAC:0.5,MEN:0.2}, forma:0},
+ {id:"post-tiros", n:"Tiros extra", d:"Repetir lo que te ha costado en la sesión.", cuando:"despues", pos:["DC","EXT","MCO","MC"], sube:{TEC:0.5}, forma:-4},
+ {id:"post-coberturas", n:"Coberturas extra", d:"Repetir relevos y coberturas con un compañero.", cuando:"despues", pos:["DFC","LAT","MCD","MC"], sube:{DEF:0.5}, forma:-3},
+ {id:"post-masaje", n:"Masaje y fisio", d:"Descanso guiado con el fisio del club.", cuando:"despues", pos:null, sube:{}, forma:10},
+ {id:"post-salidas", n:"Salidas extra", d:"Centros y salidas repetidas en la portería.", cuando:"despues", pos:["POR"], sube:{POR:0.5}, forma:-3}
 ];
 function entrenosDisp(){
   var p=S?S.pos:(PICK&&PICK.pos)||"DC";
-  return ENTRENOS.filter(function(e){ return !e.off && (!e.pos || e.pos.indexOf(p)>=0); });
+  return ENTRENOS.filter(function(e){ return !e.off && !e.cuando && (!e.pos || e.pos.indexOf(p)>=0); });
 }
 function esGeneral(e){ return !e.pos; }
 function reps(id){ return (S && S.reps && S.reps[id])||0; }
@@ -2005,18 +2021,39 @@ function citaPinta(){
 function ejCarta(e, rec, extra){
   var r=reps(e.id), meta=null;
   skillsDisp().forEach(function(k){ if(k.req.ej===e.id && !meta) meta=k; });
-  var sube=Object.keys(e.sube).map(function(k){
+  /* lo que suma sale en verde y lo que resta en rojo: «Técnica +0.3 · forma −4» */
+  var partes=Object.keys(e.sube).map(function(k){
     var g=gananciaEntreno(e,k,extra);
-    if(g>0) return k+" +"+g.toFixed(1);
-    return atr(k)>=techoAtributoDe(k)? k+" al techo" : k+" +0.0";
-  }).join(" ");
+    if(g>0) return '<span style="color:var(--ok)">'+esc(ATTR[k].n)+' +'+g.toFixed(1)+'</span>';
+    return '<span style="color:var(--muted)">'+esc(ATTR[k].n)+(atr(k)>=techoAtributoDe(k)?' al techo':' +0.0')+'</span>';
+  });
   var coste=Math.round((e.forma||0)*(extra?1.4:1)), esRec=rec && rec.ej===e.id;
+  if(coste) partes.push('<span style="color:'+(coste>0?'var(--ok)':'var(--bad)')+'">forma '+(coste>0?'+':'−')+Math.abs(coste)+'</span>');
+  var fx=partes.join(' · ') || '<span style="color:var(--ok)">recupera</span>';
   return '<button class="ejer'+(esRec?' rec':'')+'" onclick="diaSesion(\''+e.id+'\')">'
     +(esRec?'<span class="rectag">recomendado</span>':'')
     +'<b>'+esc(e.n)+'</b>'
-    +'<span class="ejfx">'+esc(sube||"recupera")+'<i>'+(coste>0?"+":"")+coste+' forma</i></span>'
+    +'<span style="font-size:10.5px;color:var(--muted);line-height:1.3">'+esc(e.d||'')+'</span>'
+    +'<span class="ejfx">'+fx+'</span>'
     +(meta?'<span class="ejsk">'+esc(ejSkillTxt(meta))+'</span>':(r?'<span class="ejsk">'+(r===1?'1 sesión hecha':r+' sesiones hechas')+'</span>':''))
     +'</button>';
+}
+/* antes / después: cada día salen 4 sesiones propias de esa hora (rotando, sin repetir las recientes) y 2 del catálogo */
+function ejEnt(id){ return ENTRENOS[ejIdx(id)]; }
+function cartasHora(D, fase){
+  D.cartas=D.cartas||{};
+  if(D.cartas[fase]) return D.cartas[fase].map(ejEnt);
+  S.horaRec=S.horaRec||{antes:[],despues:[]};
+  var rr=S.horaRec[fase]||[], p=S.pos;
+  var orden=function(a,b){ return (rr.indexOf(a.id)>=0)-(rr.indexOf(b.id)>=0) || (rnd()-0.5); };
+  var propias=ENTRENOS.filter(function(e){ return e.cuando===fase && (!e.pos || e.pos.indexOf(p)>=0); }).sort(orden).slice(0,4);
+  var resto=entrenosDisp().sort(orden), rec=recomendacion(), elegidas=[];
+  if(rec && rec.ej && resto.some(function(e){ return e.id===rec.ej; })) elegidas.push(ejEnt(rec.ej));
+  resto.forEach(function(e){ if(elegidas.length<2 && elegidas.indexOf(e)<0) elegidas.push(e); });
+  var lista=propias.concat(elegidas.slice(0,2));
+  D.cartas[fase]=lista.map(function(e){ return e.id; });
+  S.horaRec[fase]=rr.concat(D.cartas[fase]).slice(-12);
+  return lista;
 }
 /* ---- el entreno del míster: partidillo con SITUACIONES REALES DE PARTIDO ----
    Usa el mismo banco de decisiones que los partidos (SITS) para tu puesto, con sus textos.
@@ -2374,10 +2411,8 @@ function entMisterHTML(){
     if(extra) H+='<p class="note" style="margin:0 0 6px;color:var(--bad)">Cuarta sesión del día: rinde más, pero puedes pasarte de carga.</p>';
     var rec=recomendacion();
     if(rec) H+='<div class="recbox">🧑‍🏫 <b>El preparador:</b> «'+esc(rec.motivo)+'.» Te propone <b>'+esc(nombreEj(rec.ej))+'</b>, pero decides tú.</div>';
-    H+='<p class="note" style="margin:8px 0 4px">Específicos de '+esc(POS[S.pos].n.toLowerCase())+'</p><div class="ejgrid">';
-    entrenosDisp().filter(function(x){return !esGeneral(x);}).forEach(function(x){ H+=ejCarta(x,rec,extra); });
-    H+='</div><p class="note" style="margin:10px 0 4px">Generales</p><div class="ejgrid">';
-    entrenosDisp().filter(esGeneral).forEach(function(x){ H+=ejCarta(x,rec,extra); });
+    H+='<p class="note" style="margin:8px 0 4px">'+(antes? "Antes de entrenar: llegar fino, sin gastarte" : "Después de entrenar: recuperar o rematar lo que se ha quedado")+'</p><div class="ejgrid">';
+    cartasHora(D, antes?"antes":"despues").forEach(function(x){ H+=ejCarta(x,rec,extra); });
     H+='</div><button class="ghost" style="margin-top:10px" onclick="diaSaltar()">Dejar esta hora libre</button>';
   } else if(D.fase==="mister"){
     var R=D.rondas[D.ronda], sit=sitEntrenoPorId(R.id);

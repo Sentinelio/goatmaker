@@ -50,7 +50,7 @@ var TEMPORALES=["jornada","hist","tabla","racha","yo","reto","forma","lesion","s
   "avisoMercado","avisoVida","ascendido","escandalo","calendario","golDif",
   "animo","misterNuevo","entreno","skillNueva","desafios","castigo","ciclo","objetivo","objPers","evaluacion",
   "garantia","subidaSueldo","ofertasVerano","conv","zonas","fixture","semanaHecha","sitGlobal",
-  "avisoMister","avisoCapricho","avisoSaltado","player_cap","patroOferta","patroSem","ofertaPend","_castJor","portazo","renovCd","puntualSem","puntualBonus","rachaExtra","dia","entMister","convU","vocesClave","vocesElegidas","vocesVistas","avisoEntreno","sitsRec","objPagadoT"];
+  "avisoMister","avisoCapricho","avisoSaltado","player_cap","patroOferta","patroSem","ofertaPend","_castJor","portazo","renovCd","puntualSem","puntualBonus","rachaExtra","dia","entMister","convU","vocesClave","vocesElegidas","vocesVistas","avisoEntreno","sitsRec","horaRec","objPagadoT"];
 var INFRA=["v","seed","ligaSeed","autoNota","pistas","opciones","dbg","tut","tutHecho","guardadoEn","idPartida","opts"];
 var MANIFIESTO={};
 FIJOS.concat(TEMPORALES).concat(INFRA).forEach(function(k){ MANIFIESTO[k]=1; });

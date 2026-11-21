@@ -24,7 +24,9 @@ function nuevo(pos){
   var def0=atr("DEF"), u0;
   empezarDia();
   __ok(S.dia && S.dia.fase==="antes", "empieza por las sesiones de antes");
-  __ok(entMisterHTML().indexOf("diaSesion(\'duelos\')")>0 && /sesión 1 de 2/.test(entMisterHTML()), "pantalla de antes: elegir la sesión 1 de 2");
+  var hA=entMisterHTML(), nPre=(hA.match(/diaSesion\('pre-/g)||[]).length;
+  __ok(nPre>=4 && /sesión 1 de 2/.test(hA), "pantalla de antes: 4 sesiones propias de la hora y sesión 1 de 2 ("+nPre+")");
+  __ok(entMisterHTML()===hA, "la pantalla de antes no cambia al repintarla (misma rotación del día)");
   entMisterElige(0); __ok(S.dia.ronda===0, "no se puede saltar al míster sin hacer lo de antes");
   diaSesion("duelos");
   __ok(S.dia.antes.length===1 && atr("DEF")>def0, "Duelos hecho y DEF sube ("+def0.toFixed(2)+"→"+atr("DEF").toFixed(2)+")");
