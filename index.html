@@ -820,7 +820,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.045";
+var VERSION="0.03.046";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -4711,6 +4711,9 @@ function iniciarPrueba(){
   S=nuevoEstado("PRA", PICK.pos, PICK.nombre, PICK.dorsal, PICK.pierna, PICK.rol, PICK.edad);
   S.altura=PICK.altura; S.peso=PICK.peso; S.posSec=(PICK.sec||[]).map(function(x){return {pos:x.pos, lado:x.lado};});
   if(PICK.attrBonus){ for(var k in S.attr){ S.attr[k]=Math.round(clamp(S.attr[k]+PICK.attrBonus,15,92)); } }
+  arrancarPrueba();
+}
+function arrancarPrueba(){
   S.prueba=true;
   PLANT_PRUEBA={};                 /* plantillas nuevas cada partidillo */
   S.compis=crearCompis("PRA", S.nombre);
@@ -4732,6 +4735,28 @@ function iniciarPrueba(){
   $("scr-pos").classList.add("hidden");
   $("scr-pick").classList.add("hidden");
   mostrarSituacion(previaPrueba(), "previa");
+}
+/* ---- partidillo de ojeadores para agentes libres (jornadas 19 y 38) ---- */
+function iniciarPruebaLibre(){
+  var real=S;
+  PICK={eq:null, pos:real.pos, rol:real.rol, pierna:real.pierna, esperas:0, attrBonus:0, edad:real.edad,
+        nombre:real.nombre, dorsal:real.dorsal, altura:real.altura, peso:real.peso, sec:real.posSec||[],
+        tanda:null, notaPrueba:undefined, traspaso:true, libreTrial:true, clubActual:real.equipo, pre:false, realS:real};
+  S=nuevoEstado("PRA", real.pos, real.nombre, real.dorsal, real.pierna, real.rol, real.edad);
+  S.altura=real.altura; S.peso=real.peso; S.posSec=real.posSec||[];
+  ["attr","skills","skl","nivel","talentos","techos","lado"].forEach(function(k){
+    if(real[k]!==undefined) S[k]=JSON.parse(JSON.stringify(real[k]));
+  });
+  arrancarPrueba();
+}
+function finPruebaLibre(){
+  var real=PICK.realS, n=notaDePrueba(), ojs=PICK.ojeadores;
+  S=real; M=null; M_ficha=null;
+  cerrarOverlays();
+  S.pruebaLibre={nota:Math.round(n*10)/10, ja:jorAbs(), ojeadores:ojs};
+  TANDA_LIBRE=null;
+  guardar();
+  abrirMercado();
 }
 function previaPrueba(){
   var ojs=(PICK.ojeadores||[]).map(function(id){ return EQ[id].c; });
@@ -6787,6 +6812,7 @@ function jornadaSinTi(){
   S.conv=null;
   resetSub();
   guardar();
+  if(sinClub()){ cerrarSinTi(); return; }   /* sin equipo no hay pantalla del club: la jornada simplemente pasa */
   var H='<div class="matchcard" style="text-align:center">'
     +'<div class="mtag">Jornada '+S.jornada+' · desde la grada</div>'
     +crestSVG(S.equipo,48)
@@ -6798,7 +6824,22 @@ function jornadaSinTi(){
   $("ov-match-inner").innerHTML=H;
   $("ov-match").classList.remove("hidden");
 }
-function cerrarSinTi(){ $("ov-match").classList.add("hidden"); if(S.jornada>=38){ finTemporada(); } else { renderHub(); } }
+function cerrarSinTi(){
+  $("ov-match").classList.add("hidden");
+  var sigue=function(){ if(S.jornada>=38){ finTemporada(); } else { renderHub(); } };
+  /* a mitad y a final de temporada, sin equipo, te invitan al partidillo con ojeadores del principio de tu carrera */
+  var clave=S.temporada+"-"+S.jornada;
+  if(sinClub() && (S.jornada===19 || S.jornada===38) && S.pruebaOf!==clave){
+    S.pruebaOf=clave; guardar();
+    modal({ico:"🔭", t:"Partidillo con ojeadores",
+      x:"Como agente libre, te invitan a un once contra once sin público y con tres carpetas en la banda. Una buena tarde puede cambiar quién te llama.",
+      okTxt:"Apuntarme", cancelTxt:"Ahora no",
+      onOk:function(){ iniciarPruebaLibre(); }, onCancel:sigue});
+    renderHub();
+    return;
+  }
+  sigue();
+}
 /* ================= RENDER PARTIDO ================= */
 var AUTOFN=null, AUTOT=null, DECT=null;
 function pararReloj(){ if(DECT){ clearInterval(DECT.iv); clearTimeout(DECT.to); DECT=null; } DECP=null; }
@@ -7366,6 +7407,7 @@ function notaDePrueba(){
   return clamp(5.9+(bruto-6.1)*0.46 - (M.miTR?1.4:0) - (M.miTA?0.2:0), 2.5, 9.5);
 }
 function finPrueba(){
+  if(PICK && PICK.libreTrial){ finPruebaLibre(); return; }
   var n=notaDePrueba();
   PICK.notaPrueba=Math.round(n*10)/10;
   PICK.golesPrueba=M.miGol; PICK.asisPrueba=M.miAsis; PICK.paradasPrueba=M.paradas;
@@ -10739,6 +10781,8 @@ function abrirMercado(pre){
         edad:S.edad, nombre:S.nombre, dorsal:S.dorsal, tanda:null, notaPrueba:undefined,
         traspaso:true, clubActual:S.equipo, pre:pre};
   var mia=miMedia();
+  var pl=(S.libre && S.pruebaLibre && S.pruebaLibre.ja===jorAbs())? S.pruebaLibre : null;
+  if(pl){ PICK.notaPrueba=pl.nota; PICK.ojeadores=pl.ojeadores; PICK.conPrueba=true; }
   var cache=(S.libre||pre) && TANDA_LIBRE && TANDA_LIBRE.ja===jorAbs() && TANDA_LIBRE.pre===pre;
   if(cache){
     PICK.tanda=TANDA_LIBRE.tanda;
@@ -10750,15 +10794,18 @@ function abrirMercado(pre){
     if(S.libre||pre) TANDA_LIBRE={ja:jorAbs(), pre:pre, tanda:PICK.tanda};
   }
   if(!PICK.tanda.length){
-    if(S.libre) S.avisoMercado="Esta semana ningún club llama a tu puerta. Vuelve a escuchar la semana que viene.";
-    else if(pre) S.avisoMercado="Ningún club se interesa por ti todavía para la próxima temporada.";
-    else S.ofertasVerano=null;
     PICK.traspaso=false; PICK.pre=false;
+    if(!S.libre && !pre) S.ofertasVerano=null;
+    modal({ico:"📞", t:"Ningún club llama",
+      x:S.libre? "Esta semana ningún club está interesado en ti. Vuelve a escuchar ofertas la semana que viene."
+        : pre? "Ningún club se interesa todavía por ti para la próxima temporada."
+        : "Ahora mismo ningún club está interesado en ti.",
+      okTxt:"Entendido", cancelTxt:"Cerrar"});
     renderHub(); return;
   }
   /* tu última temporada habla por ti en la mesa (tras generar la tanda: no infla la franja) */
   var ult=(S.carrera&&S.carrera.length)? S.carrera[S.carrera.length-1] : null;
-  PICK.notaPrueba = (ult&&ult.med)? Math.round(ult.med*10)/10 : undefined;
+  if(!pl) PICK.notaPrueba = (ult&&ult.med)? Math.round(ult.med*10)/10 : undefined;
   PICK.tanda.forEach(function(o){ o.op=operacionDe(o); });
   document.body.classList.remove("conmenu");
   $("menu").classList.add("hidden");
@@ -11936,6 +11983,7 @@ function generarTanda(){
   }
   /* tu agente decide cuántas mesas llegan y a qué franja apuntan (sin agente: una, por debajo) */
   var mm=mesasMercado(mia);
+  if(PICK.conPrueba) mm={mesas:Math.max(mm.mesas,3), desp:Math.max(mm.desp,0)};   /* los ojeadores te han visto: hay mesas aunque no haya agente */
   nivel+=mm.desp;
   nivel-=Math.floor((PICK.esperas||0)/2);
   nivel=clamp(nivel,0,5);
@@ -12351,7 +12399,7 @@ function firmarPor(i){
 }
 function continuar(){ renderHub(); }
 /* ================= GUARDADO ================= */
-async function guardar(){ await sSet("save", S); }
+async function guardar(){ if(S && S.prueba) return; await sSet("save", S); }
 /* Una partida —cargada del almacén o importada de un JSON— entra SIEMPRE por esta puerta: rellena lo que las versiones
    viejas no traían y devuelve a la vida las situaciones propias (el JSON pierde las funciones: sin su cond, el motor se rompía). */
 function rehidratarCustom(){

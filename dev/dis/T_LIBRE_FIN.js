@@ -1,5 +1,6 @@
 /* ===== TEST · fin de contrato sin renovar: agente libre, no renovación automática (0.03.036) ===== */
 var __f=0,__o=0; function __ok(c,m){ if(c) __o++; else { __f++; console.log("✘ "+m); } }
+var modalUltimo=null; modal=function(c){ modalUltimo=c; };
 guardar=function(){}; irSub=function(){}; irSec=function(){}; renderHub=function(){};
 function finHtml(){
   var cap="", o=$;
@@ -24,6 +25,6 @@ function finHtml(){
   abrirMercado();
   generarTanda=gt;
   __ok(S.libre===true, "sin mesas sigues libre");
-  __ok(/ningún club llama/i.test(S.avisoMercado||""), "sin mesas se avisa de que nadie llama");
+  __ok(/ningún club/i.test(S.avisoMercado||"") || /ningún club/i.test(String(modalUltimo&&modalUltimo.x||"")), "sin mesas se avisa de que nadie llama (ventana emergente)");
   console.log("LIBRE_FIN: "+__o+" ok · "+__f+" fallos");
 })();
