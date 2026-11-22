@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.04.006";
+var VERSION="0.04.007";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -10320,12 +10320,29 @@ function secStaff(){
     E.dilema.o.forEach(function(o,i){ H+='<button class="opt" onclick="eqDilemaElige('+i+')">'+esc(o)+'</button>'; });
     H+='</div>';
   }
-  /* sintonía */
-  var pares=Object.keys(EQ_PARES).map(function(k){ return [k, EQ_INFO[EQ_PARES[k][0]].n+" ↔ "+EQ_INFO[EQ_PARES[k][1]].n]; }).filter(function(x){ return eqPar(x[0]); });
+  /* sintonía: un pentágono con los cinco puestos; el color de cada unión dice cómo se llevan */
+  var pares=Object.keys(EQ_PARES).filter(function(k){ return eqPar(k); });
   if(pares.length){
-    H+='<div class="card"><div class="eyebrow">Sintonía</div>';
-    pares.forEach(function(x){ var v=Math.round(E.sint[x[0]]===undefined? 40 : E.sint[x[0]]); H+='<div class="row2" style="font-size:12.5px"><span>'+x[1]+'</span><b>'+v+'/100</b></div><div style="height:5px;border-radius:3px;background:rgba(255,255,255,.08);margin:2px 0 8px"><div style="height:5px;border-radius:3px;width:'+v+'%;background:var(--ok)"></div></div>'; });
-    H+='<p class="note" style="margin:2px 2px 0">Cuanto mejor se entienden, más rinde cada uno (×0,85 a ×1,25). Estilos opuestos —uno que carga y otro que protege— chocan; el tiempo juntos y un buen analista lo arreglan.</p></div>';
+    var cx=160, cy=138, R=100, pos={};
+    EQ_PUESTOS.forEach(function(q,i){ var a=(-90+72*i)*Math.PI/180; pos[q]={x:cx+R*Math.cos(a), y:cy+R*Math.sin(a)}; });
+    var col=function(v){ return v<45? "#e5534b" : v>=65? "#3fb950" : "#8b93a1"; };
+    var V='<svg viewBox="0 0 320 290" style="width:100%;max-width:380px;display:block;margin:0 auto">';
+    pares.slice().sort(function(a,b){ return E.sint[a]-E.sint[b]; }).forEach(function(k){
+      var a=pos[EQ_PARES[k][0]], b=pos[EQ_PARES[k][1]], v=Math.round(E.sint[k]===undefined? 40 : E.sint[k]);
+      V+='<line x1="'+a.x.toFixed(1)+'" y1="'+a.y.toFixed(1)+'" x2="'+b.x.toFixed(1)+'" y2="'+b.y.toFixed(1)+'" stroke="'+col(v)+'" stroke-width="'+(v<45||v>=65? 3.2:2.4)+'" stroke-linecap="round" opacity="'+(v<45||v>=65? 0.95:0.75)+'"><title>'+esc(EQ_INFO[EQ_PARES[k][0]].n+" ↔ "+EQ_INFO[EQ_PARES[k][1]].n+": "+v+"/100")+'</title></line>';
+    });
+    EQ_PUESTOS.forEach(function(q){
+      var n=pos[q], m=E.st[q], ab=n.y>cy+10;
+      V+='<circle cx="'+n.x.toFixed(1)+'" cy="'+n.y.toFixed(1)+'" r="21" fill="'+(m? "var(--card, #1b1f27)" : "none")+'" stroke="'+(m? "rgba(255,255,255,.55)" : "rgba(255,255,255,.2)")+'" stroke-width="'+(m? 1.6:1)+'"'+(m? '' : ' stroke-dasharray="3 3"')+'/>'
+        +'<text x="'+n.x.toFixed(1)+'" y="'+(n.y+6).toFixed(1)+'" text-anchor="middle" font-size="18" opacity="'+(m? 1:0.35)+'">'+EQ_INFO[q].ic+'</text>'
+        +'<text x="'+n.x.toFixed(1)+'" y="'+(n.y+(ab? 37:-28)).toFixed(1)+'" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="'+(m? 0.9:0.4)+'">'+esc(EQ_INFO[q].n.split(" ")[0])+'</text>';
+    });
+    V+='</svg>';
+    var peor=pares.slice().sort(function(a,b){ return E.sint[a]-E.sint[b]; })[0], vp=Math.round(E.sint[peor]===undefined? 40 : E.sint[peor]);
+    H+='<div class="card"><div class="eyebrow">Sintonía</div>'+V
+      +'<div style="display:flex;gap:14px;justify-content:center;font-size:11px;margin:2px 0 6px"><span><b style="color:#e5534b">━</b> mala</span><span><b style="color:#8b93a1">━</b> neutral</span><span><b style="color:#3fb950">━</b> buena</span></div>'
+      +(vp<45? '<p class="note" style="margin:0 2px 6px">⚠ Lo que peor funciona: <b>'+esc(EQ_INFO[EQ_PARES[peor][0]].n+" ↔ "+EQ_INFO[EQ_PARES[peor][1]].n)+'</b> ('+vp+'/100). Un analista, tiempo juntos o un cambio de estilo lo arreglan.</p>' : '')
+      +'<p class="note" style="margin:2px 2px 0">Cuanto mejor se entienden, más rinde cada uno (×0,85 a ×1,25). Estilos opuestos —uno que carga y otro que protege— chocan.</p><details style="margin-top:6px"><summary class="note" style="cursor:pointer">Ver valores</summary>'+pares.map(function(k){ var v=Math.round(E.sint[k]===undefined? 40 : E.sint[k]); return '<div class="row2" style="font-size:12px"><span>'+esc(EQ_INFO[EQ_PARES[k][0]].n+" ↔ "+EQ_INFO[EQ_PARES[k][1]].n)+'</span><b style="color:'+col(v)+'">'+v+'/100</b></div>'; }).join('')+'</details></div>';
   }
   EQ_PUESTOS.forEach(function(p){ H+=eqTarjetaPuesto(p); });
   if(E.log && E.log.length){

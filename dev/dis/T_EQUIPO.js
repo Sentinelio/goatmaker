@@ -188,7 +188,11 @@ t(/Sustituye a/.test(cfg.x) && /sustituir/i.test(cfg.okTxt) && S.eq.st.analista.
 equipo(3); ["mente","analista"].forEach(function(q){ ficha(q,3); }); for(var i=0;i<4;i++) semanaEquipo();
 var hh=secStaff(); t(/Psicólogo|Coach|mental/i.test(hh) && /Analista de rendimiento ↔/.test(hh) || /↔ Analista de rendimiento/.test(hh),"la sintonía enseña también al coach mental y al analista");
 t(Object.keys(EQ_PARES).every(function(k){ return !eqPar(k) || typeof S.eq.sint[k]==="number"; }),"los diez pares con equipo completo tienen sintonía");
-t((hh.match(/<b>\d+\/100<\/b>/g)||[]).length===10,"con cinco perfiles salen los diez cruces: "+(hh.match(/<b>\d+\/100<\/b>/g)||[]).length);
+t((hh.match(/<line /g)||[]).length===10 && (hh.match(/<circle /g)||[]).length===5,"con cinco perfiles: pentágono con diez uniones: "+(hh.match(/<line /g)||[]).length);
+t(/#e5534b|#8b93a1|#3fb950/.test(hh),"las uniones llevan color");
+S.eq.sint.pf=10; S.eq.sint.fc=55; S.eq.sint.pc=90; var h3=secStaff();
+t(/stroke="#e5534b"[^>]*><title>[^<]*Preparador[^<]*Fisio[^<]*: 10\/100/.test(h3) && /stroke="#8b93a1"[^>]*><title>[^<]*Fisio[^<]*Chef[^<]*: 55\/100/.test(h3) && /stroke="#3fb950"[^>]*><title>[^<]*Preparador[^<]*Chef[^<]*: 90\/100/.test(h3),"mala en rojo, neutral en gris, buena en verde");
+t(/Lo que peor funciona/.test(h3),"avisa del cruce que peor funciona");
 eqDespedir("analista"); t(!S.eq.st.analista,"y el de prescindir"); t(S.eq.tuvo.analista===0,"quien despides no se repone solo");
 S.eq.dilema={j:jorAbs(), txt:"x", o:["a","b","c"]}; t(/Desacuerdo/.test(secStaff()),"el dilema se enseña"); eqDilemaElige(2); t(!S.eq.dilema,"y se resuelve");
 t(/<details class="eqcand"(?! open)/.test(secStaff()),"con puesto ocupado, la lista de candidatos viene colapsada"); S.eq.st.prep=null; t(/<details class="eqcand" open/.test(secStaff()),"con el puesto vacante, abierta"); ficha("prep",3);
