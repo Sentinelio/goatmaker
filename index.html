@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.04.019";
+var VERSION="0.04.020";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -4841,7 +4841,9 @@ var GOL_TEXTO={
 };
 function renderFlashSiguiente(){
   if(!M) return;
+  M.enDecision=false;
   var f=M.flash.shift();
+  if(M.saltando){ flashSeguir(); return; }   /* saltando hasta la siguiente decisión: el flash queda en la cronología, no se enseña */
   var casaN=M.casa?EQ[S.equipo]:EQ[M.rival], visN=M.casa?EQ[M.rival]:EQ[S.equipo];
   var SC=f.sc||[M.sc[0],M.sc[1]];
   var scA=M.casa?SC[0]:SC[1], scB=M.casa?SC[1]:SC[0];
@@ -5698,6 +5700,7 @@ function elegirSituacion(){
   return s;
 }
 function mostrarSituacion(sit, fase){
+  M.saltando=false; M.enDecision=true;   /* el salto termina aquí: esta es la decisión */
   M.sitAct=sit; M.faseAct=fase;
   fijarOpciones(sit);
   renderMatch(sit);
@@ -6644,6 +6647,7 @@ function elegirOpcion(i){
 }
 function finPartido(){
   if(!M) return;
+  M.saltando=false;
   M.min=90+Math.floor(rnd()*5);
   var res=M.sc[0]-M.sc[1];
   /* a los micrófonos solo va quien ha acabado el partido en el campo:
@@ -7379,6 +7383,7 @@ function pausarTodo(){
     v.style.cssText="position:absolute;inset:0;background:rgba(6,10,16,.82);backdrop-filter:blur(2px);z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px";
     v.innerHTML='<div style="font-size:26px;letter-spacing:.2em;color:var(--gold)">PAUSA</div>'
       +'<button class="opt" style="min-width:220px" onclick="reanudarTodo()"><b>▶ Reanudar</b></button>'
+      +(puedeSaltarDecision()? '<button class="opt" style="min-width:220px" onclick="saltarADecision()"><b>⏩ Hasta la siguiente decisión</b><small>Se salta la narración y los goles; vuelves a mandar tú.</small></button>':'')
       +'<button class="opt" style="min-width:220px" onclick="simularResto()"><b>⏭ Simular el resto</b><small>El partido se juega solo hasta el final.</small></button>'
       +'<div class="note" style="max-width:260px;text-align:center">El reloj de la decisión queda congelado donde estaba.</div>';
     inner.style.position="relative";
@@ -7406,10 +7411,24 @@ function simularResto(){
   if(M) M.flash=[];
   if(M && !M.fin) avanzarPartido();
 }
+/* salta narración y flashes hasta la próxima decisión (o hasta el final si ya no te queda ninguna) */
+function puedeSaltarDecision(){
+  return !!M && !M.fin && !M.prueba && !M.enDecision && !M.saltando && M.fase!=="post" && M.fase!=="cierre" && M.fase!=="pre" && M.tramo<6 && !jugadorFuera();
+}
+function saltarADecision(){
+  if(!puedeSaltarDecision() && !PAUSA) return;
+  if(!M || M.fin || M.enDecision) return;
+  PAUSA=false; AUTO_P=null;
+  var v=$("pausaveil"); if(v && v.remove) v.remove();
+  cancelarAuto(); DECP=null;
+  M.saltando=true;
+  narrarSiguiente();
+}
 function btnsPausa(){
   if(M && M.prueba) return "";
   return '<div style="position:absolute;top:8px;right:10px;z-index:55;display:flex;gap:6px">'
     +'<button class="chip" style="padding:4px 9px" onclick="pausarTodo()" title="Pausa">⏸</button>'
+    +(puedeSaltarDecision()? '<button class="chip" style="padding:4px 9px" onclick="saltarADecision()" title="Saltar hasta la siguiente decisión">⏩</button>':'')
     +'<button class="chip" style="padding:4px 9px" onclick="simularResto()" title="Simular el resto">⏭</button></div>';
 }
 function cabeceraMatch(){
@@ -7480,6 +7499,7 @@ function activaMantenerEnPartido(){
 }
 function renderMatch(sit, tras){
   cancelarAuto();
+  if(!sit) M.enDecision=false;
   var cuerpo="", pie="";
   if(sit){
     cuerpo+='<div class="mline"><span>'+(M.faseAct==="previa"?"Antes del partido · vestuario"
@@ -7721,6 +7741,7 @@ function narrarSiguiente(){
   M.histCron.push(linea);
   (M.libro=M.libro||[]).push([linea.min||0, linea.t||"", linea.dec||""]);
   if(M.histCron.length>3) M.histCron.shift();
+  if(M.saltando){ narrarSiguiente(); return; }   /* saltando: la línea queda en la crónica, sin pintarla ni esperar */
   var enCro=(panelesDe()[clamp(PANEL,0,panelesDe().length-1)]==="cro");
   var _stPanel=(function(){ var el2=scrollPanelEl(); return el2? (el2.scrollTop||0):0; })();
   var cuerpo=dbgResultado()+'<div id="mpanel" class="mpanel mp-corto">'+panelHTML()+'</div>'+(enCro?'':'<div class="tick tick-bajo">');
@@ -7767,6 +7788,7 @@ function activarSwipe(){
   }, {passive:true});
 }
 function cierreInminente(){
+  if(M) M.saltando=false;
   var cuerpo='<div class="tick"><p class="now"><b class="tmin">90′</b> '+esc(pick([
     "El árbitro se lleva el silbato a la boca por última vez.",
     "Se acabó. Noventa minutos en las piernas.",
