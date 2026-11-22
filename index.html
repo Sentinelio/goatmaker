@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.058";
+var VERSION="0.03.059";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -1785,7 +1785,7 @@ function sk(campo){
    por edad pesa distinto según cuánto dependa tu puesto de ese atributo
    (un extremo pierde el techo de FIS mucho antes que un portero). ===== */
 function tasaDeclive(k){ return {TEC:0.35, FIS:1.0, TAC:0.30, DEF:0.55, MEN:0.20, POR:0.40}[k]||0.5; }
-var TECHO_BASE=68, TECHO_INC=0.5;   /* techo de partida y lo que sube por cada punto de nivel que asignas */
+var TECHO_BASE=68, TECHO_INC=1.0;   /* techo de partida y lo que sube por cada punto de nivel que asignas */
 function techoAtributoDe(k){
   if(!S) return 88;
   var base=TECHO_BASE, inc=TECHO_INC;
@@ -6324,6 +6324,7 @@ function elegirOpcion(i){
     if(fx.own && fx.own!==1) efe.push({t:"equipo "+(fx.own>1?"+":"")+Math.round((fx.own-1)*100)+"%", b:fx.own>1});
     if(fx.opp && fx.opp!==1) efe.push({t:"rival "+(fx.opp>1?"+":"")+Math.round((fx.opp-1)*100)+"%", b:fx.opp<1});
   }
+  if(_ganAtr) efe.push({t:ganTexto(_ganAtr), b:true});   /* lo que sube tu juego, a la vista como lo demás */
   if(fx.mis) efe.push({t:"míster "+sgn(fx.mis), b:fx.mis>0});
   if(fx.afin) efe.push({t:"vestuario "+sgn(fx.afin), b:fx.afin>0});
   if(fx.entra!==undefined && fx.entra<90 && !M.enCampo) efe.push({t:(fx.entra<0? "entras "+Math.abs(fx.entra)+"′ antes":"entras "+fx.entra+"′ después"), b:fx.entra<0});
