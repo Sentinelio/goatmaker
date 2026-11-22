@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.061";
+var VERSION="0.03.062";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -1550,8 +1550,8 @@ function usoSkillsPartido(d){
     if(u.z && (!d.z || u.z.indexOf(d.z)<0)) return;
     if(u.s && !u.s.test(d.s||"")) return;
     if(u.min && (d.m||0)<u.min) return;
-    /* misma regla que el atributo: bien = 2 pts, regular con buena decisión = 1, el resto nada */
-    var _p= d.r==="ok"? 2 : (d.r==="mid" && d.bien)? 1 : 0;
+    /* misma matriz que el atributo: 2 pts por la subida completa, y lo que toque de ella según decisión y ejecución */
+    var _p=Math.floor(2*facDecision(d.juicio, d.r)+rnd());
     if(!_p) return;
     var dd=sklData(k.id);
     dd.u=jA;
@@ -2391,7 +2391,7 @@ function entMisterElige(j){
   var sc= cls==="ok"? 1+amb*0.6 : cls==="mid"? 0.25 : -(0.4+amb*0.4);
   var gan="";
   gan=ganaAtrDecision(o, cls);   /* la misma regla que en el partido */
-  usoSkillsPartido({m:0, s:sit.id, z:ZCODE[zonaDeSit(sit)]||"M", k:claseDecision(o, sit, false), r:cls, bien:o.juicio==="buena", enPartido:false});   /* y las mismas habilidades */
+  usoSkillsPartido({m:0, s:sit.id, z:ZCODE[zonaDeSit(sit)]||"M", k:claseDecision(o, sit, false), r:cls, juicio:o.juicio, enPartido:false});   /* y las mismas habilidades */
   S.forma=clamp((S.forma===undefined?70:S.forma)-2,20,100);
   D.pts+=sc;
   var entrada={n:txtSit(sit.t), op:txtSit(o.l), cls:cls, ok:cls==="ok", txt:txtSit(o[cls]), gan:gan, juicio:o.juicio||"", por:o.por||"", mejora:(cls!=="ok"? atrMejoraEntreno(o) : null)};
@@ -2506,13 +2506,18 @@ function ganTexto(gan){
 /* veredicto en líneas, en el orden que pide el míster: decisión → ejecución → subida → qué trabajar */
 /* regla única de subida por decisión, la misma en el entreno y en el partido: el atributo es el que trabaja la jugada
    (el que nombra el míster), completa si sale bien, la mitad si sale regular con buena decisión, nada en el resto */
+/* cuánto de la subida base te llevas según DECISIÓN (buena/discreta/mala) y EJECUCIÓN (bien/regular/mal):
+   solo decisión mala + ejecución mala se va sin nada; acertar en una de las dos siempre deja algo */
+var FAC_DEC={buena:{ok:1, mid:0.6, ko:0.3}, discreta:{ok:0.7, mid:0.35, ko:0.1}, mala:{ok:0.4, mid:0.15, ko:0}};
+function facDecision(juicio, cls){ var f=(FAC_DEC[juicio]||FAC_DEC.discreta)[cls]; return f||0; }
 function ganaAtrDecision(o, cls){
-  var fac= cls==="ok"? 1 : (cls==="mid" && o.juicio==="buena")? 0.5 : 0;
+  var fac=facDecision(o.juicio, cls);
   if(!fac) return "";
   var amb=Math.abs((o.fx&&o.fx.nota)||0);
   var a=atrMejoraEntreno(o), T=techoAtributoDe(a), v=atr(a);
   if(v>=T) return "";
   var g=Math.round(clamp((T-v)/52,0.05,1.1)*(0.25+amb*0.08)*fac*100)/100;
+  if(g<=0) return "";
   S.attr[a]=Math.min(T, v+g);
   return a+" +"+g.toFixed(2);
 }
@@ -5109,7 +5114,7 @@ function regDec(o, sit, cls, dn, fuera, oi, real){
   var k=claseDecision(o, sit, fuera);
   var _reg=[M.min||0, (sit&&sit.id)||("fase-"+((M&&M.faseAct)||"juego")), fuera? "":(ZCODE[zonaDeSit(sit)]||"M"), k, cls, Math.round(dn*100), (oi===undefined?-1:oi), Math.round(dn*1000), real?1:0];
   M.dec.push(_reg);
-  if(!fuera) usoSkillsPartido({m:_reg[0], s:_reg[1], z:_reg[2], k:_reg[3], r:_reg[4], bien:o.juicio==="buena"});
+  if(!fuera) usoSkillsPartido({m:_reg[0], s:_reg[1], z:_reg[2], k:_reg[3], r:_reg[4], juicio:o.juicio});
 }
 /* lector universal: tuplas nuevas y objetos de partidas 4.7.0 */
 function decObj(x){
@@ -6560,7 +6565,7 @@ function renderCierre(){
     var _agg={}; (M.ganAtr||[]).forEach(function(g){ var pt=g.split(" "); _agg[pt[0]]=(_agg[pt[0]]||0)+parseFloat(pt[1]); });
     var _txtAg=Object.keys(_agg).map(function(k){ return (ATTR[k]?ATTR[k].n:k)+" +"+_agg[k].toFixed(2).replace(".",","); }).join(" · ");
     cuerpo+= _txtAg? '<p class="note" style="text-align:center;margin:8px 8px 0;color:var(--ok)"><b>▲ Tu juego sube hoy:</b> '+esc(_txtAg)+'</p>'
-                   : '<p class="note" style="text-align:center;margin:8px 8px 0">Hoy ninguna decisión te hizo mejorar: salieron mal o regular sin una buena lectura.</p>';
+                   : '<p class="note" style="text-align:center;margin:8px 8px 0">Hoy no mejoraste: no hubo decisiones en el campo, o fallaste a la vez en la lectura y en la ejecución.</p>';
   }
   if(jugo && _caida>=0.5) cuerpo+='<p class="note" style="text-align:center;margin:8px 8px 0">Llegaste a estar en <b>'+M.notaMax.v.toFixed(1)+'</b> ('+M.notaMax.min+'′): el tramo final te costó <b style="color:var(--bad)">−'+_caida.toFixed(1)+'</b>. El detalle, jugada a jugada, en la pestaña Mi Perfil.</p>';
   if(M.cicloCumplido) cuerpo+='<p class="note" style="text-align:center;margin-top:8px;padding:9px 11px;border-radius:12px;background:rgba(255,194,75,.12);color:var(--ink)">🟨 Quinta amarilla del ciclo: te pierdes la próxima jornada por sanción.</p>';

@@ -8,8 +8,8 @@ fresco(); var g1=ganaAtrDecision(gol,"ok");
 __ok(/^TEC \+/.test(g1), "un remate bien ejecutado sube técnica (el atributo que nombra el míster): "+g1);
 fresco(); var g2=ganaAtrDecision(gol,"mid");
 __ok(/^TEC \+/.test(g2) && parseFloat(g2.split("+")[1])<parseFloat(g1.split("+")[1]) && parseFloat(g2.split("+")[1])>0, "regular con buena decisión: sube, menos que bien");
-fresco(); __ok(ganaAtrDecision(gol,"ko")==="", "ejecución mala: no sube");
-fresco(); __ok(ganaAtrDecision(pase,"mid")==="", "regular con decisión discreta: no sube");
+fresco(); __ok(/^TEC \+/.test(ganaAtrDecision(gol,"ko")), "buena decisión + ejecución mala: algo sube");
+fresco(); __ok(ganaAtrDecision(pase,"mid")!=="", "regular con decisión discreta: también sube algo");
 fresco(); __ok(ganaAtrDecision(malo,"ok")!=="" && ganaAtrDecision(malo,"ok").indexOf("+")>0, "mala decisión + ejecución buena: sube el atributo que pide la jugada");
 fresco(); __ok(ganaAtrDecision(gol,"ok").split(" ")[0]===atrMejoraEntreno(gol), "el atributo que sube es el que el míster te manda trabajar");
 /* mismo resultado en el partido y en el entreno: misma función */

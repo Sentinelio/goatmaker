@@ -1,4 +1,4 @@
-/* ===== TEST · entreno: decisión buena + ejecución regular sube siempre la mitad; ejecución buena, entera (0.03.053) ===== */
+/* ===== TEST · entreno: decisión buena + ejecución regular sube un 60 %; ejecución buena, entera (0.03.062) ===== */
 var __f=0,__o=0; function __ok(c,m){ if(c) __o++; else { __f++; console.log("✘ "+m); } }
 var sitFalsa={id:"t-mitad", t:"Prueba", x:"Prueba.", pos:["MC"], o:[{l:"Decisión buena", fx:{inst:{}, nota:1}, juicio:"buena", ok:"Bien.", ko:"Mal.", mid:"Regular."}]};
 sitEntrenoPorId=function(){ return sitFalsa; };
@@ -20,5 +20,5 @@ var reg=corre({ok:0, ko:0});   /* todas las tiradas salen regulares */
 var bue=corre({ok:1, ko:0});   /* todas salen bien */
 __ok(reg.u && reg.u.cls==="mid", "la ejecución sale regular");
 __ok(reg.ganado>0, "buena decisión + regular: sube atributo siempre ("+reg.ganado.toFixed(2)+")");
-__ok(bue.ganado>0 && reg.ganado>=bue.ganado*0.45 && reg.ganado<=bue.ganado*0.55, "sube la mitad de lo que sube una ejecución buena ("+reg.ganado.toFixed(2)+" vs "+bue.ganado.toFixed(2)+")");
+__ok(bue.ganado>0 && reg.ganado>=bue.ganado*0.55 && reg.ganado<=bue.ganado*0.65, "sube el 60 % de lo que sube una ejecución buena ("+reg.ganado.toFixed(2)+" vs "+bue.ganado.toFixed(2)+")");
 console.log("MITAD: "+__o+" ok · "+__f+" fallos");
