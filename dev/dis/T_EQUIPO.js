@@ -101,7 +101,7 @@ t(eqPlanOptimo("prep")==="composicion","con sobrepeso, el preparador trabaja la 
 /* manual: tu plan manda, y un plan malo rinde menos */
 base("DC",191,105); ficha("chef",5); S.eq.plan.chef="volumen";
 t(eqPlanElegido("chef")==="volumen" && eqFit("chef")===0.8,"plan manual absurdo (volumen con sobrepeso): se sigue, pero rinde un 20% menos");
-S.eq.auto=false; t(eqPlanElegido("chef")!=="volumen","sin modo automático se ignora el plan elegido y se sigue el estándar");
+S.eq.plan.chef="auto"; t(eqPlanElegido("chef")!=="volumen","con «Automático» el chef decide por sí mismo");
 
 /* ---- 6. sintonía ---- */
 function sintTrasSemanas(estPrep,estFisio,n,analista){
@@ -177,8 +177,8 @@ t(!TIENDA_CATS.some(function(c){ return ["fisio","chef","mente"].indexOf(c.id)>=
 base("DC",191,105);
 var h0=secStaff(); t(/Sobrepeso/.test(h0) && /Candidatos/.test(h0),"la pestaña pinta sin equipo (con el aviso de sobrepeso)");
 equipo(3); S.eq.info=[]; semanaEquipo(); var h1=secStaff();
-t(/Informe semanal/.test(h1) && /Sintonía/.test(h1) && /Automático/.test(h1),"con equipo: informe, sintonía y plan automático");
-eqToggleAuto(); t(S.eq.auto===false,"se desactiva el modo automático"); eqToggleAuto(); t(S.eq.auto===true,"y se reactiva");
+t(/Informe semanal/.test(h1) && /sintonía/.test(h1) && /Automático/.test(h1),"con equipo: informe, sintonía y plan automático");
+t(!/Modo automático/.test(secStaff()),"ya no hay un «modo automático» general duplicado");
 eqPlanSet("chef","antiinflam"); t(S.eq.plan.chef==="antiinflam","se fija un plan");
 eqDespedir("analista"); var cand=eqMercado("analista")[0]; var _m=modal, cfg=null; modal=function(c){ cfg=c; }; eqFichar("analista",cand.id); modal=_m;
 t(cfg && /Contratar/.test(cfg.okTxt) && !S.eq.st.analista,"fichar pide confirmación antes de contratar"); cfg.onOk(); t(S.eq.st.analista && S.eq.st.analista.id===cand.id,"y al confirmar se ficha");
@@ -192,10 +192,14 @@ t((hh.match(/<line /g)||[]).length===10 && (hh.match(/<circle /g)||[]).length===
 t(/#e5534b|#8b93a1|#3fb950/.test(hh),"las uniones llevan color");
 S.eq.sint.pf=10; S.eq.sint.fc=55; S.eq.sint.pc=90; var h3=secStaff();
 t(/stroke="#e5534b"[^>]*><title>[^<]*Preparador[^<]*Fisio[^<]*: 10\/100/.test(h3) && /stroke="#8b93a1"[^>]*><title>[^<]*Fisio[^<]*Chef[^<]*: 55\/100/.test(h3) && /stroke="#3fb950"[^>]*><title>[^<]*Preparador[^<]*Chef[^<]*: 90\/100/.test(h3),"mala en rojo, neutral en gris, buena en verde");
-t(/Lo que peor funciona/.test(h3),"avisa del cruce que peor funciona");
+t(!/Lo que peor funciona|Ver valores/.test(h3),"nada de texto bajo el pentágono");
+t(/>10<\/text>/.test(h3) && />55<\/text>/.test(h3) && />90<\/text>/.test(h3),"el valor de cada unión va escrito sobre su línea");
+EQ_SEL="fisio"; var hf=secStaff(); t(/Fisioterapeuta|Fisio/.test(hf) && !/Preparador físico<\/div>/.test(hf.split("Tu equipo")[1]||"") ,"al elegir el fisio solo se ve su tarjeta");
+var nT=(hf.match(/class="eyebrow">[^<]*(Preparador|Fisioterapeuta|Chef|Psic|Coach|Analista)/g)||[]).length; t(nT===1,"solo una tarjeta de perfil a la vez: "+nT);
+EQ_SEL="chef"; t(/Menú|menú|Plan/.test(secStaff()),"al elegir el chef sale su configuración"); EQ_SEL=null;
 eqDespedir("analista"); t(!S.eq.st.analista,"y el de prescindir"); t(S.eq.tuvo.analista===0,"quien despides no se repone solo");
 S.eq.dilema={j:jorAbs(), txt:"x", o:["a","b","c"]}; t(/Desacuerdo/.test(secStaff()),"el dilema se enseña"); eqDilemaElige(2); t(!S.eq.dilema,"y se resuelve");
-t(/<details class="eqcand"(?! open)/.test(secStaff()),"con puesto ocupado, la lista de candidatos viene colapsada"); S.eq.st.prep=null; t(/<details class="eqcand" open/.test(secStaff()),"con el puesto vacante, abierta"); ficha("prep",3);
+t(/<details class="eqcand"(?! open)/.test(secStaff()),"con puesto ocupado, la lista de candidatos viene colapsada"); S.eq.st.prep=null; EQ_SEL="prep"; t(/<details class="eqcand" open/.test(secStaff()),"con el puesto vacante, abierta"); ficha("prep",3);
 SUB.cuentas="staff"; t(/Mi equipo/.test(secCuentas()) && /Tu cuerpo/.test(secCuentas()),"Cuentas › Mi equipo existe");
 t(SUBS.cuentas.some(function(x){return x[0]==="staff";}),"la subpestaña está registrada");
 SUB.cuentas="dinero"; t(!/Prescindir/.test(secCuentas()),"Dinero ya no vende fisio ni coach");

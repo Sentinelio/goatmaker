@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.04.008";
+var VERSION="0.04.009";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -9881,10 +9881,10 @@ function eqPlanAuto(p){
 function eqPlanElegido(p){
   var E=eqInit(); if(!E || !E.st[p]) return null;
   var man=E.plan[p];
-  if(!E.auto || !man || man==="auto" || !EQ_PLANES[p][man]) return eqPlanAuto(p);
+  if(!man || man==="auto" || !EQ_PLANES[p][man]) return eqPlanAuto(p);
   return man;
 }
-function eqEsManual(p){ var E=eqInit(); return !!(E && E.st[p] && E.auto && E.plan[p] && E.plan[p]!=="auto" && EQ_PLANES[p][E.plan[p]]); }
+function eqEsManual(p){ var E=eqInit(); return !!(E && E.st[p] && E.plan[p] && E.plan[p]!=="auto" && EQ_PLANES[p][E.plan[p]]); }
 function eqFit(p){ return eqPlanElegido(p)===eqPlanOptimo(p)? 1 : 0.8; }
 
 /* ---------- efectos: todo lo que el equipo cambia, en un solo sitio ---------- */
@@ -10179,7 +10179,7 @@ function semanaEquipo(){
   if(!E.dilema && E.st.prep && E.st.fisio && eqEstilo("prep").t==="carga" && E.sint.pf<62 && rnd()<0.14){
     E.dilema={j:jorAbs(), txt:E.st.prep.n+" quiere apretar esta semana; "+E.st.fisio.n+" ve tu cuerpo justo. ¿A quién haces caso?",
       o:["Al preparador: subir la carga","Al fisio: bajar el ritmo","Que lo hablen entre ellos"]};
-    if(E.auto){
+    if(E.plan.prep==='auto' || !E.plan.prep){
       var forma=(S.forma===undefined?70:S.forma);
       var i=forma<62? 1 : (E.st.prep.nivel>E.st.fisio.nivel? 0 : 2);
       eqResolverDilema(i, true);
@@ -10225,7 +10225,8 @@ function eqInforme(){
 /* ---------- pantalla: Cuentas › Mi equipo ---------- */
 function eqEstrellas(n){ var s=""; for(var i=1;i<=5;i++) s+=(i<=n? "★":"☆"); return s; }
 function eqRefrescar(){ guardar(); irSub("cuentas","staff"); }
-function eqToggleAuto(){ var E=eqInit(); E.auto=!E.auto; eqRefrescar(); }
+var EQ_SEL=null;
+function eqSel(p){ EQ_SEL=p; eqRefrescar(); }
 function eqToggleRehire(){ var E=eqInit(); E.rehire=!E.rehire; eqRefrescar(); }
 function eqPlanSet(p, id){ var E=eqInit(); E.plan[p]=id; eqRefrescar(); }
 function eqFichar(p, id){
@@ -10267,11 +10268,11 @@ function eqTarjetaPuesto(p){
     var ch=eqChips(p); if(ch.length) H+='<div style="font-size:10.5px;color:var(--dim);margin-bottom:6px">'+ch.map(esc).join(" · ")+'</div>';
     if(p==="prep"||p==="chef"){
       var opt=eqPlanOptimo(p), cur=E.plan[p]||"auto", pl=EQ_PLANES[p];
-      H+='<div class="note" style="margin:6px 2px 4px"><b>Plan</b> — '+(E.auto? "el profesional elige o tú lo fijas:" : "automático desactivado: el equipo sigue un plan estándar.")+'</div>';
+      H+='<div class="note" style="margin:6px 2px 4px"><b>Plan</b> — el profesional elige o tú lo fijas:</div>';
       H+='<div class="chips full" style="grid-template-columns:repeat(2,1fr)">';
-      H+='<button class="chip'+((cur==="auto"||!E.auto)?' on':'')+'" onclick="eqPlanSet(\''+p+'\',\'auto\')">🤖 Automático</button>';
+      H+='<button class="chip'+(cur==="auto"?' on':'')+'" onclick="eqPlanSet(\''+p+'\',\'auto\')">🤖 Automático</button>';
       Object.keys(pl).forEach(function(id){
-        H+='<button class="chip'+((E.auto && cur===id)?' on':'')+'" onclick="eqPlanSet(\''+p+'\',\''+id+'\')" title="'+esc(pl[id].d)+'">'+esc(pl[id].n)+(id===opt && m.nivel>=3? ' ✓':'')+'</button>';
+        H+='<button class="chip'+((cur===id)?' on':'')+'" onclick="eqPlanSet(\''+p+'\',\''+id+'\')" title="'+esc(pl[id].d)+'">'+esc(pl[id].n)+(id===opt && m.nivel>=3? ' ✓':'')+'</button>';
       });
       H+='</div>';
       var act=eqPlanElegido(p);
@@ -10305,10 +10306,6 @@ function secStaff(){
   else if(d.infra>0) H+='<p class="note" style="margin:4px 2px 0">Con este peso pierdes fuerza en los duelos y te lesionas algo más.</p>';
   else H+='<p class="note" style="margin:4px 2px 0">Tu cuerpo está donde tiene que estar para tu puesto.</p>';
   H+='</div>';
-  /* modo */
-  H+='<div class="card"><div class="eyebrow">Cómo trabaja tu equipo</div>'
-    +'<button class="opt'+(E.auto?' opt-sk':'')+'" onclick="eqToggleAuto()"><b>🤖 Modo automático: '+(E.auto?"activado":"desactivado")+'</b><small>'+(E.auto? "Los profesionales eligen los planes y resuelven los desacuerdos. Cuanto mejores son, mejor aciertan: los de élite casi nunca fallan." : "Sin automático, el equipo sigue un plan estándar y los dilemas te los consultan a ti.")+'</small></button>'
-    +'<button class="opt'+(E.rehire?' opt-sk':'')+'" onclick="eqToggleRehire()"><b>🔁 Reposición automática: '+(E.rehire?"activada":"desactivada")+'</b><small>Si alguien se marcha en verano, se ficha a lo mejor que puedas pagar para ese puesto.</small></button></div>';
   /* informe */
   if(E.info && E.info.length){
     H+='<div class="card"><div class="eyebrow">Informe semanal</div>';
@@ -10322,29 +10319,29 @@ function secStaff(){
   }
   /* sintonía: un pentágono con los cinco puestos; el color de cada unión dice cómo se llevan */
   var pares=Object.keys(EQ_PARES).filter(function(k){ return eqPar(k); });
-  if(pares.length){
+  {
     var cx=160, cy=138, R=100, pos={};
     EQ_PUESTOS.forEach(function(q,i){ var a=(-90+72*i)*Math.PI/180; pos[q]={x:cx+R*Math.cos(a), y:cy+R*Math.sin(a)}; });
     var col=function(v){ return v<45? "#e5534b" : v>=65? "#3fb950" : "#8b93a1"; };
-    var V='<svg viewBox="0 0 320 290" style="width:100%;max-width:380px;display:block;margin:0 auto">';
+    var sel=EQ_SEL && EQ_PUESTOS.indexOf(EQ_SEL)>=0? EQ_SEL : (EQ_PUESTOS.filter(function(q){return E.st[q];})[0]||"prep");
+    var V='<svg viewBox="0 0 320 290" style="width:100%;max-width:380px;display:block;margin:0 auto">', etq="";
     pares.slice().sort(function(a,b){ return E.sint[a]-E.sint[b]; }).forEach(function(k){
       var a=pos[EQ_PARES[k][0]], b=pos[EQ_PARES[k][1]], v=Math.round(E.sint[k]===undefined? 40 : E.sint[k]);
       V+='<line x1="'+a.x.toFixed(1)+'" y1="'+a.y.toFixed(1)+'" x2="'+b.x.toFixed(1)+'" y2="'+b.y.toFixed(1)+'" stroke="'+col(v)+'" stroke-width="'+(v<45||v>=65? 3.2:2.4)+'" stroke-linecap="round" opacity="'+(v<45||v>=65? 0.95:0.75)+'"><title>'+esc(EQ_INFO[EQ_PARES[k][0]].n+" ↔ "+EQ_INFO[EQ_PARES[k][1]].n+": "+v+"/100")+'</title></line>';
+      etq+='<g><rect x="'+((a.x+b.x)/2-12).toFixed(1)+'" y="'+((a.y+b.y)/2-7).toFixed(1)+'" width="24" height="14" rx="7" fill="#12151b" stroke="'+col(v)+'" stroke-width="1.2"/><text x="'+((a.x+b.x)/2).toFixed(1)+'" y="'+((a.y+b.y)/2+3.6).toFixed(1)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="'+col(v)+'">'+v+'</text></g>';
     });
+    V+=etq;
     EQ_PUESTOS.forEach(function(q){
-      var n=pos[q], m=E.st[q], ab=n.y>cy+10;
-      V+='<circle cx="'+n.x.toFixed(1)+'" cy="'+n.y.toFixed(1)+'" r="21" fill="'+(m? "var(--card, #1b1f27)" : "none")+'" stroke="'+(m? "rgba(255,255,255,.55)" : "rgba(255,255,255,.2)")+'" stroke-width="'+(m? 1.6:1)+'"'+(m? '' : ' stroke-dasharray="3 3"')+'/>'
-        +'<text x="'+n.x.toFixed(1)+'" y="'+(n.y+6).toFixed(1)+'" text-anchor="middle" font-size="18" opacity="'+(m? 1:0.35)+'">'+EQ_INFO[q].ic+'</text>'
-        +'<text x="'+n.x.toFixed(1)+'" y="'+(n.y+(ab? 37:-28)).toFixed(1)+'" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="'+(m? 0.9:0.4)+'">'+esc(EQ_INFO[q].n.split(" ")[0])+'</text>';
+      var n=pos[q], m=E.st[q], ab=n.y>cy+10, on=(q===sel);
+      V+='<g onclick="eqSel(\''+q+'\')" style="cursor:pointer"><circle cx="'+n.x.toFixed(1)+'" cy="'+n.y.toFixed(1)+'" r="21" fill="'+(on? "#2a2412" : m? "#1b1f27" : "#12151b")+'" stroke="'+(on? "var(--gold, #ffc24b)" : m? "rgba(255,255,255,.55)" : "rgba(255,255,255,.25)")+'" stroke-width="'+(on? 2.6 : m? 1.6:1)+'"'+(m? '' : ' stroke-dasharray="3 3"')+'/>'
+        +'<text x="'+n.x.toFixed(1)+'" y="'+(n.y+6).toFixed(1)+'" text-anchor="middle" font-size="18" opacity="'+(m? 1:0.4)+'">'+EQ_INFO[q].ic+'</text>'
+        +'<text x="'+n.x.toFixed(1)+'" y="'+(n.y+(ab? 37:-28)).toFixed(1)+'" text-anchor="middle" font-size="10.5" font-weight="'+(on?700:400)+'" fill="'+(on? "var(--gold, #ffc24b)" : "currentColor")+'" opacity="'+(m||on? 0.95:0.45)+'">'+esc(EQ_INFO[q].n.split(" ")[0])+'</text></g>';
     });
     V+='</svg>';
-    var peor=pares.slice().sort(function(a,b){ return E.sint[a]-E.sint[b]; })[0], vp=Math.round(E.sint[peor]===undefined? 40 : E.sint[peor]);
-    H+='<div class="card"><div class="eyebrow">Sintonía</div>'+V
-      +'<div style="display:flex;gap:14px;justify-content:center;font-size:11px;margin:2px 0 6px"><span><b style="color:#e5534b">━</b> mala</span><span><b style="color:#8b93a1">━</b> neutral</span><span><b style="color:#3fb950">━</b> buena</span></div>'
-      +(vp<45? '<p class="note" style="margin:0 2px 6px">⚠ Lo que peor funciona: <b>'+esc(EQ_INFO[EQ_PARES[peor][0]].n+" ↔ "+EQ_INFO[EQ_PARES[peor][1]].n)+'</b> ('+vp+'/100). Un analista, tiempo juntos o un cambio de estilo lo arreglan.</p>' : '')
-      +'<p class="note" style="margin:2px 2px 0">Cuanto mejor se entienden, más rinde cada uno (×0,85 a ×1,25). Estilos opuestos —uno que carga y otro que protege— chocan.</p><details style="margin-top:6px"><summary class="note" style="cursor:pointer">Ver valores</summary>'+pares.map(function(k){ var v=Math.round(E.sint[k]===undefined? 40 : E.sint[k]); return '<div class="row2" style="font-size:12px"><span>'+esc(EQ_INFO[EQ_PARES[k][0]].n+" ↔ "+EQ_INFO[EQ_PARES[k][1]].n)+'</span><b style="color:'+col(v)+'">'+v+'/100</b></div>'; }).join('')+'</details></div>';
+    H+='<div class="card"><div class="eyebrow">Tu equipo · sintonía</div>'+V+'</div>';
+    H+=eqTarjetaPuesto(sel);
   }
-  EQ_PUESTOS.forEach(function(p){ H+=eqTarjetaPuesto(p); });
+  H+='<div class="card"><button class="opt'+(E.rehire?' opt-sk':'')+'" onclick="eqToggleRehire()"><b>🔁 Reposición automática: '+(E.rehire?"activada":"desactivada")+'</b><small>Si alguien se marcha en verano, se ficha a lo mejor que puedas pagar para ese puesto.</small></button></div>';
   if(E.log && E.log.length){
     H+='<div class="card"><div class="eyebrow">Novedades</div>';
     E.log.slice(0,6).forEach(function(l){ H+='<p class="note" style="margin:0 2px 4px">T'+l.t+' · J'+l.j+' — '+esc(l.x)+'</p>'; });
