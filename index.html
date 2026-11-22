@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.04.014";
+var VERSION="0.04.015";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -7823,6 +7823,7 @@ var SUB_OCULTAS={jugador:["caracter"], equipo:["plantilla"], cuentas:["tienda"],
 var PANT_OFF={};
 var PANT_DE_SEC={jugador:"P11", equipo:"P12", mercado:"P13", cuentas:"P14", ajustes:"P15"};
 function subVisible(sec,k){
+  if(sec==="cuentas" && k==="tienda" && !TIENDA_ON) return false;   /* apagada: ni el panel de pantallas la vuelve a encender */
   var pan=PANT_OFF[PANT_DE_SEC[sec]||""], sub=pan&&pan.sub;
   if(sub && typeof sub[k]==="boolean") return sub[k];
   return !(SUB_OCULTAS[sec]||[]).some(function(x){ return x===k; });
