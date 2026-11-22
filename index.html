@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.04.013";
+var VERSION="0.04.014";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -7818,7 +7818,7 @@ var SUBS={
   ajustes:[["info","Información"],["codigo","Código"],["reportar","Reportar"]]
 };
 /* subpestañas desactivadas en el juego (siguen en el admin, marcadas como ocultas) */
-var SUB_OCULTAS={jugador:["caracter"], equipo:["plantilla"], mercado:["rumores","fichajes","prensa"]};
+var SUB_OCULTAS={jugador:["caracter"], equipo:["plantilla"], cuentas:["tienda"], mercado:["rumores","fichajes","prensa"]};
 /* lo que el admin publica en «pantallas» (contAplicar lo rellena): PANT_OFF[P11].sub.caracter = true/false */
 var PANT_OFF={};
 var PANT_DE_SEC={jugador:"P11", equipo:"P12", mercado:"P13", cuentas:"P14", ajustes:"P15"};
@@ -9560,7 +9560,7 @@ function cerrarModal(){
 }
 function modalConfirmar(){ var f=MODAL_OK; MODAL_OK=null; MODAL_NO=null; $("ov-modal").classList.add("hidden"); if(f) f(); }
 /* ===== EL BAZAR: catálogo procedural con impacto real en todo ===== */
-var TIENDA_ON=true;
+var TIENDA_ON=false;   /* tienda apagada: sin pestaña, sin caprichos ni cuotas semanales (lo ya comprado sigue contando) */
 var TIENDA_CATS=[
  {id:"botas",   n:"Botas",             tipo:"bien", base:180,    ic:"👟", fx:{mult:{TEC:0.02}},
   modelos:[["Adidas Copa Pure","Puma King","Joma Aguila"],["Nike Tiempo Legend","Adidas Predator Club","Mizuno Morelia"],
