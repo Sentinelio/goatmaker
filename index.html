@@ -823,7 +823,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.053";
+var VERSION="0.03.054";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -2367,12 +2367,7 @@ function entMisterElige(j){
   var amb=Math.abs((o.fx&&o.fx.nota)||0);
   var sc= cls==="ok"? 1+amb*0.6 : cls==="mid"? 0.25 : -(0.4+amb*0.4);
   var gan="";
-  /* decidir bien en el partidillo te hace mejor leyendo el juego. Con buena decisión y ejecución regular, sube siempre la mitad */
-  if(cls==="ok" || (cls==="mid" && o.juicio==="buena")){
-    var fac= cls==="ok"? 1 : 0.5;
-    var a=atr("TAC")<=atr("MEN")? "TAC":"MEN", T=techoAtributoDe(a), v=atr(a);
-    if(v<T){ var g=Math.round(clamp((T-v)/52,0.05,1.1)*(0.25+amb*0.08)*fac*100)/100; S.attr[a]=Math.min(T, v+g); gan=a+" +"+g.toFixed(2); }
-  }
+  gan=ganaAtrDecision(o, cls);   /* la misma regla que en el partido */
   S.forma=clamp((S.forma===undefined?70:S.forma)-2,20,100);
   D.pts+=sc;
   var entrada={n:txtSit(sit.t), op:txtSit(o.l), cls:cls, ok:cls==="ok", txt:txtSit(o[cls]), gan:gan, juicio:o.juicio||"", por:o.por||"", mejora:(cls!=="ok"? atrMejoraEntreno(o) : null)};
@@ -2483,6 +2478,18 @@ function ganTexto(gan){
   return (ATTR[k]? ATTR[k].n : k)+" "+pt.slice(1).join(" ").replace(".",",");
 }
 /* veredicto en líneas, en el orden que pide el míster: decisión → ejecución → subida → qué trabajar */
+/* regla única de subida por decisión, la misma en el entreno y en el partido: el atributo es el que trabaja la jugada
+   (el que nombra el míster), completa si sale bien, la mitad si sale regular con buena decisión, nada en el resto */
+function ganaAtrDecision(o, cls){
+  var fac= cls==="ok"? 1 : (cls==="mid" && o.juicio==="buena")? 0.5 : 0;
+  if(!fac) return "";
+  var amb=Math.abs((o.fx&&o.fx.nota)||0);
+  var a=atrMejoraEntreno(o), T=techoAtributoDe(a), v=atr(a);
+  if(v>=T) return "";
+  var g=Math.round(clamp((T-v)/52,0.05,1.1)*(0.25+amb*0.08)*fac*100)/100;
+  S.attr[a]=Math.min(T, v+g);
+  return a+" +"+g.toFixed(2);
+}
 function veredictoEntreno(u, conEjecucion){
   var h='', linea=function(html, extra){ return '<div style="margin:3px 0;'+(extra||"")+'">'+html+'</div>'; };
   if(u.juicio){
@@ -6209,6 +6216,9 @@ function elegirOpcion(i){
   M.nota += _dn;
   tocaNotaMax();
   regDec(o, sit, cls, _dn, fueraDelCampo, i, logroReal);
+  /* la misma regla de atributos que en el entreno, solo cuando estás en el campo */
+  var _ganAtr= fueraDelCampo? "" : ganaAtrDecision(o, cls);
+  if(_ganAtr) M.ganAtr=(M.ganAtr||[]).concat([_ganAtr]);
   /* modificadores del resto del partido */
   if(o.fx.own) M.modOwn*= (o.fx.own>1? 1+(o.fx.own-1)*mLider() : o.fx.own);
   if(o.fx.opp) M.modOpp*=o.fx.opp;
