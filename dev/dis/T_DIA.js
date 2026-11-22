@@ -52,7 +52,7 @@ function nuevo(pos){
   __ok(!cv2.prov && S.convU.u===u0, "tras el día se confirma la convocatoria con la misma tirada ("+cv2.txt+")");
   __ok(pendientesSemana().every(function(p){ return !/míster/.test(p.t); }), "ya no sale como pendiente");
   var f=S.forma; empezarDia(); diaSesion("tecnica"); __ok(S.forma===f, "no se puede empezar el día dos veces ni sumar sesiones");
-  __ok(entMisterHTML().indexOf("Nota del entreno")>0, "la tarjeta final resume el día");
+  __ok(entMisterHTML().indexOf("Lo que piensa el míster")>0, "la tarjeta final resume el día");
   /* 4ª sesión = extra */
   nuevo("LAT"); var V2=citaVentana(); citaMueve("llegada", String(V2.llamada-2)); citaMueve("salida", String(V2.fin+2)); empezarDia();
   diaSesion("tecnica"); diaSesion("mental"); while(S.dia.fase==="mister") avanzaMister(0); diaSeguir(); diaSesion("tactica"); diaSesion("tecnica");

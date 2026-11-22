@@ -823,7 +823,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.049";
+var VERSION="0.03.050";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -2423,6 +2423,18 @@ function finDia(){
                  : D.nota>=6? "Entreno serio. Cumples."
                  : "El míster te mira al salir y no dice nada. Mal día para dar que hablar.";
 }
+/* lo que el míster piensa de ti tras el entreno: verde le gustas, amarillo duda, rojo no le gustas. El número sigue por dentro */
+var PENS_MISTER={
+  verde:["Le gustas: «Así, todos los días.»","Le gustas. Hoy lo ha dicho sin mirarte.","Le gustas: te ha dejado el balón a ti en la última tanda."],
+  amarillo:["Te duda: «Sigue, a ver si te veo mejor.»","Te duda: no sabe si eres el de siempre.","Te duda: cumples, pero no te ha quitado el ojo de encima."],
+  rojo:["No le gustas: te ha mirado al salir y no ha dicho nada.","No le gustas: «Hoy no era tu día.»","No le gustas: te ha cambiado de sitio sin explicarte nada."]
+};
+function pensMister(D){
+  var n=D.nota, zona= n>=7.5? "verde" : n>=6? "amarillo" : "rojo";
+  var lista=PENS_MISTER[zona], i=Math.abs(((D.jor||S.jornada)*7+Math.round(n*10))%lista.length);
+  var col= zona==="verde"? "var(--ok)" : zona==="amarillo"? "#E8C547" : "var(--bad)";
+  return '<b style="color:'+col+'">'+esc(lista[i])+'</b>';
+}
 /* si llega el partido sin terminar el día, se cierra solo (lo que no hiciste, no cuenta) */
 function cerrarEntrenoPendiente(){
   if(!S || S.lesion>0 || !S.contrato) return;
@@ -2492,7 +2504,7 @@ function entMisterHTML(){
     var extra=!antes && (diaReales(D)+1)>=4;
     var hora=antes? horaFmt(V.llamada-D.ll+hecho) : horaFmt(V.fin+hecho);
     H+='<div class="eyebrow">'+(antes?"Antes del entreno":"Después del entreno")+' · sesión '+(hecho+1)+' de '+tot+'</div>'+diaPasos(D);
-    if(!antes){ H+='<p class="note" style="margin:0 0 6px">Entreno del míster: nota <b style="color:var(--gold)">'+String(D.nota).replace(".",",")+'</b></p>'; }
+    if(!antes){ H+='<p class="note" style="margin:0 0 6px">Entreno del míster: '+pensMister(D)+'</p>'; }
     H+=diaFilas(antes? D.antes : D.despues, antes?"🌅":"🌙");
     H+='<p style="margin:8px 0 6px">Son las <b>'+hora+'</b>. ¿Qué haces en esta hora?</p>';
     if(extra) H+='<p class="note" style="margin:0 0 6px;color:var(--bad)">Cuarta sesión del día: rinde más, pero puedes pasarte de carga.</p>';
@@ -2531,17 +2543,17 @@ function entMisterHTML(){
   } else if(D.fase==="notaMister"){
     H+='<div class="eyebrow">Entreno del míster · terminado</div>'+diaPasos(D);
     H+=diaMisterFilas(D,true);
-    H+='<p style="margin:12px 0 4px;font-size:15px">Nota del míster: <b style="color:var(--gold);font-size:20px">'+String(D.nota).replace(".",",")+'</b></p>';
+    H+='<p style="margin:12px 0 4px;font-size:15px">'+pensMister(D)+'</p>';
     H+='<p class="note" style="margin:0 0 12px">Míster '+citaSigno(S.mister-(D.mis0||S.mister))+' · Confianza '+citaSigno((S.conf||0)-(D.conf0||S.conf||0))+' en lo que va de día.</p>';
     H+='<button class="gold-btn" onclick="diaSeguir()">'+(D.sa>0? "Seguir: tus sesiones de después" : "Terminar el día")+'</button>';
   } else {
     var conv=(S.lesion>0||S.sancion>0)? null : convocatoria();
     H+='<div class="eyebrow">Tu día · hecho</div>';
     if(D.auto){
-      H+='<p style="margin:0">No hiciste el entreno del míster esta semana. Nota <b>4</b>.</p>';
+      H+='<p style="margin:0">No hiciste el entreno del míster esta semana. <b style="color:var(--bad)">No le gustas</b>: no te ha visto.</p>';
     } else {
       H+=diaFilas(D.antes,"🌅")+diaMisterFilas(D,false)+diaFilas(D.despues,"🌙");
-      H+='<p style="margin:10px 0 0">Nota del entreno: <b style="color:var(--gold)">'+String(D.nota).replace(".",",")+'</b>'
+      H+='<p style="margin:10px 0 0">Lo que piensa el míster: '+pensMister(D)+'</p>'
         +' · Míster '+citaSigno(S.mister-(D.mis0||S.mister))+' · Confianza '+citaSigno((S.conf||0)-(D.conf0||S.conf||0))+'</p>';
     }
     if(conv) H+='<p class="note" style="margin:6px 0 0">El domingo: <b>'+esc(conv.txt)+'</b>. '+esc(conv.det)+'</p>';
