@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.064";
+var VERSION="0.03.065";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -1659,8 +1659,8 @@ function subirSkillMax(id){
    o fxForma (recupera/desgaste/riesgo de sobrecarga semanales). ===== */
 var TALENTOS = {
   defensa:{ name:"Defensa", nodes:[
-    {id:"duelo",   row:1, rank:3, lvl:8,  req:null, n:"Duelo limpio", fx:{golR:0.93}, d:"Ganas el cuerpo a cuerpo sin necesidad de la entrada sucia. Más eficacia en cada duelo defensivo."},
-    {id:"antic",   row:1, rank:3, lvl:8,  req:null, n:"Anticipación", fx:{golR:0.94}, d:"Lees el pase antes de que salga. Más intercepciones, menos ocasiones concedidas."},
+    {id:"duelo",   row:1, rank:3, lvl:8,  req:null, n:"Duelo limpio", fx:{golR:0.93}, fxEntreno:{DEF:1.12}, d:"Ganas el cuerpo a cuerpo sin necesidad de la entrada sucia. Más eficacia en cada duelo defensivo."},
+    {id:"antic",   row:1, rank:3, lvl:8,  req:null, n:"Anticipación", fx:{golR:0.94}, fxEntreno:{DEF:1.08}, d:"Lees el pase antes de que salga. Más intercepciones, menos ocasiones concedidas."},
     {id:"sinmiedo",row:2, rank:3, lvl:18, req:"duelo", n:"Sin miedo", fx:{ta:0.85}, d:"Te tiras a por todo. Menos tarjeta en las decisiones de contención más arriesgadas."},
     {id:"lectpas", row:2, rank:3, lvl:18, req:"antic", n:"Lectura de pase", fx:{golR:0.92}, d:"No corres detrás del balón, llegas antes que él."},
     {id:"cazador", row:3, rank:2, lvl:32, req:["sinmiedo","lectpas"], n:"Cazador implacable", fx:{golR:0.88,ta:0.90}, d:"El cuerpo y la lectura ya son la misma cosa: nadie te gana el balón, lo veas venir o no."},
@@ -1705,9 +1705,9 @@ var TALENTOS = {
     {id:"cap",     row:6, rank:1, lvl:62, req:["penal","especial"], n:"Instinto asesino", cap:true, fx:{gol:1.25}, d:"Con 2+ goles o asistencias en tus últimos 3 partidos, se desbloquea la ocasión más clara que vas a tener."},
   ]},
   mental:{ name:"Mental", nodes:[
-    {id:"sfria",   row:1, rank:3, lvl:8,  req:null, n:"Sangre fría", fx:{ta:0.90}, d:"La presión no te encuentra nunca temblando. Mejora el desenlace en decisiones de máxima tensión."},
+    {id:"sfria",   row:1, rank:3, lvl:8,  req:null, n:"Sangre fría", fx:{ta:0.90}, fxEntreno:{MEN:1.12}, d:"La presión no te encuentra nunca temblando. Mejora el desenlace en decisiones de máxima tensión."},
     {id:"lider",   row:1, rank:3, lvl:8,  req:null, n:"Liderazgo", fx:{lider:1.15}, d:"El equipo te mira cuando las cosas se ponen difíciles. Empuje base al conjunto."},
-    {id:"concent", row:1, rank:3, lvl:8,  req:null, n:"Concentración", fx:{golR:0.95}, d:"El error no forzado deja de ser tuyo. Menos fallos por despiste."},
+    {id:"concent", row:1, rank:3, lvl:8,  req:null, n:"Concentración", fx:{golR:0.95}, fxEntreno:{MEN:1.08}, d:"El error no forzado deja de ser tuyo. Menos fallos por despiste."},
     {id:"nonerv",  row:2, rank:2, lvl:16, req:"sfria", n:"El que no se pone nervioso", fx:{ta:0.85}, d:"Cuanto más se juega, más tranquilo te quedas tú."},
     {id:"inqueb",  row:2, rank:2, lvl:16, req:["lider","concent"], n:"Inquebrantable", fx:{lider:1.20,resil:0.85}, d:"Mando y templanza ya son la misma cosa: nada te saca de tu sitio."},
     {id:"friatot", row:3, rank:1, lvl:27, req:["nonerv","inqueb"], n:"Frialdad total", fx:{ta:0.80,resil:0.80}, d:"No existe el momento del partido que te pueda contra ti."},
@@ -2308,7 +2308,9 @@ function sitEntrenoPorId(id){ var L=sitsBancoEntreno(); for(var i=0;i<L.length;i
    tu nivel para el puesto y tu forma. Lo ambicioso (más nota) sale menos, pero luce más. */
 function probsEntreno(o, D){
   var fx=o.fx||{}, ins=fx.inst||{};
-  var bueno=(ins.gol||0)+(ins.asis||0)+(ins.parada||0), malo=(ins.golR||0)+(fx.ta||0)*0.5+(fx.roja||0)*2+(fx.lesion||0);
+  /* tus talentos y habilidades pesan igual que en el partido (sk) */
+  var bueno=(ins.gol||0)*sk("gol")+(ins.asis||0)*sk("asis")+(ins.parada||0)*sk("parada"),
+      malo=(ins.golR||0)*sk("golR")+(fx.ta||0)*0.5*sk("ta")+(fx.roja||0)*2+(fx.lesion||0)*sk("lesion");
   var nivel=(miMedia()-62)/40, forma=((S.forma===undefined?70:S.forma)-75)/150, noche=(D&&D.noche)?0.1:0;
   var pOk=clamp(0.42+bueno*1.1+nivel+forma-noche-Math.max(0,fx.nota||0)*0.06, 0.08, 0.9);
   var pKo=clamp(0.10+malo*1.5-nivel/2+noche, 0.03, 0.6);
@@ -2559,7 +2561,7 @@ function ganaAtr_(o, cls){
   var amb=Math.abs((o.fx&&o.fx.nota)||0);
   var a=atrMejoraEntreno(o), T=techoAtributoDe(a), v=atr(a);
   if(v>=T) return "";
-  var g=Math.round(clamp((T-v)/52,0.05,1.1)*(0.25+amb*0.08)*fac*multGanancia()*100)/100;
+  var g=Math.round(clamp((T-v)/52,0.05,1.1)*(0.25+amb*0.08)*fac*multGanancia()*bonusTalentosEntreno(a)*100)/100;
   if(g<=0) return "";
   S.attr[a]=Math.min(T, v+g);
   return a+" +"+g.toFixed(2);
