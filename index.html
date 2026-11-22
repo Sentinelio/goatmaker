@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.04.012";
+var VERSION="0.04.013";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -10056,20 +10056,23 @@ function eqTopeCurso(m){ return Math.max(4, m.pot||0); }
 /* lo que de verdad aprovecha: un recién llegado no saca partido a lo más caro */
 function eqCalUtil(m, cal){ return Math.min(cal, m.nivel+2); }
 function eqCursoProg(m, sem, cal){ return 0.5*(1-Math.exp(-sem/3))*EQ_CAL[eqCalUtil(m,cal)-1].q; }
+/* media estrellas que da un curso: siempre una como mínimo, hasta una estrella entera con lo mejor */
+function eqCursoMedias(m, sem, cal){ return Math.max(1, Math.min(2, Math.round(eqCursoProg(m,sem,cal)*3.2))); }
 function eqCursoCoste(p, sem, cal){
-  var m=S.eq.st[p]; return Math.round(eqSalario(p, Math.min(5,eqLv(m)+1))*(0.025*sem+0.03)*EQ_CAL[cal-1].f/1000)*1000;
+  var m=S.eq.st[p]; return Math.round(eqSalario(p, Math.min(5,eqLv(m)+1))*(0.05*sem+0.08)*EQ_CAL[cal-1].f/1000)*1000;
 }
 function eqCursoApuntar(p, sem, cal){
   var E=eqInit(), m=E.st[p];
   if(!m) return "No se puede.";
   sem=clamp(Math.round(sem||0),1,6); cal=clamp(Math.round(cal||1),1,5);
-  if(m.curso) return m.n+" ya está en un curso.";
+  if(m.curso) return m.n+" ya se está formando.";
+  if(m.desc && jorAbs()<m.desc) return "Acaba de terminar un curso: necesita "+(m.desc-jorAbs())+" semanas antes del siguiente.";
   if(eqLv(m)>=eqTopeCurso(m)) return "Ya no puede aprender más en un curso: ha llegado a su techo.";
   var coste=eqCursoCoste(p,sem,cal);
   if((S.dinero||0)<coste) return "No te llega: son "+fmtDinero(coste)+".";
   S.dinero-=coste;
   m.curso={sem:sem, cal:cal, fin:jorAbs()+sem};
-  eqLog("Mandas a "+m.n+" a un curso "+EQ_CAL[cal-1].n.toLowerCase()+" de "+sem+" semanas ("+fmtDinero(coste)+")"+". Sigue trabajando y sube al terminar.");
+  eqLog("Mandas a "+m.n+" a un curso "+EQ_CAL[cal-1].n.toLowerCase()+" de "+sem+" semanas ("+fmtDinero(coste)+")"+". Sigue trabajando; la nota nueva llega al terminar.");
   return null;
 }
 function eqCursosSemana(){
@@ -10077,16 +10080,10 @@ function eqCursosSemana(){
   EQ_PUESTOS.forEach(function(p){
     var m=E.st[p]; if(!m||!m.curso) return;
     if(jorAbs()<m.curso.fin) return;
-    var c=m.curso; m.curso=null;
-    m.prog=(m.prog||0)+eqCursoProg(m,c.sem,c.cal)*(0.85+0.3*lcgDe("eqcurso-"+eqSemilla()+"-"+jorAbs()+p)());
-    var sube=0;
-    while(m.prog>=0.5 && eqLv(m)<eqTopeCurso(m)){
-      m.prog-=0.5; sube+=0.5;
-      if(m.med){ m.med=0; m.nivel++; } else m.med=1;
-      if(m.pot<m.nivel) m.pot=m.nivel;
-    }
-    if(sube) eqLog(m.n+" vuelve del curso con "+(sube===0.5? "media estrella":(sube===1? "una estrella":sube+" estrellas"))+" más: ahora es "+eqNivelTxt(m).toLowerCase()+". Su sueldo se revisará en verano.");
-    else eqLog(m.n+" vuelve del curso con más oficio ("+Math.round(m.prog/0.5*100)+"% de la próxima media estrella).");
+    var c=m.curso; m.curso=null; m.desc=jorAbs()+4;
+    var h=Math.min(eqCursoMedias(m,c.sem,c.cal), Math.round((eqTopeCurso(m)-eqLv(m))*2)), sube=0;
+    for(var k=0;k<h;k++){ sube+=0.5; if(m.med){ m.med=0; m.nivel++; } else m.med=1; if(m.pot<m.nivel) m.pot=m.nivel; }
+    if(sube) eqLog(m.n+" termina el curso y gana "+(sube===0.5? "media estrella":"una estrella")+": ahora es "+eqNivelTxt(m).toLowerCase()+". Su sueldo se revisará en verano.");
   });
 }
 var EQ_CUR={p:null};
@@ -10095,7 +10092,7 @@ function eqCursoVista(){
   var p=EQ_CUR.p, m=S.eq.st[p]; if(!m) return;
   var sem=clamp(eqSl("cu-sem",3),1,6), cal=clamp(eqSl("cu-cal",3),1,5), util=eqCalUtil(m,cal);
   var c1=eqCursoCoste(p,sem,cal), pr=eqCursoProg(m,sem,cal), tope=eqTopeCurso(m);
-  var tot=(m.prog||0)+pr, g=Math.min(Math.floor(tot/0.5)*0.5, Math.max(0,tope-eqLv(m)));
+  var g=Math.min(eqCursoMedias(m,sem,cal)*0.5, Math.max(0,tope-eqLv(m)));
   var ST=eqEstrellasVis(eqLv(m), eqLv(m)+g);
   var set=function(id,v,html){ var e=$(id); if(e){ if(html) e.innerHTML=v; else e.textContent=v; } };
   set("cu-st",ST,1);
@@ -10105,7 +10102,7 @@ function eqCursoVista(){
 }
 function eqCursoElige(p){
   var m=S.eq.st[p]; if(!m) return;
-  if(m.curso){ modal({ico:"🎓", t:"En el curso", x:esc(m.n)+" vuelve en "+Math.max(1,m.curso.fin-jorAbs())+" semanas.", okTxt:"Vale", cancelTxt:"Cerrar"}); return; }
+  if(m.curso){ modal({ico:"🎓", t:"En el curso", x:esc(m.n)+" sigue trabajando y termina el curso en "+Math.max(1,m.curso.fin-jorAbs())+" semanas.", okTxt:"Vale", cancelTxt:"Cerrar"}); return; }
   EQ_CUR.p=p;
   var H='<div style="text-align:left;font-size:13px">'
    +'<div id="cu-st" style="font-size:26px;letter-spacing:4px;text-align:center;margin:2px 0 8px"></div>'
@@ -10294,7 +10291,7 @@ function eqTarjetaPuesto(p){
       var act=eqPlanElegido(p);
       H+='<p class="note" style="margin:6px 2px 0">Ahora: <b>'+esc(pl[act].n)+'</b> — '+esc(pl[act].d)+(m.nivel>=3? ' <span style="opacity:.8">(ideal hoy: '+esc(pl[opt].n.toLowerCase())+')</span>':'')+'</p>';
     }
-    H+='<p class="note" style="margin:8px 2px 0">'+(m.curso? '🎓 En un curso: vuelve en '+Math.max(1,m.curso.fin-jorAbs())+' sem · ' : (eqLv(m)<eqTopeCurso(m)? '<a href="javascript:eqCursoElige(\''+p+'\')">🎓 Mandar a un curso</a> · ' : '')+'')+'<a href="javascript:eqPrescindir(\''+p+'\')" style="color:var(--bad)">Prescindir</a></p>';
+    H+='<p class="note" style="margin:8px 2px 0">'+(m.curso? '🎓 Se está formando (sigue trabajando): termina en '+Math.max(1,m.curso.fin-jorAbs())+' sem · ' : (eqLv(m)<eqTopeCurso(m)? '<a href="javascript:eqCursoElige(\''+p+'\')">🎓 Mandar a un curso</a> · ' : '')+'')+'<a href="javascript:eqPrescindir(\''+p+'\')" style="color:var(--bad)">Prescindir</a></p>';
   } else {
     H+='<p class="note" style="margin:0 2px 6px">Puesto vacante.</p>';
   }
