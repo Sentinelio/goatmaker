@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.04.005";
+var VERSION="0.04.006";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -9844,7 +9844,7 @@ function eqSint(p){
 }
 function eqFuerza(p){
   var m=S&&S.eq&&S.eq.st[p]; if(!m) return 0;
-  return EQ_FUERZA[m.nivel-1]*eqSint(p)*(m.curso? 0.4 : 1);
+  return EQ_FUERZA[m.nivel-1]*eqSint(p)*(m.curso? EQ_SUST[m.curso.sust||0].cob : 1);
 }
 function eqNivel(p){ var m=S&&S.eq&&S.eq.st[p]; return m? m.nivel : 0; }
 
@@ -10046,24 +10046,30 @@ function eqRenovar(guarda){
 }
 
 
-/* ---------- cursos: formar a tu gente sale más barato que fichar a un élite ---------- */
-var EQ_CURSOS=[
-  {id:"taller", n:"Taller de fin de semana", pc:0.10, sem:3, prog:0.30, d:"Barato y corto: cuatro tardes de ponencias."},
-  {id:"espec", n:"Curso de especialización", pc:0.22, sem:7, prog:0.65, d:"Un trimestre de formación seria en una federación."},
-  {id:"master", n:"Máster internacional", pc:0.45, sem:14, prog:1.00, d:"Medio año fuera: casi seguro que vuelve un escalón por encima."}
-];
+/* ---------- cursos: tiempo y calidad a tu medida, con sustituto opcional ---------- */
+var EQ_CAL=[{n:"Básico",q:0.45,f:0.5},{n:"Bueno",q:0.70,f:0.8},{n:"Muy bueno",q:1.0,f:1.0},{n:"Excelente",q:1.3,f:1.5},{n:"De primera",q:1.6,f:2.2}];
+var EQ_SUST=[{id:0,n:"Sin sustituto",cob:0.4,fr:0,d:"Sigue localizable: rinde un 40%."},
+             {id:1,n:"Interino",cob:0.7,fr:0.5,d:"Alguien de la agencia: cubre el 70%."},
+             {id:2,n:"De confianza",cob:0.95,fr:1.0,d:"Un profesional de nivel parecido: cubre el 95%."}];
 function eqTopeCurso(m){ return Math.max(4, m.pot||0); }
-function eqCursoCoste(p, c){ var m=S.eq.st[p]; return Math.round(eqSalario(p, Math.min(5,m.nivel+1))*c.pc/1000)*1000; }
-function eqCursoApuntar(p, id){
-  var E=eqInit(), m=E.st[p], c=EQ_CURSOS.filter(function(x){return x.id===id;})[0];
-  if(!m||!c) return "No se puede.";
+/* lo que de verdad aprovecha: un recién llegado no saca partido a lo más caro */
+function eqCalUtil(m, cal){ return Math.min(cal, m.nivel+2); }
+function eqCursoProg(m, sem, cal){ return (1-Math.exp(-sem/9))*EQ_CAL[eqCalUtil(m,cal)-1].q; }
+function eqCursoCoste(p, sem, cal){
+  var m=S.eq.st[p]; return Math.round(eqSalario(p, Math.min(5,m.nivel+1))*(0.03*sem+0.02)*EQ_CAL[cal-1].f/1000)*1000;
+}
+function eqSustCoste(p, sem, sust){ var m=S.eq.st[p]; return Math.round(eqSalario(p,m.nivel)*EQ_SUST[sust].fr*sem/38/1000)*1000; }
+function eqCursoApuntar(p, sem, cal, sust){
+  var E=eqInit(), m=E.st[p];
+  if(!m) return "No se puede.";
+  sem=clamp(Math.round(sem||0),2,30); cal=clamp(Math.round(cal||1),1,5); sust=clamp(Math.round(sust||0),0,2);
   if(m.curso) return m.n+" ya está en un curso.";
   if(m.nivel>=eqTopeCurso(m)) return "Ya no puede aprender más en un curso: ha llegado a su techo.";
-  var coste=eqCursoCoste(p,c);
+  var coste=eqCursoCoste(p,sem,cal)+eqSustCoste(p,sem,sust);
   if((S.dinero||0)<coste) return "No te llega: son "+fmtDinero(coste)+".";
   S.dinero-=coste;
-  m.curso={id:c.id, fin:jorAbs()+c.sem};
-  eqLog("Mandas a "+m.n+" al «"+c.n.toLowerCase()+"» ("+fmtDinero(coste)+", "+c.sem+" semanas). Mientras tanto rinde un 40%.");
+  m.curso={sem:sem, cal:cal, sust:sust, fin:jorAbs()+sem};
+  eqLog("Mandas a "+m.n+" a un curso "+EQ_CAL[cal-1].n.toLowerCase()+" de "+sem+" semanas ("+fmtDinero(coste)+")"+(sust? ", con sustituto "+EQ_SUST[sust].n.toLowerCase():"")+".");
   return null;
 }
 function eqCursosSemana(){
@@ -10071,29 +10077,38 @@ function eqCursosSemana(){
   EQ_PUESTOS.forEach(function(p){
     var m=E.st[p]; if(!m||!m.curso) return;
     if(jorAbs()<m.curso.fin) return;
-    var c=EQ_CURSOS.filter(function(x){return x.id===m.curso.id;})[0]||EQ_CURSOS[0];
-    m.curso=null; m.prog=(m.prog||0)+c.prog*(0.85+0.3*lcgDe("eqcurso-"+eqSemilla()+"-"+jorAbs()+p)());
+    var c=m.curso; m.curso=null;
+    m.prog=(m.prog||0)+eqCursoProg(m,c.sem,c.cal)*(0.85+0.3*lcgDe("eqcurso-"+eqSemilla()+"-"+jorAbs()+p)());
     if(m.prog>=1 && m.nivel<eqTopeCurso(m)){
       m.prog-=1; m.nivel++; if(m.pot<m.nivel) m.pot=m.nivel;
       eqLog(m.n+" vuelve del curso un escalón por encima: ahora es "+EQ_NIVELES[m.nivel-1].toLowerCase()+". Su sueldo se revisará en verano.");
     } else eqLog(m.n+" vuelve del curso con más oficio ("+Math.round(m.prog*100)+"% del siguiente escalón).");
   });
 }
+var EQ_CUR={p:null};
+function eqSl(id,def){ var e=$(id), v=e? parseFloat(e.value) : NaN; return isNaN(v)? def : v; }
+function eqCursoVista(){
+  var p=EQ_CUR.p, m=S.eq.st[p]; if(!m) return;
+  var sem=eqSl("cu-sem",8), cal=clamp(eqSl("cu-cal",3),1,5), sust=clamp(eqSl("cu-sust",1),0,2), util=eqCalUtil(m,cal);
+  var c1=eqCursoCoste(p,sem,cal), c2=eqSustCoste(p,sem,sust), pr=eqCursoProg(m,sem,cal);
+  var fin=jorAbs()+sem, pasa=(S.jornada||0)+sem>38;
+  var T='<b>'+sem+' semanas</b> · calidad <b>'+EQ_CAL[cal-1].n+'</b> · '+esc(EQ_SUST[sust].n)+'<br>Curso: <b>'+fmtDinero(c1)+'</b>'+(c2? ' + sustituto <b>'+fmtDinero(c2)+'</b>':'')+' = <b>'+fmtDinero(c1+c2)+'</b><br>Aprendizaje: ≈<b>'+Math.round(pr*100)+'%</b> de un escalón'+(pr*1.15>=1? ' (casi seguro sube)':'');
+  if(util<cal) T+='<br>⚠ Con su nivel solo aprovecha calidad «'+EQ_CAL[util-1].n.toLowerCase()+'»: lo demás es dinero perdido.';
+  T+='<br>'+esc(EQ_SUST[sust].d)+(pasa? '<br>⚠ Acaba después de esta temporada: en verano se renueva igualmente (pagas su sueldo) y vuelve en la jornada '+((fin%38)||38)+' de la siguiente.':'');
+  [["cu-res",T,1],["cu-sv",sem+" sem"],["cu-cv",EQ_CAL[cal-1].n],["cu-ssv",EQ_SUST[sust].n]].forEach(function(a){ var e=$(a[0]); if(e){ if(a[2]) e.innerHTML=a[1]; else e.textContent=a[1]; } });
+}
 function eqCursoElige(p){
   var m=S.eq.st[p]; if(!m) return;
-  var tope=m.nivel>=eqTopeCurso(m);
   if(m.curso){ modal({ico:"🎓", t:"En el curso", x:esc(m.n)+" vuelve en "+Math.max(1,m.curso.fin-jorAbs())+" semanas.", okTxt:"Vale", cancelTxt:"Cerrar"}); return; }
-  var H='<div style="text-align:left">';
-  EQ_CURSOS.forEach(function(c,i){
-    H+='<button class="opt" style="width:100%" onclick="eqCursoOk(\''+p+'\',\''+c.id+'\')"><b>'+esc(c.n)+'</b> · '+fmtDinero(eqCursoCoste(p,c))+' · '+c.sem+' sem<small>'+esc(c.d)+' (≈'+Math.round(c.prog*100)+'% de un escalón)</small></button>';
-  });
-  modal({ico:"🎓", t:"Formar a "+esc(m.n), x:(tope? "Ya está en su techo: no aprenderá más." : "Mientras estudia rinde un 40%. Elige:")+H+'</div>', okTxt:"Cerrar", cancelTxt:""});
-}
-function eqCursoOk(p,id){
-  var err=eqCursoApuntar(p,id);
-  if(typeof cerrarModal==="function") cerrarModal();
-  if(err) modal({ico:"🎓", t:"No puede ser", x:esc(err), okTxt:"Entendido", cancelTxt:"Cerrar"});
-  eqRefrescar();
+  EQ_CUR.p=p;
+  var H='<div style="text-align:left;font-size:13px">'
+   +'<div class="row2"><span>Tiempo</span><b id="cu-sv"></b></div><input id="cu-sem" type="range" min="2" max="30" value="8" style="width:100%" oninput="eqCursoVista()">'
+   +'<div class="row2" style="margin-top:6px"><span>Calidad</span><b id="cu-cv"></b></div><input id="cu-cal" type="range" min="1" max="5" value="3" style="width:100%" oninput="eqCursoVista()">'
+   +'<div class="row2" style="margin-top:6px"><span>Mientras tanto</span><b id="cu-ssv"></b></div><input id="cu-sust" type="range" min="0" max="2" value="1" style="width:100%" oninput="eqCursoVista()">'
+   +'<p id="cu-res" class="note" style="margin:10px 0 0"></p></div>';
+  modal({ico:"🎓", t:"Formar a "+esc(m.n), x:H, okTxt:"Apuntar", cancelTxt:"Cancelar",
+    onOk:function(){ var e=eqCursoApuntar(p,eqSl("cu-sem",8),eqSl("cu-cal",3),eqSl("cu-sust",1)); if(e) modal({ico:"🎓", t:"No puede ser", x:esc(e), okTxt:"Entendido", cancelTxt:"Cerrar"}); else eqRefrescar(); }});
+  eqCursoVista();
 }
 
 /* ---------- la semana: peso, sintonía, informe, dilemas y burlas ---------- */

@@ -221,25 +221,45 @@ console.log("1 temporada · sin equipo: lesiones "+L0.les.toFixed(1)+", FIS +"+L
             " | novato: "+L1.les.toFixed(1)+", +"+L1.fis.toFixed(1)+", "+L1.forma.toFixed(0)+" | élite: "+L5.les.toFixed(1)+", +"+L5.fis.toFixed(1)+", "+L5.forma.toFixed(0));
 t(isFinite(L5.fis)&&isFinite(L1.fis)&&isFinite(L0.fis)&&!JSON.stringify(S.eq).match(/NaN|null,\"sal\":null/),"una temporada completa con equipo no deja NaN");
 
-/* ---- 12. cursos ---- */
-base("MC",180,75); ficha("fisio",2); S.eq.st.fisio.pot=4; S.dinero=3000000;
-var c0=eqCursoCoste("fisio",EQ_CURSOS[0]), c2=eqCursoCoste("fisio",EQ_CURSOS[2]);
-t(c0<c2 && c2<eqSalario("fisio",3),"el máster cuesta menos que el sueldo anual del escalón siguiente: "+c2+" < "+eqSalario("fisio",3));
-var d0=S.dinero; t(eqCursoApuntar("fisio","master")===null && d0-S.dinero===c2,"se paga el curso al apuntarlo");
-t(eqCursoApuntar("fisio","taller")!==null,"no se puede estar en dos cursos");
-var f0=eqFuerza("fisio"); S.eq.st.fisio.curso=null; var f1=eqFuerza("fisio"); S.eq.st.fisio.curso={id:"master",fin:jorAbs()+14};
-t(Math.abs(f0/f1-0.4)<0.01,"durante el curso rinde un 40%");
-S.temporada=1; S.jornada=0; var lv=S.eq.st.fisio.nivel;
-for(var w=0;w<14;w++){ S.jornada=w; semanaEquipo(); }
-t(S.eq.st.fisio.curso && S.eq.st.fisio.nivel===lv,"antes de terminar no cambia el nivel");
-S.jornada=14; semanaEquipo();
-t(!S.eq.st.fisio.curso && S.eq.st.fisio.nivel===lv+1,"el máster lo sube un escalón: "+lv+" → "+S.eq.st.fisio.nivel);
-base("MC",180,75); ficha("fisio",4); S.eq.st.fisio.pot=4; t(eqCursoApuntar("fisio","taller")!==null,"en su techo no aprende más");
-base("MC",180,75); ficha("fisio",1); S.eq.st.fisio.pot=1; S.dinero=3000000; eqCursoApuntar("fisio","taller");
-var pr0=0; for(var w=0;w<4;w++){ S.jornada=w; semanaEquipo(); } t(S.eq.st.fisio.prog>0.2 && S.eq.st.fisio.nivel===1,"un taller da solo un tercio de escalón: "+(S.eq.st.fisio.prog||0).toFixed(2));
-for(var k=0;k<3;k++){ eqCursoApuntar("fisio","taller"); S.jornada+=4; for(var w=0;w<4;w++){ S.jornada++; semanaEquipo(); } }
-t(S.eq.st.fisio.nivel>=2,"tres o cuatro talleres suman un escalón");
-base("MC",180,75); ficha("fisio",2); S.dinero=1000; t(/No te llega/.test(eqCursoApuntar("fisio","master")||""),"sin dinero no hay curso");
+/* ---- 12. cursos con tiempo, calidad y sustituto ---- */
+function pasan(n){ for(var w=1;w<=n;w++){ S.jornada++; semanaEquipo(); } }
+base("MC",180,75); ficha("fisio",2); S.eq.st.fisio.pot=4; S.dinero=9000000; S.jornada=0;
+t(eqCursoCoste("fisio",8,1)<eqCursoCoste("fisio",8,3) && eqCursoCoste("fisio",8,3)<eqCursoCoste("fisio",8,5),"más calidad, más caro");
+t(eqCursoCoste("fisio",4,3)<eqCursoCoste("fisio",20,3),"más tiempo, más caro");
+var m2=S.eq.st.fisio; t(eqCursoProg(m2,4,3)<eqCursoProg(m2,14,3) && eqCursoProg(m2,14,3)<eqCursoProg(m2,30,3),"más tiempo, más aprendizaje");
+t(eqCursoProg(m2,14,3)-eqCursoProg(m2,4,3) < 2*(eqCursoProg(m2,4,3)),"con rendimientos decrecientes en el tiempo");
+t(eqCursoProg(m2,14,2)<eqCursoProg(m2,14,4),"más calidad, más aprendizaje");
+/* un júnior de 1 estrella con lo máximo */
+base("MC",180,75); ficha("fisio",1); S.eq.st.fisio.pot=1; var m1=S.eq.st.fisio;
+t(eqCalUtil(m1,5)===3,"con 1 estrella solo se aprovecha calidad 3 de 5");
+t(Math.abs(eqCursoProg(m1,30,5)-eqCursoProg(m1,30,3))<1e-9,"y lo que pagas de más no rinde nada");
+t(eqCursoProg(m1,30,5)>0.9 && eqCursoProg(m1,30,5)<1.0,"el máximo para un novato: ≈"+eqCursoProg(m1,30,5).toFixed(2)+" de escalón (casi, no seguro)");
+/* sin sustituto / con sustituto */
+base("MC",180,75); ficha("fisio",3); S.dinero=9000000; S.jornada=0;
+var fb=eqFuerza("fisio"); var d0=S.dinero;
+t(eqCursoApuntar("fisio",10,3,0)===null && d0-S.dinero===eqCursoCoste("fisio",10,3),"sin sustituto solo pagas el curso");
+t(Math.abs(eqFuerza("fisio")/fb-0.4)<0.01,"sin sustituto rinde el 40%");
+t(eqCursoApuntar("fisio",5,1,1)!==null,"un curso a la vez");
+base("MC",180,75); ficha("fisio",3); S.dinero=9000000; S.jornada=0; fb=eqFuerza("fisio"); d0=S.dinero;
+eqCursoApuntar("fisio",10,3,1); t(d0-S.dinero===eqCursoCoste("fisio",10,3)+eqSustCoste("fisio",10,1),"el interino se paga aparte, proporcional a las semanas");
+t(Math.abs(eqFuerza("fisio")/fb-0.7)<0.01,"con interino se cubre el 70%");
+base("MC",180,75); ficha("fisio",3); S.dinero=9000000; S.jornada=0; fb=eqFuerza("fisio"); eqCursoApuntar("fisio",10,3,2);
+t(Math.abs(eqFuerza("fisio")/fb-0.95)<0.01,"con sustituto de confianza el 95%");
+t(eqSustCoste("fisio",10,2)>eqSustCoste("fisio",10,1) && eqSustCoste("fisio",5,2)<eqSustCoste("fisio",20,2),"el de confianza cuesta más; más semanas, más coste");
+/* terminar el curso */
+var lv=S.eq.st.fisio.nivel; pasan(9); t(S.eq.st.fisio.curso && S.eq.st.fisio.nivel===lv,"antes de terminar no cambia nada");
+pasan(1); t(!S.eq.st.fisio.curso && Math.abs(eqFuerza("fisio")/fb-1)<0.01,"al volver rinde al 100% otra vez");
+var subidas=0; for(var q=0;q<40;q++){ base("MC",180,75); S.temporada=q+1; ficha("fisio",2); S.eq.st.fisio.pot=4; S.dinero=9e6; S.jornada=0; eqCursoApuntar("fisio",24,4,2); pasan(24); if(S.eq.st.fisio.nivel===3) subidas++; }
+t(subidas>=34,"un buen curso largo casi siempre sube un escalón: "+subidas+"/40");
+var subs2=0; for(var q=0;q<40;q++){ base("MC",180,75); S.temporada=q+1; ficha("fisio",2); S.eq.st.fisio.pot=4; S.dinero=9e6; S.jornada=0; eqCursoApuntar("fisio",3,1,0); pasan(3); if(S.eq.st.fisio.nivel===3) subs2++; }
+t(subs2===0,"un taller básico de tres semanas no sube un escalón");
+base("MC",180,75); ficha("fisio",4); S.eq.st.fisio.pot=4; t(eqCursoApuntar("fisio",10,3,0)!==null,"en su techo no aprende más");
+base("MC",180,75); ficha("fisio",2); S.dinero=1000; t(/No te llega/.test(eqCursoApuntar("fisio",10,5,2)||""),"sin dinero no hay curso");
+base("MC",180,75); ficha("fisio",2); S.dinero=9e6; S.jornada=35; eqCursoApuntar("fisio",12,3,1); t(S.eq.st.fisio.curso.fin===jorAbs()+12,"un curso puede cruzar el verano (sigue en marcha)");
+var g={dinero:9e6}; eqRenovar(g); t(S.eq.st.fisio && S.eq.st.fisio.curso,"y el verano no lo cancela ni lo despide (se renueva igual)");
+/* pantalla */
 base("DC",191,105); ficha("prep",2); t(/Mandar a un curso/.test(secStaff()),"la ficha ofrece mandarlo a un curso");
-S.dinero=3000000; eqCursoApuntar("prep","espec"); t(/En un curso/.test(secStaff()),"y muestra cuándo vuelve");
+var _m3=modal, cf=null; modal=function(c){ cf=c; }; S.dinero=9e6; eqCursoElige("prep"); modal=_m3;
+t(cf && /Apuntar/.test(cf.okTxt) && /type="range"/.test(cf.x) && (cf.x.match(/type="range"/g)||[]).length===3,"el diálogo trae tiempo, calidad y sustituto");
+S.dinero=9e6; eqCursoApuntar("prep",8,3,1); t(/En un curso/.test(secStaff()),"y la ficha muestra cuándo vuelve");
 console.log("EQUIPO: "+OK+" ok · "+KO+" fallos");
