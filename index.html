@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.059";
+var VERSION="0.03.060";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -1431,6 +1431,7 @@ var ENTRENOS=[
  {id:"fisico",   n:"Preparación física", d:"Series, fuerza y resistencia.",  pos:null, sube:{FIS:1}, forma:-8},
  {id:"tactica",  n:"Vídeo y pizarra",    d:"Posicionamiento y lectura.",     pos:null, sube:{TAC:1}, forma:-1},
  {id:"mental",   n:"Trabajo mental",     d:"Concentración y sangre fría.",   pos:null, sube:{MEN:1}, forma:-1},
+ {id:"defensa",  n:"Defensa y repliegue",d:"Cierres, coberturas y vuelta al bloque.", pos:null, sube:{DEF:1}, forma:-5},
  {id:"parado",   n:"Balón parado",       d:"Faltas, córners y penaltis.",    pos:null, sube:{TEC:0.55,MEN:0.5}, forma:-3},
  {id:"recupera", n:"Recuperación",       d:"Fisio, piscina y descanso.",     pos:null, sube:{}, forma:12},
  /* portero */
@@ -2089,10 +2090,18 @@ function cartasHora(D, fase){
     lista=ENTRENOS.filter(function(e){ return e.cuando===fase && (!e.pos || e.pos.indexOf(p)>=0); }).sort(orden).slice(0,4);
   } else {
     /* ejercicios interesantes: lo recomendado primero, luego el resto del catálogo */
+    /* un ejercicio por clase de atributo (técnica, defensa, táctica, mental, físico; en portería, también la suya)
+       y un sexto que rellena el hueco: lo que recomienda el preparador, o lo más útil que quede */
     var resto=entrenosDisp().sort(orden), rec=recomendacion(), elegidas=[];
-    if(rec && rec.ej && resto.some(function(e){ return e.id===rec.ej; })) elegidas.push(ejEnt(rec.ej));
-    resto.forEach(function(e){ if(elegidas.length<4 && elegidas.indexOf(e)<0) elegidas.push(e); });
-    lista=elegidas;
+    var claseEj=function(e){ var b=null, m=-1; Object.keys(e.sube||{}).forEach(function(k){ if(e.sube[k]>m){ m=e.sube[k]; b=k; } }); return b; };
+    (p==="POR"? ["POR"]:[]).concat(["TEC","DEF","TAC","MEN","FIS"]).forEach(function(k){
+      var cand=resto.filter(function(e){ return claseEj(e)===k; });
+      var uno=(rec && cand.filter(function(e){ return e.id===rec.ej; })[0]) || cand[0];
+      if(uno) elegidas.push(uno);
+    });
+    if(rec && rec.ej && elegidas.length<6 && elegidas.indexOf(ejEnt(rec.ej))<0 && resto.some(function(e){ return e.id===rec.ej; })) elegidas.push(ejEnt(rec.ej));
+    resto.forEach(function(e){ if(elegidas.length<6 && elegidas.indexOf(e)<0 && claseEj(e)) elegidas.push(e); });
+    lista=elegidas.slice(0,6);
   }
   D.cartas[fase]={c:clave, ids:lista.map(function(e){ return e.id; })};
   S.horaRec[fase]=rr.concat(D.cartas[fase].ids).slice(-12);
