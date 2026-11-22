@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.057";
+var VERSION="0.03.058";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -12428,6 +12428,8 @@ function presentarContra(){
   if(!acepta){ CONTRA.pac=Math.max(0, (CONTRA.pac!==undefined?CONTRA.pac:100) - (16+Math.round(exigencia(o.contrato)*2.2)) ); }
   var ofende=!acepta && (CONTRA.pac<=0 || (pr<0.16 && rnd()<0.4) || (CONTRA.pac<25 && rnd()<0.5));
   CONTRA.ultima={salario:CONTRA.salario, anos:CONTRA.anos, clausula:CONTRA.clausula, resp: acepta?"si":(ofende?"retira":"no")};
+  /* la mesa muestra ya el resultado (tu última propuesta, la respuesta y la paciencia) antes del aviso, no después */
+  if(!ofende) pintarNegociacion();
   if(acepta){
     PICK.contraOK=JSON.parse(JSON.stringify(CONTRA));
     var ex=EXTRAS.filter(function(x){ return CONTRA.extras[x.id]; }).map(function(x){ return x.n.toLowerCase(); });
