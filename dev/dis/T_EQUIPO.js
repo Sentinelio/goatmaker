@@ -277,6 +277,7 @@ t(cf && /Apuntar/.test(cf.okTxt) && (cf.x.match(/type="range"/g)||[]).length===2
 t(/id="cu-st"/.test(cf.x) && !/class="note"/.test(cf.x),"el diálogo lleva las estrellas y ningún texto gris debajo");
 S.dinero=9e6; eqCursoApuntar("prep",4,3); t(/Se está formando/.test(secStaff()),"y la ficha muestra que se está formando");
 
+base("DC",191,105); ficha("prep",4); S.eq.st.prep.pot=4; EQ_SEL="prep"; t(/En su techo/.test(secStaff()) && !/Mandar a un curso/.test(secStaff()),"en su techo la ficha explica por qué no hay curso"); EQ_SEL=null;
 /* ---- 13. medias estrellas ---- */
 base("MC",180,75); ficha("fisio",3); var mf=S.eq.st.fisio;
 var f30=eqFuerza("fisio"); mf.med=1; var f35=eqFuerza("fisio"); mf.nivel=4; mf.med=0; var f40=eqFuerza("fisio");

@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.04.016";
+var VERSION="0.04.017";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -10103,6 +10103,7 @@ function eqCursoVista(){
 }
 function eqCursoElige(p){
   var m=S.eq.st[p]; if(!m) return;
+  if(eqLv(m)>=eqTopeCurso(m)){ modal({ico:"🎓", t:"En su techo", x:esc(m.n)+" ya ha llegado a "+eqLv(m)+" estrellas y no tiene potencial para más: los cursos no le suben. Solo fichando a alguien con más potencial (las promesas) se llega más arriba.", okTxt:"Entendido", cancelTxt:"Cerrar"}); return; }
   if(m.curso){ modal({ico:"🎓", t:"En el curso", x:esc(m.n)+" sigue trabajando y termina el curso en "+Math.max(1,m.curso.fin-jorAbs())+" semanas.", okTxt:"Vale", cancelTxt:"Cerrar"}); return; }
   EQ_CUR.p=p;
   var H='<div style="text-align:left;font-size:13px">'
@@ -10292,7 +10293,7 @@ function eqTarjetaPuesto(p){
       var act=eqPlanElegido(p);
       H+='<p class="note" style="margin:6px 2px 0">Ahora: <b>'+esc(pl[act].n)+'</b> — '+esc(pl[act].d)+(m.nivel>=3? ' <span style="opacity:.8">(ideal hoy: '+esc(pl[opt].n.toLowerCase())+')</span>':'')+'</p>';
     }
-    H+='<p class="note" style="margin:8px 2px 0">'+(m.curso? '🎓 Se está formando (sigue trabajando): termina en '+Math.max(1,m.curso.fin-jorAbs())+' sem · ' : (eqLv(m)<eqTopeCurso(m)? '<a href="javascript:eqCursoElige(\''+p+'\')">🎓 Mandar a un curso</a> · ' : '')+'')+'<a href="javascript:eqPrescindir(\''+p+'\')" style="color:var(--bad)">Prescindir</a></p>';
+    H+='<p class="note" style="margin:8px 2px 0">'+(m.curso? '🎓 Se está formando (sigue trabajando): termina en '+Math.max(1,m.curso.fin-jorAbs())+' sem · ' : (eqLv(m)>=eqTopeCurso(m)? '🎓 En su techo ('+eqLv(m)+'★): los cursos ya no le suben. Para más, ficha a alguien con más potencial · ' : '<a href="javascript:eqCursoElige(\''+p+'\')">🎓 Mandar a un curso</a>'+(m.desc&&jorAbs()<m.desc? ' (descansa '+(m.desc-jorAbs())+' sem)':'')+' · ')+'')+'<a href="javascript:eqPrescindir(\''+p+'\')" style="color:var(--bad)">Prescindir</a></p>';
   } else {
     H+='<p class="note" style="margin:0 2px 6px">Puesto vacante.</p>';
   }
