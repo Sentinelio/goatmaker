@@ -211,4 +211,26 @@ var L0=liga(0,1), L1=liga(1,1), L5=liga(5,1);
 console.log("1 temporada · sin equipo: lesiones "+L0.les.toFixed(1)+", FIS +"+L0.fis.toFixed(1)+", forma "+L0.forma.toFixed(0)+
             " | novato: "+L1.les.toFixed(1)+", +"+L1.fis.toFixed(1)+", "+L1.forma.toFixed(0)+" | élite: "+L5.les.toFixed(1)+", +"+L5.fis.toFixed(1)+", "+L5.forma.toFixed(0));
 t(isFinite(L5.fis)&&isFinite(L1.fis)&&isFinite(L0.fis)&&!JSON.stringify(S.eq).match(/NaN|null,\"sal\":null/),"una temporada completa con equipo no deja NaN");
+
+/* ---- 12. cursos ---- */
+base("MC",180,75); ficha("fisio",2); S.eq.st.fisio.pot=4; S.dinero=3000000;
+var c0=eqCursoCoste("fisio",EQ_CURSOS[0]), c2=eqCursoCoste("fisio",EQ_CURSOS[2]);
+t(c0<c2 && c2<eqSalario("fisio",3),"el máster cuesta menos que el sueldo anual del escalón siguiente: "+c2+" < "+eqSalario("fisio",3));
+var d0=S.dinero; t(eqCursoApuntar("fisio","master")===null && d0-S.dinero===c2,"se paga el curso al apuntarlo");
+t(eqCursoApuntar("fisio","taller")!==null,"no se puede estar en dos cursos");
+var f0=eqFuerza("fisio"); S.eq.st.fisio.curso=null; var f1=eqFuerza("fisio"); S.eq.st.fisio.curso={id:"master",fin:jorAbs()+14};
+t(Math.abs(f0/f1-0.4)<0.01,"durante el curso rinde un 40%");
+S.temporada=1; S.jornada=0; var lv=S.eq.st.fisio.nivel;
+for(var w=0;w<14;w++){ S.jornada=w; semanaEquipo(); }
+t(S.eq.st.fisio.curso && S.eq.st.fisio.nivel===lv,"antes de terminar no cambia el nivel");
+S.jornada=14; semanaEquipo();
+t(!S.eq.st.fisio.curso && S.eq.st.fisio.nivel===lv+1,"el máster lo sube un escalón: "+lv+" → "+S.eq.st.fisio.nivel);
+base("MC",180,75); ficha("fisio",4); S.eq.st.fisio.pot=4; t(eqCursoApuntar("fisio","taller")!==null,"en su techo no aprende más");
+base("MC",180,75); ficha("fisio",1); S.eq.st.fisio.pot=1; S.dinero=3000000; eqCursoApuntar("fisio","taller");
+var pr0=0; for(var w=0;w<4;w++){ S.jornada=w; semanaEquipo(); } t(S.eq.st.fisio.prog>0.2 && S.eq.st.fisio.nivel===1,"un taller da solo un tercio de escalón: "+(S.eq.st.fisio.prog||0).toFixed(2));
+for(var k=0;k<3;k++){ eqCursoApuntar("fisio","taller"); S.jornada+=4; for(var w=0;w<4;w++){ S.jornada++; semanaEquipo(); } }
+t(S.eq.st.fisio.nivel>=2,"tres o cuatro talleres suman un escalón");
+base("MC",180,75); ficha("fisio",2); S.dinero=1000; t(/No te llega/.test(eqCursoApuntar("fisio","master")||""),"sin dinero no hay curso");
+base("DC",191,105); ficha("prep",2); t(/Mandar a un curso/.test(secStaff()),"la ficha ofrece mandarlo a un curso");
+S.dinero=3000000; eqCursoApuntar("prep","espec"); t(/En un curso/.test(secStaff()),"y muestra cuándo vuelve");
 console.log("EQUIPO: "+OK+" ok · "+KO+" fallos");
