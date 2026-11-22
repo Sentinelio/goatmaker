@@ -1,0 +1,11821 @@
+/* ===== ARNÉS · stub.js — DOM mínimo y relojes muertos para correr el juego en Node =====
+   Se concatena ANTES del script del juego: cat stub.js lap.js post.js TEST.js > run.js */
+var __tid=0, __TIMERS=[];
+var __ELS={};
+function _CL(){ var set={};
+  return { add:function(){ for(var i=0;i<arguments.length;i++) set[arguments[i]]=1; },
+    remove:function(){ for(var i=0;i<arguments.length;i++) delete set[arguments[i]]; },
+    toggle:function(c,f){ var on=(f===undefined)? !set[c] : !!f; if(on) set[c]=1; else delete set[c]; return on; },
+    contains:function(c){ return !!set[c]; } };
+}
+function _E(id){
+  var e={ style:{}, dataset:{}, children:[], childNodes:[], id:id||"", className:"", innerHTML:"", textContent:"", value:"", checked:false,
+    disabled:false, onclick:null, scrollTop:0, scrollHeight:0, clientHeight:0, offsetHeight:100, offsetWidth:100,
+    classList:_CL(),
+    appendChild:function(c){ if(c && c.id) __ELS[c.id]=c; return c; }, removeChild:function(c){ return c; }, remove:function(){}, append:function(){}, prepend:function(){}, insertBefore:function(c){ return c; },
+    addEventListener:function(){}, removeEventListener:function(){}, setAttribute:function(){}, getAttribute:function(){ return null; }, removeAttribute:function(){},
+    querySelector:function(){ return null; }, querySelectorAll:function(){ return []; }, closest:function(){ return null; },
+    getElementsByTagName:function(){ return []; }, getElementsByClassName:function(){ return []; }, contains:function(){ return false; }, cloneNode:function(){ return _E(); },
+    focus:function(){}, blur:function(){}, click:function(){}, select:function(){}, scrollIntoView:function(){}, insertAdjacentHTML:function(){},
+    getBoundingClientRect:function(){ return {top:0,left:0,width:0,height:0,right:0,bottom:0}; } };
+  return e;
+}
+var document={ getElementById:function(id){ return __ELS[id]||(__ELS[id]=_E(id)); }, createElement:function(){ return _E(); },
+  querySelector:function(){ return null; }, querySelectorAll:function(){ return []; }, addEventListener:function(){},
+  execCommand:function(){ return true; }, body:_E(), documentElement:_E(), head:_E() };
+var window={ addEventListener:function(){}, removeEventListener:function(){}, scrollTo:function(){}, innerWidth:420, innerHeight:900, onerror:null, storage:undefined };
+var navigator={ clipboard:{ writeText:function(){ return Promise.resolve(); } }, vibrate:function(){} };
+var __LS={}; var localStorage={ getItem:function(k){ return (k in __LS)? __LS[k] : null; }, setItem:function(k,v){ __LS[k]=String(v); }, removeItem:function(k){ delete __LS[k]; } };
+var setTimeout=function(fn,ms){ __TIMERS.push({id:++__tid,fn:fn,ms:ms}); return __tid; };
+var clearTimeout=function(id){ __TIMERS=__TIMERS.filter(function(t){ return t.id!==id; }); };
+var setInterval=function(){ return ++__tid; };
+var clearInterval=function(){};
+var requestAnimationFrame=function(){ return ++__tid; };
+"use strict";
+/* ================= UTILS ================= */
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+function rnd(){ return Math.random(); }
+function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+/* ================= STORAGE (patrón sGet/sSet) ================= */
+var VERSION="0.03.029";
+var NS="lap1-", ST_BACKEND="—";
+async function sSet(k,v){
+  if(window.BAJA_ON) return;
+  var val=JSON.stringify(v);
+  try{ if(window.storage){ await window.storage.set(NS+k,val); ST_BACKEND="claude"; stBadge(); return; } }catch(e){}
+  try{ localStorage.setItem(NS+k,val); ST_BACKEND="local"; }catch(e){ ST_BACKEND="memoria"; MEM[k]=val; }
+  stBadge();
+}
+function conTimeout(pr,ms){ return Promise.race([pr,new Promise(function(res){ setTimeout(function(){res("__TIMEOUT__");},ms); })]); }
+async function sGet(k){
+  try{ if(window.storage){ var r=await conTimeout(window.storage.get(NS+k),1200); if(r==="__TIMEOUT__") throw 0; ST_BACKEND="claude"; stBadge(); return r&&r.value?JSON.parse(r.value):null; } }catch(e){}
+  try{ var v=localStorage.getItem(NS+k); ST_BACKEND="local"; stBadge(); return v?JSON.parse(v):null; }catch(e){ ST_BACKEND="memoria"; return MEM[k]?JSON.parse(MEM[k]):null; }
+}
+async function sDel(k){
+  try{ if(window.storage){ await window.storage.delete(NS+k); return; } }catch(e){}
+  try{ localStorage.removeItem(NS+k); }catch(e){ delete MEM[k]; }
+}
+/* baja del admin: borra la partida y la identidad de telemetría; el juego vuelve a empezar de cero al recargar */
+async function reiniciaPorBaja(){
+  window.BAJA_ON=true;
+  try{ localStorage.removeItem(NS+"tele-id"); localStorage.removeItem(NS+"tele-q"); }catch(e){}
+  try{ await sDel("save"); }catch(e){}
+  modal({ico:"🗑️", t:"Tu partida ya no existe", x:"Tu usuario ha sido dado de baja y su partida se ha borrado. Puedes empezar una carrera nueva.", okTxt:"Entendido", cancelTxt:"Cerrar", onOk:function(){ location.reload(); }, onCancel:function(){ location.reload(); }});
+}
+var MEM={};
+var FS_OK=!!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen);
+function pantallaCompleta(){ try{ var d=document.documentElement; if(!document.fullscreenElement && !document.webkitFullscreenElement){ var f=d.requestFullscreen||d.webkitRequestFullscreen; if(f) f.call(d); } else { var x=document.exitFullscreen||document.webkitExitFullscreen; if(x) x.call(document); } }catch(e){} }
+function stBadge(){ var n=$("stbadge"); if(n) n.textContent="v"+VERSION+" · "+ST_BACKEND; }
+/* ================= DATOS 2026-27 ================= */
+/* Elo: elofootball.com · ago 2026. col: [color1, color2, patrón] para el escudo. */
+var EQUIPOS=[
+ {id:"BAR", n:"FC Barcelona",        c:"Barcelona",   elo:2298, est:"Spotify Camp Nou",      col:["#004d98","#a50044","stripes"]},
+ {id:"RMA", n:"Real Madrid",         c:"R. Madrid",   elo:2243, est:"Santiago Bernabéu",     col:["#f5f5f5","#c9a227","half"]},
+ {id:"ATM", n:"Atlético de Madrid",  c:"Atlético",    elo:2148, est:"Riyadh Air Metropolitano", col:["#cb3524","#ffffff","stripes"]},
+ {id:"VIL", n:"Villarreal CF",       c:"Villarreal",  elo:2039, est:"La Cerámica",           col:["#ffe114","#0a3d91","plain"]},
+ {id:"BET", n:"Real Betis",          c:"Betis",       elo:2036, est:"La Cartuja",            col:["#0aa14e","#ffffff","stripes"]},
+ {id:"VAL", n:"Valencia CF",         c:"Valencia",    elo:2006, est:"Mestalla",              col:["#f5f5f5","#111111","band"]},
+ {id:"CEL", n:"RC Celta",            c:"Celta",       elo:1996, est:"Balaídos",              col:["#8ecae6","#ffffff","plain"]},
+ {id:"RAY", n:"Rayo Vallecano",      c:"Rayo",        elo:1995, est:"Vallecas",              col:["#f5f5f5","#c02942","diag"]},
+ {id:"RSO", n:"Real Sociedad",       c:"R. Sociedad", elo:1994, est:"Reale Arena",           col:["#0067b1","#ffffff","stripes"]},
+ {id:"ATH", n:"Athletic Club",       c:"Athletic",    elo:1958, est:"San Mamés",             col:["#ee2523","#ffffff","stripes"]},
+ {id:"OSA", n:"CA Osasuna",          c:"Osasuna",     elo:1948, est:"El Sadar",              col:["#d91a21","#0a2240","band"]},
+ {id:"GET", n:"Getafe CF",           c:"Getafe",      elo:1947, est:"Coliseum",              col:["#1f4fa3","#ffffff","plain"]},
+ {id:"ALA", n:"Deportivo Alavés",    c:"Alavés",      elo:1928, est:"Mendizorroza",          col:["#0761af","#ffffff","stripes"]},
+ {id:"LEV", n:"Levante UD",          c:"Levante",     elo:1913, est:"Ciutat de València",    col:["#005999","#b4053f","half"]},
+ {id:"ESP", n:"RCD Espanyol",        c:"Espanyol",    elo:1908, est:"Stage Front Stadium",   col:["#0761af","#ffffff","stripes"]},
+ {id:"SEV", n:"Sevilla FC",          c:"Sevilla",     elo:1905, est:"Sánchez-Pizjuán",       col:["#f5f5f5","#d40b1e","plain"]},
+ {id:"ELC", n:"Elche CF",            c:"Elche",       elo:1904, est:"Martínez Valero",       col:["#0aa14e","#ffffff","band"]},
+ {id:"RAC", n:"Racing de Santander", c:"Racing",      elo:1856, est:"El Sardinero",          col:["#0aa14e","#f5f5f5","half"]},
+ {id:"MLG", n:"Málaga CF",           c:"Málaga",      elo:1854, est:"La Rosaleda",           col:["#8ecae6","#ffffff","stripes"]},
+ {id:"DEP", n:"Deportivo de La Coruña", c:"Deportivo",elo:1822, est:"Riazor",                col:["#1f4fa3","#f5f5f5","stripes"]}
+];
+var EQ={}; EQUIPOS.forEach(function(e,i){ e.rank=i+1; EQ[e.id]=e; });
+/* equipos del partidillo de prueba: existen para el motor, no para la liga */
+EQ.PRA={id:"PRA", n:"Peto blanco", c:"Blancos", elo:1800, est:"Ciudad deportiva", col:["#f2f2f2","#1c1c1c","plain"], rank:20};
+EQ.PRB={id:"PRB", n:"Peto naranja", c:"Naranjas", elo:1800, est:"Ciudad deportiva", col:["#f07d20","#1c1c1c","band"], rank:20};
+/* ===== LA SEGUNDA: veinte clubes más, un mundo que respira ===== */
+var EQUIPOS2=[
+ {id:"ZAR", n:"Real Zaragoza",      c:"Zaragoza",   elo:1798, est:"La Romareda",      col:["#f5f5f5","#0a5cad","plain"]},
+ {id:"SPG", n:"Sporting de Gijón",  c:"Sporting",   elo:1786, est:"El Molinón",       col:["#d0202f","#ffffff","stripes"]},
+ {id:"LPA", n:"UD Las Palmas",      c:"Las Palmas", elo:1779, est:"Gran Canaria",     col:["#ffe114","#0a5cad","plain"]},
+ {id:"VLL", n:"Real Valladolid",    c:"Valladolid", elo:1771, est:"José Zorrilla",    col:["#5c2e91","#ffffff","stripes"]},
+ {id:"OVI", n:"Real Oviedo",        c:"Oviedo",     elo:1764, est:"Carlos Tartiere",  col:["#1f4fa3","#ffffff","plain"]},
+ {id:"CAD", n:"Cádiz CF",           c:"Cádiz",      elo:1757, est:"Nuevo Mirandilla", col:["#ffe114","#0a3d91","band"]},
+ {id:"GIR", n:"Girona FC",          c:"Girona",     elo:1751, est:"Montilivi",        col:["#d0202f","#ffffff","stripes"]},
+ {id:"EIB", n:"SD Eibar",           c:"Eibar",      elo:1744, est:"Ipurua",           col:["#0a3d91","#7a1230","stripes"]},
+ {id:"LEG", n:"CD Leganés",         c:"Leganés",    elo:1738, est:"Butarque",         col:["#0a5cad","#ffffff","stripes"]},
+ {id:"TEN", n:"CD Tenerife",        c:"Tenerife",   elo:1731, est:"Heliodoro",        col:["#f5f5f5","#0a5cad","band"]},
+ {id:"ALM", n:"UD Almería",         c:"Almería",    elo:1724, est:"Power Horse",      col:["#d0202f","#ffffff","half"]},
+ {id:"HUE", n:"SD Huesca",          c:"Huesca",     elo:1716, est:"El Alcoraz",       col:["#0a3d91","#7a1230","half"]},
+ {id:"BUR", n:"Burgos CF",          c:"Burgos",     elo:1707, est:"El Plantío",       col:["#f5f5f5","#111111","band"]},
+ {id:"COR", n:"Córdoba CF",         c:"Córdoba",    elo:1699, est:"El Arcángel",      col:["#0aa14e","#ffffff","half"]},
+ {id:"ALB", n:"Albacete Balompié",  c:"Albacete",   elo:1691, est:"Carlos Belmonte",  col:["#f5f5f5","#d0202f","plain"]},
+ {id:"MIR", n:"CD Mirandés",        c:"Mirandés",   elo:1682, est:"Anduva",           col:["#d0202f","#111111","diag"]},
+ {id:"CAS", n:"CD Castellón",       c:"Castellón",  elo:1673, est:"Castalia",         col:["#111111","#f5f5f5","stripes"]},
+ {id:"FER", n:"Racing de Ferrol",   c:"Ferrol",     elo:1663, est:"A Malata",         col:["#0aa14e","#f5f5f5","plain"]},
+ {id:"CTG", n:"FC Cartagena",       c:"Cartagena",  elo:1652, est:"Cartagonova",      col:["#111111","#f5f5f5","band"]},
+ {id:"AND", n:"FC Andorra",         c:"Andorra",    elo:1640, est:"Encamp",           col:["#0a3d91","#ffe114","diag"]}
+];
+EQUIPOS2.forEach(function(e,i){ e.rank=21+i; EQ[e.id]=e; });
+var P1_CANON=EQUIPOS.map(function(e){return e.id;});
+var P2_CANON=EQUIPOS2.map(function(e){return e.id;});
+/* el estado del mundo vive en la partida: quién está en cada división y cuánto se ha movido cada club */
+function mundo(){
+  if(!S) return {d:{}, p1:P1_CANON.slice(), p2:P2_CANON.slice()};
+  if(!S.mundo || !S.mundo.p1 || !S.mundo.p2) S.mundo={d:{}, p1:P1_CANON.slice(), p2:P2_CANON.slice()};
+  if(!S.mundo.d) S.mundo.d={};
+  return S.mundo;
+}
+function eloDe(id){ var b=EQ[id]?EQ[id].elo:1800; var W=mundo(); return b+((W.d&&W.d[id])||0); }
+function esSegunda(id){ return mundo().p2.indexOf(id)>=0; }
+function poolPrimera(){ return mundo().p1.map(function(id){ return EQ[id]; }).filter(Boolean); }
+function poolSegunda(){ return mundo().p2.map(function(id){ return EQ[id]; }).filter(Boolean); }
+/* rango vivo: tu fuerza HOY dentro de tu división (1-20 Primera, 21-40 Segunda) */
+function rankDe(id){
+  var W=mundo();
+  var enP2=W.p2.indexOf(id)>=0;
+  var pool=(enP2? W.p2 : W.p1).slice().sort(function(a,b){ return eloDe(b)-eloDe(a); });
+  var i=pool.indexOf(id);
+  if(i<0) return EQ[id]? (EQ[id].rank||20) : 20;
+  return (enP2?20:0)+i+1;
+}
+function ligaEquipos(){ return (S && S.division==="2")? poolSegunda() : poolPrimera(); }
+function ligaNombre(){ return (S && S.division==="2")? "Segunda División" : "Primera División"; }
+function montarLiga(){
+  var L=ligaEquipos(), t={};
+  L.forEach(function(e){ t[e.id]={pj:0,w:0,d:0,l:0,gf:0,gc:0,pts:0}; });
+  S.tabla=t; S.fixture=generarFixture(L);
+  PLANT_SEG={};
+}
+/* plantillas de Segunda: generadas, con nivel atado al Elo vivo del club */
+var PLANT_SEG={};
+function plantillaSegunda(id){
+  if(PLANT_SEG[id]) return PLANT_SEG[id];
+  var puestos=["POR","POR","DFC","DFC","DFC","LAT","LAT","MCD","MC","MC","MCO","EXT","EXT","DC","DC","MC"];
+  var base=clamp(54+(eloDe(id)-1630)/170*13, 50, 70);
+  var usados={}, L=[];
+  puestos.forEach(function(pos){
+    var n, intentos=0;
+    do { n=nombrePrueba(); intentos++; } while(usados[n] && intentos<30);
+    usados[n]=1;
+    L.push({n:n, pos:pos, edad:18+Math.floor(rnd()*16), media:Math.round(clamp(base+(rnd()*8-4),48,74))});
+  });
+  PLANT_SEG[id]=L;
+  return L;
+}
+/* el verano mueve el mundo: rendimiento, ruido, ascensos y descensos de todos */
+function evolucionarMundo(finalIds, divPrev){
+  var W=mundo();
+  var jug = divPrev==="2"? W.p2 : W.p1;
+  var otra= divPrev==="2"? W.p1 : W.p2;
+  var exp=jug.slice().sort(function(a,b){ return eloDe(b)-eloDe(a); });
+  finalIds.forEach(function(id,i){
+    var e=exp.indexOf(id); if(e<0) return;
+    W.d[id]=(W.d[id]||0)+(e-i)*5+Math.round(rnd()*24-12);
+  });
+  otra.forEach(function(id){ W.d[id]=(W.d[id]||0)+Math.round(rnd()*30-15); });
+  var suben, bajan;
+  var otraOrden=otra.slice().sort(function(a,b){ return eloDe(b)-eloDe(a); });
+  if(divPrev==="1"){
+    bajan=finalIds.slice(17,20);
+    suben=otraOrden.slice(0,4);
+    if(rnd()<0.35) suben.splice(2,1); else suben.length=3;   /* el tercero en discordia a veces es el cuarto */
+  } else {
+    suben=finalIds.slice(0,3);
+    bajan=otraOrden.slice(-4);
+    if(rnd()<0.35) bajan.splice(1,1); else bajan=bajan.slice(-3);
+  }
+  suben.forEach(function(id){
+    var i1=W.p2.indexOf(id); if(i1>=0) W.p2.splice(i1,1);
+    if(W.p1.indexOf(id)<0) W.p1.push(id);
+    W.d[id]=(W.d[id]||0)+25;   /* el ascendido se refuerza */
+  });
+  bajan.forEach(function(id){
+    var i2=W.p1.indexOf(id); if(i2>=0) W.p1.splice(i2,1);
+    if(W.p2.indexOf(id)<0) W.p2.push(id);
+    W.d[id]=(W.d[id]||0)-25;   /* al descendido se le van jugadores */
+  });
+  var mejor=null, mv=-1;
+  Object.keys(W.d).forEach(function(k){
+    W.d[k]=clamp(Math.round(W.d[k]*0.86), -140, 140);
+    if(W.d[k]===0) delete W.d[k];
+  });
+  W.p1.concat(W.p2).forEach(function(id){ var v=(W.d[id]||0); if(v>mv){ mv=v; mejor=id; } });
+  S.prensa=(S.prensa||[]).concat([{jor:1, t:"Mercado de verano: suben a Primera "+suben.map(function(i){return EQ[i].c;}).join(", ")+"; bajan "+bajan.map(function(i){return EQ[i].c;}).join(", ")+"."}]);
+  if(mejor && mv>=35) S.prensa.push({jor:1, t:"El "+EQ[mejor].c+" firma el verano más ambicioso de la categoría."});
+  while(S.prensa.length>12) S.prensa.shift();
+  return {suben:suben, bajan:bajan};
+}
+/* identidad procedural: sílabas → millones de nombres plausibles; determinista si le das semilla */
+function hashStr(s){ var h=2166136261; for(var i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return (h>>>0); }
+function lcgDe(seed){ if(typeof seed==="string") seed=hashStr(seed); var x=(seed>>>0)||1; return function(){ x=(Math.imul(x,1664525)+1013904223)>>>0; return x/4294967296; }; }
+var NP1=["Ad","Al","An","Ar","Au","Bal","Bas","Ben","Ber","Bor","Ca","Cel","Ci","Cos","Da","Del","Dio","Do","Ed","El","Em","En","Es","Fa","Fe","Fer","Flo","Ga","Gen","Ger","Gon","Gu","He","Hi","Ho","Ib","Ig","Is","Ja","Jo","Ju","La","Le","Li","Lo","Lu","Ma","Mar","Mat","Me","Mi","Na","Ni","No","Ol","Or","Os","Pa","Pe","Po","Qui","Ra","Re","Ro","Ru","Sa","Se","Si","Te","Teo","To","Va","Ve","Vi","Xa"];
+var NP2=["bel","ber","bio","cio","co","dan","del","dio","dro","gel","gio","go","ián","iel","ilo","ín","io","ís","lán","lex","lio","lo","mán","mar","mel","mín","mo","nán","nel","nés","nio","no","ño","ón","quín","rán","rel","rén","rio","ro","sel","sio","so","teo","tín","to","tor","vio"];
+var AP1=["Ace","Agui","Alba","Alcán","Arri","Baz","Bena","Ber","Bo","Bus","Cabre","Cal","Cam","Cano","Cap","Carras","Cas","Cere","Ci","Cor","Cua","Del","Do","Escu","Fal","Fer","Figue","Fon","Fu","Gal","Gam","Garri","Gav","Gira","Gra","Guar","Herre","Hidal","Hor","Iri","Iz","Juá","Lan","Lla","Llo","Loza","Lu","Mada","Mal","Man","Mar","Mel","Mena","Mon","Mora","Mu","Na","Nie","No","Ol","Orte","Oso","Ota","Pala","Pare","Pas","Pei","Pel","Pi","Pla","Po","Pri","Quin","Ra","Re","Ri","Roble","Ru","Sala","Sam","San","Sego","Ser","So","Sola","Ta","Tole","Tor","Tru","Ur","Vala","Vare","Vera","Vila","Vive","Za","Zu","Zubi"];
+var AP2=["cedo","cete","cón","da","dán","dano","del","dilla","do","dón","gado","gal","gallo","gón","jal","jano","jares","jón","lán","lar","lde","lero","les","lla","llas","llero","llón","lón","mán","mero","mos","nares","ndo","nero","nte","ntes","ntos","ño","ñoz","que","quero","ral","rano","rás","reno","rez","ribas","rio","rís","rón","rrez","rte","rtín","sa","sado","tana","tero","tés","tos","vas","vero","yos","zar","zano","zos","zquez"];
+function unirSil(a,b){ while(b && a.slice(-1).toLowerCase()===b.charAt(0).toLowerCase()) b=b.slice(1); return a+b; }
+function genNombrePila(r){ r=r||rnd; return unirSil(pick2(NP1,r),pick2(NP2,r)); }
+function genApellido(r){ r=r||rnd; return unirSil(pick2(AP1,r),pick2(AP2,r)); }
+function pick2(a,r){ return a[Math.floor((r||rnd)()*a.length)]; }
+function genPersona(r){
+  r=r||rnd;
+  var n=genNombrePila(r);
+  if(r()<0.10) n=n+" "+genNombrePila(r).slice(0,4);   /* compuesto corto: «Marío Juan» no, «Marío Deme» tampoco… corto y creíble */
+  var a=genApellido(r);
+  if(r()<0.18) a=a+" "+genApellido(r);
+  return n+" "+a;
+}
+function nombrePrueba(){ return genPersona(rnd); }
+/* plantillas inventadas para el partidillo: nadie se llama «Jugador» */
+var PLANT_PRUEBA={};
+function plantillaPrueba(id){
+  if(PLANT_PRUEBA[id]) return PLANT_PRUEBA[id];
+  var puestos=["POR","POR","DFC","DFC","DFC","LAT","LAT","MCD","MC","MC","MCO","EXT","EXT","DC","DC"];
+  var usados={}, L=[];
+  puestos.forEach(function(pos){
+    var n, intentos=0;
+    do { n=nombrePrueba(); intentos++; } while(usados[n] && intentos<30);
+    usados[n]=1;
+    L.push({n:n, pos:pos, edad:17+Math.floor(rnd()*5), media:58+Math.floor(rnd()*14)});
+  });
+  PLANT_PRUEBA[id]=L;
+  return L;
+}
+var HOME_ADV=74;
+function tagDe(rank){
+  if(rank>=21) return {t:"Segunda División", d:false};
+  if(rank<=2) return {t:"Favorito al título", d:false};
+  if(rank<=5) return {t:"Aspirante a Champions", d:false};
+  if(rank<=9) return {t:"Pelea por Europa", d:false};
+  if(rank<=14) return {t:"Media tabla", d:false};
+  if(rank<=17) return {t:"Mirará hacia abajo", d:true};
+  return {t:"Favorito al descenso", d:true};
+}
+function objetivoDe(rank){
+  if(rank>=21){
+    var s=rank-20;
+    if(s<=4) return {pos:3, t:"subir a Primera"};
+    if(s<=10) return {pos:6, t:"pelear el ascenso"};
+    return {pos:14, t:"asentar la categoría"};
+  }
+  if(rank<=2) return {pos:1, t:"ganar la Liga"};
+  if(rank<=5) return {pos:4, t:"jugar Champions"};
+  if(rank<=9) return {pos:7, t:"meterse en Europa"};
+  if(rank<=14) return {pos:12, t:"vivir tranquilo en media tabla"};
+  if(rank<=17) return {pos:17, t:"salvar la categoría"};
+  return {pos:17, t:"salvar la categoría contra pronóstico"};
+}
+function notaColor(n){
+  if(n>=8.5) return "#7B5CFF";
+  if(n>=7.5) return "#3DDC97";
+  if(n>=6.5) return "#FFC24B";
+  if(n>=5.5) return "#8891AA";
+  return "#FF5470";
+}
+function orbeHTML(n, etiqueta){
+  return '<div class="orb" style="--orbc:'+notaColor(n)+'"><b class="disp">'+(n>=9.95? "10" : n.toFixed(1))+'</b></div>'
+    +'<div class="orb-lb">'+esc(etiqueta||"Tu valoración")+'</div>';
+}
+/* ================= ESCUDOS SVG ================= */
+var CREST_SEQ=0;
+function crestSVG(idOrName, size){
+  var e=EQ[idOrName]; var name=e?e.n:(idOrName||"Club");
+  var c1,c2,pat;
+  if(e){ c1=e.col[0]; c2=e.col[1]; pat=e.col[2]; }
+  else { var h=0; for(var i=0;i<name.length;i++) h=((h*31)+name.charCodeAt(i))>>>0;
+    var P=[["#a01818","#f2e9d4"],["#0a3d91","#f2e9d4"],["#0a7a3d","#f2e9d4"],["#5b2a86","#f2c14e"]];
+    var pp=P[h%P.length]; c1=pp[0]; c2=pp[1]; pat=["stripes","band","half","diag"][h%4]; }
+  var ini=(function(){
+    var stop={FC:1,CF:1,RC:1,RCD:1,CA:1,CD:1,UD:1,Real:1,Club:1,Deportivo:1,de:1,La:1,del:1};
+    var ws=name.split(/\s+/).filter(function(w){return !stop[w];});
+    if(!ws.length) ws=[name];
+    return (ws[0].charAt(0)+(ws[1]?ws[1].charAt(0):"")).toUpperCase();
+  })();
+  var lum=(function(c){var r=parseInt(c.slice(1,3),16),g=parseInt(c.slice(3,5),16),b=parseInt(c.slice(5,7),16);return (0.299*r+0.587*g+0.114*b)/255;})(c1);
+  var tx=(lum>0.55&&pat!=="band")?"#1c1c1c":"#ffffff";
+  var id="cp"+(CREST_SEQ++);
+  var sh="M50 4 L96 18 V62 C96 95 74 112 50 118 C26 112 4 95 4 62 V18 Z";
+  var ov="";
+  if(pat==="stripes") ov='<rect x="18" y="0" width="16" height="120" fill="'+c2+'"/><rect x="50" y="0" width="16" height="120" fill="'+c2+'"/><rect x="82" y="0" width="16" height="120" fill="'+c2+'"/>';
+  else if(pat==="band") ov='<rect x="0" y="44" width="100" height="30" fill="'+c2+'"/>';
+  else if(pat==="half") ov='<rect x="50" y="0" width="50" height="120" fill="'+c2+'"/>';
+  else if(pat==="diag") ov='<rect x="-30" y="46" width="170" height="26" fill="'+c2+'" transform="rotate(-28 50 60)"/>';
+  return '<svg class="crest" width="'+size+'" height="'+Math.round(size*1.18)+'" viewBox="0 0 100 120" aria-hidden="true">'
+    +'<defs><clipPath id="'+id+'"><path d="'+sh+'"/></clipPath></defs>'
+    +'<path d="'+sh+'" fill="'+c1+'"/><g clip-path="url(#'+id+')">'+ov+'</g>'
+    +'<path d="'+sh+'" fill="none" stroke="#0e0b06" stroke-width="4"/>'
+    +'<path d="M50 10 L90 22 V61 C90 90 71 105 50 111 C29 105 10 90 10 61 V22 Z" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="2"/>'
+    +'<text x="50" y="74" text-anchor="middle" font-family="Georgia,serif" font-size="38" font-weight="800" fill="'+tx+'" stroke="rgba(0,0,0,.25)" stroke-width="1">'+esc(ini)+'</text></svg>';
+}
+/* ================= CALENDARIO (round-robin) ================= */
+function generarFixture(lista){
+  var ids=(lista||EQUIPOS).map(function(e){return e.id;});
+  var arr=ids.slice(1), fijo=ids[0], ida=[];
+  for(var r=0;r<19;r++){
+    var jor=[], L=[fijo].concat(arr);
+    for(var i=0;i<10;i++){
+      var a=L[i], b=L[19-i];
+      if(r%2===0) jor.push({h:a,a:b}); else jor.push({h:b,a:a});
+    }
+    ida.push(jor);
+    arr.unshift(arr.pop());
+  }
+  /* barajar jornadas de ida y espejarlas en la vuelta */
+  for(var k=ida.length-1;k>0;k--){ var j=Math.floor(rnd()*(k+1)); var t=ida[k]; ida[k]=ida[j]; ida[j]=t; }
+  var vuelta=ida.map(function(j){ return j.map(function(p){ return {h:p.a,a:p.h}; }); });
+  for(var k2=vuelta.length-1;k2>0;k2--){ var j2=Math.floor(rnd()*(k2+1)); var t2=vuelta[k2]; vuelta[k2]=vuelta[j2]; vuelta[j2]=t2; }
+  return ida.concat(vuelta);
+}
+/* ================= MODELO ELO → GOLES ================= */
+function expElo(eA,eB){ return 1/(1+Math.pow(10,(eB-eA)/400)); }
+function lambdas(hId,aId){
+  var eh=eloDe(hId)+HOME_ADV, ea=eloDe(aId);
+  var xh=expElo(eh,ea), xa=1-xh;
+  var lh=clamp(1.34*Math.pow(xh/0.5,1.05),0.25,3.6);
+  var la=clamp(1.34*Math.pow(xa/0.5,1.05),0.25,3.6);
+  return [lh,la];
+}
+function poisson(lam){
+  var L=Math.exp(-lam), p=1, k=0;
+  do{ k++; p*=rnd(); }while(p>L);
+  return k-1;
+}
+function simRapido(hId,aId){
+  var l=lambdas(hId,aId);
+  return [poisson(l[0]), poisson(l[1])];
+}
+/* ================= ESTADO ================= */
+var S=null;
+function nuevoEstado(equipoId, pos, nombre, dorsal, pierna, rol, edad){
+  var tabla={};
+  EQUIPOS.forEach(function(e){ tabla[e.id]={pj:0,w:0,d:0,l:0,gf:0,gc:0,pts:0}; });
+  return {
+    v:"1.5.0", equipo:equipoId, pos:pos||"DC", nombre:nombre||"Tú", dorsal:dorsal||9,
+    pierna:pierna||"D", rol:rol||(ROLES[pos||"DC"][0].id), edad:edad||21,
+    potencial:(function(){ return Math.round(68+rnd()*20); })(),   /* techo personal: no todos llegan a 88, y llegar cuesta */
+    attr:(function(){
+      var b=JSON.parse(JSON.stringify(ATTR_BASE[pos||"DC"])), e=edad||21;
+      var d = e<20? -(20-e)*3.2 : e<=30? (e-20)*0.9 : (10*0.9)-(e-30)*1.4;
+      for(var k in b){ b[k]=Math.round(clamp(b[k]+d,15,92)); }
+      return b;
+    })(), entreno:null, compis:null,
+    reps:{}, skills:[], skillNueva:null, skl:{},
+    car:{disciplina:0, ego:0, temperamento:50, companerismo:50, liderazgo:45, resiliencia:50},
+    vicios:{noche:0}, entrenador:null, publico:{afic:50, prensa:50, seg:1200}, muro:[],
+    division:"1", mundo:null,
+    vida:{casa:0, casaJor:0, cocheNiv:0, cocheJor:0, fisio:false, mentor:false, dona:0, capricho:null, cd:0},
+    jornada:0, temporada:1, mister:58, desafios:0, castigo:0, ciclo:0,
+    fixture:generarFixture(), tabla:tabla,
+    hist:[], racha:[], moral:55,
+    yo:{pj:0, min:0, g:0, a:0, ta:0, tr:0, notaSum:0, notaN:0, paradas:0, mvp:0, tiros:0, claras:0, clave:0},
+    zonas:{},
+    altura:(function(){ var r=({POR:[186,197],DFC:[184,195],LAT:[168,182],MCD:[176,190],MC:[172,186],MCO:[170,184],EXT:[168,182],DC:[176,193]})[pos||"DC"]||[172,190]; return Math.round(r[0]+rnd()*(r[1]-r[0])); })(),
+    fichajes:[],
+    lesion:0, sancion:0, conf:55
+  };
+}
+/* ================= TABLA ================= */
+function aplicarResultado(hId,aId,gh,ga){
+  var H=S.tabla[hId], A=S.tabla[aId];
+  H.pj++; A.pj++; H.gf+=gh; H.gc+=ga; A.gf+=ga; A.gc+=gh;
+  if(gh>ga){ H.w++; A.l++; H.pts+=3; }
+  else if(gh<ga){ A.w++; H.l++; A.pts+=3; }
+  else { H.d++; A.d++; H.pts++; A.pts++; }
+}
+function clasificacion(){
+  return Object.keys(S.tabla).map(function(id){ return {id:id, t:S.tabla[id]}; })
+    .sort(function(x,y){
+      if(y.t.pts!==x.t.pts) return y.t.pts-x.t.pts;
+      var dgx=x.t.gf-x.t.gc, dgy=y.t.gf-y.t.gc;
+      if(dgy!==dgx) return dgy-dgx;
+      return y.t.gf-x.t.gf;
+    });
+}
+function miPosicion(){
+  var cl=clasificacion();
+  for(var i=0;i<cl.length;i++) if(cl[i].id===S.equipo) return i+1;
+  return 20;
+}
+/* ================= SITUACIONES DE PARTIDO ================= */
+/* fx: {own:+mult resto, opp:+mult resto, inst:{gol,golR,roja}} */
+function ctxTag(c){
+  var d=c.sc[0]-c.sc[1];
+  return { gano:d>0, pierdo:d<0, empate:d===0, tarde:c.min>=65, fav:c.dElo>=60, under:c.dElo<=-60 };
+}
+/* ================= POSICIONES ================= */
+var POS={
+ POR:{n:"Portero",       ab:"POR", x:50, y:90, d:"Mandas la defensa y decides solo, sin red."},
+ DFC:{n:"Central",       ab:"DFC", x:35, y:74, d:"Duelos, anticipación y la última palabra atrás."},
+ LAT:{n:"Lateral",       ab:"LAT", x:12, y:66, d:"Ochenta metros de banda, defender y atacar."},
+ MCD:{n:"Mediocentro defensivo", ab:"MCD", x:50, y:60, d:"El equilibrio del equipo pasa por ti."},
+ MC:{n:"Mediocentro",    ab:"MC",  x:35, y:47, d:"El partido pasa por tus botas: ritmo y último pase."},
+ MCO:{n:"Mediapunta",    ab:"MCO", x:50, y:35, d:"Entre líneas, donde se rompe todo."},
+ EXT:{n:"Extremo",       ab:"EXT", x:14, y:30, d:"Uno contra uno, desborde y centro."},
+ DC:{n:"Delantero",      ab:"DC",  x:50, y:16, d:"Vives del gol y de las dudas entre gol y gol."}
+};
+var POS_ORDEN=["POR","DFC","LAT","MCD","MC","MCO","EXT","DC"];
+/* ---- pierna ---- */
+var PIERNAS={
+  D:{n:"Diestra", d:"Lo natural: banda derecha, perfil abierto."},
+  I:{n:"Zurda",   d:"Ese pie que hace bonita cualquier jugada."},
+  A:{n:"Ambidiestra", d:"Golpeas con las dos. Raro y valiosísimo."}
+};
+/* ---- roles por posición (estilo FM) ---- */
+var ROLES={
+ POR:[
+  {id:"clasico", n:"Portero clásico", d:"Palos, reflejos y mandar el área.", fx:{parada:1.15, salida:0.85, pase:0.9}},
+  {id:"libero",  n:"Portero-líbero",  d:"Sales del área y juegas con los pies.", fx:{parada:0.95, salida:1.2, pase:1.25}},
+  {id:"penaltis",n:"Especialista en penaltis", d:"Tu fama son los once metros.", fx:{parada:1.05, penal:1.5, pase:0.95}}
+ ],
+ DFC:[
+  {id:"contundente", n:"Central contundente", d:"Duelo, choque y despeje a las nubes.", fx:{duelo:1.2, pase:0.8, tarjeta:1.25}},
+  {id:"salida",      n:"Central de salida",   d:"Conduces y rompes líneas desde atrás.", fx:{duelo:0.95, pase:1.3, gol:1.05}},
+  {id:"anticipo",    n:"Central de anticipo", d:"Lees el pase antes de que salga.", fx:{duelo:1.05, pase:1.05, tarjeta:0.8}}
+ ],
+ LAT:[
+  {id:"carrilero", n:"Carrilero ofensivo", d:"Ochenta metros de banda y centros al área.", fx:{asis:1.3, duelo:0.9, fis:1.2}},
+  {id:"cerrojo",   n:"Lateral defensivo",  d:"Primero cerrar. Lo demás, si sobra.", fx:{duelo:1.2, asis:0.75}},
+  {id:"invertido", n:"Lateral invertido",  d:"Te metes por dentro como un medio más.", fx:{pase:1.25, asis:1.05, duelo:0.9}}
+ ],
+ MCD:[
+  {id:"destructor", n:"Destructor",   d:"Cortar, tapar y morder. El '5' de siempre.", fx:{duelo:1.3, tarjeta:1.3, pase:0.85}},
+  {id:"organizador",n:"Pivote organizador", d:"Todo pasa por ti antes de subir.", fx:{pase:1.3, duelo:0.9}},
+  {id:"box",        n:"Box to box",    d:"Llegas de área a área sin descanso.", fx:{gol:1.15, fis:1.25, duelo:1.05}}
+ ],
+ MC:[
+  {id:"creador",  n:"Creador de juego", d:"El último pase sale de tu bota.", fx:{asis:1.35, pase:1.25, duelo:0.85}},
+  {id:"llegador", n:"Medio llegador",  d:"Apareces en el área en la segunda jugada.", fx:{gol:1.2, fis:1.15}},
+  {id:"mixto",    n:"Mediocentro completo", d:"Ni brillas ni fallas: sostienes.", fx:{pase:1.1, duelo:1.1}}
+ ],
+ MCO:[
+  {id:"enganche", n:"Enganche clásico", d:"Entre líneas, con el 10 a la espalda.", fx:{asis:1.4, pase:1.3, duelo:0.75}},
+  {id:"sombra",   n:"Delantero sombra", d:"Segundo punta disfrazado de medio.", fx:{gol:1.2, asis:1.05}},
+  {id:"conductor",n:"Conductor",        d:"Coges el balón y te llevas a medio equipo.", fx:{pase:1.15, gol:1.15, falta:1.3}}
+ ],
+ EXT:[
+  {id:"desborde", n:"Extremo de desborde", d:"Línea de cal, uno contra uno y centro.", fx:{asis:1.35, fis:1.15}},
+  {id:"invertido",n:"Extremo a pierna cambiada", d:"Recortas hacia dentro y disparas.", fx:{gol:1.18, asis:0.92}},
+  {id:"trabajador",n:"Extremo de esfuerzo", d:"Ayudas al lateral y corres para el equipo.", fx:{duelo:1.2, fis:1.3, gol:0.85}}
+ ],
+ DC:[
+  {id:"nueve",   n:"Nueve de área",   d:"Vives entre los centrales y rematas todo.", fx:{gol:1.22, duelo:1.15, asis:0.85}},
+  {id:"falso",   n:"Falso nueve",     d:"Bajas a recibir y creas desde ahí.", fx:{asis:1.4, pase:1.3, gol:0.85}},
+  {id:"movil",   n:"Delantero móvil", d:"Ataques al espacio y diagonales sin parar.", fx:{gol:1.15, fis:1.25, asis:1.05}},
+  {id:"referencia", n:"Ariete de referencia", d:"Fijas centrales, peleas y descargas.", fx:{duelo:1.35, gol:1.1, asis:1.15}}
+ ]
+};
+/* lateralidad: TÚ eliges la banda; el juego respeta la elección y cobra (o premia) la coherencia */
+function CON_LADO(pos){ return pos==="EXT"||pos==="LAT"||pos==="DFC"; }
+function ladoDerivado(pierna, rol){   /* cómo se colocaba el 4.20-21: para migrar sin mover a nadie */
+  var inv=(rol==="invertido");
+  if(pierna==="A") return inv? "I":"D";
+  var nat=(pierna==="I")? "I":"D";
+  return inv? (nat==="I"?"D":"I") : nat;
+}
+function bandaMia(){
+  if(!S) return "bandaD";
+  var l=S.lado || (CON_LADO(S.pos)? ladoDerivado(S.pierna, S.rol):null);
+  return l==="I"? "bandaI":"bandaD";
+}
+function calidadPie(p){
+  if(!S) return "buena";
+  return S.pierna==="A"? "buena" : (p===S.pierna? "buena":"mala");
+}
+function esCentro(o){ return /centro|centr|pon|cuelga|colgar|línea de cal|banda a banda|al área|al area/i.test((o&&o.l||"")+" "+(o&&o.ok||"")); }
+function esRecorte(o){ return /recort|hacia dentro|por dentro|dispar|tiro|rosca|chut/i.test((o&&o.l||"")+" "+(o&&o.ok||"")); }
+function enBanda(){
+  var s=M && M.sitAct;
+  if(!s) return false;
+  var z=zonaDeSit(s);
+  return z==="bandaI" || z==="bandaD" || /banda|línea de cal|carril|desborde|cordon/i.test((s.id||"")+" "+(s.t||""));
+}
+function mPierna(tipo, o){
+  if(!S) return 1;
+  var txt=((o&&o.l)||"")+" "+((o&&o.ok)||"");
+  /* regla universal, cualquier posición: si la opción NOMBRA una pierna, responde a la tuya */
+  var nom=/con la zurda|a la zurda|con la izquierda|de zurda/i.test(txt)? "I"
+        : /con la derecha|con la diestra|de derecha/i.test(txt)? "D" : null;
+  if(nom) return calidadPie(nom)==="buena"? 1.08 : 0.85;
+  if(!enBanda() || (S.pos!=="EXT" && S.pos!=="LAT")){
+    /* fuera de banda: el ambidiestro golpea siempre con la buena */
+    if(S.pierna==="A" && (tipo==="gol"||tipo==="asis") && /dispar|tiro|centro|pase|saque|falta|rosca|golpe|remat/i.test(txt)) return 1.04;
+    return 1;
+  }
+  var lado=bandaMia()==="bandaI"? "I":"D";
+  var pieExt=lado, pieInt=(lado==="I")? "D":"I";
+  if(tipo==="asis" && esCentro(o)){
+    if(/atrás|atras|interior|raso/i.test((o&&o.l)||"")) return calidadPie(pieInt)==="buena"? 1.0 : 0.95;
+    return calidadPie(pieExt)==="buena"? 1.05 : 0.72;   /* la línea de cal pide el pie del lado */
+  }
+  if(tipo==="gol" && esRecorte(o)){
+    if(S.pierna==="A") return 1.08;
+    return calidadPie(pieInt)==="buena"? 1.15 : 0.85;   /* recortar hacia dentro dispara con el pie interior */
+  }
+  return 1;
+}
+function rolAct(){ if(!S) return {n:"",d:"",fx:{}}; var L=ROLES[S.pos]||[]; for(var i=0;i<L.length;i++) if(L[i].id===S.rol) return L[i]; return L[0]||{n:"",fx:{}}; }
+function rf(k){ var f=rolAct().fx||{}; return f[k]||1; }
+/* ---- atributos del jugador (los entrena él, alimentan el motor) ---- */
+var ATTR={
+ TEC:{n:"Técnica",    d:"Control, golpeo y último pase."},
+ FIS:{n:"Físico",     d:"Fuerza, ritmo y aguante."},
+ TAC:{n:"Táctica",    d:"Lectura del juego y posicionamiento."},
+ DEF:{n:"Defensa",    d:"Duelos, coberturas y marcaje."},
+ MEN:{n:"Mentalidad", d:"Sangre fría en los momentos grandes."},
+ POR:{n:"Portería",   d:"Paradas, salidas y juego de pies."}
+};
+var ATTR_ORDEN=["TEC","FIS","TAC","DEF","MEN"];
+/* punto de partida según el puesto */
+var ATTR_BASE={
+ POR:{TEC:44,FIS:52,TAC:56,DEF:50,MEN:58,POR:60},
+ DFC:{TEC:46,FIS:60,TAC:56,DEF:64,MEN:54,POR:10},
+ LAT:{TEC:52,FIS:64,TAC:54,DEF:56,MEN:50,POR:10},
+ MCD:{TEC:52,FIS:58,TAC:62,DEF:60,MEN:54,POR:10},
+ MC: {TEC:60,FIS:56,TAC:62,DEF:48,MEN:52,POR:10},
+ MCO:{TEC:64,FIS:50,TAC:58,DEF:40,MEN:54,POR:10},
+ EXT:{TEC:62,FIS:60,TAC:50,DEF:40,MEN:50,POR:10},
+ DC: {TEC:58,FIS:58,TAC:50,DEF:38,MEN:58,POR:10}
+};
+/* tu media, al estilo de las fichas: pondera atributos según el puesto */
+var PESO_MEDIA={
+ POR:{POR:.55,TAC:.15,MEN:.15,TEC:.10,FIS:.05,DEF:0},
+ DFC:{DEF:.38,FIS:.22,TAC:.20,MEN:.10,TEC:.10,POR:0},
+ LAT:{FIS:.30,DEF:.24,TEC:.20,TAC:.16,MEN:.10,POR:0},
+ MCD:{TAC:.28,DEF:.28,TEC:.20,FIS:.14,MEN:.10,POR:0},
+ MC: {TEC:.32,TAC:.28,FIS:.18,MEN:.12,DEF:.10,POR:0},
+ MCO:{TEC:.38,TAC:.24,MEN:.18,FIS:.12,DEF:.08,POR:0},
+ EXT:{TEC:.34,FIS:.26,TAC:.16,MEN:.14,DEF:.10,POR:0},
+ DC: {TEC:.34,MEN:.24,FIS:.24,TAC:.12,DEF:.06,POR:0}
+};
+function miMedia(){
+  if(!S) return mediaAspirante();
+  var w=PESO_MEDIA[S.pos]||PESO_MEDIA.MC, base=0;
+  for(var k in w){ base+=atr(k)*w[k]; }
+  /* la edad pesa: los años dan oficio hasta los 30 y luego restan chispa */
+  var e=S.edad||22;
+  var curva = e<20? -4+(e-16)*1.1 : e<=30? (e-20)*0.55 : -(e-30)*1.1;
+  return Math.round(clamp(base*0.92+curva+14, 40, 95));
+}
+function atr(k){ return (S && S.attr && S.attr[k]!==undefined)? S.attr[k] : 50; }
+/* Los atributos entran en la MISMA tabla de probabilidades que lee el debug */
+function mTec(){ return clamp(0.45+atr("TEC")/95+atr("MEN")/600, 0.6, 1.7); }
+function mAsis(){ return clamp(0.45+atr("TEC")/105+atr("TAC")/420, 0.6, 1.7); }
+function mPar(){ return clamp(0.35+atr("POR")/95, 0.6, 1.7); }
+function mTarj(){ return clamp(1+(55-(atr("TAC")*0.6+atr("DEF")*0.4))/90, 0.6, 1.4); }
+function mEncaja(){ return clamp(1+(55-atr("DEF"))/80, 0.55, 1.45); }
+function mLesion(){ return clamp((1+(55-atr("FIS"))/80)*((S&&S.vida&&S.vida.fisio)?0.78:1), 0.5, 1.4); }
+/* el ánimo eres tú: con la cabeza en su sitio, tus momentos rinden más */
+function mAnimo(){ return clamp(1+(((S&&S.animo!==undefined)?S.animo:65)-65)/260, 0.85, 1.13); }
+/* ===== EL CICLO DE LAS COSAS: niveles, novedad que se apaga, caprichos =====
+   Nada material es un checkbox: lo nuevo llena, lo viejo deja de llenar,
+   y según tu personalidad, lo de al lado empieza a picar. */
+function jorAbs(){ return S? ((S.temporada||1)-1)*38+(S.jornada||0) : 0; }
+var CATALOGO={
+  casa:{ n:"casa", tasa:0.6, art:["",
+    "Casa propia","Villa con gimnasio","Finca con spa"],
+    precio:[0,1200000,4800000,12000000],
+    pico:[0,2,3,4], suelo:[0,1,2,3],
+    d:["","Dormir en casa cambia la semana.","Gimnasio propio: el cuerpo lo nota.","Silencio, spa y kilómetros de nadie."] },
+  coche:{ n:"coche", tasa:1.5, art:["",
+    "Compacto de estreno","Deportivo alemán","Superdeportivo","Edición limitada (12 en el mundo)"],
+    precio:[0,60000,250000,900000,2800000],
+    pico:[0,2,3,4,5], suelo:[0,0.5,1,1.5,2],
+    d:["","Tu primer coche pagado por ti.","El parking del club ya te mira.","Cero a cien antes de acabar la frase.","Los otros once los tienen jeques y pilotos."] }
+};
+function nivCat(cat){ var v=(S&&S.vida)||{}; return cat==="casa"? (v.casa||0) : (v.cocheNiv||0); }
+function jorCat(cat){ var v=(S&&S.vida)||{}; return cat==="casa"? (v.casaJor||0) : (v.cocheJor||0); }
+function novedadDe(cat){
+  var n=nivCat(cat); if(!n) return 0;
+  return clamp(100-(jorAbs()-jorCat(cat))*CATALOGO[cat].tasa, 0, 100);
+}
+function aporteDe(cat){
+  var C=CATALOGO[cat], n=nivCat(cat); if(!n) return 0;
+  var nov=novedadDe(cat);
+  return C.suelo[n]+(C.pico[n]-C.suelo[n])*nov/100;
+}
+function precioNeto(cat){
+  var C=CATALOGO[cat], n=nivCat(cat);
+  if(n>=C.precio.length-1) return null;
+  return Math.round((C.precio[n+1]-(n>0? C.precio[n]*0.30 : 0))/1000)*1000;   /* entregas el tuyo: −30% de su precio */
+}
+/* el capricho: según tu personalidad, lo viejo deja de llenar y lo siguiente pica */
+function caprichoScore(cat){
+  var ego=(eje("ego")+100)/2, dis=Math.max(0,eje("disciplina"));
+  return ego*0.45+(S.fama||30)*0.35+(100-novedadDe(cat))*0.25-dis*0.35;
+}
+function caprichoDrena(){
+  if(!S||!S.vida||!S.vida.capricho) return 0;
+  var ego=(eje("ego")+100)/2;
+  return clamp(0.8+ego*0.02+(S.fama||30)*0.008, 0.8, 3.2);
+}
+function revisarCapricho(){
+  var v=(S&&S.vida); if(!v) return;
+  if(v.capricho) return;
+  if(jorAbs()<(v.cd||0)) return;                          /* recién comprado: tregua */
+  var cand=null, mejor=-1;
+  ["coche","casa"].forEach(function(cat){
+    var C=CATALOGO[cat], n=nivCat(cat);
+    if(n>=C.precio.length-1) return;                      /* ya tienes el techo */
+    var sc=caprichoScore(cat)+(n>0? 8:0);                 /* lo viejo pica más que lo nunca tenido */
+    if(sc<55) return;                                     /* tu carácter no lo pide */
+    if((S.dinero||0)<C.precio[n+1]*0.35) return;          /* solo pica lo que ves posible */
+    if(sc>mejor){ mejor=sc; cand=cat; }
+  });
+  if(cand && rnd()<0.22){
+    var cat=cand, C=CATALOGO[cat], n=nivCat(cat);
+    v.capricho={cat:cat, niv:n+1, jor:jorAbs()};
+    var art=C.art[n+1];
+    S.avisoCapricho=(cat==="coche"
+      ? (n? "Cada mañana arrancas el mismo coche. En el parking del club ya ni es el tercero más caro. Se te ha metido en la cabeza: "+art+"."
+          : "Todos llegan en su coche y tú en taxi. Se te ha metido en la cabeza: "+art+".")
+      : "Las visitas ya no dicen «qué bonito». Se te ha metido en la cabeza: "+art+".");
+    (S.vidaLog=S.vidaLog||[]).push("Se te antoja: "+art+".");
+  }
+}
+/* lo que compras fija dónde se asienta tu cabeza — y lo no cumplido, lo baja */
+function animoBase(){
+  if(!S||!S.vida) return 62;
+  return clamp(62+aporteDe("casa")+aporteDe("coche")-caprichoDrena(), 56, 74);
+}
+/* ---- ejercicios: tres sesiones por semana ----
+   pos:null = general (vale para cualquier puesto). Cada repetición suma
+   progreso hacia las habilidades que dependen de ese ejercicio. */
+var ENTRENOS=[
+ /* generales */
+ {id:"tecnica",  n:"Técnica individual", d:"Golpeo, control y último pase.", pos:null, sube:{TEC:1}, forma:-4},
+ {id:"fisico",   n:"Preparación física", d:"Series, fuerza y resistencia.",  pos:null, sube:{FIS:1}, forma:-8},
+ {id:"tactica",  n:"Vídeo y pizarra",    d:"Posicionamiento y lectura.",     pos:null, sube:{TAC:1}, forma:-1},
+ {id:"mental",   n:"Trabajo mental",     d:"Concentración y sangre fría.",   pos:null, sube:{MEN:1}, forma:-1},
+ {id:"parado",   n:"Balón parado",       d:"Faltas, córners y penaltis.",    pos:null, sube:{TEC:0.55,MEN:0.5}, forma:-3},
+ {id:"recupera", n:"Recuperación",       d:"Fisio, piscina y descanso.",     pos:null, sube:{}, forma:12},
+ /* portero */
+ {id:"reflejos", n:"Reflejos bajo palos",d:"Disparos a quemarropa sin parar.",pos:["POR"], sube:{POR:1.1}, forma:-4},
+ {id:"salidas",  n:"Salidas y juego aéreo",d:"Dominar el área en los centros.",pos:["POR"], sube:{POR:0.7,DEF:0.5}, forma:-4},
+ {id:"pies",     n:"Juego de pies",      d:"Salir jugando bajo presión.",    pos:["POR"], sube:{TEC:0.8,TAC:0.4}, forma:-3},
+ /* defensas */
+ {id:"duelos",   n:"Duelos y anticipación",d:"Cuerpo a cuerpo y lectura del pase.",pos:["DFC","LAT","MCD"], sube:{DEF:1.1}, forma:-6},
+ {id:"salidabal",n:"Salida de balón",    d:"Conducir y romper la primera línea.",pos:["DFC","LAT","MCD"], sube:{TEC:0.7,TAC:0.5}, forma:-3},
+ {id:"idayvuelta",n:"Ida y vuelta",      d:"Ochenta metros de banda, repetidos.",pos:["LAT","EXT"], sube:{FIS:0.9,TAC:0.3}, forma:-8},
+ /* medios */
+ {id:"pasein",   n:"Pase interior",      d:"Encontrar al hombre entre líneas.",pos:["MCD","MC","MCO"], sube:{TEC:0.7,TAC:0.6}, forma:-3},
+ {id:"llegada",  n:"Llegada al área",    d:"Aparecer en la segunda jugada.", pos:["MC","MCO","LAT"], sube:{FIS:0.6,TEC:0.5}, forma:-5},
+ {id:"robo",     n:"Robo y cobertura",   d:"Cortar antes de que nazca.",     pos:["MCD","MC","DFC"], sube:{DEF:0.8,TAC:0.5}, forma:-5},
+ /* ataque */
+ {id:"definicion",n:"Definición",        d:"Mil remates a portería vacía y con portero.",pos:["DC","EXT","MCO"], sube:{TEC:0.9,MEN:0.4}, forma:-4},
+ {id:"regate",   n:"Uno contra uno",     d:"Encarar, recortar y salir.",     pos:["EXT","MCO","DC"], sube:{TEC:0.8,FIS:0.4}, forma:-5},
+ {id:"remate",   n:"Juego aéreo y espaldas",d:"Fijar centrales, pelear y rematar de cabeza.",pos:["DC","DFC"], sube:{FIS:0.7,DEF:0.4,TEC:0.3}, forma:-6}
+];
+function entrenosDisp(){
+  var p=S?S.pos:(PICK&&PICK.pos)||"DC";
+  return ENTRENOS.filter(function(e){ return !e.off && (!e.pos || e.pos.indexOf(p)>=0); });
+}
+function esGeneral(e){ return !e.pos; }
+function reps(id){ return (S && S.reps && S.reps[id])||0; }
+/* ---- habilidades: se desbloquean repitiendo ejercicios ---- */
+var SKILLS=[
+ /* generales */
+ {id:"sangrefria", n:"Sangre fría", pos:null, req:{ej:"mental", n:6, attr:"MEN", v:66},
+  d:"Los momentos grandes no te tiemblan.", fx:{gol:1.10, penal:true}},
+ {id:"motor", n:"Motor inagotable", pos:null, req:{ej:"fisico", n:8, attr:"FIS", v:66},
+  d:"Aguantas los 90 sin bajar el pistón.", fx:{lesion:0.82, forma:3}},
+ {id:"lectura", n:"Lectura de juego", pos:null, req:{ej:"tactica", n:8, attr:"TAC", v:66},
+  d:"Llegas antes con la cabeza que con las piernas.", fx:{ta:0.80}},
+ {id:"especialista", n:"Especialista a balón parado", pos:null, req:{ej:"parado", n:6, attr:"TEC", v:64},
+  d:"Faltas y penaltis son terreno tuyo.", fx:{gol:1.06}, desbloquea:"falta-maestra"},
+ /* portero */
+ {id:"felino", n:"Reflejo felino", pos:["POR"], req:{ej:"reflejos", n:7, attr:"POR", v:66},
+  d:"Llegas a lo que no se llega.", fx:{parada:1.18}},
+ {id:"dueno", n:"Dueño del área", pos:["POR"], req:{ej:"salidas", n:6, attr:"POR", v:66},
+  d:"Todo centro al área es tuyo.", fx:{golR:0.85}},
+ {id:"libero", n:"Portero-líbero", pos:["POR"], req:{ej:"pies", n:6, attr:"TEC", v:58},
+  d:"Sales jugando como un central más.", desbloquea:"salida-limpia"},
+ /* defensas */
+ {id:"anticipo", n:"Anticipación", pos:["DFC","LAT","MCD"], req:{ej:"duelos", n:7, attr:"DEF", v:66},
+  d:"Le ganas la partida antes del contacto.", fx:{golR:0.84, ta:0.9}},
+ {id:"conductor", n:"Central conductor", pos:["DFC","LAT"], req:{ej:"salidabal", n:6, attr:"TEC", v:58},
+  d:"Rompes líneas conduciendo desde atrás.", desbloquea:"conduccion-larga"},
+ {id:"carrilero", n:"Carril infinito", pos:["LAT","EXT"], req:{ej:"idayvuelta", n:7, attr:"FIS", v:66},
+  d:"Subes y bajas los 90 minutos.", fx:{asis:1.15, lesion:0.9}},
+ /* medios */
+ {id:"ultimopase", n:"Último pase", pos:["MCD","MC","MCO"], req:{ej:"pasein", n:7, attr:"TEC", v:66},
+  d:"Ves el pase que nadie ve.", fx:{asis:1.20}},
+ {id:"segundalinea", n:"Llegada de segunda línea", pos:["MC","MCO","LAT"], req:{ej:"llegada", n:7, attr:"FIS", v:64},
+  d:"Apareces en el área cuando ya nadie te espera.", fx:{gol:1.18}},
+ {id:"ladron", n:"Ladrón de balones", pos:["MCD","MC","DFC"], req:{ej:"robo", n:7, attr:"DEF", v:64},
+  d:"Cortas circuitos antes de que existan.", fx:{golR:0.86}, desbloquea:"robo-alto"},
+ /* ataque */
+ {id:"killer", n:"Killer del área", pos:["DC","EXT","MCO"], req:{ej:"definicion", n:8, attr:"TEC", v:66},
+  d:"Si la hueles, la metes.", fx:{gol:1.22}},
+ {id:"desborde", n:"Desborde eléctrico", pos:["EXT","MCO","DC"], req:{ej:"regate", n:7, attr:"TEC", v:65},
+  d:"Uno contra uno es ventaja tuya.", fx:{asis:1.15}, desbloquea:"irse-de-dos"},
+ {id:"torre", n:"Juego de espaldas", pos:["DC","DFC"], req:{ej:"remate", n:7, attr:"FIS", v:65},
+  d:"Fijas centrales y los desgastas.", fx:{gol:1.10, golR:0.92}, desbloquea:"descarga"}
+];
+/* qué acciones de partido ejercitan cada habilidad (k=tipo, z=zonas, s=situación, min=minuto) */
+var USO_SKILL={
+  sangrefria:{k:["t","p"], min:75},
+  motor:{minJug:80},
+  lectura:{k:["d","j"]},
+  especialista:{s:/falta|penal|corner|córner|parado/},
+  felino:{k:["d"]},
+  dueno:{s:/corner|córner|centro|aéreo|aereo|area|área/},
+  libero:{k:["j"]},
+  anticipo:{k:["d"]},
+  conductor:{k:["j"], z:["B","M"]},
+  carrilero:{k:["j","p"], z:["D","I"]},
+  ultimopase:{k:["p"]},
+  segundalinea:{k:["t"], z:["A","F"]},
+  ladron:{k:["d"], z:["M","F"]},
+  killer:{k:["t"], z:["A"]},
+  desborde:{k:["j","p"], z:["D","I","F"]},
+  torre:{k:["t","j"], z:["A"]}
+};
+/* ventana de mantenimiento: lo que tardaste en ganarla marca cuánto aguanta sin uso */
+function sklVentana(k){ return clamp(Math.round(k.req.n*1.6), 8, 14); }
+function sklTasaOxido(k){
+  var porAttr={FIS:2.0, POR:1.2, TAC:1.0, MEN:1.0, DEF:0.8, TEC:0.5}[k.req.attr]||1.0;
+  var edad=(S&&S.edad)||24;
+  var mEdad = edad>=31? 1.5 : edad>=28? 1.2 : edad<=22? 0.7 : 1.0;
+  var mDiv = (S&&S.division==="2")? 1.25:1.0;   /* menos exigencia, más óxido */
+  var mReq = clamp(k.req.v/66, 0.85, 1.25);      /* lo de élite es frágil */
+  return porAttr*mEdad*mDiv*mReq;
+}
+function usoSkillsPartido(d){
+  if(!S) return;
+  var jA=jorAbs();
+  skillsDisp().forEach(function(k){
+    var u=USO_SKILL[k.id];
+    if(!u || u.minJug) return;
+    if(u.k && u.k.indexOf(d.k)<0) return;
+    if(u.z && (!d.z || u.z.indexOf(d.z)<0)) return;
+    if(u.s && !u.s.test(d.s||"")) return;
+    if(u.min && (d.m||0)<u.min) return;
+    var dd=sklData(k.id);
+    dd.u=jA;
+    var _p=(d.r==="ok"? 2:1);
+    if(dd.niv<=0 && !sklDesbloqueada(k)) _p=Math.max(0, Math.min(_p, sklCoste(0)-dd.pts));   /* bloqueada: reserva máx. el nivel 1 */
+    dd.pts+=_p;
+    S.repsM=S.repsM||{};
+    S.repsM[k.req.ej]=Math.round(((S.repsM[k.req.ej]||0)+0.5)*10)/10;
+  });
+}
+/* el óxido: sin ejercitarla en el doble de su ventana, la habilidad se pierde */
+function talentoTasaOxido(rama){
+  var TASA_RAMA={defensa:0.55, fisico:1.0, centro:0.35, ataque:0.6, mental:0.15, tactica:0.30};
+  var base=TASA_RAMA[rama]||0.5;
+  var edad=(S&&S.edad)||24;
+  var mEdad = edad>=31? 1.6 : edad>=28? 1.2 : edad<=22? 0.6 : 1.0;
+  return base*mEdad;
+}
+/* el óxido de talentos: más simple que el de skills — aquí "ejercitar" es jugar minutos.
+   Si llevas muchas jornadas sin pisar el campo, el rango invertido se apaga poco a poco
+   (nunca el nivel ni la experiencia: eso, como acordamos, no se pierde nunca). Cada nuevo
+   punto invertido "recertifica" al máximo; seguir jugando lo mantiene fresco solo. */
+function oxidarTalentos(){
+  if(!S || !S.talentos) return;
+  if(M && M.minJugados>0) S.ultimaJugada=jorAbs();
+  var idle=jorAbs()-(S.ultimaJugada===undefined?jorAbs():S.ultimaJugada);
+  if(idle<6) return;
+  if(idle===7) (S.vidaLog=S.vidaLog||[]).push("⚠ Tus talentos empiezan a oxidarse: llevas "+idle+" jornadas sin pisar el campo.");
+  TALENTO_ORDEN.forEach(function(rama){
+    var tasa=talentoTasaOxido(rama);
+    TALENTOS[rama].nodes.forEach(function(node){
+      var r=talentoRango(rama,node.id); if(!r) return;
+      if(rnd()<0.10*tasa){
+        S.talentos[rama][node.id]=r-1;
+        if(r-1===0) (S.vidaLog=S.vidaLog||[]).push("«"+node.n+"» se apaga por falta de uso. Sigues siendo el mismo jugador, solo que esto ya no rinde — hasta que vuelvas a invertir en ello.");
+      }
+    });
+  });
+}
+function oxidarSkills(){
+  if(!S || !S.skl) return;
+  var jA=jorAbs();
+  skillsDisp().forEach(function(k){
+    var dd=S.skl[k.id];
+    if(!dd || dd.niv<=0) return;
+    var V=sklVentana(k), idle=jA-(dd.u||0);
+    if(idle===2*V+1) (S.vidaLog=S.vidaLog||[]).push("⚠ «"+k.n+"» se está oxidando: "+idle+" jornadas sin ejercitarla.");
+    if(idle<=2*V) return;
+    if(dd.pts>0){ dd.pts=Math.max(0, dd.pts-4); return; }   /* primero se seca la reserva */
+    dd.niv=Math.round((dd.niv - sklTasaOxido(k))*10)/10;
+    if(dd.niv<=0){
+      dd.niv=0; dd.pts=0; dd.u=jA;
+      S.skills=(S.skills||[]).filter(function(x){ return x!==k.id; });
+      (S.vidaLog=S.vidaLog||[]).push("Has perdido «"+k.n+"»: demasiado tiempo sin ejercitarla. Habrá que ganársela otra vez.");
+    }
+  });
+}
+function skillsDisp(){ var p=S?S.pos:(PICK&&PICK.pos)||"DC"; return SKILLS.filter(function(k){ return !k.pos || k.pos.indexOf(p)>=0; }); }
+function tieneSkill(id){ return !!(S && S.skl && S.skl[id] && S.skl[id].niv>0); }
+/* --- nivel, puntos y tope de cada habilidad --- */
+function sklData(id){
+  if(!S.skl) S.skl={};
+  if(!S.skl[id]) S.skl[id]={niv:0, pts:0};
+  return S.skl[id];
+}
+function sklNivel(id){ return S? sklData(id).niv : 0; }
+function sklPts(id){ return S? sklData(id).pts : 0; }
+function sklTope(k){ return Math.round(clamp(atr(k.req.attr)+25, 30, 99)); }
+function sklCoste(niv){ return Math.round(10 + niv*0.9 + Math.pow(niv,1.35)/10); }
+/* desbloquear exige lo que dice la ficha: N sesiones de SU ejercicio y el atributo a la altura */
+function sklDesbloqueada(k){
+  if(tieneSkill(k.id)) return true;
+  var reps=((S && S.reps && S.reps[k.req.ej])||0) + ((S && S.repsM && S.repsM[k.req.ej])||0);
+  return reps>=k.req.n && atr(k.req.attr)>=k.req.v;
+}
+function sklPuedeSubir(k){
+  var d=sklData(k.id);
+  if(d.niv===0 && !sklDesbloqueada(k)) return false;
+  return d.niv<99 && d.niv<sklTope(k) && d.pts>=sklCoste(d.niv);
+}
+function subirSkill(id){
+  var k=SKILLS.filter(function(x){return x.id===id;})[0];
+  if(!k || !sklPuedeSubir(k)) return;
+  var d=sklData(id);
+  d.pts-=sklCoste(d.niv);
+  d.niv++;
+  if(d.niv===1){ S.skills=S.skills||[]; if(S.skills.indexOf(id)<0) S.skills.push(id); d.u=jorAbs(); }
+  guardar(); SUB.jugador="fisico"; irSec("jugador");
+}
+function subirSkillMax(id){
+  var k=SKILLS.filter(function(x){return x.id===id;})[0];
+  if(!k) return;
+  var v=0;
+  while(sklPuedeSubir(k) && v++<99){
+    var d=sklData(id);
+    d.pts-=sklCoste(d.niv); d.niv++;
+    if(d.niv===1){ S.skills=S.skills||[]; if(S.skills.indexOf(id)<0) S.skills.push(id); }
+  }
+  guardar(); SUB.jugador="fisico"; irSec("jugador");
+}
+/* ===== TALENTOS: 6 ramas, cada una con su propia forma (4-6 filas, máx 3 por fila,
+   validado a fondo en la calculadora aparte). Cada nodo trae fx REAL: campos que ya
+   multiplica sk() en el resolutor (gol/asis/golR/parada/ta/lesion/lider/resil), o
+   fxEntreno (multiplica gananciaEntreno de ese atributo, igual patrón que bonusTienda),
+   o fxForma (recupera/desgaste/riesgo de sobrecarga semanales). ===== */
+var TALENTOS = {
+  defensa:{ name:"Defensa", nodes:[
+    {id:"duelo",   row:1, rank:3, lvl:8,  req:null, n:"Duelo limpio", fx:{golR:0.93}, d:"Ganas el cuerpo a cuerpo sin necesidad de la entrada sucia. Más eficacia en cada duelo defensivo."},
+    {id:"antic",   row:1, rank:3, lvl:8,  req:null, n:"Anticipación", fx:{golR:0.94}, d:"Lees el pase antes de que salga. Más intercepciones, menos ocasiones concedidas."},
+    {id:"sinmiedo",row:2, rank:3, lvl:18, req:"duelo", n:"Sin miedo", fx:{ta:0.85}, d:"Te tiras a por todo. Menos tarjeta en las decisiones de contención más arriesgadas."},
+    {id:"lectpas", row:2, rank:3, lvl:18, req:"antic", n:"Lectura de pase", fx:{golR:0.92}, d:"No corres detrás del balón, llegas antes que él."},
+    {id:"cazador", row:3, rank:2, lvl:32, req:["sinmiedo","lectpas"], n:"Cazador implacable", fx:{golR:0.88,ta:0.90}, d:"El cuerpo y la lectura ya son la misma cosa: nadie te gana el balón, lo veas venir o no."},
+    {id:"cap",     row:4, rank:1, lvl:48, req:"cazador", n:"Intratable", cap:true, fx:{golR:0.78}, d:"Defendiendo una ventaja mínima en el tramo final, tu probabilidad de intervención decisiva se dispara."},
+  ]},
+  fisico:{ name:"Físico", nodes:[
+    {id:"motor",   row:1, rank:3, lvl:8,  req:null, n:"Motor", fxForma:{recupera:1.20}, d:"Corres el partido entero sin pagarlo. Menos desgaste de forma en el ejercicio físico."},
+    {id:"explo",   row:1, rank:3, lvl:8,  req:null, n:"Explosividad", fxEntreno:{FIS:1.15}, d:"El primer paso es tuyo siempre. Tu físico pesa más en cada arrancada y cada duelo."},
+    {id:"aguante", row:1, rank:3, lvl:8,  req:null, n:"Aguante", fxForma:{desgaste:0.85}, d:"El minuto 88 te encuentra igual que el minuto 8. Menos fatiga en el tramo final."},
+    {id:"pulmon",  row:2, rank:2, lvl:18, req:"motor", n:"Pulmón de acero", fxForma:{recupera:1.15}, d:"Motor reforzado: el desgaste ya casi no te alcanza."},
+    {id:"veloc",   row:2, rank:2, lvl:18, req:["explo","aguante"], n:"Velocidad de resistencia", fxEntreno:{FIS:1.12}, fxForma:{desgaste:0.90}, d:"Explosivo al principio, explosivo al final: la fatiga ya no frena tu chispa."},
+    {id:"indestr", row:3, rank:2, lvl:32, req:"pulmon", n:"Indestructible", fxForma:{riesgo:0.75}, d:"El cuerpo aguanta lo que antes te habría dejado en la enfermería."},
+    {id:"motorcomp",row:3,rank:2, lvl:32, req:"veloc", n:"Motor de competición", fxForma:{desgaste:0.85}, d:"Rápido al principio, rápido al final — el desgaste no te define."},
+    {id:"cap",     row:4, rank:1, lvl:48, req:["indestr","motorcomp"], n:"Motor inagotable", cap:true, fx:{gol:1.10,asis:1.08}, d:"En el descuento, tu probabilidad de intervención decisiva se dispara."},
+  ]},
+  centro:{ name:"Centro", nodes:[
+    {id:"buenpie", row:1, rank:3, lvl:8,  req:null, n:"Buen pie", fx:{asis:1.06}, d:"El balón te busca a ti. Más asistencia en las decisiones de pase."},
+    {id:"vision",  row:1, rank:3, lvl:8,  req:null, n:"Visión", fx:{asis:1.07}, d:"Ves el hueco un segundo antes que los demás. Mejora el desenlace del último pase."},
+    {id:"presion", row:1, rank:3, lvl:8,  req:null, n:"Bajo presión", fxEntreno:{TEC:1.10}, d:"Con el rival encima, tú sigues jugando igual. Mantienes el control aunque te aprieten."},
+    {id:"orient",  row:2, rank:2, lvl:18, req:"buenpie", n:"Cambio de orientación", fx:{asis:1.05}, d:"Rompes el partido de un lado a otro sin pensarlo dos veces."},
+    {id:"letal",   row:2, rank:2, lvl:18, req:"vision", n:"Último pase letal", fx:{asis:1.10}, d:"Tu pase ya no solo llega, decide partidos."},
+    {id:"nuca",    row:2, rank:2, lvl:18, req:"presion", n:"Ojos en la nuca", fxEntreno:{TAC:1.10}, d:"Nunca te pillan de espaldas."},
+    {id:"completo",row:3, rank:1, lvl:30, req:["orient","letal","nuca"], n:"El repartidor completo", fx:{asis:1.08,lider:1.10}, d:"Pase, visión y temple ya son una sola cosa: el mediocentro que un equipo entero necesita."},
+    {id:"metro",   row:4, rank:2, lvl:44, req:"completo", n:"Metrónomo", fx:{lider:1.15}, d:"Si el equipo va perdiendo, tú marcas el ritmo de la remontada."},
+    {id:"controla",row:4, rank:2, lvl:44, req:"completo", n:"Control absoluto", fx:{asis:1.06}, d:"Con el rival encima, tú sigues jugando exactamente igual."},
+    {id:"cap",     row:5, rank:1, lvl:58, req:["metro","controla"], n:"El que manda el partido", cap:true, fx:{asis:1.20,gol:1.05}, d:"Recibes con espacio; el resultado depende casi solo de tu técnica, no del azar."},
+  ]},
+  ataque:{ name:"Ataque", nodes:[
+    {id:"instinto",row:1, rank:3, lvl:8,  req:null, n:"Instinto de gol", fx:{gol:1.08}, d:"No lo piensas, lo metes. Más gol en decisiones ofensivas."},
+    {id:"ultpase", row:1, rank:3, lvl:8,  req:null, n:"Último pase", fx:{asis:1.08}, d:"Ves al compañero libre antes que nadie. Más asistencia."},
+    {id:"aereo",   row:1, rank:3, lvl:8,  req:null, n:"Juego aéreo", fxEntreno:{FIS:1.10}, d:"Ganas la posición antes de que el balón llegue. Base de lo que se juega por arriba."},
+    {id:"defin",   row:2, rank:3, lvl:16, req:"instinto", n:"Definición fría", fx:{gol:1.10}, d:"Cuanto más importa el momento, más frío te quedas. Menos castigo cuando un tiro sale mal."},
+    {id:"visarea", row:2, rank:3, lvl:16, req:"ultpase", n:"Visión de área", fx:{asis:1.10}, d:"El último pase ya no es al compañero libre — es al que va a rematar mejor."},
+    {id:"domin",   row:2, rank:3, lvl:16, req:"aereo", n:"Dominador aéreo", fx:{gol:1.06}, d:"Córners y centros al área son terreno tuyo."},
+    {id:"racha",   row:3, rank:2, lvl:25, req:"defin", n:"En racha", fx:{gol:1.10}, d:"Tras marcar, el gol siguiente pesa menos. Subes el resto del partido."},
+    {id:"dobleam", row:3, rank:2, lvl:25, req:"visarea", n:"Doble amenaza", fx:{asis:1.10,gol:1.04}, d:"El rival no sabe si marcarte a ti o vigilar al que llega detrás."},
+    {id:"reyareap",row:3, rank:2, lvl:25, req:"domin", n:"Rey del área pequeña", fx:{gol:1.08}, d:"Nadie te gana la posición en el segundo palo."},
+    {id:"killer",  row:4, rank:2, lvl:36, req:"racha", n:"Killer en racha", fx:{gol:1.15}, d:"Con dos goles seguidos ya no hay quien te pare esta noche."},
+    {id:"amenazat",row:4, rank:2, lvl:36, req:["dobleam","reyareap"], n:"Amenaza total", fx:{gol:1.08,asis:1.08}, d:"Pases, remates o cabeceas: sea cual sea el plan, tú eres el problema."},
+    {id:"penal",   row:5, rank:1, lvl:48, req:"killer", n:"Sangre fría en los once metros", fx:{gol:1.12}, d:"El penalti ya está decidido antes de que pite el árbitro."},
+    {id:"especial",row:5, rank:1, lvl:48, req:"amenazat", n:"Especialista de área", fx:{gol:1.12,asis:1.06}, d:"Dentro del área rival, todo lo que tocas se convierte en ocasión."},
+    {id:"cap",     row:6, rank:1, lvl:62, req:["penal","especial"], n:"Instinto asesino", cap:true, fx:{gol:1.25}, d:"Con 2+ goles o asistencias en tus últimos 3 partidos, se desbloquea la ocasión más clara que vas a tener."},
+  ]},
+  mental:{ name:"Mental", nodes:[
+    {id:"sfria",   row:1, rank:3, lvl:8,  req:null, n:"Sangre fría", fx:{ta:0.90}, d:"La presión no te encuentra nunca temblando. Mejora el desenlace en decisiones de máxima tensión."},
+    {id:"lider",   row:1, rank:3, lvl:8,  req:null, n:"Liderazgo", fx:{lider:1.15}, d:"El equipo te mira cuando las cosas se ponen difíciles. Empuje base al conjunto."},
+    {id:"concent", row:1, rank:3, lvl:8,  req:null, n:"Concentración", fx:{golR:0.95}, d:"El error no forzado deja de ser tuyo. Menos fallos por despiste."},
+    {id:"nonerv",  row:2, rank:2, lvl:16, req:"sfria", n:"El que no se pone nervioso", fx:{ta:0.85}, d:"Cuanto más se juega, más tranquilo te quedas tú."},
+    {id:"inqueb",  row:2, rank:2, lvl:16, req:["lider","concent"], n:"Inquebrantable", fx:{lider:1.20,resil:0.85}, d:"Mando y templanza ya son la misma cosa: nada te saca de tu sitio."},
+    {id:"friatot", row:3, rank:1, lvl:27, req:["nonerv","inqueb"], n:"Frialdad total", fx:{ta:0.80,resil:0.80}, d:"No existe el momento del partido que te pueda contra ti."},
+    {id:"referente",row:4,rank:1, lvl:40, req:"friatot", n:"Referente del vestuario", fx:{lider:1.25}, d:"El equipo entero se apoya en cómo tú llevas la presión."},
+    {id:"alma",    row:5, rank:1, lvl:52, req:"referente", n:"Alma del equipo", fx:{resil:0.75}, d:"El vestuario entero respira al ritmo que tú marcas."},
+    {id:"cap",     row:6, rank:1, lvl:65, req:"alma", n:"El líder nato", cap:true, fx:{lider:1.35}, d:"Una vez por partido, si el equipo lo necesita, arengas y subes el empuje de todos de golpe."},
+  ]},
+  tactica:{ name:"Táctica", nodes:[
+    {id:"colocado",row:1, rank:3, lvl:8,  req:null, n:"Bien colocado", fx:{golR:0.94}, d:"Estás donde el partido va a estar, no donde ya estuvo. Mejor posicionamiento base."},
+    {id:"lectriv", row:1, rank:3, lvl:8,  req:null, n:"Lectura del rival", fx:{golR:0.93}, d:"Sabes lo que va a intentar antes que él mismo. Mejora decisiones reactivas."},
+    {id:"poliv",   row:1, rank:3, lvl:8,  req:null, n:"Polivalencia", fxEntreno:{TAC:1.10}, d:"Cualquier puesto que pisas, lo entiendes rápido. Mejor rendimiento en tus posiciones secundarias."},
+    {id:"visespac",row:2, rank:2, lvl:18, req:"colocado", n:"Visión de espacios", fx:{asis:1.06}, d:"Ves el hueco que se va a abrir, no el que ya está abierto."},
+    {id:"cerebrosom",row:2,rank:1, lvl:18, req:["lectriv","poliv"], n:"El cerebro en la sombra", fx:{lider:1.10,golR:0.93}, d:"Organizas sin que se note quién está organizando."},
+    {id:"vismaes", row:3, rank:2, lvl:30, req:"visespac", n:"Visión maestra", fx:{asis:1.10}, d:"El desmarque que nadie ve, tú ya lo estás preparando."},
+    {id:"controlp",row:3, rank:2, lvl:30, req:"cerebrosom", n:"Control del partido", fx:{golR:0.90}, d:"El plan del rival se estrella contigo antes incluso de empezar."},
+    {id:"anticp",  row:3, rank:2, lvl:30, req:"cerebrosom", n:"Anticipación total", fx:{golR:0.90}, d:"El mismo cerebro que organiza en la sombra, ahora también corta el peligro antes de que nazca."},
+    {id:"estratega",row:4,rank:1, lvl:45, req:["vismaes","controlp","anticp"], n:"El estratega", fx:{golR:0.85,asis:1.08}, d:"Posición, mando y anticipación ya son una sola jugada: nada del rival te sorprende."},
+    {id:"cap",     row:5, rank:1, lvl:58, req:"estratega", n:"El cerebro táctico", cap:true, fx:{golR:0.80}, d:"Una vez por partido, anticipas y neutralizas el patrón de ataque del rival en el tramo que más pesa."},
+  ]},
+};
+var TALENTO_ORDEN=["defensa","centro","ataque","fisico","mental","tactica"];
+function talentoRango(rama,id){ return (S && S.talentos && S.talentos[rama] && S.talentos[rama][id]) || 0; }
+function talentoNodo(rama,id){ var r=TALENTOS[rama]; return r? r.nodes.filter(function(n){return n.id===id;})[0] : null; }
+function talentoReqMet(rama,node){
+  if(!node.req) return true;
+  var ids=Array.isArray(node.req)? node.req : [node.req];
+  /* si depende de varios, hacen falta TODOS con al menos 1 punto — no basta con uno solo */
+  return ids.every(function(id){ return talentoRango(rama,id)>0; });
+}
+function talentoDesbloqueado(rama,node){ return !node.off && (S.nivel||1) >= node.lvl && talentoReqMet(rama,node); }
+function puntosTalentoGastados(){
+  if(!S || !S.talentos) return 0;
+  var t=0; TALENTO_ORDEN.forEach(function(r){ var b=S.talentos[r]||{}; for(var k in b) t+=b[k]; });
+  return t;
+}
+function invertirTalento(rama,id){
+  var node=talentoNodo(rama,id); if(!node) return false;
+  S.talentos=S.talentos||{}; S.talentos[rama]=S.talentos[rama]||{};
+  var cur=S.talentos[rama][id]||0;
+  if(cur>=node.rank) return false;
+  if(!talentoDesbloqueado(rama,node)) return false;
+  if(puntosTalentoGastados() >= talentoPresupuesto()) return false;
+  S.talentos[rama][id]=cur+1;
+  guardar();
+  return true;
+}
+function talentoPresupuesto(){ return Math.max(0, (S.nivel||1)-7); }
+/* multiplicadores pasivos de las habilidades desbloqueadas Y de los talentos invertidos */
+function sk(campo){
+  var m=1;
+  if(!S) return m;
+  if(S.skl){
+    for(var id in S.skl){
+      var k=SKILLS.filter(function(x){return x.id===id;})[0];
+      if(!k || !k.fx || !k.fx[campo]) continue;
+      var niv=S.skl[id].niv||0;
+      if(!niv) continue;
+      m *= 1 + (k.fx[campo]-1)*(1-Math.pow(1-Math.min(niv,99)/99,3));   /* los primeros niveles se notan; los últimos pulen */
+    }
+  }
+  if(S.talentos){
+    Object.keys(TALENTOS).forEach(function(rama){
+      TALENTOS[rama].nodes.forEach(function(t){
+        if(!t.fx || !t.fx[campo]) return;
+        var r=(S.talentos[rama]&&S.talentos[rama][t.id])||0;
+        if(!r) return;
+        /* al rango máximo, el efecto es completo; a rango 1 de 3, apenas se nota */
+        m *= 1 + (t.fx[campo]-1)*(r/t.rank);
+      });
+    });
+  }
+  return m;
+}
+/* ===== NIVEL: el techo ya no es un número fijo tirado al crear personaje.
+   Cada nivel da un punto que TÚ inviertes en un atributo concreto; el declive
+   por edad pesa distinto según cuánto dependa tu puesto de ese atributo
+   (un extremo pierde el techo de FIS mucho antes que un portero). ===== */
+function tasaDeclive(k){ return {TEC:0.35, FIS:1.0, TAC:0.30, DEF:0.55, MEN:0.20, POR:0.40}[k]||0.5; }
+var TECHO_BASE=68, TECHO_INC=0.5;   /* techo de partida y lo que sube por cada punto de nivel que asignas */
+function techoAtributoDe(k){
+  if(!S) return 88;
+  var base=TECHO_BASE, inc=TECHO_INC;
+  var pts=(S.techos&&S.techos[k])||0;
+  var techo=base+pts*inc;
+  var e=S.edad||22;
+  if(e>28){
+    var peso=(PESO_MEDIA[S.pos]||PESO_MEDIA.MC)[k]; if(peso===undefined) peso=0.15;
+    var factorPos=0.3+peso*3.5;   /* cuanto más pesa este atributo en tu puesto, antes y más se nota el declive */
+    var d=e-28;
+    techo -= d*d*0.12*tasaDeclive(k)*factorPos;
+  }
+  return clamp(techo,30,96);
+}
+/* compatibilidad: código viejo que pedía "el techo" a secas recibe el de tu atributo más pesado en tu puesto */
+function techoAtributo(k){
+  if(k) return techoAtributoDe(k);
+  var w=PESO_MEDIA[(S&&S.pos)||"MC"], mejor="TEC", mp=-1;
+  for(var kk in w){ if(w[kk]>mp){ mp=w[kk]; mejor=kk; } }
+  return techoAtributoDe(mejor);
+}
+/* ===== XP y niveles: farmeas jugando, subes de nivel, repartes techo y talento ===== */
+function xpParaNivel(n){ return 30+10*n; }
+function xpPartido(){
+  if(!M) return 0;
+  if(!(M.yaJugado||M.enCampo)) return 0;
+  var nota=notaDelPartido();
+  if(nota==null) return 0;
+  return Math.round(15 + nota*4 + (M.miGol||0)*10 + (M.miAsis||0)*6 + (S.pos==="POR"?(M.paradas||0)*3:0) + (M.esMVP?25:0));
+}
+function ganarXP(cant){
+  if(!S || !cant || cant<=0 || (S.nivel||1)>=99) return 0;
+  S.nivel=S.nivel||1; S.xp=S.xp||0;
+  S.xp+=cant;
+  var subidas=0;
+  while(S.nivel<99 && S.xp>=xpParaNivel(S.nivel)){
+    S.xp-=xpParaNivel(S.nivel);
+    S.nivel++; subidas++;
+    S.techoPend=(S.techoPend||0)+1;
+    if(S.nivel>=8) S.talentoPend=(S.talentoPend||0)+1;
+  }
+  return subidas;
+}
+function nivelSuelo(edad){ return Math.max(1, Math.round((edad-16)*1.7)+1); }
+function nivelRango(edad){ return Math.round(clamp(26-(edad-16)*0.9, 5, 25)); }
+function nivelInicial(edad, notaPrueba){
+  var suelo=nivelSuelo(edad), rango=nivelRango(edad);
+  var norm=clamp(((notaPrueba||6)-4)/5, 0, 1);
+  return clamp(suelo+Math.round(rango*norm), 1, 99);
+}
+function asignarTecho(k){
+  if(!S || (S.techoPend||0)<=0) return false;
+  var validos=ATTR_ORDEN.concat(S.pos==="POR"?["POR"]:[]);
+  if(validos.indexOf(k)<0) return false;
+  S.techos=S.techos||{};
+  S.techos[k]=(S.techos[k]||0)+1;
+  S.techoPend--;
+  guardar();
+  return true;
+}
+function factorFisico(){
+  /* peso y altura, medidos contra el perfil medio (180cm/75kg): quien es más alto y fuerte
+     gana el entreno de juego aéreo más rápido, quien es más ligero, algo menos */
+  var alt=(typeof S!=="undefined" && S && S.altura)||180, pes=(typeof S!=="undefined" && S && S.peso)||75;
+  return clamp(1 + (alt-180)/220 + (pes-75)/280, 0.85, 1.20);
+}
+function bonusTalentosEntreno(k){
+  var m=1;
+  if(!S || !S.talentos) return m;
+  TALENTO_ORDEN.forEach(function(rama){
+    TALENTOS[rama].nodes.forEach(function(node){
+      if(!node.fxEntreno || !node.fxEntreno[k]) return;
+      var r=talentoRango(rama,node.id); if(!r) return;
+      m *= 1 + (node.fxEntreno[k]-1)*(r/node.rank);
+    });
+  });
+  return m;
+}
+function gananciaEntreno(e, k, extra){
+  var base=(e.sube[k]||0);
+  if(!base) return 0;
+  var _mp=estiloMister().entreno||{}, _cat={TEC:"tecnica",TAC:"tactica",FIS:"fisico",MEN:"mental",DEF:"defensivo"}[Object.keys(e.sube).sort(function(a,b){return e.sube[b]-e.sube[a];})[0]];
+  var metodo=_mp[e.id]||_mp[_cat]||1;
+  base*=metodo;
+  var v=atr(k), T=techoAtributoDe(k);
+  if(v>=T) return 0;                          /* has llegado a tu techo */
+  var techo=clamp((T-v)/52, 0.05, 1.10);
+  var mult=(extra?1.15:1) * (0.85+((S.conf||55)/300)) * (bonusTienda().mult[k]||1) * (bonusPatros().mult[k]||1)
+          * (1+((S.puntualBonus||0)*0.05)) * (e.id==="remate"? factorFisico():1) * bonusTalentosEntreno(k);
+  return Math.round(base*techo*mult*100)/100;
+}
+function aplicarEntreno(idx, extra){
+  var e=ENTRENOS[idx];
+  if(!S.attr) S.attr={};
+  S.reps=S.reps||{};
+  S.reps[e.id]=(S.reps[e.id]||0)+1;
+  /* cada sesión reparte puntos a las habilidades que dependen de ese ejercicio */
+  var ganados=[];
+  skillsDisp().forEach(function(k){
+    if(k.req.ej!==e.id) return;
+    var d=sklData(k.id);
+    var p=Math.round((4+rnd()*3)*(extra?1.5:1));
+    if(d.niv>0) d.u=jorAbs();   /* entrenar su ejercicio también la mantiene viva */
+    var bloq=(d.niv<=0 && !sklDesbloqueada(k));
+    if(bloq){ var tope=sklCoste(0); p=Math.max(0, Math.min(p, tope-d.pts)); }   /* bloqueada: se guarda como mucho lo justo para el nivel 1 */
+    d.pts+=p;
+    if(p>0) ganados.push(k.n+" +"+p+" pts");
+  });
+  var subidas=[];
+  Object.keys(e.sube).forEach(function(k){
+    var g=gananciaEntreno(e,k,extra);
+    var _v0=atr(k);   /* entrenar nunca te baja: por encima del techo te quedas donde estás (el declive por edad va en el cierre de jornada) */
+    S.attr[k]= _v0>=techoAtributoDe(k) ? _v0 : clamp(_v0+g, 10, techoAtributoDe(k));
+    if(g>0) subidas.push(ATTR[k].n+" +"+g.toFixed(2));
+  });
+  var coste=(e.forma||0)*(extra?1.4:1);
+  S.forma=clamp((S.forma===undefined?70:S.forma)+coste, 20, 100);
+  var pRiesgo=0.09*bonusTienda().modLes*((S.modLesTemp&&S.modLesTemp.hasta>=jorAbs())? S.modLesTemp.f:1)
+             *(1+clamp((S.rachaExtra||0)*0.22,0,0.9))*bonusTalentosForma("riesgo");   /* semanas seguidas a tope: el cuerpo pasa factura */
+  if(extra){
+    S.mister=clamp(S.mister+1.5,5,95);
+    if(rnd()<pRiesgo){
+      var _sev=rnd();
+      S.lesion = _sev<0.55? 1 : _sev<0.85? 2 : 3;
+      if((S.rachaExtra||0)>=3) S.lesion=Math.min(3,S.lesion+1);
+      S.motivoBaja="sobrecarga"; subidas.push("⚠ sobrecarga: baja "+S.lesion+" jornada"+(S.lesion>1?"s":""));
+      (S.histLes=S.histLes||[]).push({t:S.temporada, j:S.jornada, motivo:"sobrecarga", sem:S.lesion});
+    }
+  }
+  S.entreno=S.entreno||{jor:S.jornada, hechos:[], extra:false};
+  if(ganados.length) subidas=subidas.concat(ganados);
+  S.entreno.hechos.push({n:e.n, sub:subidas.join(" · ")||"solo recuperación", extra:!!extra});
+  if(extra) S.entreno.extra=true;
+  var listas=skillsDisp().filter(function(k){ return sklPuedeSubir(k); });
+  if(listas.length) S.skillNueva=listas.map(function(k){return k.n;}).join(" · ");
+  guardar();
+}
+function entrenoEstado(){
+  if(!S) return {jor:0, hechos:[], extra:false};
+  if(!S.entreno || S.entreno.jor!==S.jornada) S.entreno={jor:S.jornada, hechos:[], extra:false};
+  return S.entreno;
+}
+/* ===== EL HORARIO DEL MÍSTER: él marca la cita, tú eliges cuándo te presentas =====
+   Cada estilo trae su hora de entrada real (estiloMister().entradaH) y si mete doble
+   sesión (estiloMister().doble). Antes esto solo era una frase en la ficha del míster. */
+function horaFmt(h){
+  var hh=Math.floor(h), mm=Math.round((h-hh)*60);
+  return (hh<0? (24+hh):hh)+":"+(mm<10?"0":"")+mm;
+}
+/* ===== TU DÍA EN LA CIUDAD DEPORTIVA =====
+   1) Planificas la cita: a qué hora llegas y a qué hora te vas (el míster marca su entreno).
+   2) Empiezas el día y va en orden, cada parte en su pantalla:
+      🌅 antes del entreno: una sesión tuya por cada hora que llegas antes (máx. 2)
+      ⚽ entreno del míster: 3 ejercicios suyos (4 con doble sesión), minijuego con nota
+      🌙 después del entreno: una sesión tuya por cada hora que te quedas (máx. 2)
+   Tu trabajo te hace mejor jugador (atributos y habilidades); el entreno del míster decide
+   cuánto confía en ti (míster, confianza y la titularidad del domingo). */
+var CITA_LIM=2, CITA_ZONA={izq:35, cen:30, der:35};
+var CITA_UI={jor:-1, ll:0, sa:0};
+function citaVentana(){
+  var e=estiloMister(), fin=e.entradaH+(e.doble?6:3);
+  return {llamada:e.entradaH, fin:fin, doble:!!e.doble, ini:e.entradaH-CITA_LIM, fin2:fin+CITA_LIM};
+}
+function citaEstado(){
+  if(CITA_UI.jor!==S.jornada) CITA_UI={jor:S.jornada, ll:0, sa:0};
+  return CITA_UI;
+}
+/* posición 0-100 de una hora dentro de la barra (tramos fijos: 35 · 30 · 35) */
+function citaPos(h, V){
+  if(h<=V.llamada) return CITA_ZONA.izq*(h-V.ini)/(V.llamada-V.ini);
+  if(h<=V.fin)     return CITA_ZONA.izq+CITA_ZONA.cen*(h-V.llamada)/(V.fin-V.llamada);
+  return CITA_ZONA.izq+CITA_ZONA.cen+CITA_ZONA.der*(h-V.fin)/(V.fin2-V.fin);
+}
+function ejPorId(id){ return ENTRENOS.filter(function(e){ return e.id===id; })[0]||null; }
+function ejIdx(id){ for(var i=0;i<ENTRENOS.length;i++) if(ENTRENOS[i].id===id) return i; return -1; }
+/* las horas de más cuentan con el míster; la forma la deciden las sesiones que elijas luego */
+function citaCuenta(ll, sa){ return {ded:ll+sa}; }
+function citaSigno(n){ return (n>0?"+":n<0?"−":"")+Math.abs(Math.round(n)); }
+function citaTextos(V, st){
+  var c=citaCuenta(st.ll, st.sa), noche=faseVicio("noche"), n=st.ll+st.sa;
+  var partes=[n? (n===1?"Una sesión tuya":n+" sesiones tuyas")+": las eliges al llegar a cada hueco" : "Solo el entreno del míster"];
+  if(c.ded>0 && !(noche>=1 && st.ll>0)) partes.push("Míster hasta "+citaSigno(Math.round(c.ded*1.5))+" si usas esas horas");
+  if(noche>=1 && st.ll>0) partes.push("madrugar con la noche encima: forma −"+(3*st.ll)+" y el míster lo nota");
+  return {
+    ll: st.ll? "Llegas a las "+horaFmt(V.llamada-st.ll)+" · "+st.ll+" h antes" : "Llegas a la hora ("+horaFmt(V.llamada)+")",
+    sa: st.sa? "Te vas a las "+horaFmt(V.fin+st.sa)+" · "+st.sa+" h después" : "Te vas al terminar ("+horaFmt(V.fin)+")",
+    ent: "Entreno del míster "+horaFmt(V.llamada)+"–"+horaFmt(V.fin),
+    fx: partes.join(" · ")
+  };
+}
+function citaMisterHTML(){
+  if(!S.contrato || S.lesion>0) return "";
+  var e=estiloMister(), V=citaVentana(), st=citaEstado(), T=citaTextos(V,st);
+  var llegada=V.llamada-st.ll, salida=V.fin+st.sa;
+  var H='<div class="card" id="cita-card" style="border-color:var(--gold)"><div class="eyebrow">Tu día · la cita del míster</div>'
+    +'<p class="note" style="margin:2px 2px 8px">'+esc(mister().n)+' quiere a todos a las <b>'+horaFmt(V.llamada)+'</b> para el entreno'
+    +(V.doble?' — hoy toca <b>doble sesión</b>: cuatro ejercicios suyos en vez de tres.':'.')
+    +' Cada hora que llegues antes o te quedes después es una sesión tuya.'
+    +(faseVicio("noche")>=1?' <span style="color:var(--bad)">Anoche saliste. El cuerpo lo sabe.</span>':'')+'</p>';
+  H+='<div id="cita-bar" style="position:relative;height:8px;margin:14px 11px 8px;border-radius:4px;background:rgba(255,255,255,.06)">'
+    +'<div style="position:absolute;top:0;bottom:0;left:0;width:35%;border-radius:4px 0 0 4px;background:#4FA3FF;opacity:.6"></div>'
+    +'<div style="position:absolute;top:0;bottom:0;left:35%;width:30%;background:#FFC24B;opacity:.85"></div>'
+    +'<div style="position:absolute;top:0;bottom:0;left:65%;width:35%;border-radius:0 4px 4px 0;background:#4ADE80;opacity:.6"></div>'
+    +'<div id="cita-pres" style="position:absolute;top:0;bottom:0;left:'+citaPos(llegada,V)+'%;width:'+(citaPos(salida,V)-citaPos(llegada,V))+'%;background:rgba(255,255,255,.22)"></div>'
+    +'<input id="cita-ll" class="sl" type="range" min="'+V.ini+'" max="'+V.llamada+'" step="1" value="'+llegada+'" '
+    +'oninput="citaMueve(\'llegada\',this.value)" onchange="citaMueve(\'llegada\',this.value)" '
+    +'style="position:absolute;top:-7px;left:0;width:35%;height:22px;margin:0;background:none;border:0;outline:0;padding:0;box-shadow:none">'
+    +'<input id="cita-sa" class="sl" type="range" min="'+V.fin+'" max="'+V.fin2+'" step="1" value="'+salida+'" '
+    +'oninput="citaMueve(\'salida\',this.value)" onchange="citaMueve(\'salida\',this.value)" '
+    +'style="position:absolute;top:-7px;left:65%;width:35%;height:22px;margin:0;background:none;border:0;outline:0;padding:0;box-shadow:none">'
+    +'</div>';
+  H+='<div style="display:flex;font-size:12px;margin:0 11px 12px;line-height:1.35">'
+    +'<div id="cita-llv" style="width:35%;color:#4FA3FF;padding-left:2px">'+esc(T.ll)+'</div>'
+    +'<div id="cita-ent" style="width:30%;text-align:center;color:#FFC24B">'+esc(T.ent)+'</div>'
+    +'<div id="cita-sav" style="width:35%;text-align:right;color:#4ADE80;padding-right:2px">'+esc(T.sa)+'</div></div>';
+  H+='<p class="note" id="cita-fx" style="margin:8px 2px 10px">'+esc(T.fx)+'</p>';
+  H+='<button class="gold-btn" onclick="empezarDia()">Empezar el día</button>';
+  return H+'</div>';
+}
+function citaMueve(quien, v){
+  var V=citaVentana(), st=citaEstado(), x=+v;
+  if(quien==="llegada") st.ll=Math.max(0, Math.min(CITA_LIM, Math.round(V.llamada-x)));
+  else                  st.sa=Math.max(0, Math.min(CITA_LIM, Math.round(x-V.fin)));
+  citaPinta();
+}
+function citaPinta(){
+  var card=document.getElementById("cita-card"); if(!card) return;
+  var V=citaVentana(), st=citaEstado(), T=citaTextos(V,st);
+  var llegada=V.llamada-st.ll, salida=V.fin+st.sa, pres=document.getElementById("cita-pres");
+  if(pres){ pres.style.left=citaPos(llegada,V)+"%"; pres.style.width=(citaPos(salida,V)-citaPos(llegada,V))+"%"; }
+  var set=function(id, txt){ var el=document.getElementById(id); if(el) el.textContent=txt; };
+  set("cita-llv", T.ll); set("cita-ent", T.ent); set("cita-sav", T.sa); set("cita-fx", T.fx);
+}
+/* tarjeta de una sesión tuya durante el día: tocarla es hacerla ya */
+function ejCarta(e, rec, extra){
+  var r=reps(e.id), meta=null;
+  skillsDisp().forEach(function(k){ if(k.req.ej===e.id && !meta) meta=k; });
+  var sube=Object.keys(e.sube).map(function(k){
+    var g=gananciaEntreno(e,k,extra);
+    if(g>0) return k+" +"+g.toFixed(1);
+    return atr(k)>=techoAtributoDe(k)? k+" al techo" : k+" +0.0";
+  }).join(" ");
+  var coste=Math.round((e.forma||0)*(extra?1.4:1)), esRec=rec && rec.ej===e.id;
+  return '<button class="ejer'+(esRec?' rec':'')+'" onclick="diaSesion(\''+e.id+'\')">'
+    +(esRec?'<span class="rectag">recomendado</span>':'')
+    +'<b>'+esc(e.n)+'</b>'
+    +'<span class="ejfx">'+esc(sube||"recupera")+'<i>'+(coste>0?"+":"")+coste+' forma</i></span>'
+    +(meta?'<span class="ejsk">'+esc(ejSkillTxt(meta))+'</span>':(r?'<span class="ejsk">'+(r===1?'1 sesión hecha':r+' sesiones hechas')+'</span>':''))
+    +'</button>';
+}
+/* ---- el entreno del míster: partidillo con SITUACIONES REALES DE PARTIDO ----
+   Usa el mismo banco de decisiones que los partidos (SITS) para tu puesto, con sus textos.
+   Aquí no hay marcador: cada decisión sale bien, regular o mal, y eso es lo que ve el míster. */
+function txtSit(v){ if(typeof v==="function"){ try{ v=v(null); }catch(e){ v=""; } } return v||""; }
+function opsEntreno(sit){
+  var ids=[];
+  sit.o.forEach(function(o,i){ if(o.cond) return; if(o.skill && !tieneSkill(o.skill)) return; ids.push(i); });
+  return ids;
+}
+/* jugadas SOLO para el entreno del míster (no salen en partido): cubren los puestos con menos situaciones propias */
+var SITS_ENTRENO_EXTRA=[
+ {id:"ent-dc-espalda", pos:["DC"],
+  t:"Balón largo a tu espalda",
+  x:"El central se gira tarde y el balón cae a tu espalda con el defensa ya encima. Tienes medio segundo para decidir.",
+  o:[
+   {l:"Controlar y girarte hacia la portería", fx:{inst:{gol:0.2}, nota:2},
+    ok:"Controlas con el pecho, te giras y el central se queda sentado. Ocasión clara.",
+    ko:"El control sale largo y el central te roba sin problema.",
+    mid:"Te giras, pero el central llega a tiempo y despeja."},
+   {l:"Pasar al hueco que se abre a tu lado", fx:{inst:{asis:0.2}, nota:1},
+    ok:"Un toque al hueco y el compañero llega solo. Sencillo y eficaz.",
+    ko:"El pase llega sin fuerza y se lo quedan.",
+    mid:"El compañero llega tarde, pero la jugada sigue viva."},
+   {l:"Protegerlo de espaldas y esperar apoyo", fx:{nota:0},
+    ok:"Aguantas el cuerpo, el apoyo llega y el balón vuelve a tu pie.",
+    ko:"Te empuja y pierdes el balón sin que nadie lo recoja.",
+    mid:"Aguantas, pero el balón se queda sin dueño durante un momento."}
+  ]},
+ {id:"ent-dc-cabeza", pos:["DC"],
+  t:"Centro desde la banda, de pie al segundo palo",
+  x:"El lateral centra raso al segundo palo. Tienes que decidir entre rematar de primeras o amortiguar para que llegue otro.",
+  o:[
+   {l:"Rematar de primeras", fx:{inst:{gol:0.25, golR:0.1}, nota:2},
+    ok:"Remate seco al palo corto. El portero solo mira cómo entra.",
+    ko:"Lo mandas a las gradas sin mirar la portería.",
+    mid:"El remate sale desviado y el portero se estira."},
+   {l:"Amortiguar para el que llega detrás", fx:{inst:{asis:0.15}, nota:1},
+    ok:"Lo dejas al hueco y el que llega remata a placer.",
+    ko:"Amortiguas tanto que el balón se queda para el portero.",
+    mid:"El balón llega al compañero, pero ya sin ventaja."},
+   {l:"Esperar y no arriesgar", fx:{nota:0},
+    ok:"Te quedas quieto, el defensa se confía y lo recuperas sin riesgo.",
+    ko:"Cuando reaccionas ya te han tapado la línea.",
+    mid:"Se pierde la jugada sin más."}
+  ]},
+ {id:"ent-dc-presion", pos:["DC"],
+  t:"Presionar al central rival",
+  x:"El central rival tiene el balón parado. Si lo presionas bien, el equipo sube de golpe. Si llegas tarde, te quedas a la espalda de la línea.",
+  o:[
+   {l:"Presionar en diagonal y cortar la salida", fx:{inst:{gol:0.1}, nota:1},
+    ok:"Cierras la salida por dentro y el central pierde la pelota. Recuperación en campo rival.",
+    ko:"Llegas en diagonal tarde y el central se la pasa a su lateral sin pegar.",
+    mid:"Presionas bien, pero el balón sale en largo sin peligro."},
+   {l:"Presión directa y fuerte", fx:{inst:{gol:0.1}, ta:1, nota:2},
+    ok:"Te lanzas con todo y el balón se va al suelo. Recuperación limpia.",
+    ko:"Entras de lleno y el árbitro te amonesta.",
+    mid:"Robas el balón, pero llegas un pelo tarde para el segundo."},
+   {l:"Ordenar a los compañeros y esperar", fx:{nota:0},
+    ok:"Organizas la línea y el central se da la vuelta sin opciones.",
+    ko:"Nadie te escucha y el equipo queda descolgado.",
+    mid:"El central sale con el balón sin problemas."}
+  ]},
+ {id:"ent-ext-centro-bajo", pos:["EXT","MCO"],
+  t:"Lateral en la línea de fondo",
+  x:"Has llegado hasta la línea de fondo con la defensa de costado. Puedes centrar raso, al primer palo o buscar el remate tú mismo.",
+  o:[
+   {l:"Centro raso al área", fx:{inst:{asis:0.2}, nota:1},
+    ok:"Pasa entre el portero y el defensa. Quien remata lo tiene fácil.",
+    ko:"El centro se queda corto y lo despeja el portero.",
+    mid:"El centro llega, pero sin nadie que lo toque."},
+   {l:"Centro al primer palo", fx:{inst:{asis:0.15, gol:0.1}, nota:1},
+    ok:"Tu centro pica en el primer palo y el delantero la mete.",
+    ko:"Demasiado alto: el defensa se la lleva de cabeza.",
+    mid:"Llega a la altura del primer palo, pero el remate sale desviado."},
+   {l:"Buscar el tiro de cerca", fx:{inst:{gol:0.15, golR:0.15}, nota:2},
+    ok:"Ángulo cerrado, pero el disparo entra. Golazo de los que se recuerdan.",
+    ko:"Disparas al cuerpo del portero y se acaba la jugada.",
+    mid:"El disparo sale desviado y no pasa nada."}
+  ]},
+ {id:"ent-lat-solapa", pos:["LAT","EXT"],
+  t:"Solapamiento por dentro",
+  x:"Tu extremo se abre a la banda y te pide que llegues por dentro. El hueco existe, pero también la cobertura del central.",
+  o:[
+   {l:"Llegar por dentro sin balón", fx:{inst:{gol:0.1}, nota:1},
+    ok:"Llegas solo al segundo palo porque el central se quedó con el extremo.",
+    ko:"Llegas tarde y el central te cierra la puerta.",
+    mid:"Te quedas al borde del área, y el balón se escapa."},
+   {l:"Pedir el pase en profundidad", fx:{inst:{asis:0.15}, nota:2},
+    ok:"Pase al espacio y tú en carrera. Centro al área con el hueco abierto.",
+    ko:"El pase llega largo y el defensa lo ataja.",
+    mid:"Se pierde el balón en el área, sin remate."},
+   {l:"Quedarte y cubrir la banda", fx:{nota:0},
+    ok:"Te quedas y el equipo se mantiene ordenado. No hace falta ser el protagonista.",
+    ko:"Te quedas, pero en el contragolpe pierdes la marca.",
+    mid:"Cubres sin problemas. Nada que destacar."}
+  ]},
+ {id:"ent-dfc-salida-presion", pos:["DFC","MCD"],
+  t:"Salida bajo presión",
+  x:"El delantero rival te presiona arriba. Tienes el balón en la línea de tu área y el portero pide la pelota.",
+  o:[
+   {l:"Pasar al portero", fx:{inst:{}, nota:0},
+    ok:"El portero la saca con limpieza y la presión rival se queda sin efecto.",
+    ko:"El pase llega flojo y el delantero la roba.",
+    mid:"El portero la despeja sin mucho sentido."},
+   {l:"Sacar jugado por abajo al pivote", fx:{inst:{}, nota:2},
+    ok:"El pivote se la quita al primer toque y el equipo sale en limpio.",
+    ko:"El pivote se la pasa al rival y acabas en tu área.",
+    mid:"Sales jugado, pero con poco ritmo."},
+   {l:"Despejar largo", fx:{nota:1},
+    ok:"Un despeje limpio y la pelota aleja el peligro durante un rato.",
+    ko:"Despejas de cualquier manera y el rival recupera en tu campo.",
+    mid:"El balón sale largo sin dueño. Ni mal ni bien."}
+  ]},
+ {id:"ent-dfc-anticipar", pos:["DFC","LAT"],
+  t:"Anticipar el pase al hueco",
+  x:"Ves que el delantero rival va a recibir de espaldas al hueco entre tú y el lateral. Si cortas el pase, sales jugado; si no, llega ocasión.",
+  o:[
+   {l:"Adelantarte y cortar el pase", fx:{inst:{}, nota:1},
+    ok:"Cortas el pase y sales con el balón en la mano. Buena lectura.",
+    ko:"Te adelantas y el delantero te pasa por encima.",
+    mid:"Llegas tarde al corte, pero el balón sale por la línea."},
+   {l:"Mantener la línea y esperar", fx:{nota:0},
+    ok:"Mantienes la distancia y el delantero se da la vuelta sin peligro.",
+    ko:"Esperas demasiado y recibe con espacio.",
+    mid:"Se queda en el pie del delantero, sin riesgo ni premio."},
+   {l:"Hacer falta táctica", fx:{ta:1, nota:0},
+    ok:"Falta a tiempo, el árbitro la pita y se corta la jugada.",
+    ko:"La falta es tan evidente que el árbitro saca la amarilla.",
+    mid:"Falta sin más. El rival tira la falta lejos del área."}
+  ]},
+ {id:"ent-mc-cambio-juego", pos:["MC","MCO"],
+  t:"Cambio de juego a la banda contraria",
+  x:"El balón está en el centro y el lateral contrario está libre. Un pase largo puede cambiar el partido; uno corto mantiene la posesión.",
+  o:[
+   {l:"Cambio de juego largo", fx:{inst:{asis:0.2}, nota:2},
+    ok:"Pase largo perfecto y el lateral se planta en el área con tiempo.",
+    ko:"El pase se va largo y el rival cabecea a su favor.",
+    mid:"El lateral recibe, pero sin espacio para avanzar."},
+   {l:"Pase corto y ritmo", fx:{nota:1},
+    ok:"Mueves el balón con ritmo y el equipo sube ordenado.",
+    ko:"El pase corto se queda corto y el rival recupera.",
+    mid:"Mantienes la posesión, sin más."},
+   {l:"Atraer al rival y luego soltarlo", fx:{nota:1},
+    ok:"Atraes al rival al centro y el cambio llega cuando nadie lo espera.",
+    ko:"Atraes a demasiados y el cambio llega tarde.",
+    mid:"El rival se aleja y la jugada se queda sin premio."}
+  ]},
+ {id:"ent-mc-recuperar", pos:["MC","MCD"],
+  t:"Recuperar tras una pérdida",
+  x:"Acabas de perder el balón en el medio campo. Dos rivales vienen a por ti al contragolpe. Tienes que decidir ya.",
+  o:[
+   {l:"Presionar al que lleva el balón", fx:{ta:1, nota:2},
+    ok:"Le quitas el balón al primer toque. El contragolpe muere antes de nacer.",
+    ko:"Llegas tarde, el rival te pasa y el contragolpe es letal.",
+    mid:"Presionas y el rival se lo pasa al compañero sin problema."},
+   {l:"Replegar y cerrar el carril", fx:{nota:0},
+    ok:"Cierras el carril y el rival se queda sin pase. El equipo se recoloca.",
+    ko:"Cierras mal el carril y el rival entra solo.",
+    mid:"El rival se entretiene y el equipo recupera posición."},
+   {l:"Hacer falta para cortar la jugada", fx:{ta:1, nota:0},
+    ok:"Falta justa, el balón para y el equipo se recoloca.",
+    ko:"La falta es dura y la amarilla llega sin dudar.",
+    mid:"Falta, la jugada se para y el rival tira la falta lejos."}
+  ]}
+];
+function sitsBancoEntreno(){ return SITS.concat(SITS_CLUTCH||[], [SIT_PEN_L, SIT_PEN_P]); }
+function sitsEntreno(){
+  return sitsBancoEntreno().filter(function(s){ return s.pos && s.pos.indexOf(S.pos)>=0 && opsEntreno(s).length>=2 && txtSit(s.t) && txtSit(s.x); });
+}
+/* elige n situaciones distintas y fija hasta 3 opciones de cada una (como en el partido) */
+function elegirSitsEntreno(n){
+  var pool=sitsEntreno().slice(), out=[];
+  /* las jugadas usadas en las últimas semanas van al final: si hay de sobra, no se repiten */
+  var rec=(S&&S.sitsRec)||[];
+  pool.sort(function(a,b){ return (rec.indexOf(a.id)>=0) - (rec.indexOf(b.id)>=0) || (rnd()-0.5); });
+  while(out.length<n && pool.length){
+    var s=pool.shift(), ids=opsEntreno(s).slice();
+    while(ids.length>3) ids.splice(Math.floor(rnd()*ids.length),1);
+    out.push({id:s.id, ops:ids});
+  }
+  if(S){ S.sitsRec=rec.concat(out.map(function(o){ return o.id; })).slice(-12); }
+  return out;
+}
+function sitEntrenoPorId(id){ var L=sitsBancoEntreno(); for(var i=0;i<L.length;i++) if(L[i].id===id) return L[i]; return null; }
+/* probabilidad de que la decisión salga bien / mal en el partidillo: lo que promete la opción,
+   tu nivel para el puesto y tu forma. Lo ambicioso (más nota) sale menos, pero luce más. */
+function probsEntreno(o, D){
+  var fx=o.fx||{}, ins=fx.inst||{};
+  var bueno=(ins.gol||0)+(ins.asis||0)+(ins.parada||0), malo=(ins.golR||0)+(fx.ta||0)*0.5+(fx.roja||0)*2+(fx.lesion||0);
+  var nivel=(miMedia()-62)/40, forma=((S.forma===undefined?70:S.forma)-75)/150, noche=(D&&D.noche)?0.1:0;
+  var pOk=clamp(0.42+bueno*1.1+nivel+forma-noche-Math.max(0,fx.nota||0)*0.06, 0.08, 0.9);
+  var pKo=clamp(0.10+malo*1.5-nivel/2+noche, 0.03, 0.6);
+  if(pOk+pKo>0.97) pKo=0.97-pOk;
+  return {ok:pOk, ko:pKo};
+}
+function riesgoEntreno(p){ return p.ok>=0.6? "Segura" : p.ok>=0.42? "Equilibrada" : "Arriesgada"; }
+function entMisterHecho(){ return !!(S && S.dia && S.dia.jor===S.jornada && S.dia.fase==="fin"); }
+/* una sesión tuya dentro del día (usa el motor de siempre: atributos, habilidades, forma) */
+function sesionDia(id, extra){
+  var i=ejIdx(id); if(i<0) return null;
+  entrenoEstado();
+  aplicarEntreno(i, extra);
+  var h=S.entreno.hechos[S.entreno.hechos.length-1];
+  return {n:h.n, sub:h.sub, extra:!!extra};
+}
+function empezarDia(){
+  if(!S || S.lesion>0) return;
+  if(S.dia && S.dia.jor===S.jornada) return;
+  var V=citaVentana(), st=citaEstado(), c=citaCuenta(st.ll, st.sa), noche=faseVicio("noche");
+  var D={jor:S.jornada, fase:(st.ll>0?"antes":"mister"), ronda:0, rondas:elegirSitsEntreno(V.doble?4:3), pts:0, log:[],
+         antes:[], despues:[], ll:st.ll, sa:st.sa, mis0:S.mister, conf0:S.conf, forma0:S.forma};
+  if(noche>=1 && st.ll>0){
+    D.noche=true;
+    S.forma=clamp((S.forma===undefined?70:S.forma)-3*st.ll,20,100);
+    S.mister=clamp(S.mister-2*st.ll,5,95);
+    S.puntualBonus=0;
+  } else {
+    D.bonus=true;      /* el míster y el vestuario puntúan las horas USADAS: estar de cuerpo presente no da nada */
+    S.puntualBonus=c.ded;
+  }
+  S.puntualSem=S.jornada;
+  S.dia=D;
+  regSemana("puntualidad", "llegada-"+st.ll+"-salida-"+st.sa);
+  CITA_UI={jor:-1, ll:0, sa:0};
+  guardar();
+  irSub("equipo","entreno");
+}
+/* sesiones tuyas de verdad (las horas libres no cuentan) */
+function diaReales(D){ return D.antes.concat(D.despues).filter(function(x){ return !x.libre; }).length; }
+/* lo que gana el día por cada sesión usada: míster +1.5 por sesión, disciplina con la tercera, compañerismo con la primera de después */
+function diaPremio(D, despues){
+  var n=diaReales(D);
+  if(D.bonus){
+    S.mister=clamp(S.mister+1.5,5,95);
+    if(despues && D.despues.filter(function(x){ return !x.libre; }).length===1) tocarEje("companerismo", 1.2);
+    if(n===3) tocarEje("disciplina", 1.4);
+  }
+  if(n===2) S.rachaExtra=(S.rachaExtra||0)+1;   /* dos sesiones tuyas en la semana = racha de carga */
+}
+/* tocar una sesión en el hueco que toca: antes del entreno o después */
+function diaSesion(id){
+  var D=S && S.dia; if(!D || D.jor!==S.jornada || S.lesion>0) return;
+  if(D.fase==="antes" && D.antes.length<D.ll){
+    var r=sesionDia(id,false); if(r){ D.antes.push(r); diaPremio(D,false); }
+    if(D.antes.length>=D.ll) D.fase="mister";
+  } else if(D.fase==="despues" && D.despues.length<D.sa){
+    var esExtra=(diaReales(D)+1)>=4;   /* la cuarta sesión REAL del día rinde más y arriesga */
+    var r2=sesionDia(id,esExtra); if(r2){ D.despues.push(r2); diaPremio(D,true); }
+    if(D.despues.length>=D.sa) finDia();
+  } else return;
+  guardar();
+  irSub("equipo","entreno");
+}
+/* pasar un hueco sin hacer nada (no suma míster ni cuenta como sesión) */
+function diaSaltar(){
+  var D=S && S.dia; if(!D || D.jor!==S.jornada) return;
+  if(D.fase==="antes"){ D.antes.push({n:"Hueco libre", sub:"sin sesión", libre:true}); if(D.antes.length>=D.ll) D.fase="mister"; }
+  else if(D.fase==="despues"){ D.despues.push({n:"Hueco libre", sub:"sin sesión", libre:true}); if(D.despues.length>=D.sa) finDia(); }
+  else return;
+  guardar();
+  irSub("equipo","entreno");
+}
+function entMisterElige(j){
+  var D=S && S.dia; if(!D || D.jor!==S.jornada || D.fase!=="mister") return;
+  var R=D.rondas[D.ronda], sit=R && sitEntrenoPorId(R.id); if(!sit) return;
+  var oi=R.ops[j]; if(oi===undefined) return;
+  var o=sit.o[oi], p=probsEntreno(o, D), r=rnd(), cls= r<p.ok? "ok" : r<p.ok+p.ko? "ko" : "mid";
+  var amb=Math.abs((o.fx&&o.fx.nota)||0);
+  var sc= cls==="ok"? 1+amb*0.6 : cls==="mid"? 0.25 : -(0.4+amb*0.4);
+  var gan="";
+  if(cls==="ok"){   /* decidir bien en el partidillo te hace mejor leyendo el juego */
+    var a=atr("TAC")<=atr("MEN")? "TAC":"MEN", T=techoAtributoDe(a), v=atr(a);
+    if(v<T){ var g=Math.round(clamp((T-v)/52,0.05,1.1)*(0.25+amb*0.08)*100)/100; S.attr[a]=Math.min(T, v+g); gan=a+" +"+g.toFixed(2); }
+  }
+  S.forma=clamp((S.forma===undefined?70:S.forma)-2,20,100);
+  D.pts+=sc;
+  D.log.push({n:txtSit(sit.t), op:txtSit(o.l), cls:cls, ok:cls==="ok", txt:txtSit(o[cls]), gan:gan, juicio:o.juicio||"", por:o.por||""});
+  D.ronda++;
+  if(D.ronda>=D.rondas.length){ cerrarMister(D); D.fase="notaMister"; }
+  guardar();
+  irSub("equipo","entreno");
+}
+/* tras ver la nota del míster, sigue el día */
+function diaSeguir(){
+  var D=S && S.dia; if(!D || D.jor!==S.jornada || D.fase!=="notaMister") return;
+  if(D.sa>0) D.fase="despues"; else finDia();
+  guardar();
+  irSub("equipo","entreno");
+}
+function notaEntreno(D){
+  var N=Math.max(1, D.rondas.length);
+  return Math.round(clamp(3.2+(D.pts/N)*2.0, 3, 10)*10)/10;
+}
+/* la nota del entreno del míster: se decide al acabar sus ejercicios */
+function cerrarMister(D, aMedias){
+  if(D.nota!=null) return;
+  D.nota=notaEntreno(D);
+  if(aMedias) D.nota=Math.min(D.nota, 4.5);   /* dejarlo a medias se paga */
+  S.mister=clamp(S.mister+Math.round((D.nota-6)*1.5),5,95);
+  S.conf=clamp((S.conf||55)+Math.round((D.nota-6)*1.2),5,95);
+  S.entMister={jor:S.jornada, nota:D.nota};
+}
+function finDia(){
+  var D=S.dia; if(!D || D.fase==="fin") return;
+  if(D.nota==null) cerrarMister(D, D.ronda<D.rondas.length);
+  D.fase="fin";
+  if(diaReales(D)<2) S.rachaExtra=0;
+  S.avisoEntreno = D.nota>=7.5? "El míster te señala al terminar: «Así, todos los días.»"
+                 : D.nota>=6? "Entreno serio. Cumples."
+                 : "El míster te mira al salir y no dice nada. Mal día para dar que hablar.";
+}
+/* si llega el partido sin terminar el día, se cierra solo (lo que no hiciste, no cuenta) */
+function cerrarEntrenoPendiente(){
+  if(!S || S.lesion>0 || !S.contrato) return;
+  if(S.dia && S.dia.jor===S.jornada){ if(S.dia.fase!=="fin") finDia(); return; }
+  S.dia={jor:S.jornada, fase:"fin", rondas:[], ronda:0, pts:0, log:[], antes:[], despues:[], nota:4, auto:true};
+  S.entMister={jor:S.jornada, nota:4, auto:true};
+  S.mister=clamp(S.mister-3,5,95);
+  S.rachaExtra=0;
+  S.avisoEntreno="No te ve en el entreno de la semana. El míster lo apunta.";
+}
+/* el camino del día: dónde estás y qué queda */
+function diaPasos(D){
+  var p=[];
+  if(D.ll) p.push({k:"antes", t:"🌅 Antes "+D.antes.length+"/"+D.ll});
+  p.push({k:"mister", t:"⚽ Míster "+Math.min(D.ronda,D.rondas.length)+"/"+D.rondas.length});
+  if(D.sa) p.push({k:"despues", t:"🌙 Después "+D.despues.length+"/"+D.sa});
+  var orden=["antes","mister","despues","fin"], ya=orden.indexOf(D.fase==="notaMister"?"mister":D.fase);
+  return '<div style="display:flex;gap:6px;margin:0 0 12px;flex-wrap:wrap">'+p.map(function(x){
+    var i=orden.indexOf(x.k), est= i<ya? "opacity:.55" : i===ya? "border-color:var(--gold);color:var(--gold)" : "opacity:.35";
+    return '<span class="chip" style="pointer-events:none;padding:4px 10px;font-size:12px;'+est+'">'+x.t+'</span>';
+  }).join("")+'</div>';
+}
+function diaFilas(lista, ico){
+  return lista.map(function(h){ return '<div class="row2"><span>'+ico+' '+(h.extra?"➕ ":"")+esc(h.n)+'</span><b class="note" style="color:'+(h.libre?"#8891AA":"var(--gold)")+';text-align:right;max-width:58%">'+esc(h.sub)+'</b></div>'; }).join("");
+}
+/* etiqueta del juicio de una opción de entreno y su porqué (siempre visible en el registro) */
+var JUICIO_ETQ={buena:"Buena decisión", discreta:"Decisión discreta", mala:"Mala decisión"};
+function diaMisterFilas(D, conTexto){
+  return D.log.map(function(l){ var c=l.cls||(l.ok?"ok":"ko"), ic=c==="ok"?"✓ ":c==="ko"?"✗ ":"· ", col=c==="ok"?"var(--ok)":c==="ko"?"var(--bad)":"#8891AA";
+    var juicio=l.juicio? '<br><span style="font-weight:700;color:'+(l.juicio==="buena"?"var(--ok)":l.juicio==="mala"?"var(--bad)":"#AAB2C5")+'">'+esc(JUICIO_ETQ[l.juicio]||"")+'</span>'+(l.por?'<br><span style="font-weight:400;color:#AAB2C5">'+esc(l.por)+'</span>':'') : '';
+    return '<div class="row2" style="align-items:flex-start"><span style="max-width:45%">'+ic+esc(l.n)+'</span><b class="note" style="text-align:right;max-width:55%;color:'+col+'">'+esc(l.op)+(conTexto&&l.txt?'<br><span style="font-weight:400;color:#AAB2C5">'+esc(l.txt)+'</span>':'')+(l.gan?" · "+esc(l.gan):"")+juicio+'</b></div>'; }).join("");
+}
+function entMisterHTML(){
+  var D=S.dia, V=citaVentana(), H='<div class="card" style="border-color:var(--gold)">';
+  if(D.fase==="antes" || D.fase==="despues"){
+    var antes=D.fase==="antes", hecho=antes? D.antes.length : D.despues.length, tot=antes? D.ll : D.sa;
+    var extra=!antes && (diaReales(D)+1)>=4;
+    var hora=antes? horaFmt(V.llamada-D.ll+hecho) : horaFmt(V.fin+hecho);
+    H+='<div class="eyebrow">'+(antes?"Antes del entreno":"Después del entreno")+' · sesión '+(hecho+1)+' de '+tot+'</div>'+diaPasos(D);
+    if(!antes){ H+='<p class="note" style="margin:0 0 6px">Entreno del míster: nota <b style="color:var(--gold)">'+String(D.nota).replace(".",",")+'</b></p>'; }
+    H+=diaFilas(antes? D.antes : D.despues, antes?"🌅":"🌙");
+    H+='<p style="margin:8px 0 6px">Son las <b>'+hora+'</b>. ¿Qué haces en esta hora?</p>';
+    if(extra) H+='<p class="note" style="margin:0 0 6px;color:var(--bad)">Cuarta sesión del día: rinde más, pero puedes pasarte de carga.</p>';
+    var rec=recomendacion();
+    if(rec) H+='<div class="recbox">🧑‍🏫 <b>El preparador:</b> «'+esc(rec.motivo)+'.» Te propone <b>'+esc(nombreEj(rec.ej))+'</b>, pero decides tú.</div>';
+    H+='<p class="note" style="margin:8px 0 4px">Específicos de '+esc(POS[S.pos].n.toLowerCase())+'</p><div class="ejgrid">';
+    entrenosDisp().filter(function(x){return !esGeneral(x);}).forEach(function(x){ H+=ejCarta(x,rec,extra); });
+    H+='</div><p class="note" style="margin:10px 0 4px">Generales</p><div class="ejgrid">';
+    entrenosDisp().filter(esGeneral).forEach(function(x){ H+=ejCarta(x,rec,extra); });
+    H+='</div><button class="ghost" style="margin-top:10px" onclick="diaSaltar()">Dejar esta hora libre</button>';
+  } else if(D.fase==="mister"){
+    var R=D.rondas[D.ronda], sit=sitEntrenoPorId(R.id);
+    H+='<div class="eyebrow">Entreno del míster · partidillo · jugada '+(D.ronda+1)+' de '+D.rondas.length+'</div>'+diaPasos(D);
+    H+=diaMisterFilas(D,true);
+    H+='<h3 class="disp" style="margin:10px 0 4px">'+esc(txtSit(sit.t))+'</h3><p class="note" style="margin:0 0 10px">'+esc(txtSit(sit.x))+'</p>';
+    R.ops.forEach(function(oi,j){
+      var o=sit.o[oi];
+      H+='<button class="opt" onclick="entMisterElige('+j+')"><b>'+esc(txtSit(o.l))+'</b><small>'+riesgoEntreno(probsEntreno(o,D))+'</small></button>';
+    });
+    H+='<p class="note" style="margin:8px 2px 0">Las mismas decisiones que en un partido, pero en el partidillo: no hay marcador ni tarjetas de verdad. Lo que cuenta es lo que ve el míster, y eso pesa para el domingo.</p>';
+  } else if(D.fase==="notaMister"){
+    H+='<div class="eyebrow">Entreno del míster · terminado</div>'+diaPasos(D);
+    H+=diaMisterFilas(D,true);
+    H+='<p style="margin:12px 0 4px;font-size:15px">Nota del míster: <b style="color:var(--gold);font-size:20px">'+String(D.nota).replace(".",",")+'</b></p>';
+    H+='<p class="note" style="margin:0 0 12px">Míster '+citaSigno(S.mister-(D.mis0||S.mister))+' · Confianza '+citaSigno((S.conf||0)-(D.conf0||S.conf||0))+' en lo que va de día.</p>';
+    H+='<button class="gold-btn" onclick="diaSeguir()">'+(D.sa>0? "Seguir: tus sesiones de después" : "Terminar el día")+'</button>';
+  } else {
+    var conv=(S.lesion>0||S.sancion>0)? null : convocatoria();
+    H+='<div class="eyebrow">Tu día · hecho</div>';
+    if(D.auto){
+      H+='<p style="margin:0">No hiciste el entreno del míster esta semana. Nota <b>4</b>.</p>';
+    } else {
+      H+=diaFilas(D.antes,"🌅")+diaMisterFilas(D,false)+diaFilas(D.despues,"🌙");
+      H+='<p style="margin:10px 0 0">Nota del entreno: <b style="color:var(--gold)">'+String(D.nota).replace(".",",")+'</b>'
+        +' · Míster '+citaSigno(S.mister-(D.mis0||S.mister))+' · Confianza '+citaSigno((S.conf||0)-(D.conf0||S.conf||0))+'</p>';
+    }
+    if(conv) H+='<p class="note" style="margin:6px 0 0">El domingo: <b>'+esc(conv.txt)+'</b>. '+esc(conv.det)+'</p>';
+  }
+  return H+'</div>';
+}
+/* ============================================================
+   ENTRENADORES — cada uno con su método, sus horarios y sus manías.
+   El mismo jugador rinde distinto según quién le dirija: es lo que
+   separa esto de un simulador genérico.
+   ============================================================ */
+var ESTILOS=[
+ {id:"control", n:"Obsesivo del control", lema:"«El balón no se suda, se acaricia.»",
+  d:"Posesión, posiciones fijas y vídeo hasta el aburrimiento.",
+  tol:0.70, estilo:{own:1.06, opp:0.95},
+  roles:["organizador","creador","enganche","salida","libero","invertido","falso","conductor"],
+  odia:["showman","genio","problema"],
+  horario:"Entrada a las 7:30, salida el último. Doble sesión los martes.", entradaH:7.5, doble:true,
+  entreno:{tactica:1.35, tecnica:1.15, fisico:0.85, mental:1.1},
+  manias:["Prohibido el móvil en el vestuario","Charla de pizarra antes de cada sesión","Pesaje todos los lunes"]},
+ {id:"bunker", n:"Pragmático de trinchera", lema:"«Nosotros contra el mundo.»",
+  d:"Bloque bajo, contragolpe y guerra psicológica con todo el que se cruce.",
+  tol:1.30, estilo:{own:0.97, opp:0.88},
+  roles:["destructor","cerrojo","contundente","anticipo","trabajador","referencia","mixto"],
+  odia:["capitan"],
+  horario:"Sesiones cortas e intensas. Concentración desde dos días antes.", entradaH:9, doble:false,
+  entreno:{defensivo:1.3, mental:1.3, tactica:1.15, tecnica:0.85},
+  manias:["Rueda de prensa como campo de batalla","Nadie habla con la prensa sin permiso","Le encanta el jugador con hambre"]},
+ {id:"gestor", n:"Gestor de vestuario", lema:"«A los futbolistas se les gestiona, no se les doma.»",
+  d:"Poca pizarra y mucha mano izquierda. Deja jugar y protege a los suyos.",
+  tol:1.45, estilo:{own:1.02, opp:1.0},
+  roles:["nueve","crack","llegador","desborde","sombra","carrilero"],
+  odia:[],
+  horario:"Sesiones cortas, mucho descanso. Nunca doble sesión.", entradaH:10, doble:false,
+  entreno:{mental:1.2, tecnica:1.05, fisico:0.95},
+  manias:["Habla con cada jugador a solas una vez al mes","Odia las excusas","Cumpleaños celebrados en el vestuario"]},
+ {id:"intenso", n:"Intensidad y alto rendimiento", lema:"«El que no corre, no juega.»",
+  d:"Presión alta, ritmo insoportable y exigencia física por encima de todo.",
+  tol:0.85, estilo:{own:1.05, opp:0.94},
+  roles:["box","carrilero","trabajador","movil","destructor","llegador"],
+  odia:["problema","showman"],
+  horario:"Física a las 8:00 en ayunas. Test de resistencia cada quince días.", entradaH:8, doble:true,
+  entreno:{fisico:1.4, defensivo:1.15, tecnica:0.9},
+  manias:["Pesaje y grasa corporal semanal","Prohibido el azúcar en la ciudad deportiva","Le obsesionan los datos de GPS"]},
+ {id:"cantera", n:"Idealista de la cantera", lema:"«Prefiero un chaval con hambre que un veterano cómodo.»",
+  d:"Confía en los jóvenes, perdona el error y castiga la desidia.",
+  tol:1.15, estilo:{own:1.0, opp:0.99},
+  roles:["desborde","creador","salida","box","movil","invertido"],
+  odia:["problema"],
+  horario:"Entrenamiento a media mañana, siempre con el filial cerca.", entradaH:10.5, doble:false,
+  entreno:{tecnica:1.25, tactica:1.1, mental:1.05},
+  manias:["Los jóvenes comen con los del primer equipo","Vídeo individual cada viernes","No soporta que se pida la hora"]},
+ {id:"veterano", n:"Zorro veterano", lema:"«He visto de todo, chaval.»",
+  d:"Oficio, gestión de minutos y cero experimentos. La experiencia manda.",
+  tol:1.0, estilo:{own:1.01, opp:0.96},
+  roles:["mixto","cerrojo","referencia","organizador","clasico","contundente"],
+  odia:["genio"],
+  horario:"Rutina inamovible. Nada de sorpresas ni de inventos.", entradaH:9, doble:false,
+  entreno:{tactica:1.15, defensivo:1.1, fisico:1.0},
+  manias:["Los veteranos deciden las multas","Siempre el mismo once si gana","Detesta las redes sociales"]}
+];
+/* ============================================================
+   EL CLUB — objetivo de temporada, paciencia con el técnico y descenso
+   ============================================================ */
+/* ============================================================
+   EL DÍA A DÍA — lo que el club, el míster y el vestuario te dicen A TI
+   ============================================================ */
+function objetivoPersonal(){
+  if(S.objPers) return S.objPers;
+  var med=miMedia(), p=S.pos;
+  var esperaGol=({DC:14, EXT:8, MCO:7, MC:3, MCD:1, LAT:2, DFC:2, POR:0})[p];
+  var esperaPJ=Math.round(clamp(10+(med-58)*0.9, 8, 32));
+  var factor=clamp(0.55+(med-58)/45, 0.5, 1.5);
+  S.objPers={
+    pj:esperaPJ,
+    gol:Math.max(0, Math.round(esperaGol*factor)),
+    nota:Math.round((6.4+(med-58)/60)*10)/10
+  };
+  return S.objPers;
+}
+function cumpleObjetivo(){
+  var o=objetivoPersonal(), Y=S.yo, prog=clamp((S.jornada+1)/38, 0, 1);
+  var n=Y.notaN? Y.notaSum/Y.notaN : 0;
+  var pts=0;
+  if(Y.pj>=o.pj*prog) pts++;
+  if(o.gol===0 || Y.g>=o.gol*prog) pts++;
+  if(n>=o.nota) pts++;
+  return pts;   /* 0..3 */
+}
+/* mensajes que llegan entre jornadas */
+/* ===== LO QUE SE DICE DE TI =====
+   Tras cada jornada, en el inicio: prensa, grada, míster y vestuario hablan de tu partido.
+   Las frases salen del último partido (nota, goles, asistencias, paradas, tarjetas, resultado
+   o si no jugaste) y del tono de la prensa y la afición contigo. Fijas durante la semana. */
+function vozRng(semilla){
+  var h=2166136261>>>0; semilla=String(semilla);
+  for(var i=0;i<semilla.length;i++){ h^=semilla.charCodeAt(i); h=Math.imul(h,16777619)>>>0; }
+  return function(){ h=(Math.imul(h^(h>>>15),2246822507)+0x9e3779b9)>>>0; return (h>>>0)/4294967296; };
+}
+/* nombre de club para una frase con «el»: «R. Madrid» pasa a «Real Madrid» */
+function nombreClubVoz(c){ return String(c||"").replace(/^R\.\s*/,"Real "); }
+function vozElige(arr,r,vistas){
+  var L=arr.filter(function(x){ return vistas.indexOf(x)<0; });
+  if(!L.length) L=arr;
+  return L[Math.floor(r()*L.length)];
+}
+/* Solo hablan las voces con algo que decir (máximo 2; 3 tras una gran actuación).
+   Cada frase se usa una vez y no vuelve a salir en la carrera. Fijas durante la semana. */
+function vocesPartido(){
+  if(!S || !S.hist || !S.hist.length || !S.jornada) return [];
+  var h=S.hist[S.hist.length-1];
+  if(!h || h.jor!==S.jornada) return [];                  /* solo la semana siguiente al partido */
+  var clave=(S.temporada||1)+"-"+h.jor;
+  if(S.vocesClave===clave && S.vocesElegidas) return S.vocesElegidas;
+  var r=vozRng(clave+"-"+(S.nombre||"")), P=pub(), vistas=S.vocesVistas||[];
+  var yo=h.yo, nom=S.nombre||"el chaval", riv=(EQ[h.rival]&&EQ[h.rival].c)||"el rival", rivN=nombreClubVoz(riv);
+  var res=h.sc[0]-h.sc[1], marc=h.sc[0]+"–"+h.sc[1];
+  var compi=(function(){ var L=compis().filter(function(x){ return x.n && x.n!==S.nombre; }); return L.length? pick2(L,r).n : "un veterano"; })();
+  var mnom=mister_n(), el=function(arr){ return vozElige(arr,r,vistas); };
+  var cand=[], max=2, banda=null;
+
+  if(!yo){
+    var motivo=h.sinTi||"decisión técnica";
+    cand.push({p:50, de:"Prensa", col:"#4FA3FF", t:el([
+      "«"+nom+", inédito ante el "+rivN+" ("+marc+"). El míster no le encuentra sitio.»",
+      "«Ni un minuto para "+nom+". "+(motivo==="sin minutos"?"Calentó y se volvió a sentar.":"El cuerpo técnico habla de "+motivo+".")+"»"])});
+  } else {
+    var n=yo.nota;
+    banda= n>=8? "top" : n>=6.5? "bien" : n>=5.5? "normal" : "mal";
+    var hecho= yo.g>1? "con doblete" : yo.g===1? "con gol" : yo.a>1? "con "+yo.a+" asistencias" : yo.a===1? "con una asistencia" : (S.pos==="POR"&&yo.p>=4)? "con "+yo.p+" paradas" : "";
+    var cabeza= P.prensa>=65? "favorable" : P.prensa<=35? "hostil" : "neutra";
+    if(banda==="top") max=3;
+
+    if(yo.tr){
+      cand.push({p:95, de:"Prensa", col:"#4FA3FF", t:el(["«La roja de "+nom+" condicionó el partido. Imperdonable.»","«Diez minutos menos y un partido perdido. Así no se gana.»"])});
+      cand.push({p:85, de:"El míster", quien:mnom, col:"#FFC24B", t:el(["«Con diez no hay partido. "+nom+" tiene que controlarse.»","«La roja nos ha costado el partido. Hablaré con él.»"])});
+    } else if(banda==="top"){
+      var PR=[ "«Exhibición de "+nom+" "+hecho+". El "+rivN+" no supo pararle.»",
+               "«"+nom+" firma el partido de la jornada"+(hecho?" "+hecho:"")+": "+String(n).replace(".",",")+" en nuestra crónica.»",
+               "«Hay jugador. "+nom+" se echa el equipo a la espalda ("+marc+").»" ];
+      if(cabeza==="hostil") PR=["«Hasta "+nom+" tuvo su día. No nos acostumbremos.»","«"+nom+" cumple, que ya es noticia.»"];
+      cand.push({p:80, de:"Prensa", col:"#4FA3FF", t:el(PR)});
+      cand.push({p:70, de:"El míster", quien:mnom, col:"#FFC24B", t:el([
+        "«No voy a hablar de individualidades… bueno, de "+nom+" sí. Hoy ha sido diferente.»",
+        "«"+nom+" ha hecho lo que le pedimos y más.»"])});
+      var GR0=(yo.g? "Ese gol" : "Ese partido")+" de "+nom;
+      cand.push({p:60, de:"La grada", col:"#4ADE80", t:el(["«"+nom+" es otra cosa. Que le renueven YA.»","«Pagaría la entrada solo por ver a "+nom+".»","«"+GR0+" lo cuento a mis nietos.»"])});
+    } else if(banda==="bien"){
+      if(hecho) cand.push({p:45, de:"Prensa", col:"#4FA3FF", t:el(["«Buen partido de "+nom+" "+hecho+". Cumple y algo más.»","«"+nom+", de lo mejor de los suyos ante el "+rivN+".»"])});
+      if(P.afic>=70) cand.push({p:35, de:"La grada", col:"#4ADE80", t:el(["«Me gusta "+nom+". Tiene cosas.»","«"+nom+" va a más, se nota.»"])});
+    } else if(banda==="mal"){
+      cand.push({p:65, de:"Prensa", col:"#4FA3FF", t:el(cabeza==="favorable"
+        ? ["«Un mal día lo tiene cualquiera. "+nom+" volverá.»","«"+nom+", lejos de su nivel. Excepción, no regla.»"]
+        : ["«Tarde para olvidar de "+nom+". El "+rivN+" le pasó por encima.»","«"+nom+" no estuvo. Ni con balón ni sin él.»"])});
+      cand.push({p:55, de:"La grada", col:"#4ADE80", t:el(P.afic>=70
+        ? ["«Hoy no, pero con "+nom+" a muerte.»","«Un mal día. Seguimos contigo, "+nom+".»"]
+        : ["«"+nom+" al banquillo ya.»","«¿Alguien ha visto a "+nom+" hoy? Yo tampoco.»"])});
+      cand.push({p:40, de:"El míster", quien:mnom, col:"#FFC24B", t:el(["«Hoy no ha sido su día. Lo hablaremos dentro.»","«A "+nom+" le pido más. Y a todos.»"])});
+    }
+    /* vestuario o rival: solo si hubo goles, asistencias o una gran actuación */
+    if(banda && (banda==="top" || yo.g || yo.a) && !yo.tr){
+      cand.push({p:res<0?30:35, de:res<0?"El rival":"El vestuario", col:"#C084FC", t: res<0
+        ? el(["«Su "+(POS[S.pos].n||"jugador").toLowerCase()+" nos ha hecho daño todo el partido. Hay que seguirle.»","«"+nom+"? Muy bueno. No le dejamos respirar y aun así.»"])
+        : el(["«Con "+nom+" así, esto es más fácil» ("+compi+").","«Le dije en el descanso que hoy era su día» ("+compi+").", "«Hoy tiraba él. Y acertó» ("+compi+")."])});
+    }
+  }
+  cand.sort(function(a,b){ return b.p-a.p; });
+  var out=cand.slice(0,max);
+  S.vocesClave=clave;
+  S.vocesElegidas=out;
+  S.vocesVistas=vistas.concat(out.map(function(v){ return v.t; })).slice(-60);
+  return out;
+}
+function mister_n(){ var m=mister(); return (m&&m.n)? m.n : "El míster"; }
+function vocesHTML(){
+  var V=vocesPartido(); if(!V.length) return "";
+  var h=S.hist[S.hist.length-1], riv=(EQ[h.rival]&&EQ[h.rival].c)||"el rival";
+  var H='<div class="card"><div class="eyebrow">Lo que se dice de ti · tras el partido ante el '+esc(nombreClubVoz(riv))+'</div>';
+  V.forEach(function(v){
+    H+='<div class="msgcard" style="border-left-color:'+v.col+';margin:8px 0 0">'
+      +'<div class="msgde" style="color:'+v.col+'">'+esc(v.de)+(v.quien?' · '+esc(v.quien):'')+'</div>'
+      +'<p class="msgt">'+esc(v.t)+'</p></div>';
+  });
+  return H+'</div>';
+}
+function diaADia(){
+  var out=[], Y=S.yo, n=Y.notaN? Y.notaSum/Y.notaN : 6.5;
+  var ult=S.hist.slice(-4), notas=ult.map(function(h){return h.nota||0;});
+  var buena=notas.length>=3 && notas.slice(-3).every(function(x){return x>=7.2;});
+  var mala=notas.length>=3 && notas.slice(-3).every(function(x){return x>0 && x<=5.9;});
+  var sin=jornadasSinJugar();
+  var cap=capitanEquipo();
+  /* --- EL MÍSTER --- */
+  if(sin>=3 && !S.chLast_sin){
+    S.chLast_sin=S.jornada;
+    out.push({de:"míster", n:mister().n, t:"«Te veo bien en los entrenamientos. No es un castigo: es que ahora mismo el equipo funciona. Cuando te toque, quiero verte enchufado.»", col:"#4FA3FF"});
+  } else if(buena && S.chLast_bien!==S.jornada){
+    S.chLast_bien=S.jornada;
+    out.push({de:"míster", n:mister().n, t:pick(["«Lo que estás haciendo estas semanas es exactamente lo que te pedí. Sigue exactamente igual.»",
+      "«Te has ganado el sitio tú solo. Ahora lo difícil es mantenerlo.»"]), col:"var(--ok)"});
+  } else if(mala && S.chLast_mal!==S.jornada){
+    S.chLast_mal=S.jornada;
+    out.push({de:"míster", n:mister().n, t:pick(["«Te noto lejos del partido. Si es algo de fuera, dímelo; si no, espabila.»",
+      "«Tres partidos así y tengo que tomar decisiones. No me obligues.»"]), col:"var(--bad)"});
+  }
+  /* --- EL CLUB --- */
+  var o=objetivoPersonal(), c=cumpleObjetivo();
+  if(S.jornada===19 && !S.revisionMedia){
+    S.revisionMedia=true;
+    out.push({de:"club", n:"Dirección deportiva", t:(c>=2
+      ? "«Vamos por buen camino. A final de temporada nos sentamos a hablar de tu contrato.»"
+      : "«Esperábamos más a estas alturas. Te queda media temporada para darle la vuelta.»"), col:c>=2?"var(--ok)":"var(--gold)"});
+  }
+  if(!S.escandalo && S.multaPuesta) S.multaPuesta=false;   /* lista para el próximo lío */
+  if(S.escandalo && !S.multaPuesta){
+    S.multaPuesta=true;
+    var multa=Math.round((S.contrato?S.contrato.salario:300000)*0.02/1000)*1000;
+    S.dinero=(S.dinero||0)-multa;
+    out.push({de:"club", n:"Dirección deportiva", t:"Te caen "+fmtDinero(multa)+" de multa por lo de esta semana. El club no lo va a comentar públicamente, pero queda escrito.", col:"var(--bad)"});
+  }
+  /* --- EL VESTUARIO --- */
+  if(S.jornada===2 && !S.bienvenida){
+    S.bienvenida=true;
+    out.push({de:"vestuario", n:cap? cap.n : "El capitán", t:"«Aquí se entrena fuerte y se habla poco. Si necesitas algo, me lo dices a mí antes que a nadie.»", col:"var(--gold)"});
+  }
+  if(!S.mote && (Math.abs(eje("ego"))>45 || eje("temperamento")>72 || n>=7.6) && S.jornada>=8){
+    S.mote=moteDe();
+    out.push({de:"vestuario", n:"El grupo", t:"En el vestuario ya te llaman <b>«"+esc(S.mote)+"»</b>. Cuando te ponen mote, es que eres de los suyos.", col:"var(--bloom)"});
+  }
+  if(afinMedia()<=28 && S.chLast_frio!==S.jornada){
+    S.chLast_frio=S.jornada;
+    out.push({de:"vestuario", n:cap? cap.n : "El capitán", t:"«Hay gente aquí que no está cómoda contigo. No te lo digo como amenaza, te lo digo para que lo sepas.»", col:"var(--bad)"});
+  }
+  return out;
+}
+function capitanEquipo(){
+  var L=compis().filter(function(c){ return c.lesion<=0; });
+  if(!L.length) return null;
+  L.sort(function(a,b){ return (b.edad*2+b.media)-(a.edad*2+a.media); });
+  return L[0];
+}
+function moteDe(){
+  var a=arquetipo().id, pos=S.pos;
+  var M0={
+    genio:["El Loco","El Mago","El Diez"], problema:["El Marciano","El Follonero"],
+    showman:["El Circo","El Artista","El Show"], crack:["El Jefe","La Estrella","El Crack"],
+    capitan:["El Sargento","El Patrón"], soldado:["El Motor","El Obrero","El Pulmón"],
+    guerrero:["El Perro","El Hacha","La Bestia"], peon:["El Nuevo","El Chaval"]
+  };
+  return pick(M0[a]||M0.peon);
+}
+function objetivoClub(){
+  if(S.objetivo) return S.objetivo;
+  var r=rankDe(S.equipo);
+  if(r>=21){
+    var s=r-20;
+    S.objetivo = s<=4? {pos:3, n:"ascender a Primera"}
+      : s<=10? {pos:6, n:"pelear el ascenso hasta mayo"}
+      : {pos:14, n:"asentarse en la categoría"};
+  } else {
+    S.objetivo = r<=2? {pos:1, n:"ganar la Liga"}
+      : r<=5? {pos:4, n:"clasificarse para la Champions"}
+      : r<=9? {pos:7, n:"pelear por Europa"}
+      : r<=14? {pos:12, n:"quedar en la mitad de la tabla"}
+      : {pos:17, n:"conseguir la permanencia"};
+  }
+  return S.objetivo;
+}
+function posLiga(eq){
+  var L=Object.keys(S.tabla).map(function(k){ return {id:k,t:S.tabla[k]}; })
+    .sort(function(x,y){ return (y.t.pts-x.t.pts)||((y.t.gf-y.t.gc)-(x.t.gf-x.t.gc))||(y.t.gf-x.t.gf); });
+  for(var i=0;i<L.length;i++) if(L[i].id===(eq||S.equipo)) return i+1;
+  return 20;
+}
+/* la paciencia del club con el entrenador */
+function revisarDestitucion(){
+  if(S.jornada<8 || S.misterDespedido) return null;
+  var pos=posLiga(), obj=objetivoClub();
+  var mal=pos-obj.pos;
+  var ultimos=S.racha.slice(-5), derrotas=ultimos.filter(function(x){return x==="D";}).length;
+  var riesgo=(mal>=5?0.10:0)+(mal>=8?0.10:0)+(derrotas>=4?0.14:0)+(derrotas===5?0.10:0);
+  if(riesgo<=0 || rnd()>riesgo) return null;
+  var anterior=mister().n, estAnt=estiloMister().n;
+  S.entrenador=crearEntrenador(S.equipo);
+  S.misterNuevo=true;
+  S.mister=52; S.castigo=0; S.desafios=0;
+  S.avisoMister="El club destituye a "+anterior+" ("+estAnt+"). El vestuario se queda en silencio y todo vuelve a empezar.";
+  return anterior;
+}
+function crearEntrenador(eqId){
+  var e=EQ[eqId], rank=e?(esSegunda(eqId)?16:rankDe(eqId)):10;
+  var pesos=ESTILOS.map(function(x){
+    var w=1;
+    if(rank<=5 && (x.id==="control"||x.id==="gestor")) w=2.2;
+    if(rank>=15 && (x.id==="bunker"||x.id==="cantera")) w=2.2;
+    if(rank>10 && x.id==="control") w=0.5;
+    return w;
+  });
+  var tot=pesos.reduce(function(a,b){return a+b;},0), r=rnd()*tot, acc=0, est=ESTILOS[0];
+  for(var i=0;i<ESTILOS.length;i++){ acc+=pesos[i]; if(r<acc){ est=ESTILOS[i]; break; } }
+  return {n:genNombrePila(rnd)+" "+genApellido(rnd), est:est.id, mania:pick(est.manias), temporadas:1};
+}
+function mister(){
+  if(!S) return null;
+  if(!S.entrenador) S.entrenador=crearEntrenador(S.equipo);
+  return S.entrenador;
+}
+function estiloMister(){
+  var m=mister(); if(!m) return ESTILOS[0];
+  for(var i=0;i<ESTILOS.length;i++) if(ESTILOS[i].id===m.est) return ESTILOS[i];
+  return ESTILOS[0];
+}
+/* ¿le gustas al míster? */
+/* ÚNICA fuente para describir tu relación con el técnico: la usan
+   la ficha, la pestaña del míster y el dashboard. */
+function fraseMister(){
+  var enc=encajeMister(), rel=S.mister, sin=jornadasSinJugar();
+  var txt, col;
+  if(S.castigo>0){ txt="te ha borrado"; col="var(--bad)"; }
+  else if(sin>=3){
+    txt = rel>=60? "te aprecia, pero no te pone" : rel>=40? "no cuenta contigo ahora mismo" : "te tiene descartado";
+    col = rel>=60? "var(--gold)":"var(--bad)";
+  }
+  else if(rel>=75 && enc>=0.5){ txt="te adora"; col="var(--ok)"; }
+  else if(rel>=60){ txt = enc>=0.5? "confía en ti":"confía en ti aunque no seas su perfil"; col="var(--ok)"; }
+  else if(rel>=45){ txt = enc>=0.5? "te ve bien y le encajas":"te ve bien"; col="var(--gold)"; }
+  else if(rel>=32){ txt = enc<=-0.5? "tiene dudas y no eres su tipo":"tiene dudas contigo"; col="var(--gold)"; }
+  else { txt="no te quiere"; col="var(--bad)"; }
+  return {txt:txt, col:col, enc:enc};
+}
+function encajeMister(){
+  var E=estiloMister(), pts=0;
+  if(E.roles.indexOf(S.rol)>=0) pts+=1;
+  if(E.odia.indexOf(arquetipo().id)>=0) pts-=1.4;
+  if(E.id==="cantera" && (S.edad||22)<=23) pts+=0.8;
+  if(E.id==="veterano" && (S.edad||22)>=29) pts+=0.6;
+  if(E.id==="intenso") pts+=(eje("disciplina")>20?0.5:-0.5);
+  return pts;   /* -2 .. +2 aprox */
+}
+/* ============================================================
+   OPINIÓN PÚBLICA — la afición, la prensa y las redes.
+   Tres públicos distintos que no opinan lo mismo de ti.
+   ============================================================ */
+var USR_A=["furia","grada","tacto","sofa","norte","sur","fondo","penya","mister","var_","tiki","area","cesped","pivote","panenka","zaguero","cantera","bufanda","tribuna","vermut"];
+var USR_B=["_blanca","_futbolera","zurdo","total","_delbarrio","enelbar","radical","depaseo","_sincarnet","dominical","_ynada","alpalo","_ymedia","conacento","delfondo"];
+function genUsuario(){ var u="@"+pick2(USR_A,rnd)+pick2(USR_B,rnd); if(rnd()<0.5) u+=String(1900+Math.floor(rnd()*200)); return u; }
+function pub(){
+  if(!S.publico) S.publico={afic:50, prensa:50, seg:1200};
+  return S.publico;
+}
+function nivelSeg(){
+  var v=pub().seg;
+  if(v>=1000000) return (v/1000000).toFixed(1).replace(".",",")+" M";
+  if(v>=1000) return Math.round(v/1000)+" K";
+  return String(Math.round(v));
+}
+function actualizarPublico(nota, jugo, res){
+  var P=pub(), arq=arquetipo();
+  if(jugo){
+    var base=(nota-6.6);
+    /* la afición perdona más al que la hace vibrar */
+    P.afic=clamp(P.afic + base*2.6*auraGrada() + (res>0?1.2:res<0?-0.8:0) + (M.miGol*2.2) - (M.miTR?6:0), 0, 100);
+    /* la prensa es más fría y más dura con el díscolo */
+    P.prensa=clamp(P.prensa + base*2.2 + (M.miGol*1.6) - (M.miTR?7:0) + (eje("disciplina")>30?0.4:eje("disciplina")<-30?-0.9:0), 0, 100);
+    /* seguidores: crecen con lo que da titulares */
+    var crece=1 + M.miGol*140 + (nota>=8?260:0) + (M.miTR?180:0) + Math.round((S.fama||30)*1.6);
+    P.seg=Math.round(P.seg + crece*(1+eje("ego")/160));
+  } else {
+    P.afic=clamp(P.afic-0.5,0,100); P.prensa=clamp(P.prensa-0.4,0,100);
+  }
+  if(S.escandalo){ P.afic=clamp(P.afic-4*(eje("ego")>40?0.6:1),0,100); P.prensa=clamp(P.prensa-9,0,100); P.seg+=2400; }
+  /* muro de reacciones */
+  S.muro=S.muro||[];
+  var quien=genUsuario(), t=null;
+  if(!jugo) t=pick(["¿Alguien me explica por qué "+S.nombre+" no juega? Llevo tres jornadas preguntándomelo.",
+    "Con el míster que tenemos, "+S.nombre+" se va a pudrir en el banquillo."]);
+  else if(M.miTR) t=pick(["Expulsión de "+S.nombre+" y a ver quién lo defiende ahora.",
+    S.nombre+" otra vez calentando el vestuario antes de tiempo. Insostenible."]);
+  else if(nota>=8.3) t=pick(["Lo de "+S.nombre+" hoy no es normal. Repítanlo en bucle.",
+    "Que nadie toque a "+S.nombre+". Renovación mañana mismo.",
+    "Llevo veinte años en el fondo y hoy me he levantado por "+S.nombre+"."]);
+  else if(nota>=7.2) t=pick([S.nombre+" está en un momento dulce. Que siga.",
+    "Buen partido de "+S.nombre+", de los que no salen en el resumen pero se notan."]);
+  else if(nota<=5.2) t=pick(["Flojísimo "+S.nombre+" hoy. Y van varias.",
+    "No sé qué le pasa a "+S.nombre+", pero así no.",
+    "Que descanse "+S.nombre+", por favor. Le está pesando la camiseta."]);
+  else t=pick(["Partido gris de "+S.nombre+". Ni fu ni fa.",
+    S.nombre+" cumplió. Poco más se le puede pedir hoy."]);
+  if(t) S.muro.unshift({jor:S.jornada+1, u:quien, t:t, bien:(nota>=7.2 && jugo && !M.miTR)});
+  if(S.muro.length>16) S.muro.pop();
+}
+/* ---- plantillas reales (editables) ----
+   Nombres asentados en cada club según mi conocimiento a mayo de 2026.
+   El mercado 2026-27 cierra el 1 de septiembre: si alguno ha cambiado de
+   camiseta, basta con editar su nombre aquí. */
+/* nombre|puesto|edad|media — conocimiento a mayo de 2026, editable a mano */
+/* Las plantillas de Primera ahora nacen de plantillaPrimera(id): deterministas por club, cero nombres a mano. */
+
+function parseJug(str){
+  var p=str.split("|");
+  return {n:p[0], pos:p[1], edad:+p[2], media:+p[3]};
+}
+/* el reto del míster: métrica medible sobre el libro y el acta, con plazo, premio y castigo */
+var METRICAS_RETO={
+ aporteDef:{ pos:["DFC","LAT","MCD","POR"], txt:function(u){return "Resuelve "+u+" acciones defensivas";},
+   q:function(H){ var n=0; H.forEach(function(h){ (h.dec||[]).map(decObj).forEach(function(d){ if(d.k==="d"&&d.r==="ok") n++; }); }); return n; }, cmp:">=" },
+ claves:{ pos:["MC","MCO","EXT","LAT"], txt:function(u){return "Juega "+u+" pases de peligro";},
+   q:function(H){ var n=0; H.forEach(function(h){ (h.dec||[]).map(decObj).forEach(function(d){ if(d.k==="p") n++; }); }); return n; }, cmp:">=" },
+ golesAsis:{ pos:["DC","EXT","MCO"], txt:function(u){return "Suma "+u+" goles+asistencias";},
+   q:function(H){ var n=0; H.forEach(function(h){ if(h.yo){ n+=(h.yo.g||0)+(h.yo.a||0); } }); return n; }, cmp:">=" },
+ paradas:{ pos:["POR"], txt:function(u){return "Acumula "+u+" paradas";},
+   q:function(H){ var n=0; H.forEach(function(h){ if(h.yo) n+=(h.yo.p||0); }); return n; }, cmp:">=" },
+ notaMedia:{ pos:null, txt:function(u){return "Media de valoración ≥ "+u.toFixed(1);},
+   q:function(H){ var s=0,n=0; H.forEach(function(h){ if(h.yo){ s+=h.yo.nota; n++; } }); return n? Math.round(s/n*100)/100 : 0; }, cmp:">=" },
+ perdidasSalida:{ pos:null, txt:function(u){return "Como mucho "+u+" pérdidas en salida de balón";},
+   q:function(H){ var n=0; H.forEach(function(h){ (h.dec||[]).map(decObj).forEach(function(d){ if(d.k==="j"&&d.r==="ko"&&(d.z==="B"||d.z==="M")) n++; }); }); return n; }, cmp:"<=" }
+};
+var RETO_POR_EST={ bunker:["aporteDef","perdidasSalida"], control:["perdidasSalida","claves"], gestor:["notaMedia"],
+                   intenso:["golesAsis","claves"], cantera:["notaMedia"], veterano:["notaMedia","aporteDef"] };
+function retoHist(){ return (S.hist||[]).filter(function(h){ return h.jor>=S.reto.iniJor; }); }
+function genReto(){
+  if(S.jornada>28) return null;   /* sin tiempo, sin reto */
+  var plazo=7+Math.floor(rnd()*4);
+  var cands=(RETO_POR_EST[mister().est]||["notaMedia"]).filter(function(mid){
+    var m=METRICAS_RETO[mid]; return !m.pos || m.pos.indexOf(S.pos)>=0;
+  });
+  if(!cands.length) cands=["notaMedia"];
+  var mid=pick(cands), m=METRICAS_RETO[mid];
+  /* el umbral sale de TU ritmo reciente, apretado un 15% */
+  var H8=(S.hist||[]).slice(-8), base=H8.length? m.q(H8)/Math.max(1,H8.length) : {aporteDef:1.1,claves:1.2,golesAsis:0.55,paradas:2.6,notaMedia:6.4,perdidasSalida:0.8}[mid];
+  var u = mid==="notaMedia"? Math.round(clamp(base*1.05,6.0,7.6)*10)/10
+        : m.cmp==="<="? Math.max(1, Math.round(base*plazo*0.85))
+        : Math.max(2, Math.round(base*plazo*1.15));
+  return { m:mid, u:u, cmp:m.cmp, iniJor:S.jornada, finJor:Math.min(37,S.jornada+plazo), temporada:S.temporada,
+           txt:m.txt(u)+" antes de la J"+(Math.min(37,S.jornada+plazo)+1), premioE:Math.round((S.contrato&&S.contrato.prima||20000)/2/1000)*1000 };
+}
+function evaluarReto(){
+  if(!S.reto || S.reto.temporada!==S.temporada) return;
+  if(S.jornada < S.reto.finJor) return;
+  var m=METRICAS_RETO[S.reto.m], v=m.q(retoHist());
+  var ok = S.reto.cmp===">="? v>=S.reto.u : v<=S.reto.u;
+  S.vidaLog=S.vidaLog||[];
+  if(ok){
+    S.mister=clamp(S.mister+6,5,95); S.conf=clamp(S.conf+4,25,95); S.dinero=(S.dinero||0)+S.reto.premioE;
+    S.vidaLog.push("Reto del míster CUMPLIDO («"+S.reto.txt+"»: "+v+"). Prima de "+fmtDinero(S.reto.premioE)+" y su confianza.");
+  } else {
+    S.mister=clamp(S.mister-7,5,95); S.conf=clamp(S.conf-4,25,95);
+    S.vidaLog.push("Reto del míster fallado («"+S.reto.txt+"»: te quedaste en "+v+"). Lo apunta en su libreta.");
+  }
+  S.reto = (S.jornada<=26)? genReto() : null;
+}
+function cardReto(){
+  if(!S.reto || S.reto.temporada!==S.temporada) return "";
+  var m=METRICAS_RETO[S.reto.m], v=m.q(retoHist());
+  var pct = S.reto.cmp===">="? clamp(v/S.reto.u*100,0,100) : clamp((1-v/(S.reto.u+1))*100,0,100);
+  return '<div class="card"><div class="eyebrow">El reto del míster</div>'
+    +'<p style="margin:2px 0 6px"><b>'+esc(S.reto.txt)+'</b></p>'
+    +'<div class="impbar" style="height:8px"><i style="width:'+Math.round(pct)+'%"></i></div>'
+    +'<p class="note" style="margin:6px 0 0">'+(S.reto.cmp===">="? v+" de "+S.reto.u : v+" (máximo "+S.reto.u+")")
+    +' · quedan '+Math.max(0,S.reto.finJor-S.jornada)+' jornadas · prima '+fmtDinero(S.reto.premioE)+'</p></div>';
+}
+/* el estilo del rival: cinco rasgos en [-1,1], deterministas por club, que tocan las lambdas y sesgan qué te encuentras */
+var _ESTILOS_EQ={};
+function estiloDe(id){
+  if(_ESTILOS_EQ[id]) return _ESTILOS_EQ[id];
+  var r=lcgDe(hashStr("estilo:"+id));
+  var e={ presion:Math.round((r()*2-1)*100)/100, bloque:Math.round((r()*2-1)*100)/100,
+          tempo:Math.round((r()*2-1)*100)/100, directo:Math.round((r()*2-1)*100)/100,
+          parado:Math.round((r()*2-1)*100)/100 };
+  e.rasgo = e.presion>0.45? "presiona arriba tras pérdida"
+          : e.bloque<-0.45? "se encierra en bloque bajo"
+          : e.directo>0.45? "vive del juego directo y la segunda jugada"
+          : e.parado>0.45? "hace daño a balón parado"
+          : e.tempo>0.45? "quiere el partido a mil por hora"
+          : e.bloque>0.45? "adelanta la línea y deja espacios"
+          : "alterna sin un plan que le duela";
+  _ESTILOS_EQ[id]=e;
+  return e;
+}
+function estiloFactores(idRival){
+  var e=estiloDe(idRival);
+  var own = 1 + 0.05*e.bloque - 0.05*Math.max(0,e.presion);   /* bloque alto = espacio a la espalda; su presión te seca */
+  var opp = 1 + 0.06*Math.max(0,e.directo) + 0.04*Math.max(0,e.tempo);
+  return { own:clamp(own,0.90,1.10), opp:clamp(opp,0.92,1.10) };
+}
+function estiloPesoSit(s, e){
+  var txt=((s.id||"")+" "+(s.t||"")).toLowerCase();
+  var w=1;
+  if(e.presion>0.3 && /salida|presi|encima|te roba|achuch/.test(txt)) w+=0.9;
+  if(e.bloque<-0.3 && /muro|poblad|cerroj|hueco|banda a banda/.test(txt)) w+=0.9;
+  if(e.directo>0.3 && /aére|aereo|segunda jugada|rechace|duelo/.test(txt)) w+=0.7;
+  if(e.parado>0.3 && /córner|corner|falta|estrategia|parado/.test(txt)) w+=0.6;
+  return w;
+}
+var PLANT_PRI={};
+var PLANTILLAS_REALES={
+BAR:[["ter Stegen","POR",34,85],["Iñaki Peña","POR",27,78],["Koundé","LAT",27,85],["Balde","LAT",23,83],["Cubarsí","DFC",19,86],["Araujo","DFC",27,85],["Íñigo Martínez","DFC",35,80],["Pedri","MC",23,90],["de Jong","MC",29,85],["Gavi","MC",21,85],["Fermín","MC",23,82],["Lamine Yamal","EXT",19,92],["Raphinha","EXT",30,87],["Ferran Torres","EXT",26,81],["Lewandowski","DC",38,84],["Ansu Fati","DC",23,78]],
+RMA:[["Courtois","POR",34,88],["Lunin","POR",27,80],["Carvajal","LAT",34,82],["Trent","LAT",28,85],["Militão","DFC",28,84],["Rüdiger","DFC",33,84],["Huijsen","DFC",21,82],["Camavinga","MC",24,85],["Valverde","MC",28,88],["Tchouaméni","MC",26,85],["Bellingham","MC",23,90],["Arda Güler","EXT",21,84],["Vinícius","EXT",26,91],["Rodrygo","EXT",25,86],["Mbappé","DC",28,92],["Endrick","DC",20,80]],
+ATM:[["Oblak","POR",33,87],["Musso","POR",32,77],["Llorente","LAT",31,83],["Galán","LAT",31,78],["Giménez","DFC",31,83],["Le Normand","DFC",30,83],["Witsel","DFC",37,76],["Koke","MC",34,80],["De Paul","MC",32,84],["Barrios","MC",23,84],["Gallagher","MC",26,81],["Simeone","EXT",26,79],["Griezmann","DC",35,85],["Julián Álvarez","DC",26,89],["Sørloth","DC",31,81],["Correa","DC",32,79]],
+VIL:[["Diego Conde","POR",27,78],["Jörgensen","POR",28,77],["Foyth","LAT",28,81],["Cardona","LAT",26,78],["Logan Costa","DFC",25,79],["Mosquera","DFC",22,80],["Kambwala","DFC",22,76],["Parejo","MC",37,80],["Comesaña","MC",26,78],["Gueye","MC",25,77],["Baena","MC",25,85],["Yeremy Pino","EXT",24,82],["Ilias","EXT",24,78],["Gerard Moreno","DC",34,80],["Ayoze","DC",33,82],["Barry","DC",21,78]],
+BET:[["Rui Silva","POR",32,79],["Adrián","POR",39,73],["Bellerín","LAT",31,77],["Perraud","LAT",28,76],["Bartra","DFC",35,76],["Natan","DFC",25,78],["Diego Llorente","DFC",32,77],["Johnny","MC",24,77],["Fornals","MC",30,80],["Isco","MC",34,85],["Lo Celso","MC",30,82],["Antony","EXT",26,82],["Abde","EXT",24,80],["Bakambu","DC",35,75],["Cucho","DC",27,79],["Chimy Ávila","DC",32,75]],
+VAL:[["Dimitrievski","POR",32,77],["Rivero","POR",24,74],["Foulquier","LAT",33,75],["Gayà","LAT",31,82],["Tárrega","DFC",26,78],["Diakhaby","DFC",30,77],["Copete","DFC",26,76],["Javi Guerra","MC",23,80],["Pepelu","MC",28,79],["Almeida","MC",26,78],["Rioja","EXT",33,76],["Diego López","EXT",24,79],["Ramazani","EXT",25,76],["Hugo Duro","DC",27,78],["Marcos André","DC",30,73],["Dani Gómez","DC",28,74]],
+CEL:[["Iván Villar","POR",29,76],["Radu","POR",29,75],["Mingueza","LAT",27,79],["Marcos Alonso","LAT",36,74],["Starfelt","DFC",31,78],["Javi Rodríguez","DFC",22,74],["Yoel Lago","DFC",21,73],["Fran Beltrán","MC",25,80],["Moriba","MC",23,76],["Sotelo","MC",21,74],["Aspas","EXT",39,79],["Williot","EXT",22,79],["Alfon","EXT",26,75],["Borja Iglesias","DC",33,78],["Jutglà","DC",27,78],["Durán H.","DC",24,74]],
+RAY:[["Batalla","POR",30,77],["Cárdenas","POR",29,74],["Ratiu","LAT",28,80],["Chavarría","LAT",28,75],["Lejeune","DFC",35,76],["Mumin","DFC",27,76],["Mendy N.","DFC",22,73],["Pathé Ciss","MC",32,76],["Óscar Valentín","MC",32,75],["Unai López","MC",30,76],["Trejo","MC",38,73],["Isi Palazón","EXT",32,79],["Álvaro García","EXT",34,78],["de Frutos","EXT",29,78],["Camello","DC",25,78],["Nteka","DC",28,75]],
+RSO:[["Remiro","POR",31,82],["Marrero","POR",25,74],["Aramburu","LAT",24,78],["Aihen","LAT",29,76],["Zubeldia","DFC",29,80],["Pacheco","DFC",23,79],["Jon Martín","DFC",20,76],["Brais Méndez","MC",29,81],["Turrientes","MC",24,78],["Marín","MC",22,77],["Sucic","MC",23,78],["Take Kubo","EXT",25,85],["Barrenetxea","EXT",24,80],["Sergio Gómez","EXT",26,78],["Oskarsson","DC",24,79],["Oyarzabal","DC",29,85]],
+ATH:[["Unai Simón","POR",29,85],["Agirrezabala","POR",25,77],["Gorosabel","LAT",29,76],["Yuri","LAT",36,78],["Vivián","DFC",27,83],["Paredes","DFC",25,79],["Egiluz","DFC",23,74],["Vesga","MC",33,76],["Galarreta","MC",32,78],["Jauregizar","MC",22,79],["Sancet","MC",26,83],["Nico Williams","EXT",24,88],["Iñaki Williams","EXT",32,82],["Berenguer","EXT",31,77],["Guruzeta","DC",30,78],["Maroan","DC",24,76]],
+OSA:[["Sergio Herrera","POR",33,77],["Aitor","POR",27,74],["Rubén Peña","LAT",35,73],["Juan Cruz","LAT",26,75],["Catena","DFC",31,78],["Boyomo","DFC",24,77],["Herrando","DFC",27,74],["Torró","MC",32,75],["Moncayola","MC",28,78],["Aimar Oroz","MC",24,79],["Iker Muñoz","MC",23,74],["Rubén García","EXT",33,75],["Bryan Zaragoza","EXT",24,79],["Budimir","DC",35,79],["Arnaiz","DC",31,74],["Raúl Moro","EXT",23,77]],
+GET:[["David Soria","POR",33,79],["Letacek","POR",26,73],["Djené","LAT",35,76],["Diego Rico","LAT",33,74],["Duarte","DFC",31,76],["Abqar","DFC",27,76],["Berrocal","DFC",24,73],["Arambarri","MC",30,79],["Milla","MC",30,78],["Yellu","MC",22,73],["Coba","EXT",22,75],["Álex Sola","EXT",26,74],["Liso","EXT",21,74],["Mayoral","DC",29,80],["Uche","DC",23,79],["Juanmi","DC",33,74]],
+ALA:[["Sivera","POR",29,78],["Owono","POR",24,74],["Tenaglia","LAT",30,75],["Rubén Duarte","LAT",30,74],["Garcés","DFC",25,76],["Rafa Marín","DFC",24,77],["Jonny","DFC",32,74],["Blanco","MC",26,77],["Guridi","MC",28,76],["Guevara","MC",27,75],["Joan Jordán","MC",32,75],["Carlos Vicente","EXT",27,78],["Luka Romero","EXT",22,76],["Rebbach","EXT",27,74],["Kike García","DC",37,74],["Toni Martínez","DC",29,76]],
+LEV:[["Ryan","POR",34,74],["Andrés Fernández","POR",36,71],["Son","LAT",33,73],["Manu Sánchez","LAT",26,76],["Vezo","DFC",32,74],["Dela","DFC",24,74],["Elgezabal","DFC",33,72],["Pablo Martínez","MC",32,74],["Oriol Rey","MC",27,74],["Vencedor","MC",26,75],["Algobia","MC",27,73],["Brugué","EXT",30,76],["Morales","EXT",39,72],["Iván Romero","DC",26,75],["Bouldini","DC",30,73],["Koyalipou","DC",27,74]],
+ESP:[["Dmitrović","POR",34,76],["Fortuño","POR",22,72],["El Hilali","LAT",22,77],["Carlos Romero","LAT",24,76],["Cabrera","DFC",29,76],["Sergi Gómez","DFC",34,73],["Kumbulla","DFC",26,76],["Pol Lozano","MC",26,75],["Aguado","MC",27,74],["Expósito","MC",24,77],["Kral","MC",28,74],["Jofre","EXT",21,76],["Puado","EXT",28,79],["Dolan","EXT",25,74],["Roberto Fernández","DC",24,75],["Alejo Véliz","DC",23,74]],
+SEV:[["Nyland","POR",32,77],["Alberto Flores","POR",26,72],["Carmona","LAT",24,78],["Pedrosa","LAT",28,75],["Kike Salas","DFC",24,76],["Marcão","DFC",30,76],["Nianzou","DFC",24,76],["Gudelj","MC",34,76],["Sow","MC",29,77],["Agoumé","MC",24,78],["Saúl","MC",32,76],["Vargas","EXT",30,77],["Ejuke","EXT",28,74],["Peque","EXT",24,75],["Isaac Romero","DC",26,78],["Iheanacho","DC",29,74]],
+ELC:[["Dituro","POR",41,72],["San Román","POR",29,71],["Josan","LAT",36,72],["Salinas","LAT",30,73],["Bigas","DFC",36,72],["Chust","DFC",26,75],["Affengruber","DFC",25,75],["Febas","MC",30,73],["Mendoza","MC",24,76],["Gumbau","MC",32,73],["Marc Aguado","MC",25,73],["Tete Morente","EXT",30,74],["Álvaro Rodríguez","EXT",22,76],["Rafa Mir","DC",29,77],["Boyé","DC",30,77],["Mourad","DC",24,75]],
+RAC:[["Ezkieta","POR",30,76],["Parera","POR",27,72],["Saúl García","LAT",31,73],["Michelin","LAT",29,73],["Javi Castro","DFC",27,74],["Pol Moreno","DFC",27,73],["Manu Hernando","DFC",27,74],["Aldasoro","MC",27,76],["Sainz-Maza","MC",28,74],["Peio Canales","MC",21,78],["Puerta","MC",23,75],["Andrés Martín","EXT",27,78],["Arana","EXT",25,75],["Karrikaburu","DC",24,76],["Villalibre","DC",28,76],["Jeremy A.","DC",26,73]],
+MLG:[["Alfonso Herrero","POR",31,74],["Carlos López","POR",24,71],["Gabilondo","LAT",27,73],["Víctor García","LAT",27,72],["Nelson Monte","DFC",30,74],["Galilea","DFC",31,73],["Murillo","DFC",22,72],["Sangalli","MC",31,73],["Izan Merino","MC",19,77],["Juanpe","MC",30,72],["Ramón","MC",25,73],["Larrubia","EXT",24,78],["Joaquín Muñoz","EXT",27,74],["Chupete","DC",21,76],["Dioni","DC",32,73],["Adrián Niño","DC",22,74]],
+DEP:[["Parreño","POR",32,73],["Helton Leite","POR",35,74],["Ximo Navarro","LAT",36,71],["Escudero","LAT",36,72],["Dani Barcia","DFC",22,75],["Pablo Vázquez","DFC",32,74],["Noubi","DFC",21,73],["Villares","MC",28,77],["Rubén López","MC",21,75],["Patiño","MC",23,77],["Soriano","MC",24,75],["Yeremay","EXT",23,84],["Mella","EXT",21,79],["Luismi Cruz","EXT",25,75],["Lucas Pérez","DC",38,76],["Eddahchouri","DC",25,75]]
+};
+function plantillaPrimera(id){
+  if(PLANTILLAS_REALES[id]) return PLANTILLAS_REALES[id].map(function(a){ return {n:a[0], pos:a[1], edad:a[2], media:a[3]}; });
+  if(PLANT_PRI[id]) return PLANT_PRI[id];
+  var r=lcgDe(hashStr("pri:"+id));                    /* misma semilla, misma plantilla: hoy y en tres temporadas */
+  var rank=rankDe(id)||10;
+  var base = rank<=3? 82 : rank<=6? 79 : rank<=11? 75 : rank<=16? 71 : 68;
+  var puestos=["POR","POR","DFC","DFC","DFC","LAT","LAT","MCD","MC","MC","MCO","EXT","EXT","DC","DC","MC"];
+  var usados={}, L=[];
+  puestos.forEach(function(pos,i){
+    var n, intentos=0;
+    do { n=genPersona(r); intentos++; } while(usados[n] && intentos<30);
+    usados[n]=1;
+    var media=Math.round(clamp(base + (r()*10-5) + (pos==="POR"&&i===1? -4:0), 62, 92));
+    if(rank<=3 && i===13) media=Math.round(clamp(base+7,62,92));   /* el club grande tiene su estrella */
+    L.push({n:n, pos:pos, edad:18+Math.floor(r()*17), media:media});
+  });
+  PLANT_PRI[id]=L;
+  return L;
+}
+function plantillaObj(id){
+  if(id==="PRA"||id==="PRB") return plantillaPrueba(id);
+  if(esSegunda(id)) return plantillaSegunda(id);
+  return plantillaPrimera(id);
+}
+function plantillaDe(id){ return plantillaObj(id).map(function(j){return j.n;}); }
+var RASGOS=[
+ {id:"lider",    n:"Líder",      d:"Tira del grupo y te exige."},
+ {id:"bromista", n:"Bromista",   d:"El vestuario se le ríe todo."},
+ {id:"veterano", n:"Veterano",   d:"Ha visto de todo. Habla poco y bien."},
+ {id:"callado",  n:"Callado",    d:"Va a lo suyo, sin ruido."},
+ {id:"ego",      n:"Egocéntrico",d:"Primero él, luego el equipo."},
+ {id:"currante", n:"Currante",   d:"El primero en llegar y el último en irse."}
+];
+function crearCompis(eqId, miNombre){
+  return plantillaObj(eqId).filter(function(j){ return j.n!==miNombre; }).map(function(j){
+    var r=RASGOS[Math.floor(rnd()*RASGOS.length)];
+    return {n:j.n, pos:j.pos, edad:j.edad, media:j.media, rasgo:r.id,
+            afin: Math.round(42+rnd()*26),
+            pj:0, g:0, a:0, ta:0, tr:0, lesion:0, sancion:0, ciclo:0};
+  });
+}
+function compis(){ if(!S) return []; if(!S.compis||!S.compis.length) S.compis=crearCompis(S.equipo,S.nombre); return S.compis; }
+function compiPorNombre(n){ var L=compis(); for(var i=0;i<L.length;i++) if(L[i].n===n) return L[i]; return null; }
+function afinMedia(){ var L=compis(); if(!L.length) return 55; var t=0; L.forEach(function(c){t+=c.afin;}); return Math.round(t/L.length); }
+function mAfin(){ return clamp(0.75+afinMedia()/200, 0.75, 1.28); }
+/* un vestuario unido juega mejor y te busca más */
+function mVestuario(){ return clamp(0.872+afinMedia()/430, 0.87, 1.10); }
+function tocarAfin(nombre, d){
+  var c=nombre? compiPorNombre(nombre) : null;
+  if(!c){ var L=compis(); if(!L.length) return null; c=pick(L); }
+  c.afin=Math.round(clamp(c.afin+d, 0, 100));
+  return c;
+}
+function compi(){
+  var L=plantillaDe(S.equipo).filter(function(n){ return n!==S.nombre; });
+  return L.length? pick(L) : "tu compañero";
+}
+function rivalJug(){ var L=plantillaDe(M?M.rival:S.equipo); return L.length? pick(L):"su hombre"; }
+/* posiciones secundarias en el campo (espejo) para el dibujo */
+var POS_EXTRA=[{p:"DFC",x:65,y:74},{p:"LAT",x:88,y:66},{p:"MC",x:65,y:47},{p:"EXT",x:86,y:30}];
+/* ================= RENDIMIENTO PERSONAL ================= */
+/* Cada decisión suma o resta "puntuación" del jugador, y a veces toca el marcador. */
+
+/* fx: own/opp = modificadores del resto del partido (tu equipo / rival)
+   inst.gol = gol tuyo (marcas tú si eres de arriba), inst.golR = gol rival
+   inst.asis = asistencia tuya, inst.parada = parada decisiva (POR)
+   ta / roja = tarjeta. nota = puntos de tu valoración (-3..+3) */
+var SITS_BANQUILLO=[
+ {id:"bq-por-suplente", pos:["POR"], cond:function(c){ return c.min>=20; },
+  t:"Noventa minutos de chándal",
+  x:function(c){ return "El portero suplente no entra casi nunca, y tú lo sabes. Tu partido es otro: mirar, aprender y estar."; },
+  o:[
+   {l:"Estudiar al delantero rival desde la banda", fx:{disc:3, lid:1, nota:1},
+    ok:"Le coges tres detalles al nueve rival. Cuando te toque a ti, sabrás por dónde va.",
+    ko:"", mid:"Tomas notas mentales. Algún día servirán."},
+   {l:"Ayudar a tu portero: avisarle desde fuera", fx:{own:1.03, afin:5, comp:3, nota:2},
+    ok:"Le gritas la salida en un córner y despeja limpio. Se gira y te lo agradece.",
+    ko:"", mid:"Le vas cantando lo que ves. Portería es un puesto muy solo."},
+   {l:"Quejarte al preparador de porteros", fx:{mis:-5, disc:-4, ego:3},
+    ok:"", ko:"«Cuando estés listo, jugarás.» Fin de la conversación.",
+    mid:"Le sueltas que llevas media temporada sin oler el césped. Te escucha sin mirarte."}
+  ]},
+/* "el segundo se acerca" — tres variantes por línea: la lectura táctica cambia según
+   dónde jugarías tú (Manu: "las opciones siempre son las mismas, sin adaptarse a la posición") */
+ {id:"bq-segundo-def", pos:["DFC","LAT","MCD"], cond:function(c){ return c.min>=25 && c.min<70; },
+  t:"El segundo entrenador se te acerca",
+  x:function(c){ return "Se agacha a tu lado, sin quitar ojo a la defensa: «¿Cómo lo ves desde aquí?». No es charla: te está midiendo."; },
+  o:[
+   {l:"«Arriba nos superan la primera línea de presión»", fx:{entra:-8, mis:2, nota:1},
+    ok:"Asiente y va directo al míster a decirle algo. Miras al banquillo y ya hay movimiento.",
+    ko:"«Cada uno a lo suyo.» Se levanta sin más y te deja con la frase a medias.",
+    mid:"Te escucha, asiente y vuelve a su sitio. Algo queda."},
+   {l:"Decir lo que ves, sin pedir nada", fx:{mis:3, nota:1},
+    ok:"Tu lectura es exactamente la suya. «Este chaval ve el partido», le dice al míster.",
+    ko:"",
+    mid:"Charla breve de fútbol. Buen tono."},
+   {l:"«Llevo cuatro partidos sin jugar»", fx:{entra:-4, mis:-5, nota:-1},
+    ok:"Se lo lleva al míster tal cual. A veces la queja sirve, y hoy sirve.",
+    ko:"«Y así vas a seguir si esa es tu cara.» Mal momento, peor tono.",
+    mid:"Te escucha, aprieta los labios y no dice nada."},
+   {l:"Encogerte de hombros", fx:{mis:-2},
+    ok:"", ko:"", mid:"Se levanta y vuelve a la banda. Ocasión perdida de existir."}
+  ]},
+ {id:"bq-segundo-med", pos:["MC","MCO"], cond:function(c){ return c.min>=25 && c.min<70; },
+  t:"El segundo entrenador se te acerca",
+  x:function(c){ return "Se agacha a tu lado, sin quitar ojo al centro del campo: «¿Cómo lo ves desde aquí?». No es charla: te está midiendo."; },
+  o:[
+   {l:"«El ritmo nos lo marcan ellos. Yo puedo darle otra velocidad»", fx:{entra:-8, mis:2, nota:1},
+    ok:"Asiente y va directo al míster a decirle algo. Miras al banquillo y ya hay movimiento.",
+    ko:"«Cada uno a lo suyo.» Se levanta sin más y te deja con la frase a medias.",
+    mid:"Te escucha, asiente y vuelve a su sitio. Algo queda."},
+   {l:"Decir lo que ves, sin pedir nada", fx:{mis:3, nota:1},
+    ok:"Tu lectura es exactamente la suya. «Este chaval ve el partido», le dice al míster.",
+    ko:"",
+    mid:"Charla breve de fútbol. Buen tono."},
+   {l:"«Llevo cuatro partidos sin jugar»", fx:{entra:-4, mis:-5, nota:-1},
+    ok:"Se lo lleva al míster tal cual. A veces la queja sirve, y hoy sirve.",
+    ko:"«Y así vas a seguir si esa es tu cara.» Mal momento, peor tono.",
+    mid:"Te escucha, aprieta los labios y no dice nada."},
+   {l:"Encogerte de hombros", fx:{mis:-2},
+    ok:"", ko:"", mid:"Se levanta y vuelve a la banda. Ocasión perdida de existir."}
+  ]},
+ {id:"bq-segundo-att", pos:["EXT","DC"], cond:function(c){ return c.min>=25 && c.min<70; },
+  t:"El segundo entrenador se te acerca",
+  x:function(c){ return "Se agacha a tu lado, sin quitar ojo a la defensa rival: «¿Cómo lo ves desde aquí?». No es charla: te está midiendo."; },
+  o:[
+   {l:"«Sus centrales están reventados. Yo les puedo hacer daño a la espalda»", fx:{entra:-8, mis:2, nota:1},
+    ok:"Asiente y va directo al míster a decirle algo. Miras al banquillo y ya hay movimiento.",
+    ko:"«Cada uno a lo suyo.» Se levanta sin más y te deja con la frase a medias.",
+    mid:"Te escucha, asiente y vuelve a su sitio. Algo queda."},
+   {l:"Decir lo que ves, sin pedir nada", fx:{mis:3, nota:1},
+    ok:"Tu lectura es exactamente la suya. «Este chaval ve el partido», le dice al míster.",
+    ko:"",
+    mid:"Charla breve de fútbol. Buen tono."},
+   {l:"«Llevo cuatro partidos sin jugar»", fx:{entra:-4, mis:-5, nota:-1},
+    ok:"Se lo lleva al míster tal cual. A veces la queja sirve, y hoy sirve.",
+    ko:"«Y así vas a seguir si esa es tu cara.» Mal momento, peor tono.",
+    mid:"Te escucha, aprieta los labios y no dice nada."},
+   {l:"Encogerte de hombros", fx:{mis:-2},
+    ok:"", ko:"", mid:"Se levanta y vuelve a la banda. Ocasión perdida de existir."}
+  ]},
+/* la iniciativa de PREGUNTAR viene antes que la orden del míster: si nunca preguntas,
+   te toca esperar a que él decida solo (bq-calentar, más abajo, sigue existiendo igual) */
+ {id:"bq-pedir-calentar", pos:["DFC","LAT","MCD","MC","MCO","EXT","DC"], cond:function(c){ return c.min>=15 && c.min<40; }, unico:true,
+  t:"¿Te pones a calentar ya?",
+  x:"El banquillo lleva un rato quieto. Nadie te ha dicho nada, pero el partido está ahí y tú también.",
+  o:[
+   {l:"Preguntarle al preparador si puedes ir calentando", fx:{entra:-5, mis:2, nota:0.5},
+    ok:"«Adelante, ve soltando.» Te levantas antes de que nadie más se mueva del banquillo.",
+    ko:"«Todavía no, espera.» Te sientas otra vez, algo más ansioso que antes.",
+    mid:"Te dice que esperes un poco más. Vuelves al banquillo sin prisa."},
+   {l:"Esperar a que te lo digan ellos", fx:{nota:0},
+    ok:"", ko:"", mid:"Sigues sentado, mirando el partido como uno más."}
+  ]},
+ {id:"bq-calentar", pos:["DFC","LAT","MCD","MC","MCO","EXT","DC"], cond:function(c){ return c.min>=40; }, unico:true,
+  t:"«Va, calienta»",
+  x:"El míster te señala sin mirarte. El cuarto árbitro aún no tiene tu número, pero la banda es tuya durante los próximos minutos.",
+  o:[
+   {l:"Salir disparado y calentar a tope", fx:{entra:-10, mis:3, nota:2},
+    ok:"Sprints a fondo delante del banquillo. A los cinco minutos el cartel lleva tu número.",
+    ko:"Tanto ímpetu y una mala pisada: notas un tirón calentando. El míster busca a otro.",
+    mid:"Calientas como si fuera una final. El míster te mira dos veces."},
+   {l:"Calentar tranquilo, sin exhibirte", fx:{entra:-3},
+    ok:"Sin teatro, listo cuando toque. El míster lo prefiere así.",
+    ko:"",
+    mid:"Estiras, corres, vuelves. Normalidad."},
+   {l:"Quedarte sentado: «Que llame a otro»", fx:{entra:99, mis:-12, nota:-2},
+    ok:"", ko:"",
+    mid:"No te mueves del banquillo. El míster tampoco vuelve a mirarte. Hoy no juegas, y quizá tampoco el domingo."}
+  ]},
+ {id:"bq-golcontra", pos:["DFC","LAT","MCD","MC","MCO","EXT","DC"], cond:function(c){ return c.sc[0]<c.sc[1] && c.min>=35; },
+  t:"Vais perdiendo y el míster busca soluciones",
+  x:"Se gira hacia el banquillo y recorre la fila con la mirada. Dura dos segundos y pasa por ti.",
+  o:[
+   {l:"Sostenerle la mirada", fx:{entra:-6, mis:1, nota:1},
+    ok:"No apartas los ojos. Diez minutos después estás dentro.",
+    ko:"", mid:"Le aguantas la mirada. Sigue buscando."},
+   {l:"Levantarte a calentar sin que te lo pidan", fx:{entra:-8, mis:2, nota:1},
+    ok:"Te levantas solo y eso le gusta: te llama antes de lo previsto.",
+    ko:"«¿Quién te ha dicho que te levantes?» No era el día para iniciativas.",
+    mid:"Corres por la banda sin que nadie te lo pida. Se nota quién quiere jugar."},
+   {l:"Mirar al suelo", fx:{entra:6, mis:-3},
+    ok:"", ko:"", mid:"Cuando levantas la cabeza, ya está hablando con otro."}
+  ]}
+];
+/* el descuento no perdona: quien pide el balón puede ser héroe o villano */
+/* salir sustituido también se torea: tu gesto queda para el míster y el vestuario */
+var SITS_CAMBIO=[
+ {id:"cambio-rendimiento", pos:null,
+  t:"Te cambian: no era tu tarde",
+  x:"El cuarto árbitro levanta tu dorsal y medio estadio lo aprueba. El camino hasta el banquillo se hace larguísimo.",
+  o:[
+   {l:"Aplaudir a la grada y chocar con tu relevo", fx:{disc:5, mis:3, afin:2, nota:0.4},
+    ok:"Sales aplaudiendo y deseándole suerte al que entra. El banquillo entero te lo reconoce.",
+    mid:"Sales con la cabeza alta. Nadie podrá decir nada."},
+   {l:"Salir en silencio, mirando al suelo", fx:{temp:1, nota:0},
+    mid:"Sales sin un gesto. El partido sigue y tu enfado se queda contigo."},
+   {l:"Manotazo al aire y gesto de incredulidad al banquillo", fx:{ego:4, temp:5, disc:-6, mis:-6, mor:-2, nota:-0.8},
+    ok:"El gesto queda feo pero el míster no te lo afea en caliente. De momento.",
+    ko:"El manotazo lo ve todo el estadio y el míster ni te mira al pasar. Esto va a traer cola.",
+    mid:"El gesto se te escapa. Las cámaras lo cazan y mañana será tema."}
+  ]},
+ {id:"cambio-cansancio", pos:null,
+  t:"Te cambian: las piernas dijeron basta",
+  x:"No hay reproche en el cambio: se te veía fundido. Aun así, salir nunca gusta.",
+  o:[
+   {l:"Reconocerlo y chocar la mano del míster", fx:{disc:4, mis:3, res:1, nota:0.3},
+    ok:"«Buen cambio, míster.» La honestidad también suma vestuario.",
+    mid:"Chocas la mano y te sientas a estirar. Cabeza fría."},
+   {l:"Pedir quedarte cinco minutos más", fx:{temp:2, mis:-2, lid:1, nota:0},
+    ok:"El míster niega con media sonrisa: le gusta tu hambre aunque no te deje.",
+    mid:"Negocias con la mirada. No cuela, pero el gesto se aprecia.",
+    ko:"Insistes de más y el gesto se tuerce. El cambio sale igual y tú quedas de terco."},
+   {l:"Quitarte la venda y lanzarla al suelo", fx:{ego:3, temp:4, disc:-4, mis:-4, nota:-0.6},
+    ok:"El berrinche pasa desapercibido entre el ruido.",
+    ko:"La venda vuela, el fisio la recoge y el míster toma nota mental.",
+    mid:"El gesto se ve desde el palco. Mal asunto."}
+  ]}
+];
+var SIT_PEN_L={id:"pen-l", pos:["DC","MCO","EXT","MC"],
+ t:"Penalti a favor: el balón es tuyo",
+ x:"Colocas el balón en la cal viva. Once metros, un portero que se hace grande y sesenta mil gargantas conteniendo el aire.",
+ o:[
+  {l:"Colocado, a media altura", fx:{inst:{gol:0.78}, nota:3},
+   ok:"Abres el pie y la pones donde no llegan ni los focos. GOL. Señalas a la grada con la sangre fría de siempre.",
+   ko:"El portero adivina el lado y la saca con la punta de los dedos. Te quedas mirando el césped."},
+  {l:"Fuerte, al centro", fx:{inst:{gol:0.72}, nota:2},
+   ok:"La revientas por el centro mientras el portero vuela a un palo. GOL de los que no admiten réplica.",
+   ko:"El portero se queda quieto y te la atrapa con el pecho. La grada rival ruge tu nombre con sorna."},
+  {l:"Panenka", fx:{inst:{gol:0.60}, nota:3},
+   ok:"La cucharita más insolente del año. El balón flota, el portero ya está en el suelo y el estadio enloquece. GOL con firma.",
+   ko:"El portero NO se tira. Atrapa la cucharita sin moverse y te mira. Vas a salir en todos los vídeos, y no como querías."}
+ ]};
+var SIT_PEN_P={id:"pen-p", pos:["POR"],
+ t:"Penalti en contra: tú contra él",
+ x:"El lanzador coloca el balón y no te quita los ojos de encima. Tu área, tu portería, tu momento.",
+ o:[
+  {l:"Jugártela a un palo", fx:{inst:{parada:0.30}, penContra:true, nota:3},
+   ok:"Vuelas al palo elegido y la sacas con una mano. PARADÓN. Tus centrales te levantan del suelo a abrazos.",
+   ko:"Te tiras al palo equivocado. El balón entra manso por el otro lado mientras te levantas despacio."},
+  {l:"Aguantar hasta el último instante", fx:{inst:{parada:0.26}, penContra:true, nota:2},
+   ok:"Lees el amague, te quedas, y la atrapas en dos tiempos. El lanzador no se lo cree.",
+   ko:"Aguantas, aguantas… y la coloca ajustada donde ya no llegas."},
+  {l:"Provocarle: señalar una esquina", fx:{inst:{parada:0.34}, penContra:true, nota:3},
+   ok:"Le señalas la esquina, le cambias la cabeza, y tira justo donde tú querías. PARADA con psicología.",
+   ko:"Te ve el farol, cruza el disparo al otro lado y celebra mirándote."}
+ ]};
+var SITS_CLUTCH=[
+ {id:"clutch-mano-90", pos:["DC","EXT","MCO"],
+  t:"Mano a mano en el descuento",
+  x:"Robo arriba y de pronto estás solo ante el portero. El estadio entero se pone de pie: lo que pase ahora se recordará.",
+  o:[
+   {l:"Definir cruzado, a lo tuyo", fx:{inst:{gol:0.42}, nota:3},
+    ok:"La colocas donde los porteros lloran. GOL en el descuento y el mundo se viene abajo.",
+    ko:"La cruzas demasiado y se va rozando el palo. Te llevas las manos a la cara: esa era LA ocasión.",
+    mid:"El portero adivina y saca una mano salvadora. Estuvo cerca de la gloria."},
+   {l:"Recortar y buscar el hueco seguro", fx:{inst:{gol:0.30}, ta:0.08, nota:2},
+    ok:"El recorte sienta al portero y empujas a placer. De héroe, con pausa.",
+    ko:"Te entretienes, llega el central y te la roba en la línea. La grada no lo va a olvidar.",
+    mid:"El recorte te deja sin ángulo y el disparo muere en el lateral de la red."},
+   {l:"Levantar la cabeza y servirla atrás", fx:{inst:{asis:0.34}, nota:2},
+    ok:"El pase atrás encuentra la llegada y el remate entra. Tu generosidad vale un partido.",
+    ko:"El pase sale blando y lo cortan. Tenías el disparo y elegiste mal.",
+    mid:"La sirves atrás pero el remate sale mordido."}
+  ]},
+ {id:"clutch-llegada-area", pos:["MC","MCO","MCD","LAT"],
+  t:"Llegada al área en el minuto 89",
+  x:"El balón peina el área pequeña y tú llegas desde atrás sin que nadie te espere. Un toque decide todo.",
+  o:[
+   {l:"Rematar al primer toque", fx:{inst:{gol:0.34}, nota:3},
+    ok:"Empalmas de primeras y la red se hincha. Llegaste cuando nadie te esperaba: HÉROE.",
+    ko:"La empalmas alta con todo a favor. El banquillo se derrumba y tú también.",
+    mid:"El remate sale centrado y el portero la atrapa en dos tiempos."},
+   {l:"Controlar y ajustar", fx:{inst:{gol:0.26, golR:0.08}, nota:2},
+    ok:"El control te da medio metro y el disparo entra pegado al palo. Frialdad de cirujano.",
+    ko:"El control se te va largo, pierdes la ocasión y su contra casi te condena.",
+    mid:"Controlas, disparas y un defensa saca en la línea."}
+  ]},
+ {id:"clutch-falta-ultima", pos:["DFC","LAT","MCD","MC","MCO","EXT","DC"],
+  t:"Falta al borde del área, última bala",
+  x:"El colegiado mira el reloj: esta falta es la última jugada. La barrera se coloca y el balón te mira a ti.",
+  o:[
+   {l:"Buscar la escuadra", fx:{inst:{gol:0.26}, nota:3},
+    ok:"El balón dibuja una comba imposible y besa la escuadra. La falta de tu vida.",
+    ko:"Se estrella en la barrera y el pitido final llega con el balón en el aire. Villano de la última bala.",
+    mid:"La pones por encima de la barrera y el portero vuela para mandarla a córner."},
+   {l:"Servirla al área con veneno", fx:{inst:{asis:0.28}, nota:2},
+    ok:"El centro encuentra una cabeza amiga y el área explota. Asistencia de oro.",
+    ko:"La pones blanda, la despeja el primero y se acabó.",
+    mid:"El centro es bueno pero el remate no encuentra portería."},
+   {l:"No arriesgar: jugarla corta y mantener la posesión", fx:{own:1.04, nota:0.5},
+    ok:"La juegas corta y el equipo hila una última posesión con oficio.",
+    mid:"Posesión larga sin remate. Nadie te lo reprochará, nadie lo recordará."}
+  ]},
+ {id:"clutch-corner-subes", pos:["POR","DFC"],
+  t:"Córner final: subes a rematar",
+  x:"El míster hace el gesto que nunca hace: todos arriba. Cruzas el campo entero con el partido en el aire.",
+  o:[
+   {l:"Atacar el primer palo con todo", fx:{inst:{gol:0.22, golR:0.16}, nota:3},
+    ok:"Ganas el salto en el primer palo y tu cabezazo hace historia. Los héroes también visten de sobrio.",
+    ko:"El despeje pilla a tu equipo vendido y te clavan la contra a portería vacía. De héroe a villano en diez segundos.",
+    mid:"Ganas el salto pero el remate se marcha alto entre un bosque de piernas."},
+   {l:"Bloquear al marcador para un compañero", fx:{inst:{asis:0.20}, nota:1.5},
+    ok:"Tu bloqueo deja solo al compañero y su remate entra. El gol lleva tu firma invisible.",
+    ko:"El árbitro ve el bloqueo, pita falta y el partido muere ahí.",
+    mid:"El bloqueo funciona pero el remate no encuentra puerta."}
+  ]},
+ {id:"clutch-remate-centro", pos:["DC","DFC","EXT"],
+  t:"Centro al corazón del área, minuto 92",
+  x:"El último centro del partido viaja hacia ti. Todo el estadio contiene el aire mientras el balón baja.",
+  o:[
+   {l:"Cabezazo picado abajo", fx:{inst:{gol:0.34}, nota:3},
+    ok:"El testarazo bota delante del portero y se cuela. El descuento es tuyo.",
+    ko:"El cabezazo sale franco... y a las nubes. Con la portería entera para ti.",
+    mid:"Conectas bien pero el portero saca un reflejo imposible."},
+   {l:"Bajarla al pecho y fusilar", fx:{inst:{gol:0.28, golR:0.06}, nota:2.5},
+    ok:"La bajas con seda y fusilas a bocajarro. GOL de delantero de raza.",
+    ko:"El control se envenena, pierdes el balón y casi te pillan a la contra.",
+    mid:"La bajas bien pero el disparo sale bloqueado."}
+  ]}
+];
+var SITS=[
+/* ---------- PORTERO ---------- */
+ {id:"por-salida", pos:["POR"], cond:function(){return true;},
+  t:"Centro llovido al área pequeña",
+  x:"Balón colgado con rosca hacia tu área pequeña y tres cuerpos esperándolo. Sales o te quedas: hay que decidirlo ya.",
+  o:[
+   {l:"Salir a puños con todo", fx:{inst:{golR:0.12}, nota:1},
+    ok:"Sales entre la maraña y despejas medio campo. El área es tuya.",
+    ko:"Sales a medias, no llegas y el balón acaba dentro. La peor imagen para un portero.",
+    mid:"Puños fuera y respiro para la defensa."},
+   {l:"Quedarte en línea y achicar el remate", fx:{inst:{parada:0.3, golR:0.10}, nota:0},
+    ok:"El remate te busca y estás donde tenías que estar: parada limpia.",
+    ko:"El cabezazo va al palo largo, donde no llegas ni de milagro.",
+    mid:"El remate se va fuera. Sin sobresaltos."},
+   {l:"Ordenar a gritos y confiar en tu central", fx:{opp:0.97, nota:0},
+    ok:"Tu central despeja donde le dijiste. Mandar también es parar.",
+    ko:"Nadie te oye con este ruido y el rival remata solo.",
+    mid:"Despeje reglamentario de tu defensa."}
+  ]},
+ {id:"por-mano-a-mano", core:true, pos:["POR"], cond:function(c,t){return t.gano||t.empate;},
+  t:"Mano a mano contra su delantero",
+  x:"Le han ganado la espalda a tu defensa. Su nueve viene solo, conduciendo, y solo estás tú entre él y el gol.",
+  o:[
+   {l:"Achicar espacio y esperar de pie", fx:{inst:{parada:0.5, golR:0.35}, nota:2},
+    ok:"Aguantas de pie hasta el último instante y le sacas el disparo con el pecho. PARADÓN.",
+    ko:"Te define por bajo al palo largo. Poco que reprocharse, pero es gol.",
+    mid:"Le achicas tanto que su disparo se marcha fuera."},
+   {l:"Tirarte a los pies", fx:{inst:{parada:0.45, golR:0.4}, nota:1},
+    ok:"Te lanzas a sus pies y le robas el balón antes del disparo. De portero de raza.",
+    ko:"Te lo pica con la puntera mientras estás por el suelo. Humillante y gol.",
+    mid:"Le desvías lo justo: el balón se va rozando el palo."},
+   {l:"Quedarte y cubrir tu palo corto", fx:{inst:{parada:0.35, golR:0.45}, nota:0},
+    ok:"Cierras tu palo y su disparo se estrella en tu pierna.",
+    ko:"Le regalas medio arco y no falla.",
+    mid:"Dispara desviado por poco."}
+  ]},
+ {id:"por-saque", pos:["POR"], cond:function(){return true;},
+  t:"El balón en tus manos y el partido esperando",
+  x:"Presionan tu salida con tres hombres arriba. Tu central pide en corto con la mano baja; tu delantero, largo y a pelear.",
+  o:[
+   {l:"Jugar en corto y romper la presión", fx:{own:1.06, inst:{golR:0.08}, nota:1},
+    ok:"Tres pases y el equipo sale jugando: aplauso cerrado del estadio.",
+    ko:"El pase se queda corto y te roban en la frontal. Regalo con dedicatoria.",
+    mid:"Salís jugando con apuros pero salís."},
+   {l:"Salir jugando por dentro, como un central más", skill:"libero", fx:{own:1.10, nota:3},
+    ok:"Rompes la presión con dos pases al pie. La grada aplaude a su portero.",
+    ko:"Te la juegas dentro del área y casi la lías. El míster se lleva las manos a la cabeza.",
+    mid:"Sales jugando con personalidad. El equipo respira."},
+   {l:"Balón largo a pelear", fx:{own:0.98, opp:0.97, nota:0},
+    ok:"Tu delantero gana el duelo y la segunda jugada acaba en córner.",
+    ko:"",
+    mid:"Balón a la lucha. Ni frío ni calor."},
+   {l:"Congelar el saque: el reloj también juega", fx:{opp:0.94, ta:0.25, nota:0},
+    ok:"Cada saque tuyo dura una era. Los minutos se van y el rival se desespera.",
+    ko:"El árbitro te enseña la amarilla por perder tiempo. Aviso.",
+    mid:"Botes, agua, más botes. El tiempo pasa."}
+  ]},
+ {id:"por-disparo-lejano", core:true, pos:["POR"], cond:function(){return true;},
+  t:"Zapatazo desde treinta metros",
+  x:"Su mediocentro arma la pierna sin que nadie salte. El balón viene con efecto y bote traicionero delante de ti.",
+  o:[
+   {l:"Blocar seguro contra el pecho", fx:{inst:{parada:0.55, golR:0.14}, nota:1},
+    ok:"Lo blocas contra el pecho sin dar rebote. Manual de portero.",
+    ko:"Se te escapa entre las manos y entra. Fallo de los que salen en todos los resúmenes.",
+    mid:"Despejas con las manos abiertas: rebote peligroso pero sin daño."},
+   {l:"Despejar a córner sin arriesgar", fx:{inst:{parada:0.46, golR:0.05}, opp:1.05, nota:1},
+    ok:"A córner con la yema de los dedos. Nadie da nada por esa parada y vale un gol.",
+    ko:"",
+    mid:"Córner y a colocar la barrera de nuevo."},
+   {l:"Achicar dos pasos y achicar ángulo", fx:{inst:{parada:0.42, golR:0.2}, nota:1},
+    ok:"Le achicas tanto que la estrella el balón en tu cuerpo.",
+    ko:"Te pilla adelantado y te la pica por encima. Golazo suyo, ridículo tuyo.",
+    mid:"El disparo se marcha alto."}
+  ]},
+ {id:"por-corner-contra", pos:["POR"], cond:function(){return true;},
+  t:"Córner en contra y tu área llena",
+  x:"Suben hasta sus centrales. Veinte cuerpos en catorce metros y tú mandando desde atrás.",
+  o:[
+   {l:"Salir a por todas", fx:{inst:{parada:0.4, golR:0.2}, nota:2},
+    ok:"Sales entre la maraña y atrapas el balón en el aire. El área es tuya y todos lo saben.",
+    ko:"Sales, no llegas y la peinan a puerta vacía. Error de manual.",
+    mid:"Sales, despejas con los puños y el peligro muere."},
+   {l:"Quedarte en línea y reaccionar", fx:{inst:{parada:0.45, golR:0.16}, nota:1},
+    ok:"Sacas una mano imposible al remate a bocajarro. PARADÓN.",
+    ko:"El cabezazo entra por la escuadra: nada que hacer.",
+    mid:"El remate se va desviado."},
+   {l:"Colocar la defensa y confiar", fx:{opp:0.95, nota:1},
+    ok:"Colocas a cada uno en su sitio y el despeje sale limpio a treinta metros.",
+    ko:"",
+    mid:"Defensa ordenada, balón fuera. Como debe ser."}
+  ]},
+ {id:"por-mando", pos:["POR"], cond:function(c,t){return c.min>=25;},
+  t:"Tu defensa se está descolocando",
+  x:"Tus centrales discuten entre ellos y el lateral no sabe si salir o cerrar. Desde atrás lo ves todo: eres el único que ve el partido entero.",
+  o:[
+   {l:"Mandar a gritos y colocar a cada uno", fx:{opp:0.9, nota:2},
+    ok:"Reordenas la defensa entera desde tu portería. Media hora sin que les llegue una.",
+    ko:"Tanto grito acaba en bronca con tu central y el rival aprovecha el despiste.",
+    mid:"Los recolocas. La línea vuelve a estar recta."},
+   {l:"Hablar en corto con tu central en la siguiente pausa", fx:{opp:0.95, nota:1},
+    ok:"Dos frases al oído y la defensa vuelve a funcionar sin dramas.",
+    ko:"",
+    mid:"Acuerdo tranquilo. Se nota en los siguientes minutos."},
+   {l:"Callar y centrarte en tu portería", fx:{opp:1.02, nota:0},
+    ok:"Sin mandar pero atento: sacas dos balones complicados.",
+    ko:"Sin voz atrás, la defensa se desarma y te llueven ocasiones.",
+    mid:"A lo tuyo. La defensa se apaña como puede."}
+  ]},
+ {id:"por-penalti", pos:["POR"], cond:function(c,t){return rnd()<0.45;}, unico:true,
+  t:"Penalti en contra: tú y él",
+  x:"Once metros. Su especialista coloca el balón y no te mira. La grada de detrás de tu portería empieza a silbar.",
+  o:[
+   {l:"Estudiar su carrera y esperar hasta el final", fx:{inst:{parada:0.28, golR:0.72}, nota:2},
+    ok:"Esperas, esperas… y te tiras cuando ya ha golpeado. PARADA DE PENALTI.",
+    ko:"Lo pone donde no llegan los porteros. Nada que hacer.",
+    mid:"Le tocas lo justo y el balón se va al palo. ¡Fuera!"},
+   {l:"Jugártela a un lado antes del golpeo", fx:{inst:{parada:0.22, golR:0.78}, nota:1},
+    ok:"Adivinas el lado y la sacas con una mano. Locura en tu área.",
+    ko:"Te tiras antes y la pone al centro, casi riéndose.",
+    mid:"Aciertas el palo pero la pega demasiado bien."},
+   {l:"Calentarle: hablarle antes del lanzamiento", fx:{inst:{parada:0.24, golR:0.7}, nota:1, ta:0.2},
+    ok:"Le dices dos cosas al oído, la manda al larguero y no te mira al volver.",
+    ko:"El árbitro te amonesta por retrasar y él marca sin pestañear.",
+    mid:"Guerra psicológica sin premio: gol y a seguir."}
+  ]},
+/* ---------- DEFENSAS ---------- */
+ {id:"def-ultimo-hombre", core:true, pos:["DFC","LAT"], unico:true, cond:function(c){return c.min>=35 && rnd()<0.45;},
+  t:"Eres el último hombre",
+  x:"Balón a la espalda y su delantero arranca. Nadie te cubre. Puedes intentar llegar limpio o hacer la falta antes de que se vaya solo.",
+  o:[
+   {l:"Ir al balón: llegar limpio o nada", fx:{inst:{golR:0.4}, nota:2},
+    ok:"Llegas por medio metro y sacas el balón limpio. Ovación de anticipación pura.",
+    ko:"Te la pica y define solo. Toda la grada te señala en la repetición.",
+    mid:"Le incomodas lo justo: el disparo sale flojo y lo blocan."},
+   {l:"Falta táctica: frenarlo como sea", fx:{roja:0.38, ta:0.9, opp:1.05, nota:0},
+    ok:"Le frenas con oficio y el árbitro entiende que no era ocasión manifiesta: solo amarilla y falta.",
+    ko:"Ocasión manifiesta de gol: roja directa y camino del túnel entre aplausos de tu grada.",
+    mid:"Le agarras sin disimulo. Amarilla, falta lejos del área y peligro cortado."},
+   {l:"Acompañar hacia la banda sin entrar", fx:{inst:{golR:0.22}, nota:1},
+    ok:"Lo llevas hasta la esquina y muere la jugada. Defender es esto.",
+    ko:"Te encara, se te va por dentro y asiste al segundo palo.",
+    mid:"Consigues llevarlo lejos del área. Peligro esquivado."}
+  ]},
+ {id:"def-marca-crack", pos:["DFC","LAT","MCD"], cond:function(){return true;},
+  t:"Te toca su hombre gol",
+  x:function(c){ return "El míster te lo dice mirándote fijo: hoy tu partido es "+rivalJug()+". Noventa minutos pegado a él, sin excusas."; },
+  o:[
+   {l:"Pegarte a él desde el primer segundo", fx:{opp:0.9, ta:0.3, nota:2},
+    ok:"Desaparece del partido. Cuando le cambian, la grada rival silba a su propio jugador.",
+    ko:"Te ganas una amarilla temprana y juegas noventa minutos con la soga al cuello.",
+    mid:"Le incomodas todo el rato: no está cómodo ni un balón."},
+   {l:"Darle un metro y leer las jugadas", fx:{opp:0.95, nota:1},
+    ok:"Sin contacto y sin dejarle recibir de cara. Manual de defensa moderna.",
+    ko:"Ese metro le basta para armar el disparo que decide.",
+    mid:"Duelo equilibrado: alguna te gana, alguna le ganas."},
+   {l:"Hablarle todo el partido para sacarlo de quicio", fx:{opp:0.93, ta:0.35, nota:1},
+    ok:"Acaba encarándose contigo y viendo amarilla. Le sacaste del partido con la lengua.",
+    ko:"El que acaba amonestado eres tú, y él aprovecha el sermón para sonreír.",
+    mid:"Piques constantes. El duelo está caliente."}
+  ]},
+ {id:"def-salida-balon", pos:["DFC","LAT","MCD"], cond:function(){return true;},
+  t:"Presión alta sobre tu salida",
+  x:"Recibes de tu portero con un delantero encima y la grada conteniendo el aliento. Todo el estadio ve lo que puede pasar.",
+  o:[
+   {l:"Conducir y romper la primera línea", fx:{own:1.07, inst:{golR:0.1}, nota:2},
+    ok:"Conduces veinte metros, rompes dos líneas y el equipo sale lanzado. Jugadón desde atrás.",
+    ko:"Te la quitan en la frontal de tu área. Gol y culpa con nombre y apellidos.",
+    mid:"Sales con lo justo pero sales. Aplauso de tu banquillo."},
+   {l:"Conducir cuarenta metros y romper líneas", skill:"conductor", fx:{own:1.12, inst:{asis:0.16}, nota:3},
+    ok:"Te vas conduciendo, revientas dos líneas y dejas al equipo lanzado.",
+    ko:"Conduces de más, te la roban en campo propio y llega el susto.",
+    mid:"Ganas treinta metros con el balón cosido al pie. El equipo sube contigo."},
+   {l:"Pase seguro al lateral", fx:{own:1.02, nota:0},
+    ok:"Encuentras al lateral con el interior y el equipo respira.",
+    ko:"",
+    mid:"Balón al lateral y a empezar de nuevo."},
+   {l:"Pelotazo y a correr", fx:{own:0.97, opp:0.98, nota:-1},
+    ok:"El pelotazo pilla a su defensa adelantada: susto y córner.",
+    ko:"Regalas la posesión y vuelven a por más. El míster gesticula en la banda.",
+    mid:"Balón fuera del peligro. Feo pero útil."}
+  ]},
+ {id:"def-cabeza-area", pos:["DFC","LAT"], cond:function(c,t){return !t.gano || c.min<70;},
+  t:"Córner a favor y tú mides 1,90",
+  x:"Subes al área rival como cada córner. Tu par te agarra la camiseta desde antes de que saquen.",
+  o:[
+   {l:"Ir al primer palo a rematar", fx:{inst:{gol:0.23}, nota:1},
+    ok:"Ganas la posición y la peinas al fondo de la red. ¡GOL TUYO!",
+    ko:"",
+    mid:"Ganas el salto pero la peinas fuera por poco."},
+   {l:"Bloquear a su central para liberar a otro", fx:{inst:{gol:0.12}, nota:1},
+    ok:"Tu bloqueo deja solo a tu compañero, que no falla. Asistencia invisible.",
+    ko:"",
+    mid:"El bloqueo funciona pero el remate se va alto."},
+   {l:"Quedarte atrás por si hay contra", fx:{opp:0.93, nota:0},
+    ok:"Cortas su contragolpe antes de que nazca. Nadie lo aplaude, todos lo agradecen.",
+    ko:"",
+    mid:"Vigilancia preventiva. Sin noticias."}
+  ]},
+/* ---------- CENTROCAMPISTAS ---------- */
+ {id:"mc-conduccion", core:true, pos:["MC","MCD","MCO"], cond:function(){return true;},
+  t:"Recibes de cara con espacio",
+  x:"Te llega el balón en la medular, de cara y con veinte metros libres delante. El estadio se pone de pie.",
+  o:[
+   {l:"Conducir hasta que salga alguien", fx:{own:1.07, inst:{asis:0.14}, nota:2},
+    ok:"Conduces, fijas a dos y sueltas el pase de gol. ASISTENCIA.",
+    ko:"Conduces de más y te roban con todo el equipo adelantado.",
+    mid:"Ganas metros y el equipo sube contigo."},
+   {l:"Pase interior de primeras", fx:{own:1.05, inst:{asis:0.10}, nota:1},
+    ok:"Pase entre líneas de los que levantan al público.",
+    ko:"Te lo interceptan y sale su contra.",
+    mid:"El pase llega y la jugada sigue viva."},
+   {l:"Cambio de orientación a la banda", fx:{own:1.04, nota:1},
+    ok:"El cambio de cuarenta metros deja a tu extremo solo: jugadón desde tu bota.",
+    ko:"",
+    mid:"Buen cambio de juego. El partido se ensancha."}
+  ]},
+ {id:"mc-duelo-pivote", core:true, pos:["MC","MCD"], cond:function(){return true;},
+  t:"Su pivote está mandando en el partido",
+  x:function(){ return "Cada balón pasa por "+rivalJug()+" y tú llegas siempre medio segundo tarde. Es el partido dentro del partido."; },
+  o:[
+   {l:"Salir a por él y no dejarle recibir", fx:{opp:0.91, ta:0.28, nota:2},
+    ok:"Le quitas dos balones seguidos y con ellos el mando del partido.",
+    ko:"Le llegas tarde, amarilla, y encima sigue mandando.",
+    mid:"Ya no recibe tan cómodo. El duelo está abierto."},
+   {l:"Taparle la sombra sin salir", fx:{opp:0.95, nota:1},
+    ok:"Juega de espaldas todo el partido. Le has borrado sin tocarle.",
+    ko:"",
+    mid:"Recibe menos y peor. Trabajo silencioso."},
+   {l:"Robo alto: quitársela antes de que gire", skill:"ladron", fx:{opp:0.86, inst:{asis:0.14}, nota:3},
+    ok:"Se la robas de espaldas y en tres pases está dentro. Robo y gol.",
+    ko:"Fallas el robo con todo el equipo adelantado y te la juegan a la contra.",
+    mid:"Le quitas dos balones seguidos: deja de pedirla de espaldas."},
+   {l:"Ignorarlo y multiplicarte en ataque", fx:{own:1.08, opp:1.06, nota:1},
+    ok:"Le ganas la partida por otro camino: apareces arriba y decides.",
+    ko:"Él manda, tú desapareces y el míster busca tu nombre en la libreta.",
+    mid:"Cambias defender por atacar. El partido dirá si acertaste."}
+  ]},
+ {id:"mc-falta-frontal", pos:["MC","MCO","EXT"], cond:function(c){return rnd()<0.55;}, unico:true,
+  t:"Falta al borde del área",
+  x:"Zona de gol y el balón esperando. Tu compañero especialista lo coge, pero tú tienes la pierna caliente y el estadio pide tu nombre.",
+  o:[
+   {l:"Tirarla tú", fx:{inst:{gol:0.17}, nota:3},
+    ok:"Por encima de la barrera y adentro. GOLAZO de falta directa.",
+    ko:"",
+    mid:"Roza el larguero. Ay, por poco."},
+   {l:"Ensayada: pase corto y disparo", fx:{inst:{gol:0.09, asis:0.14}, own:1.04, nota:1},
+    ok:"La ensayada sale calcada al entrenamiento. Gol y celebración con guiño al banquillo.",
+    ko:"",
+    mid:"La jugada acaba en córner. Casi."},
+   {l:"Tu falta ensayada de siempre", skill:"especialista", fx:{inst:{gol:0.27}, nota:3},
+    ok:"La pones donde solo tú sabes. Golazo de falta directa y silencio en la grada rival.",
+    ko:"Esta vez la barrera adivina la trayectoria y la saca."},
+   {l:"Dársela al especialista", fx:{inst:{gol:0.14}, nota:0},
+    ok:"La clava. Le abrazas y compartes el gol.",
+    ko:"",
+    mid:"Barrera y rechace. Se intentó."}
+  ]},
+ {id:"mc-tapon", pos:["MCD","MC"], cond:function(c,t){return t.gano&&c.min>=60;},
+  t:"Toca sufrir y tú eres el tapón",
+  x:"Ganáis y el rival vuelca el partido. El míster te señala el suelo: ahí, delante de los centrales, hasta el final.",
+  o:[
+   {l:"Barrer todo lo que pase por tu zona", fx:{opp:0.9, ta:0.3, nota:2},
+    ok:"Cortas cinco balones seguidos. El '5' de toda la vida.",
+    ko:"Amarilla al primer corte y a jugar con miedo el resto.",
+    mid:"Tu zona es un muro. Nadie pasa por el centro."},
+   {l:"Colocarte bien y no entrar nunca", fx:{opp:0.94, nota:1},
+    ok:"Sin faltas y sin dejar recibir: partido perfecto de posicionamiento.",
+    ko:"",
+    mid:"Buen posicionamiento. El rival busca las bandas."},
+   {l:"Salir a robar arriba y matar la jugada antes", fx:{opp:0.96, own:1.05, nota:1},
+    ok:"Robas en su campo y de ahí sale la sentencia.",
+    ko:"Sales y dejas el hueco justo por donde te empatan.",
+    mid:"Presión adelantada con premio a medias."}
+  ]},
+/* ---------- ATAQUE ---------- */
+ {id:"mis-mania", pos:null, cond:function(c){ return c.min>=20 && c.min<=70; },
+  t:function(){ return "La manía del míster"; },
+  x:function(c){ return "Desde la banda te grita lo de siempre: «"+esc(estiloMister().lema.replace(/[«»]/g,""))+"» Y te mira a ti, no al de al lado."; },
+  o:[
+   {l:"Hacerlo exactamente como él quiere", fx:{own:1.05, mis:4, disc:3, nota:2},
+    ok:"Ejecutas su idea al milímetro y funciona. Aplaude desde la banda como si hubiera marcado él.",
+    ko:"", mid:"Cumples el guion. Ni brilla ni falla, que es justo lo que te pedía."},
+   {l:"Hacerlo a tu manera", fx:{own:1.04, opp:1.03, mis:-5, ego:5, disc:-4, nota:3},
+    ok:"Te sales del guion y sale bien. Es difícil discutirle a alguien que acaba de acertar.",
+    ko:"Te sales del guion y sale mal. Ahora tiene la razón y la munición.",
+    mid:"Improvisas sin premio. Él lo ha visto todo."},
+   {l:"Fingir que no le has oído", fx:{mis:-3, disc:-2},
+    ok:"", ko:"", mid:"Miras al otro lado. Con este míster eso también es una respuesta."}
+  ]},
+ {id:"car-caño", pos:null, arq:["genio","showman","crack"], cond:function(c){ return c.min>=20; },
+  t:"El rival te ha faltado al respeto",
+  x:function(c){ return "Te ha dado dos patadas y una palmadita en la cabeza. Ahora te llega el balón de espaldas y le tienes justo detrás. La grada lo ha visto todo."; },
+  o:[
+   {l:"El caño y salir andando", fx:{ego:6, disc:-3, own:1.05, nota:3},
+    ok:"Caño, giro y te vas andando sin mirarle. El estadio ENLOQUECE. De esas jugadas se habla veinte años.",
+    ko:"Te sale mal, la pierdes en tu campo y encima te ríen la desgracia. Humillación al revés.",
+    mid:"Lo intentas, le rozas las piernas y sigue la jugada. Se ha entendido el mensaje."},
+   {l:"Pisarle el tobillo cuando nadie mira", fx:{disc:-8, ego:2, ta:0.5, nota:-1},
+    ok:"Nadie lo ve. Él sí. Y a partir de ahí te respeta.",
+    ko:"El árbitro lo ve todo. Amarilla, bronca y tu nombre en el foco.",
+    mid:"Un roce feo que queda entre vosotros dos."},
+   {l:"Jugar rápido y no entrar al trapo", fx:{disc:5, ego:-2, own:1.03, nota:2},
+    ok:"Pase de primeras y a otra cosa. Los profesionales se vengan con el marcador.",
+    ko:"", mid:"Sueltas el balón sin más. Él sigue buscándote."}
+  ]},
+ {id:"car-celebracion", pos:null, arq:["genio","showman","crack"], cond:function(c){ return c.miGol>0 && c.min>=30; }, unico:true,
+  t:"Acabas de marcar y la grada rival te silba",
+  x:"Sesenta mil personas pitándote a la vez. Tienes tres segundos para decidir qué haces con eso.",
+  o:[
+   {l:"Callarles la boca con el dedo en los labios", fx:{ego:9, disc:-5, nota:2},
+    ok:"El gesto da la vuelta al mundo. Tu grada te adora, la suya te odia para siempre. Naciste para esto.",
+    ko:"El árbitro te amonesta por provocación y la federación abre expediente.",
+    mid:"Gesto, silbidos y a correr al centro del campo. Titular asegurado."},
+   {l:"Celebrarlo con la grada de los tuyos", fx:{ego:3, nota:2},
+    ok:"Te lanzas a tu fondo y aquello es una fiesta. Tu gente es tu gente.",
+    ko:"", mid:"Puño al aire hacia los tuyos. Sencillo y suficiente."},
+   {l:"No celebrarlo: respeto al rival", fx:{disc:6, ego:-4, nota:1},
+    ok:"Ni un gesto. Ese silencio dice más que cualquier celebración y hasta el rival lo reconoce.",
+    ko:"", mid:"Manos arriba pidiendo disculpas. Elegancia."}
+  ]},
+ {id:"car-orden", pos:null, arq:["capitan","soldado"], cond:function(c){ return c.min>=25; },
+  t:"El equipo se está descomponiendo",
+  x:function(c){ return "Dos compañeros discutiendo, la línea partida y el míster gritando sin que nadie le oiga. Alguien tiene que agarrar esto."; },
+  o:[
+   {l:"Reunirlos a todos en el centro del campo", fx:{disc:6, own:1.08, afin:5, nota:3},
+    ok:"Paras el partido, los juntas y hablas diez segundos. El equipo sale de ahí siendo otro.",
+    ko:"Te escuchan a medias y la jugada siguiente es un desastre. No siempre basta con querer.",
+    mid:"Los recolocas uno a uno. El orden vuelve poco a poco."},
+   {l:"Predicar con el ejemplo: correr por todos", fx:{disc:5, ego:-3, own:1.05, nota:2},
+    ok:"Tres recuperaciones seguidas tuyas y el equipo se contagia. Sin decir una palabra.",
+    ko:"", mid:"Corres el doble. Alguno se da por aludido."},
+   {l:"No es tu problema: a lo tuyo", fx:{disc:-4, ego:4, nota:0},
+    ok:"", ko:"", mid:"Miras hacia otro lado y sigues tu partido. El barco se hunde con todos dentro."}
+  ]},
+ {id:"car-noche", pos:null, arq:["genio","problema","showman"], cond:function(c){ return c.min<=20 && rnd()<0.5; }, unico:true,
+  t:"No has dormido",
+  x:"La noche se alargó más de la cuenta y el cuerpo lo sabe. El míster no lo sabe. Todavía.",
+  o:[
+   {l:"Tirar de talento: hoy toca improvisar", fx:{ego:5, disc:-3, own:1.06, nota:3},
+    ok:"Sin piernas pero con una lucidez extraña, haces el partido del año. Hay quien juega mejor así.",
+    ko:"Llegas tarde a todo y el míster te lee la cara antes del minuto veinte.",
+    mid:"Vas tirando a base de oficio. Nadie nota nada. Todavía."},
+   {l:"Pedir el cambio antes de hacer el ridículo", fx:{disc:3, fin:true, nota:-1},
+    ok:"", ko:"", mid:"Te señalas el gemelo y sales. Nadie pregunta, pero el fisio te mira raro."}
+  ]},
+ {id:"mc-desmarque", core:true, pos:["MC","MCO","MCD"], cond:function(){return true;},
+  t:"Tu delantero pica al espacio",
+  x:function(c){ return "Recibes de cara y ves a "+compi()+" arrancando entre los dos centrales. La defensa está adelantada: hay pase, pero es de los difíciles."; },
+  o:[
+   {l:"Pase al hueco de primeras", fx:{inst:{asis:0.24}, nota:3},
+    ok:"Balón medido entre los centrales: se planta solo y no falla. ASISTENCIA.",
+    ko:"Te pasas de fuerza y el balón se marcha al portero. Ocasión desperdiciada.",
+    mid:"El pase llega pero el linier levanta el banderín. Fuera de juego por poco."},
+   {l:"Esperar un segundo a que se abra mejor", fx:{inst:{asis:0.16}, own:1.03, nota:2},
+    ok:"Esperas, se abre el pasillo y ahora sí: pase y gol.",
+    ko:"El segundo de más lo cambia todo: te cierran el pase y pierdes el balón.",
+    mid:"La jugada se recompone sin premio, pero el equipo mantiene el balón."},
+   {l:"Cambiar el juego a la banda contraria", fx:{own:1.06, inst:{asis:0.12}, nota:1},
+    ok:"Cambio de cuarenta metros y de ahí sale el gol. Asistencia de las que se aplauden.",
+    ko:"",
+    mid:"El cambio descoloca al rival aunque no acabe en nada."}
+  ]},
+ {id:"lat-fondo", core:true, pos:["LAT","EXT"], cond:function(){return true;},
+  t:"Llegas al fondo por tu banda",
+  x:"Has ganado la línea de fondo y tienes tres compañeros entrando al área. El lateral rival llega tarde.",
+  o:[
+   {l:"Centro raso al primer palo", fx:{inst:{asis:0.21}, nota:2},
+    ok:"Centro tenso y raso: solo hay que empujarla. ASISTENCIA.",
+    ko:"Te precipitas y el central despeja con comodidad.",
+    mid:"El centro lo blocan, pero has ganado un córner."},
+   {l:"Buscar la cabeza del delantero al segundo palo", fx:{inst:{asis:0.17}, nota:2},
+    ok:"Centro con rosca al segundo palo y cabezazo al fondo. ASISTENCIA.",
+    ko:"Te pasas de largo: el balón sale por el otro lado sin tocar a nadie.",
+    mid:"El portero sale a puños y despeja."},
+   {l:"Pararla y esperar a que llegue gente", fx:{own:1.05, inst:{asis:0.10}, nota:1},
+    ok:"Pausa, llega el mediocentro y le pones el gol servido.",
+    ko:"Tanta pausa permite que se coloquen y acabas perdiendo el balón en la esquina.",
+    mid:"Llega gente al área. La jugada sigue viva."}
+  ]},
+ {id:"del-area", core:true, pos:["DC","MCO"], cond:function(c){return true;},
+  t:"El balón cae en el área",
+  x:"Rechace tras el disparo de un compañero. El balón te queda a media altura entre dos defensas, con el portero vendido.",
+  o:[
+   {l:"Rematar de primeras, sin pensarlo", fx:{inst:{gol:0.28}, nota:3},
+    ok:"Golpeo seco y al fondo. Los delanteros viven de esto. ¡GOL!",
+    ko:"Le pegas con todo y la mandas a la grada. El área es cuestión de calma.",
+    mid:"El remate se estrella en un defensa. Córner."},
+   {l:"Controlar y buscar el hueco", fx:{inst:{gol:0.20}, nota:2},
+    ok:"Control orientado, un paso y disparo colocado. GOL de nueve listo.",
+    ko:"El control te sale largo y te la quitan cuando ya la tenías.",
+    mid:"Controlas y disparas, pero el portero llega."},
+   {l:"Cedérsela al que llega solo", fx:{inst:{asis:0.26}, nota:2},
+    ok:"Se la dejas muerta y solo tiene que empujarla. ASISTENCIA.",
+    ko:"Tu pase es blando y el defensa la corta. Ocasión perdida por generoso.",
+    mid:"Tu compañero remata fuera. Lo hiciste bien tú."}
+  ]},
+ {id:"def-cruce", core:true, pos:["DFC","LAT","MCD"], cond:function(){return true;},
+  t:"Centro al área y tú en la trayectoria",
+  x:function(c){ return "Llega el centro desde la banda y su delantero ataca el primer palo. Es tu zona y tu responsabilidad."; },
+  o:[
+   {l:"Anticiparte y despejar de cabeza", fx:{inst:{golR:0.10}, opp:0.95, nota:3},
+    ok:"Le ganas la posición y despejas al córner. Defensa de manual.",
+    ko:"Te anticipas mal, peinas hacia atrás y la mandas cerca de tu portería.",
+    mid:"Despeje limpio a treinta metros. Peligro cortado."},
+   {l:"Marcarle y no dejarle saltar", fx:{inst:{golR:0.16}, ta:0.28, nota:2},
+    ok:"No le dejas ni despegar los pies. Remate imposible.",
+    ko:"Te agarras demasiado y el árbitro pita penalti. Regalo.",
+    mid:"Duelo repartido: el remate sale desviado."},
+   {l:"Achicar y dejarlo en fuera de juego", fx:{inst:{golR:0.24}, own:1.04, nota:2},
+    ok:"Línea perfecta: el banderín se levanta y os aplaude vuestra grada.",
+    ko:"Uno se queda dormido y el fuera de juego no existe. Gol en contra.",
+    mid:"La jugada muere en el fuera de juego por poco."}
+  ]},
+ {id:"por-ultimo-cornero", pos:["POR"], cond:function(c){ return c.min>=85 && c.sc[0]<c.sc[1]; }, unico:true,
+  t:"Último córner del partido",
+  x:"Vais perdiendo, quedan segundos y el árbitro señala córner. Tu portería está a ochenta metros y el míster te mira.",
+  o:[
+   {l:"Subir a rematar", fx:{inst:{gol:0.13}, opp:1.35, ego:8, nota:3},
+    ok:"¡EL PORTERO! Te elevas por encima de todos y la mandas al fondo. Historia del club.",
+    ko:"Suben todos menos el balón. Contra rival y gol a puerta vacía. Vas a salir en todos los resúmenes.",
+    mid:"Subes, peinas el balón y sale rozando el palo. Por poco."},
+   {l:"Quedarte en tu sitio", fx:{disc:3},
+    ok:"", ko:"", mid:"Te quedas en tu área. Se pierde el córner y se acaba el partido."}
+  ]},
+ {id:"por-saque-largo", pos:["POR"], cond:function(c){ return c.min>=20; },
+  t:"Balón en tus manos y el rival adelantado",
+  x:function(c){ return "Blocas y levantas la cabeza: su defensa está subida y "+compi()+" ya está corriendo al espacio."; },
+  o:[
+   {l:"Saque en largo al espacio", fx:{inst:{asis:0.14}, own:1.05, nota:2},
+    ok:"Ochenta metros de saque y tu delantero se planta solo. ASISTENCIA del portero.",
+    ko:"Regalas el balón en el centro del campo y vuelven con todo.",
+    mid:"El saque llega pero el central lo peina. Nada que reprochar."},
+   {l:"Sacar en corto y empezar la jugada", fx:{own:1.04, opp:0.98, nota:1},
+    ok:"Sales jugando con criterio y el equipo respira. Portero moderno.",
+    ko:"Te la roban en la frontal de tu área. Pánico.",
+    mid:"Sacas en corto y se juega. Sin sobresaltos."},
+   {l:"Perder tiempo con calma", fx:{opp:0.96, ta:0.22, disc:-2},
+    ok:"", ko:"El árbitro te amonesta por perder tiempo. Justo lo que no necesitabas.",
+    mid:"Te tomas tus segundos. La grada rival protesta."}
+  ]},
+ {id:"por-disparo-area", core:true, pos:["POR"], cond:function(){return true;},
+  t:"Disparo desde dentro del área",
+  x:"Le han dejado disparar dentro del área, a doce metros. Tienes una décima de segundo.",
+  o:[
+   {l:"Achicar y taparle todo el arco", fx:{inst:{parada:0.55, golR:0.26}, nota:3},
+    ok:"Sales a por él y le tapas todo: la estrella en tu cuerpo. PARADÓN.",
+    ko:"Sales, te pica el balón por encima y entra. Fallo de portero.",
+    mid:"El disparo se marcha fuera rozando el palo."},
+   {l:"Quedarte y reaccionar al disparo", fx:{inst:{parada:0.44, golR:0.30}, nota:2},
+    ok:"Reflejo puro: mano abajo y a córner.",
+    ko:"Te la ajustan al palo y no llegas. Nada que hacer.",
+    mid:"Blocas en dos tiempos, con apuros."},
+   {l:"Adivinar el palo antes del golpeo", fx:{inst:{parada:0.60, golR:0.38}, nota:3},
+    ok:"Te tiras antes y aciertas: parada de las que se recuerdan.",
+    ko:"Te adelantas al lado contrario y la ves entrar por donde estabas.",
+    mid:"Te tiras al palo bueno pero el disparo va suave y fuera."}
+  ]},
+ {id:"del-mano-a-mano", core:true, pos:["DC","EXT","MCO"], cond:function(){return true;},
+  t:"Solo delante del portero",
+  x:function(){ return "Le has ganado la espalda a "+rivalJug()+" y estás solo. El portero sale a achicar. Todo el estadio de pie en dos segundos eternos."; },
+  o:[
+   {l:"Disparo cruzado abajo", fx:{inst:{gol:0.38}, nota:2},
+    ok:"Cruzado, raso y adentro. GOL. La red se mueve como tiene que moverse.",
+    ko:"El portero adivina y la saca con el pie. Te llevas las manos a la cabeza.",
+    mid:"La sacas fuera por centímetros. Fallo que dolerá esta noche."},
+   {l:"Picarla por encima", fx:{inst:{gol:0.32}, nota:2},
+    ok:"Vaselina perfecta. GOLAZO de los que salen en todos los resúmenes.",
+    ko:"Se la pones en las manos. El portero ni se ha movido.",
+    mid:"Roza el larguero al caer. El estadio suspira."},
+   {l:"Esperar y regatearle", fx:{inst:{gol:0.30}, opp:1.06, nota:3},
+    ok:"Le sientas y la empujas a puerta vacía. Descaro premiado.",
+    ko:"Tardas demasiado y te llega el central por detrás.",
+    mid:"Le regateas pero el ángulo se cierra y la mandas al lateral de la red."},
+   {l:"Cederla al compañero que llega solo", fx:{inst:{asis:0.40}, nota:1},
+    ok:"Se la pones muerta y solo tiene que empujarla. Asistencia de manual y abrazo doble.",
+    ko:"Se la pasas al que estaba en fuera de juego. Gol anulado y bronca del banquillo.",
+    mid:"Tu pase es bueno, su remate no tanto."}
+  ]},
+ {id:"del-sequia", pos:["DC"], cond:function(c,t){return c.min>=50 && !c.miGol;},
+  t:"Llevas rato sin oler el balón",
+  x:"Dos centrales grandes, ningún balón limpio y la grada empezando a impacientarse contigo. El nueve vive de esto.",
+  o:[
+   {l:"Bajar a recibir y participar", fx:{own:1.05, inst:{asis:0.12}, nota:1},
+    ok:"Bajas, tocas, giras y sale la jugada de gol desde tus botas.",
+    ko:"Bajas tanto que arriba no hay nadie y el ataque se apaga.",
+    mid:"Empiezas a tocar balones. El partido te ve por fin."},
+   {l:"Seguir atacando el espacio: la tuya llegará", fx:{inst:{gol:0.2}, nota:1},
+    ok:"Insististe veinte veces y a la veintiuna llegó: GOL del que nunca deja de correr.",
+    ko:"",
+    mid:"Ni una llega, pero fijas a los centrales para los demás."},
+   {l:"Pelearte con el central: llevártelo a tu terreno", fx:{opp:0.97, ta:0.3, nota:0},
+    ok:"Le sacas de quicio: acaba amonestado y sin atreverse a apretar.",
+    ko:"El que ve amarilla eres tú, y ahora juegas con freno de mano.",
+    mid:"Codazos, agarrones y palabras. Duelo caliente."}
+  ]},
+ {id:"ext-uno-contra-uno", core:true, pos:["EXT","MCO"], cond:function(){return true;},
+  t:"Uno contra uno en la banda",
+  x:function(){ return "Balón al pie, línea de cal y "+rivalJug()+" esperándote con las piernas abiertas. Sesenta mil ojos en tu primer control."; },
+  o:[
+   {l:"Encarar por fuera y colgarla", fx:{inst:{asis:0.15, gol:0.04}, nota:1},
+    ok:"Te vas por fuera y pones el centro perfecto al segundo palo. ASISTENCIA.",
+    ko:"Te la roba en el intento y sale su contra.",
+    mid:"Centro despejado por su central. Insistirás."},
+   {l:"Irte de dos en tres metros", skill:"desborde", fx:{inst:{gol:0.13, asis:0.22}, nota:3},
+    ok:"Recortas al primero, sales del segundo y el estadio ruge: de ahí sale el gol.",
+    ko:"Te lías con el segundo recorte y mueres en la línea de cal.",
+    mid:"Dejas sentado al lateral, pero el centro lo despejan."},
+   {l:"Cortar hacia dentro y disparar", fx:{inst:{gol:0.16}, nota:2},
+    ok:"Recortas y la mandas a la escuadra larga. GOLAZO marca de la casa.",
+    ko:"",
+    mid:"El disparo se va lamiendo el palo. El estadio se levanta a medias."},
+   {l:"Ruleta y buscar la falta", fx:{opp:0.96, nota:1},
+    ok:"Le desarbolas: falta en zona de peligro y amarilla para él.",
+    ko:"El árbitro entiende que te dejas caer y te enseña la amarilla a ti.",
+    mid:"Falta en tres cuartos. Territorio ganado."}
+  ]},
+ {id:"del-penalti", pos:["DC","EXT","MCO","MC"], cond:function(c,t){return rnd()<0.45;}, unico:true,
+  t:"Penalti a favor y el balón en tus manos",
+  x:function(c){ if(!c) return "Penalti a favor y el punto de cal esperando. Tú eres el lanzador."; var t=ctxTag(c); return t.pierdo? "Once metros y el marcador en contra. Tu capitán te mira: «¿Lo tienes?»." : "Penalti claro y el punto de cal esperando. Tú eres el lanzador."; },
+  o:[
+   {l:"Fuerte y arriba", fx:{inst:{gol:0.80}, nota:3},
+    ok:"Fuerte, arriba, imparable. GOL.",
+    ko:"Demasiado arriba: al larguero. El silencio del estadio pesa toneladas.",
+    mid:""},
+   {l:"Colocada a un palo", fx:{inst:{gol:0.71}, nota:1},
+    ok:"Ajustada al palo, ni el mejor portero llega. GOL.",
+    ko:"El portero se la adivina y la saca. Te quedas mirando al cielo.",
+    mid:""},
+   {l:"Panenka: tu momento de gloria", fx:{inst:{gol:0.62}, nota:3},
+    ok:"PANENKA. El portero por el suelo y tú andando de vuelta al centro. Leyenda.",
+    ko:"Se queda quieto, la coge con las manos y te la enseña. Ridículo eterno.",
+    mid:""},
+   {l:function(){ return "Cedérselo a "+(S.player_cap||(S.player_cap=compi())); }, fx:{inst:{gol:0.75}, nota:0},
+    ok:"Lo mete él y te agradece la confianza delante de todos.",
+    ko:"Lo falla y te preguntarás toda la noche por qué no lo tiraste tú.",
+    mid:""}
+  ]},
+/* ---------- COMUNES A TODOS ---------- */
+ {id:"com-presion-alta", pos:null, cond:function(c,t){return c.min<=55;},
+  t:"Toca ir a presionar arriba",
+  x:"El míster pide gatillo: saltar sobre su salida de balón. Es tu sprint y tus pulmones los que deciden si el plan funciona.",
+  o:[
+   {l:"Saltar el primero y arrastrar al equipo", fx:{opp:0.94, own:1.04, nota:2},
+    ok:"Tu salto provoca el error y de ahí nace la mejor ocasión.", ko:"Saltas solo, te superan con un pase y dejas al equipo partido.", mid:"Presionas sin premio inmediato, pero el rival ya no está cómodo."},
+   {l:"Esperar señal del compañero", fx:{opp:0.97, nota:0},
+    ok:"Presión coordinada perfecta: robáis en bloque.", ko:"", mid:"Presión ordenada. Nadie se desgasta de más."},
+   {l:"Guardar el sprint para más adelante", fx:{own:0.99, opp:1.03, mis:-2, nota:-1},
+    ok:"Reservas y llegas al tramo final como una moto.", ko:"El míster ve tu paso lento justo en la jugada del gol rival.", mid:"Administras el esfuerzo. Nadie dice nada."}
+  ]},
+ {id:"com-grada-canta", pos:null, cond:function(c,t){return c.casa && (t.pierdo||t.empate) && c.min>=50;},
+  t:"Tu grada empieza a empujar",
+  x:"Bufandas al aire y un cántico que sacude el hormigón. El estadio pide que alguien tire del carro y las miradas te buscan.",
+  o:[
+   {l:"Pedir más a la grada con los brazos", fx:{own:1.06, nota:2},
+    ok:"Levantas al estadio entero y el equipo entra en modo asedio.", ko:"Pides jaleo y a los treinta segundos pierdes un balón tonto. Silencio incómodo.", mid:"El ruido sube. El equipo lo agradece."},
+   {l:"Cabeza baja y trabajar", fx:{own:1.02, nota:1},
+    ok:"Sin gestos: solo tres acciones seguidas que cambian el partido.", ko:"", mid:"A lo tuyo. El ruido va por dentro."}
+  ]},
+ {id:"com-rival-provoca", pos:null, cond:function(c,t){return c.min>=30;},
+  t:"Tu par te está buscando",
+  x:"Codazo disimulado, pisotón en el córner y una frase sobre tu familia. Lleva veinte minutos intentando sacarte del partido.",
+  o:[
+   {l:"Devolvérsela a la primera oportunidad", fx:{ta:0.7, nota:-1},
+    ok:"Le devuelves una entrada dura y limpia: deja de hablar el resto del partido.", ko:"El árbitro solo ve la tuya: amarilla y sermón.", mid:"Le avisas sin pasarte. Tregua tensa."},
+   {l:"Sonreírle y seguir a lo tuyo", fx:{nota:2},
+    ok:"Tu indiferencia le desespera: acaba viendo amarilla por perseguirte.", ko:"", mid:"Ni caso. El partido sigue."},
+   {l:"Pedirle al árbitro que lo controle", fx:{opp:0.98, nota:0},
+    ok:"El árbitro le amonesta a la siguiente. Justicia poética.", ko:"El árbitro te dice que juegues y el rival se ríe.", mid:"Queda avisado. Poco más."}
+  ]},
+ {id:"com-balon-dividido", pos:null, cond:function(){return true;},
+  t:"Balón dividido en el centro del campo",
+  x:"Los dos llegáis al mismo tiempo y a la misma velocidad. En estos duelos se mide de qué está hecho cada uno.",
+  o:[
+   {l:"Entrar con todo: que sepa a lo que juegas", fx:{ta:0.35, own:1.03, nota:2},
+    ok:"Ganas el duelo y el balón sale limpio. El estadio lo celebra como un gol.", ko:"Llegas tarde y con la plancha alta: amarilla clara.", mid:"Duelo repartido y balón fuera. Mensaje enviado."},
+   {l:"Retirar la pierna: no te la juegas", fx:{own:0.98, nota:-1},
+    ok:"Evitas la lesión y recuperas dos metros después.", ko:"Se te van dos duelos seguidos y el míster gesticula en la banda.", mid:"Cedes el balón sin drama."},
+   {l:"Anticipar: leerlo antes de que llegue", fx:{own:1.05, nota:2},
+    ok:"Sales antes que nadie y el balón es tuyo sin contacto. Categoría.", ko:"Fallas la lectura y ahora estás vendido a la espalda.", mid:"Lectura correcta: el duelo ni existe."}
+  ]},
+ {id:"com-final-apretado", pos:null, cond:function(c,t){return c.min>=78;},
+  t:"Últimos minutos y todo por decidir",
+  x:function(c){ var t=ctxTag(c); return t.pierdo? "El marcador en contra y el reloj comiéndose las opciones. Cada balón es una final." : t.gano? "Ganáis por poco y el rival lo vuelca todo. Aguantar es la única misión." : "Empate y minutos de descuento. Una jugada puede valer la temporada."; },
+  o:[
+   {l:"Echarte el equipo a la espalda", fx:{own:1.08, opp:1.03, inst:{gol:0.10, asis:0.08}, nota:3},
+    ok:"Apareces cuando nadie más se atreve y decides el partido.", ko:"Quieres hacerlo todo tú y acabas perdiendo el balón decisivo.", mid:"Pides cada balón. El equipo se agarra a ti."},
+   {l:"Jugar sencillo y no perder nada", fx:{own:1.02, opp:0.97, nota:1},
+    ok:"Ni un error en los minutos que más pesan. Oficio puro.", ko:"", mid:"Sencillo y seguro. Nada que reprocharte."},
+   {l:"Perder tiempo con oficio", fx:{opp:0.9, own:0.9, ta:0.3, nota:0},
+    ok:"Cada acción tuya dura una eternidad. El reloj es tu mejor amigo.", ko:"El árbitro te amonesta por escaqueo y añade tres minutos más.", mid:"Botas atadas despacio, saques lentos. Los segundos vuelan."}
+  ]},
+ {id:"com-arbitro", pos:null, cond:function(c){return c.min>=25;},
+  t:"El árbitro se equivoca contigo",
+  x:"Te pita una falta inexistente y el rival simula caída con teatro incluido. Lo tienes a dos metros y la sangre caliente.",
+  o:[
+   {l:"Protestar de frente", fx:{ta:0.55, nota:-1},
+    ok:"Le dices lo justo y da un paso atrás. Se acordará de compensarte.",
+    ko:"Amarilla por protestar. Y ahora juegas con la cartulina encima.",
+    mid:"Le sueltas dos frases y se aleja sin escucharte."},
+   {l:"Ironía y aplauso lento", fx:{ta:0.8, mis:-3, nota:-2},
+    ok:"Increíblemente, elige no verte. Te has quedado a gusto gratis.",
+    ko:"El aplauso irónico nunca falla: amarilla al canto.",
+    mid:"Te mira fijo. Última advertencia."},
+   {l:"Tragar y pedir el balón", fx:{nota:1},
+    ok:"Te levantas sin decir nada y a los dos minutos aparece tu mejor jugada.",
+    ko:"",
+    mid:"Ni una palabra. El partido sigue."}
+  ]},
+ {id:"com-companero-error", pos:null, cond:function(c,t){return t.pierdo||t.empate;},
+  t:"Tu compañero acaba de regalar un balón",
+  x:function(){ return compi()+" ha regalado un balón horrible y el estadio se lo ha hecho saber. Está hundido, con las manos en las rodillas, buscando a quién mirar."; },
+  o:[
+   {l:"Ir a levantarlo delante de todos", fx:{own:1.05, nota:2, afin:6},
+    ok:"Le levantas la cabeza y a los diez minutos él te devuelve el favor con la jugada del partido.",
+    ko:"",
+    mid:"Dos palmadas y una frase. El grupo lo ve."},
+   {l:"Exigirle a gritos que despierte", fx:{own:1.03, nota:0, afin:-5},
+    ok:"El grito le enciende: sale a comerse el mundo.",
+    ko:"Se hunde más y el equipo se parte en dos.",
+    mid:"Le aprietas. Habrá que ver cómo lo digiere."},
+   {l:"Ir tú a por el partido: cargar con todo", fx:{own:1.07, opp:1.03, nota:1, afin:-2},
+    ok:"Te echas el equipo a la espalda y se nota en cada balón.",
+    ko:"Querer hacerlo todo tú acaba en precipitación y pérdidas.",
+    mid:"Pides todos los balones. El equipo se agarra a ti."}
+  ]},
+ {id:"com-lesion", pos:null, cond:function(c){return c.min>=40 && rnd()<0.3;}, unico:true,
+  t:"Notas un pinchazo",
+  x:"Un tirón en el isquio en pleno sprint. No es un dolor de los graves… todavía. El fisio te mira desde la banda con la mano levantada.",
+  o:[
+   {l:"Pedir el cambio", fx:{fin:true, nota:0},
+    ok:"", ko:"",
+    mid:"Sales por tu propio pie entre aplausos. Cabeza fría: hay treinta partidos por delante."},
+   {l:"Apretar los dientes y seguir", fx:{lesion:0.35, nota:1},
+    ok:"Era un calambre. Sigues y encima aparece tu mejor tramo del partido.",
+    ko:"Al siguiente sprint se rompe del todo. Semanas fuera por cinco minutos de orgullo.",
+    mid:"Juegas al 80%, pero tu sola presencia ocupa a dos rivales."},
+   {l:"Bajar el ritmo sin decir nada", fx:{own:0.94, lesion:0.22, mis:-2, nota:-1},
+    ok:"Gestionas el esfuerzo y llegas entero al final.",
+    ko:"El míster ve que no llegas a los duelos y te cambia con gesto serio.",
+    mid:"Juegas administrando. Nadie lo nota desde la grada."}
+  ]},
+ {id:"com-tangana", pos:null, cond:function(c,t){return c.min>=55 && rnd()<0.4;}, unico:true,
+  t:"Tangana en el centro del campo",
+  x:function(){ return "Entrada durísima sobre "+compi()+" y en dos segundos hay veinte jugadores empujándose. Llegas de los últimos y aún puedes elegir."; },
+  o:[
+   {l:"Meterte a defender a los tuyos", fx:{ta:0.45, own:1.05, nota:1, afin:7},
+    ok:"Das la cara por el grupo sin pasarte. En el vestuario eso vale un mundo.",
+    ko:"Amarilla por meterte donde no te llamaban.",
+    mid:"Empujones y palabras. El equipo se siente respaldado."},
+   {l:"Separar y calmar", fx:{nota:2, afin:3},
+    ok:"Sacas a los tuyos del lío. El árbitro lo ve y lo agradece: brazalete moral.",
+    ko:"",
+    mid:"Haces de bombero. La tangana se apaga sola."},
+   {l:"Aprovechar para pedirle cuentas a tu par", fx:{ta:0.6, nota:-1},
+    ok:"Le dejas claro que no se repite. Y no se repite.",
+    ko:"El árbitro solo ve tu empujón: amarilla injusta pero amarilla.",
+    mid:"Cara a cara sin consecuencias. De momento."}
+  ]},
+ {id:"com-cambio-pide", pos:null, cond:function(c,t){return c.min>=65 && (t.gano||t.pierdo);},
+  t:"El míster mira hacia el banquillo… y hacia ti",
+  x:function(c){ var t=ctxTag(c); return t.gano? "Vais ganando y el cuarto árbitro prepara el cartel. Puede ser tu número: refresco o gestión." : "Perdéis y el míster busca soluciones. Miras al banquillo y ves calentar a uno de tu puesto."; },
+  o:[
+   {l:"Pedir la bola: que te vea implicado", fx:{own:1.04, nota:1},
+    ok:"Tres balones seguidos pidiendo y resolviendo. El cartel muestra otro número.",
+    ko:"Fuerzas una jugada imposible justo cuando te miraba. Cartel con tu número.",
+    mid:"Te implicas más. La decisión sigue en el aire."},
+   {l:"Correr como si fuera el minuto uno", fx:{own:1.03, nota:2},
+    ok:"Dos sprints de recuperación y el míster guarda el cartel. Con esfuerzo no se discute.",
+    ko:"",
+    mid:"Corres hasta el último aliento. Se te ve."},
+   {l:"Guardar piernas: hay partido entre semana", fx:{own:0.96, nota:-1, mis:-5},
+    ok:"Administras y llegas fresco al siguiente. Nadie lo nota.",
+    ko:"Se te nota el paso cambiado y el míster lo ve desde la banda.",
+    mid:"Bajas una marcha. El míster te observa."}
+  ]}
+];
+/* ---- situaciones añadidas en 0.03.029: 20+ por puesto, en partido y en entreno ---- */
+var SITS_NUEVAS=[{"id": "n-por-pase-atras", "pos": ["POR"], "t": "Pase atrás a tus pies", "x": "Tu central te la devuelve floja, de cabeza. Llega el delantero rival y tienes medio segundo para decidir.", "o": [{"l": "Cogerla con las manos", "fx": {"nota": 0, "ta": 1}, "ok": "La coges sin problemas: el árbitro no ve nada y el rival se queda sin balón.", "ko": "El árbitro pita: un pase atrás cogido con la mano. Indirecto y tarjeta.", "mid": "Lo coges, pero el árbitro no lo ve. Nada que contar.", "juicio": "mala", "por": "Un pase atrás no se puede coger con la mano: es falta indirecta y el rival gana terreno."}, {"l": "Pisarla y salir jugando", "fx": {"nota": 1}, "ok": "La pisas, te deshaces del delantero con un toque y sales en corto limpio.", "ko": "La pisas mal, el delantero te la quita y acabas con un problema en tu área.", "mid": "Sales en corto, pero sin ritmo, y el equipo se recoloca.", "juicio": "buena", "por": "Con el delantero encima, pisarla y sacar en corto mantiene la posesión si tienes un toque de calidad."}, {"l": "Despejar largo a la banda", "fx": {"nota": 0}, "ok": "El despeje va largo a la banda y el equipo gana metros sin riesgo.", "ko": "El despeje sale mal y te quedan dos rivales solos en la frontal.", "mid": "El balón sale a la banda sin más. Se acaba el peligro.", "juicio": "discreta", "por": "Es la salida segura, pero regalas la posesión y el equipo se queda sin juego."}]}, {"id": "n-por-centro-palo-largo", "pos": ["POR"], "t": "Centro de cabeza al palo largo", "x": "El rival remata de cabeza desde el segundo palo, con tu defensa tapada y sin nadie en la línea.", "o": [{"l": "Estirarte hacia el palo largo", "fx": {"inst": {"parada": 0.25, "golR": 0.05}, "nota": 1}, "ok": "Te estiras y la sacas a córner con la punta de los dedos.", "ko": "No llegas y el balón entra junto al poste.", "mid": "Rozas el balón y sale fuera.", "juicio": "discreta", "por": "Vas al palo largo, pero el remate viene a media altura: lo que toca es cubrir el ángulo corto."}, {"l": "Quedarte en la línea y cubrir el ángulo", "fx": {"inst": {"parada": 0.3}, "nota": 0}, "ok": "Te quedas en la línea, el remate va al centro y lo paras con seguridad.", "ko": "El remate va al ángulo que no tapaste y entra.", "mid": "El remate sale alto. Sin peligro.", "juicio": "buena", "por": "La línea y el ángulo más cercano son lo que pide un remate de cabeza: el palo largo se lo dejas al defensa."}, {"l": "Salir a cortar el centro", "fx": {"nota": 1}, "ok": "Sales, cortas el centro y el rival se queda sin remate.", "ko": "Sales tarde y el delantero te gana la posición para cabecear.", "mid": "Sales, pero el balón cae fuera del área.", "juicio": "mala", "por": "Salir a cortar un centro que llega con tiempo para cabecear te deja el arco vacío."}]}, {"id": "n-por-tiro-raso-rebote", "pos": ["POR"], "t": "Disparo raso y rebote a tu izquierda", "x": "Disparo potente, la paras, pero el balón rebota hacia el delantero que llega desde el segundo palo.", "o": [{"l": "Blocarla contra el pecho", "fx": {"inst": {"parada": 0.35, "golR": 0.05}, "nota": 0}, "ok": "Lo blocas limpio y el delantero no encuentra nada.", "ko": "No la controlas bien: se te escapa y el delantero marca el rebote.", "mid": "La blocas, pero tardas y el rival se queda pensando.", "juicio": "buena", "por": "El rebote es el momento de peligro: blocar elimina la segunda jugada."}, {"l": "Despejar a córner", "fx": {"inst": {"parada": 0.1}, "nota": 0}, "ok": "Despejas a córner y te quitas el peligro de encima.", "ko": "El despeje sale mal y el rival remata otra vez.", "mid": "El córner sale y se para la jugada.", "juicio": "discreta", "por": "Despejar a córner vale cuando no puedes blocar; aquí el blocaje da más seguridad."}, {"l": "Ir a por el rebote y saltar", "fx": {"inst": {"golR": 0.1}, "nota": 2}, "ok": "Atrapas el rebote a dos manos y cierras la jugada en un segundo.", "ko": "Llegas tarde al rebote, el delantero se adelanta y tienes un problema.", "mid": "Llegas, pero no lo controlas y lo despejas sin más.", "juicio": "mala", "por": "Salir al rebote con el balón vivo deja el arco descubierto: el rival tiene todo a favor."}]}, {"id": "n-por-cruce-palo", "pos": ["POR"], "t": "Córner rematado al palo de tu lado", "x": "El rival cabecea al palo más cercano. No sabes si el balón va a entrar.", "o": [{"l": "Lanzarte y sacarla", "fx": {"inst": {"parada": 0.3}, "nota": 1}, "ok": "Te lanzas y la mandas a córner: era la parada de la temporada.", "ko": "La rozas, pero sale con efecto al otro palo y entra.", "mid": "La tocas y se va fuera. Un susto sin premio.", "juicio": "buena", "por": "Con un remate tan cerca del palo, lanzarte y desviarla es la única forma de evitar el gol."}, {"l": "Quedarte quieto y confiar en el palo", "fx": {"inst": {"golR": 0.15}, "nota": 0}, "ok": "La pelota pega en el palo y sale, y tú ni lo intentas.", "ko": "La pelota entra: no te moviste y el gol es tuyo.", "mid": "La pelota sale fuera. Hubo suerte.", "juicio": "mala", "por": "No moverte ante un remate al palo es jugártelo al azar; siempre conviene intentar la parada."}, {"l": "Gritar al central que lo despeje", "fx": {"nota": 0}, "ok": "Tu central despeja de cabeza y se acaba el peligro.", "ko": "Tu central se confunde y el balón acaba dentro.", "mid": "Despeja tu central sin más.", "juicio": "discreta", "por": "Mandar es útil, pero aquí tu reacción debe ser inmediata: llegar tú antes que nadie es lo que toca."}]}, {"id": "n-por-salida-juego-corto", "pos": ["POR"], "t": "Presión alta en tu área", "x": "Dos delanteros rivales presionan tu salida. Tus centrales están abiertos y tienes que decidir ya: corto o largo.", "o": [{"l": "Jugar corto al central libre", "fx": {"nota": 1}, "ok": "El central recibe, se gira y el equipo sale con criterio.", "ko": "El pase llega al rival y tienes un problema en tu área.", "mid": "Pase corto sin consecuencias: el equipo vuelve a ordenarse.", "juicio": "buena", "por": "Si tienes un central libre, el corto mantiene el equipo ordenado y obliga al rival a volver a presionar."}, {"l": "Pelotazo al delantero", "fx": {"nota": 2}, "ok": "El delantero gana el duelo y el equipo sale en contra de forma limpia.", "ko": "El delantero pierde el duelo y el rival recupera a tres metros de tu portería.", "mid": "El balón sale sin dueño. Se pierde la posesión.", "juicio": "mala", "por": "Un pelotazo sin dueño claro regala el balón al rival: con un central libre, el corto es más seguro."}, {"l": "Despejar al córner", "fx": {"nota": 0}, "ok": "Despejas al córner y te quitas la presión de encima.", "ko": "El despeje sale mal y el rival se queda con el córner al alcance.", "mid": "Córner sin peligro. El equipo tiene un respiro.", "juicio": "discreta", "por": "Es la salida más segura, pero renuncias a la posesión y el rival vuelve a ponerse en marcha."}]}, {"id": "n-por-contra-dos-uno", "pos": ["POR"], "t": "Contra de dos contra uno", "x": "Dos rivales avanzan contigo y tu defensa está a veinte metros. Tienes que salir o quedarte.", "o": [{"l": "Salir a cortar el pase", "fx": {"inst": {"parada": 0.2}, "nota": 2}, "ok": "Cortas el pase y el balón vuelve a tus manos sin peligro.", "ko": "Sales, el pase pasa por tu lado y el remate es a placer.", "mid": "Llegas al balón, pero rebota y el rival vuelve a tenerlo.", "juicio": "mala", "por": "Salir a cortar un pase en contra te deja el arco vacío: lo correcto es quedarte y reducir el ángulo."}, {"l": "Quedarte y reducir el ángulo", "fx": {"inst": {"parada": 0.3, "golR": 0.05}, "nota": 0}, "ok": "Te quedas, reduces el ángulo y el remate sale desviado.", "ko": "El remate va al palo que no tapaste y entra.", "mid": "El remate es alto y sin peligro.", "juicio": "buena", "por": "Ante dos contra uno, reducir el ángulo es lo que más te protege: el remate tendrá que ser muy bueno."}, {"l": "Gritar a tu defensa que vuelva", "fx": {"nota": 0}, "ok": "Tu defensa vuelve y la jugada se queda en nada.", "ko": "Tu defensa no llega y el remate entra por el centro.", "mid": "La jugada termina en córner. Nada más.", "juicio": "discreta", "por": "Gritar es útil, pero no sustituye tu posición: si no tapas el ángulo, la voz llega tarde."}]}, {"id": "n-por-caida-area", "pos": ["POR"], "t": "Caída sospechosa en tu área", "x": "Un delantero rival se derrumba en tu área sin que lo hayas tocado. El árbitro mira hacia ti.", "o": [{"l": "Ponerte en pie sin protestar", "fx": {"nota": 0}, "ok": "Te quedas tranquilo y el árbitro sigue el partido. Nadie te discute.", "ko": "El árbitro considera que sí había contacto y te pone una amarilla.", "mid": "El árbitro no pita nada. El partido sigue.", "juicio": "buena", "por": "No discutir una caída te protege: un portero que protesta sin motivo se gana una tarjeta y pierde credibilidad."}, {"l": "Protestarle con vehemencia", "fx": {"nota": 1, "ta": 1}, "ok": "Tu protesta sirve de algo: el árbitro se queda con el gesto del rival.", "ko": "El árbitro te amonesta por protestar. Mala idea.", "mid": "El árbitro sigue sin pitar. Te quedas con el enfado.", "juicio": "mala", "por": "Protestar una caída sin contacto te cuesta tarjeta y no cambia la decisión: el árbitro ya tiene la imagen clara."}, {"l": "Tirarte al suelo para esperar la falta", "fx": {"nota": 0, "ta": 1}, "ok": "El árbitro pita falta a tu favor por simulación del rival.", "ko": "El árbitro pita falta a tu favor, pero te amonesta por fingir.", "mid": "El árbitro sigue el partido. Te quedas en el suelo.", "juicio": "mala", "por": "Tirarte al suelo sin motivo es una trampa que el árbitro suele reconocer: te quedas en evidencia."}]}, {"id": "n-por-libre-barrera", "pos": ["POR"], "t": "Tiro libre directo a un palo", "x": "El rival tiene un tiro libre directo a veinte metros. Puedes ordenar la barrera como quieras.", "o": [{"l": "Barrera de cuatro cubriendo el palo cercano", "fx": {"inst": {"parada": 0.2}, "nota": 0}, "ok": "La barrera tapa lo que tiene que tapar y el disparo sale desviado.", "ko": "El disparo pasa por el hueco entre dos jugadores y entra.", "mid": "El disparo sale alto y se acaba la jugada.", "juicio": "buena", "por": "Cuatro jugadores tapan el palo cercano y dejan al portero ver el balón: es la configuración más eficaz."}, {"l": "Barrera de tres sin cubrir el palo lejano", "fx": {"inst": {"golR": 0.1}, "nota": 1}, "ok": "El rival dispara al palo lejano y lo metes con el pie.", "ko": "El rival dispara al palo lejano y entra sin que puedas reaccionar.", "mid": "El disparo va al palo lejano y sale fuera.", "juicio": "mala", "por": "Dejar el palo lejano sin barrera es el error clásico: el disparo tiene camino libre."}, {"l": "Colocarte tú solo, sin barrera", "fx": {"nota": 0}, "ok": "Lo ves venir y paras el disparo sin problemas.", "ko": "El disparo te da en el palo cercano y entra.", "mid": "El disparo sale alto. Ni bien ni mal.", "juicio": "discreta", "por": "Sin barrera, el disparo es más difícil de ver: lo normal es ordenar la barrera y quedarte tú en la línea."}]}, {"id": "n-por-pelota-espalda", "pos": ["POR"], "t": "Pelota en profundidad a tu espalda", "x": "Tu defensa se ha adelantado y un delantero rival queda solo tras la línea. Tienes que salir o esperar.", "o": [{"l": "Salir a por el balón antes que él", "fx": {"inst": {"parada": 0.15}, "nota": 2}, "ok": "Llegas primero, despejas y el peligro desaparece.", "ko": "Llegas tarde, él te pasa y se queda con el balón a puerta vacía.", "mid": "Llegas, pero el balón rebota y el peligro sigue.", "juicio": "buena", "por": "Si llegas primero a un balón en profundidad, salir es lo correcto: el delantero no puede ganarte la carrera."}, {"l": "Esperar en la línea", "fx": {"inst": {"golR": 0.12}, "nota": 0}, "ok": "El delantero duda y lo paras cuando remata.", "ko": "El delantero lo remata con calma y entra.", "mid": "El delantero sale fuera y la jugada se pierde.", "juicio": "discreta", "por": "Esperar en la línea es seguro, pero dejas que el delantero elija el momento del remate."}, {"l": "Gritar que la defensa se retire", "fx": {"nota": 0}, "ok": "Tu defensa retrocede, pero el balón ya está en carrera.", "ko": "Tu defensa no llega y el delantero te pasa.", "mid": "Tu defensa llega tarde. La jugada queda igual.", "juicio": "mala", "por": "La defensa no puede recuperar una carrera perdida: tu sitio es el balón, no el grito."}]}, {"id": "n-por-doble-centro", "pos": ["POR"], "t": "Centro cruzado con dos delanteros", "x": "Un centro cruzado llega al área con dos delanteros rivales esperándolo.", "o": [{"l": "Salir a por el balón", "fx": {"inst": {"parada": 0.2}, "nota": 1}, "ok": "Llegas al balón con firmeza y despejas el centro.", "ko": "Sales, pero el balón cae al segundo delantero y tienes un problema.", "mid": "Llegas al balón y lo sacas a córner.", "juicio": "buena", "por": "Ante un centro con dos delanteros, salir con decisión es lo que te da el balón antes que ellos."}, {"l": "Quedarte en tu sitio", "fx": {"inst": {"parada": 0.1, "golR": 0.1}, "nota": 0}, "ok": "Te quedas en la línea y el centro no encuentra remate.", "ko": "El centro encuentra a un delantero libre y entra.", "mid": "El centro sale por la línea de fondo.", "juicio": "discreta", "por": "Quedarte es seguro, pero dejas espacio a los dos delanteros y el remate tiene camino libre."}, {"l": "Gritar a tus centrales que despejen", "fx": {"nota": 0}, "ok": "Tus centrales despejan y la jugada muere.", "ko": "Los centrales se confunden y uno de los delanteros remata solo.", "mid": "El despeje es malo y el balón vuelve al área.", "juicio": "mala", "por": "Tus centrales necesitan una señal clara: si gritas, el balón se queda en tierra de nadie."}]}, {"id": "n-cen-velocidad", "pos": ["DFC", "MCD"], "t": "Su extremo te gana en carrera", "x": "Tu par tiene velocidad y te saca medio paso. El balón viene al espacio entre tú y el lateral.", "o": [{"l": "Cortar el pase y no entrar", "fx": {"inst": {}, "nota": 1}, "ok": "Cortas el pase y el balón vuelve a tu equipo.", "ko": "Te quedas sin cortar y el extremo ya está en el área.", "mid": "Llegas al balón, pero lo pierdes en el primer toque.", "juicio": "buena", "por": "Cortar el pase sin entrar te deja en posición: si el extremo se queda atrás, la jugada muere."}, {"l": "Entrar con todo a por el balón", "fx": {"inst": {}, "nota": 2, "ta": 1}, "ok": "Entras con todo, robas el balón y se acaba la jugada.", "ko": "Entras tarde, te llevas al extremo y el árbitro saca la amarilla.", "mid": "Entras, pero el balón se escapa y no hay falta.", "juicio": "mala", "por": "Entrar con todo a un extremo rápido te puede dejar atrás y con tarjeta: mejor cortar la línea."}, {"l": "Replegar y esperar que llegue ayuda", "fx": {"nota": 0}, "ok": "Replegas bien y el compañero llega a tiempo a cubrir.", "ko": "Replegas mal y el extremo se queda con el balón.", "mid": "Replegas, pero el balón sigue en juego sin más.", "juicio": "discreta", "por": "Replegar sin cortar le da al extremo tiempo para pensar: sin ayuda clara, pierdes la posición."}]}, {"id": "n-cen-balon-suelto", "pos": ["DFC", "MCD"], "t": "Balón suelto en tu zona", "x": "Tras un despeje, el balón queda suelto a diez metros de tu área. Dos rivales van a por él.", "o": [{"l": "Ir tú al balón con decisión", "fx": {"inst": {}, "nota": 1}, "ok": "Llegas primero, lo cortas y el equipo sale jugando.", "ko": "Llegas tarde, el rival te gana y el balón queda en su pie.", "mid": "Llegas, pero el balón queda cerca del rival y se pierde.", "juicio": "buena", "por": "Si llegas primero a un balón suelto, ir tú es lo correcto: el compañero no siempre llega a tiempo."}, {"l": "Dejar que lo cubra el compañero", "fx": {"nota": 0}, "ok": "Tu compañero se adelanta y recupera el balón sin problema.", "ko": "Tu compañero no llega y el rival se queda solo con el balón.", "mid": "El balón queda en tierra de nadie y se corta la jugada.", "juicio": "discreta", "por": "Esperar al compañero es prudente, pero si él no llega, el balón queda en manos del rival."}, {"l": "Dar un golpe fuerte al balón hacia fuera", "fx": {"nota": 2}, "ok": "El balón sale fuera de banda y el equipo recupera el control.", "ko": "El balón rebota hacia el rival y se queda en su pie.", "mid": "El balón sale en córner. Se acaba la jugada.", "juicio": "mala", "por": "Despejar sin control es regalar la posesión: el rival se queda con el balón en tu campo."}]}, {"id": "n-cen-espalda", "pos": ["DFC", "MCD"], "t": "Pase en profundidad a tu espalda", "x": "Un delantero rival se mete entre tú y tu línea. El pase va a su espacio y tienes que decidir si sales.", "o": [{"l": "Salir a por el balón antes que él", "fx": {"inst": {}, "nota": 2}, "ok": "Llegas primero y despejas: el peligro se acaba.", "ko": "Llegas tarde, el delantero te pasa y tienes que correr hacia tu portería.", "mid": "Llegas, pero el balón rebota y el peligro sigue.", "juicio": "mala", "por": "Salir a por un pase en profundidad sin llegar primero es regalar la espalda al delantero."}, {"l": "Retroceder y cubrir el espacio", "fx": {"inst": {}, "nota": 1}, "ok": "Retrocedes a tiempo y el delantero se queda sin espacio.", "ko": "Retrocedes tarde y el delantero encara al portero.", "mid": "Retrocedes sin llegar: el balón sale y se para la jugada.", "juicio": "buena", "por": "Retroceder a tiempo cubre la espalda y deja al delantero sin espacio: lo correcto si no llegas al balón."}, {"l": "Quedarte quieto y esperar la trampa", "fx": {"nota": 0}, "ok": "El delantero se queda en fuera de juego. Trampa perfecta.", "ko": "El delantero corre y se queda solo: la trampa fracasa.", "mid": "El delantero no llega al balón. Se corta la jugada.", "juicio": "discreta", "por": "Esperar la trampa del fuera de juego es arriesgado: si tu línea no está perfecta, el delantero se queda solo."}]}, {"id": "n-cen-falta-lateral", "pos": ["DFC", "MCD"], "t": "Falta lateral en tu campo, a veinte metros", "x": "El rival tiene una falta lateral en tu campo. El balón cae al centro del área con un jugador libre.", "o": [{"l": "Marcar al jugador libre", "fx": {"inst": {}, "nota": 1}, "ok": "Marcas al jugador libre y el balón no le llega.", "ko": "No lo marcas bien y el jugador libre cabecea a gol.", "mid": "Marcas, pero el balón cae a su espalda.", "juicio": "buena", "por": "Marcar al jugador libre es lo que más evita el remate: el balón cae donde menos esperas."}, {"l": "Cubrir el balón en el centro", "fx": {"nota": 0}, "ok": "Cubres el balón y el remate sale desviado.", "ko": "El balón cae al jugador libre y entra.", "mid": "El balón sale fuera del área. Nada que contar.", "juicio": "discreta", "por": "Cubrir el balón es correcto, pero el jugador libre es el peligro real: vigilarlo te da más seguridad."}, {"l": "Salir a por el balón en el aire", "fx": {"inst": {}, "nota": 2, "ta": 1}, "ok": "Subes, despejas de cabeza y el balón sale lejos.", "ko": "Subes tarde, el rival te empuja y el árbitro saca la amarilla.", "mid": "Subes, pero no llegas y el balón queda suelto.", "juicio": "mala", "por": "Subir en una falta lateral sin tiempo te deja fuera de posición: el jugador libre queda sin marca."}]}, {"id": "n-cen-rechace", "pos": ["DFC", "MCD"], "t": "Rechace del portero a tus pies", "x": "El portero ha desviado un disparo y el balón te ha quedado a un metro. Hay un delantero rival detrás tuyo.", "o": [{"l": "Despejar al córner", "fx": {"nota": 0}, "ok": "Despejas al córner y el peligro desaparece.", "ko": "El despeje sale mal y el delantero remata.", "mid": "El córner sale y se para la jugada.", "juicio": "buena", "por": "Con el delantero detrás, despejar a córner es la salida más segura: no te la juegas con un control apurado."}, {"l": "Controlar y sacar en corto", "fx": {"nota": 1}, "ok": "Controlas, te giras y sacas en corto con el equipo bien colocado.", "ko": "El control sale mal, el delantero te roba y acabas en problemas.", "mid": "Controlas, pero el delantero te presiona y no sabes qué hacer.", "juicio": "mala", "por": "Con un delantero detrás, controlar y salir en corto es arriesgado: el primer toque es el más delicado."}, {"l": "Pegar un pelotazo al lateral", "fx": {"nota": 0}, "ok": "El pelotazo llega al lateral y el equipo gana metros.", "ko": "El pelotazo sale mal y el rival recupera.", "mid": "El pelotazo sale fuera. Sin consecuencias.", "juicio": "discreta", "por": "El pelotazo es una salida cómoda, pero regalas la posesión a cambio de tranquilidad."}]}, {"id": "n-cen-presion-salida", "pos": ["DFC", "MCD"], "t": "Su delantero te presiona al sacar", "x": "Tienes el balón en tus pies y el delantero rival te aprieta. Tus compañeros tienen opciones, pero no se mueven.", "o": [{"l": "Jugar el primer pase que tienes", "fx": {"nota": 1}, "ok": "Das el primer pase y el compañero lo recibe con calma.", "ko": "El pase llega al rival y tienes un problema.", "mid": "El pase llega, pero lo presiona otro rival y se pierde.", "juicio": "buena", "por": "Jugar el primer pase libre es lo que rompe la presión: no esperes a que el rival te cierre todas las líneas."}, {"l": "Girarte y buscar al portero", "fx": {"nota": 0}, "ok": "El portero recibe y saca con tranquilidad.", "ko": "El portero se complica y el rival se queda con el balón.", "mid": "El portero despeja largo. Se pierde la posesión.", "juicio": "discreta", "por": "Buscar al portero es seguro, pero si el portero está cerca de la portería, el rival te lo quita."}, {"l": "Pelotazo sin mirar", "fx": {"nota": 2}, "ok": "El pelotazo llega a un compañero y el equipo sale en contra.", "ko": "El pelotazo sale al rival y se acaba en tu área.", "mid": "El pelotazo sale fuera sin dueño.", "juicio": "mala", "por": "Un pelotazo sin mirar es regalar el balón: el rival lo recupera con facilidad en esa zona."}]}, {"id": "n-dl-espalda-extremo", "pos": ["DFC", "LAT"], "t": "Carrera del extremo a tu espalda", "x": "El extremo rival arranca en profundidad a tu espalda. Tienes que decidir si lo sigues o cubres el hueco central.", "o": [{"l": "Seguirlo hasta la línea de fondo", "fx": {"nota": 1}, "ok": "Llegas a su altura y le quitas el centro. Recuperas la banda.", "ko": "Se te escapa en el primer metro y el centro llega al área.", "mid": "Llegas tarde al centro, que sale por la línea de fondo.", "juicio": "discreta", "por": "Seguirlo te saca de tu sitio y deja un hueco central; solo compensa si llegas a su altura."}, {"l": "Cubrir el hueco y dejar que centre", "fx": {"nota": 0}, "ok": "Cubres el hueco, el centro sale largo y el peligro se acaba.", "ko": "El centro encuentra un remate libre porque el hueco quedó sin cubrir.", "mid": "El centro sale sin dueño y se para la jugada.", "juicio": "buena", "por": "Cubrir el hueco central y dejar que centre limita el peligro: un centro largo es menos peligroso que un remate de cerca."}, {"l": "Cortar hacia la banda y entrar fuerte", "fx": {"nota": 2, "ta": 1}, "ok": "Entras con todo, le quitas el balón y el equipo sale jugando.", "ko": "Entras tarde, lo llevas por delante y el árbitro saca la amarilla.", "mid": "Entras, pero el balón se queda suelto y nadie lo recoge.", "juicio": "mala", "por": "Entrar fuerte a un extremo rápido te deja fuera de posición y con tarjeta si llegas tarde."}]}, {"id": "n-dl-cambio-extremo", "pos": ["DFC", "LAT"], "t": "Cambio de juego al extremo que llega solo", "x": "El rival cambia el juego al extremo de tu banda, que recibe con espacio. Tú estás más cerca del centro.", "o": [{"l": "Correr hacia el extremo para cubrirlo", "fx": {"nota": 1}, "ok": "Llegas a tiempo, el extremo no tiene opción y el balón sale fuera.", "ko": "Corres, pero el extremo te gana y el centro llega sin nadie sobre el área.", "mid": "Llegas, pero el extremo lo intenta sin éxito.", "juicio": "discreta", "por": "Salir a por el extremo tiene sentido solo si llegas antes del centro; si no, dejas el hueco en el área."}, {"l": "Cerrar el espacio interior y pedir ayuda al lateral", "fx": {"nota": 0}, "ok": "Cierras el espacio y el lateral llega a tiempo. Juego parado.", "ko": "El lateral no llega y el extremo se queda solo con el centro.", "mid": "El extremo centra sin peligro y el balón sale.", "juicio": "buena", "por": "Cerrar el espacio interior mientras el lateral sale al extremo reparte el riesgo y protege el área."}, {"l": "Quedarte en el centro sin moverte", "fx": {"nota": -1}, "ok": "El extremo no encuentra el centro y la jugada muere.", "ko": "El centro llega al área y el remate es libre.", "mid": "El extremo recibe, pero no llega nadie a rematar.", "juicio": "mala", "por": "Quedarte quieto deja libre el carril y el centro sin rival sobre el área."}]}, {"id": "n-dl-lateral-avanza", "pos": ["DFC", "LAT"], "t": "Lateral rival que avanza sin marca", "x": "El lateral rival sube sin oposición por tu banda y tu compañero del otro lado está lejos. Decides tú cómo reaccionar.", "o": [{"l": "Salir al lateral para cortar el avance", "fx": {"nota": 2}, "ok": "Lo frenas, recuperas el balón y sales en contra.", "ko": "Sales tarde, te pasa y tienes que correr hacia atrás.", "mid": "Frenas el avance, pero el lateral gana la banda.", "juicio": "discreta", "por": "Salir es correcto si el compañero cubre el hueco; sin ayuda, te deja en el espacio que el lateral busca."}, {"l": "Retroceder a la línea y esperar el centro", "fx": {"nota": 0}, "ok": "Te colocas bien y el centro se queda corto.", "ko": "El centro encuentra a un atacante libre en el área.", "mid": "El lateral centra sin peligro.", "juicio": "buena", "por": "Sin ayuda, la línea protege el área y deja al lateral sin remate limpio."}, {"l": "Gritar al compañero que se acerque", "fx": {"nota": 0}, "ok": "El compañero llega a tiempo y cierra el carril.", "ko": "El compañero no reacciona y el lateral avanza sin oposición.", "mid": "El compañero se acerca tarde y la jugada sigue.", "juicio": "discreta", "por": "Avisar sirve, pero el lateral avanza mientras tanto: primero tienes que colocarte tú."}]}, {"id": "n-dl-balon-entre", "pos": ["DFC", "LAT"], "t": "Balón entre tú y tu compañero", "x": "Un despeje cae justo entre tú y tu compañero de defensa. Los dos podéis ir y el rival está llegando.", "o": [{"l": "Ir tú al balón con decisión", "fx": {"nota": 1}, "ok": "Llegas primero, despejas y el peligro se acaba.", "ko": "Llegas tarde, el rival se queda con el balón.", "mid": "Despejas sin control: el balón se queda en la frontal.", "juicio": "buena", "por": "Si llegas primero a un balón entre dos defensas, ir tú evita que se pierda en tierra de nadie."}, {"l": "Dejarlo para tu compañero", "fx": {"nota": 0}, "ok": "Tu compañero llega y lo despeja con seguridad.", "ko": "Tu compañero no llega y el rival se lleva el balón.", "mid": "El balón queda suelto y se para la jugada.", "juicio": "discreta", "por": "Esperar al compañero es prudente, pero deja el balón en tierra de nadie si él no llega."}, {"l": "Chocar con el compañero al ir a por él", "fx": {"nota": -1}, "ok": "El balón sale fuera de banda por suerte.", "ko": "Os cruzáis y el rival remata con todo el espacio.", "mid": "Os cruzáis y el balón queda suelto.", "juicio": "mala", "por": "Chocar con tu compañero abre el hueco para el rival: nadie cubre la zona."}]}, {"id": "n-le-carrera-espalda", "pos": ["LAT", "EXT"], "t": "Carrera a la espalda del lateral rival", "x": "Tu compañero tiene el balón y el lateral rival está adelantado. Hay espacio a su espalda.", "o": [{"l": "Pedir el pase en profundidad", "fx": {"inst": {"asis": 0.15}, "nota": 2}, "ok": "El pase llega perfecto y te plantas solo ante el centro.", "ko": "El pase va largo y el portero sale a por ti.", "mid": "El lateral recupera y la jugada se para.", "juicio": "buena", "por": "La carrera a la espalda del lateral obliga al defensa a girarse, y eso es lo que te da el espacio."}, {"l": "Quedarte en la banda esperando el centro", "fx": {"nota": 0}, "ok": "El centro llega pasado y lo rematas al primer toque.", "ko": "El centro llega sin peligro y el defensa despeja.", "mid": "Recibes, pero no hay opción de centro limpio.", "juicio": "discreta", "por": "Esperar en la banda es seguro, pero dejas el espacio a tu lateral y el rival juega a su aire."}, {"l": "Entrar por dentro sin avisar", "fx": {"inst": {"gol": 0.1}, "nota": 1}, "ok": "Llegas a la frontal y el remate sale desviado.", "ko": "El rival recupera y contraataca por tu banda vacía.", "mid": "Recibes sin balón y no pasa nada.", "juicio": "mala", "por": "Entrar por dentro sin avisar deja la banda vacía y el rival la aprovecha."}]}, {"id": "n-le-presion-banda", "pos": ["LAT", "EXT"], "t": "Pérdida en tu banda con el rival cerca", "x": "Pierdes el balón en tu banda. El rival que lo tiene está a cinco metros y tu compañero del carril interior no ha vuelto.", "o": [{"l": "Presionar al que recibe, sin ayuda", "fx": {"nota": 2, "ta": 1}, "ok": "Robas el balón y arrancas el contraataque por la banda.", "ko": "Llegas tarde, el rival te pasa y tienes que correr hacia atrás.", "mid": "Te frena el defensa y el balón queda suelto.", "juicio": "discreta", "por": "Presionar sin ayuda te expone a un pase al espacio; funciona solo si tu compañero cierra la línea."}, {"l": "Cerrar el pasillo interior y dejarlo ir por fuera", "fx": {"nota": 0}, "ok": "El rival se queda sin ángulo y retrocede.", "ko": "El centro llega y el remate es libre en el área.", "mid": "El rival centra sin peligro y el balón sale.", "juicio": "buena", "por": "Cerrar el pasillo interior y dejar que el rival vaya a la banda reduce el peligro sobre el área."}, {"l": "Quedarte quieto esperando la pérdida", "fx": {"nota": -1}, "ok": "El rival no ve la jugada y pierde el balón.", "ko": "El rival avanza y te deja sin posición.", "mid": "El rival pasa atrás y el balón se para.", "juicio": "mala", "por": "Esperar sin cerrar nada deja al rival dueño de la banda y de cualquier pase."}]}, {"id": "n-le-subida-compartida", "pos": ["LAT", "EXT"], "t": "Tu compañero no baja a cubrir", "x": "Tú vas a subir por la banda, pero tu compañero de carril se ha quedado en la línea. Si subes, el espacio se queda abierto.", "o": [{"l": "Subir igual y ganar la línea", "fx": {"nota": 2}, "ok": "Llegas al centro y el rival no tiene sitio para salir.", "ko": "El rival recupera y te deja a tu espalda con un hueco enorme.", "mid": "Subes y el balón sale fuera. Ha sido arriesgado.", "juicio": "mala", "por": "Subir sin cubrir deja un hueco por la banda que el rival atacará en contra."}, {"l": "Quedarte en tu zona y cubrir el carril", "fx": {"nota": 0}, "ok": "Cubres el carril y el rival se queda sin salida.", "ko": "El rival juega en profundidad y te gana la espalda.", "mid": "Cubres, pero el rival tampoco avanza.", "juicio": "buena", "por": "Cubrir el carril cuando el compañero no baja mantiene el equilibrio y evita la contra."}, {"l": "Subir hasta la altura del medio campo y esperar", "fx": {"nota": 1}, "ok": "Llegas a la altura justa y el equipo gana metros.", "ko": "El rival recupera y ya no puedes volver a tiempo.", "mid": "Te quedas a medio camino y nadie toma la decisión.", "juicio": "discreta", "por": "Un paso intermedio sirve, pero sin ver al compañero no sabes cuándo cubrir la banda."}]}, {"id": "n-le-centro-segundo-palo", "pos": ["LAT", "EXT"], "t": "Balón en la línea de fondo", "x": "Recibes en la línea de fondo con el defensa encima. El segundo palo tiene un compañero libre y el primer palo está vacío.", "o": [{"l": "Centrar raso al área", "fx": {"inst": {"asis": 0.2}, "nota": 1}, "ok": "El centro llega raso y lo empuja un compañero a gol.", "ko": "El centro sale largo y el portero lo despeja.", "mid": "El centro llega, pero sin rematador claro.", "juicio": "buena", "por": "Un centro raso al área pilla a los defensas girados y deja al delantero de cara."}, {"l": "Pasar atrás al medio campista", "fx": {"nota": 0}, "ok": "El medio recibe y el equipo vuelve a ordenarse.", "ko": "El pase atrás llega al rival y te quitan el balón.", "mid": "El medio pasa lateral y el balón se diluye.", "juicio": "discreta", "por": "Pasar atrás mantiene la posesión, pero el ataque se congela y el rival se reagrupa."}, {"l": "Centrar con fuerza al primer palo", "fx": {"inst": {"asis": 0.1, "golR": 0.1}, "nota": 2}, "ok": "El centro llega al primer palo y el defensa despeja con dificultad.", "ko": "El centro sale al portero y el contraataque es del rival.", "mid": "El centro sale fuera sin peligro.", "juicio": "mala", "por": "Sin rematador en el primer palo, el centro fuerte es un regalo al portero."}]}, {"id": "n-le-espacio-banda", "pos": ["LAT", "EXT"], "t": "Extremo rival que te encara", "x": "Su extremo recibe en tu banda con espacio por delante. Tienes que decidir cómo le defiendes.", "o": [{"l": "Dejarlo ir hacia dentro", "fx": {"nota": 1}, "ok": "Se mete hacia dentro y el lateral lo cierra en el pasillo.", "ko": "Se mete hacia dentro y le sale un tiro peligroso.", "mid": "Entra al área y busca el centro, sin remate.", "juicio": "buena", "por": "Dejar que el extremo vaya hacia dentro lo aleja de la línea de fondo y del centro."}, {"l": "Cerrar la banda sin dejarle sitio", "fx": {"ta": 0.3, "nota": 2}, "ok": "Lo frenas en la banda y recuperas el balón.", "ko": "Se te escapa en el primer regate y te deja atrás.", "mid": "Lo frenas, pero el árbitro te advierte.", "juicio": "discreta", "por": "Cerrar la banda es correcto, pero si lo empujas en exceso te juegas la tarjeta."}, {"l": "Hacer falta para evitar el centro", "fx": {"ta": 1, "nota": 0}, "ok": "La falta corta el ataque y el árbitro no saca nada.", "ko": "Libre al área y tarjeta amarilla.", "mid": "La falta corta el ataque, pero hay tarjeta.", "juicio": "mala", "por": "Hacer falta en la banda puede acabar en tarjeta y en un libre peligroso al área."}]}, {"id": "n-le-cambio-orientacion", "pos": ["LAT", "EXT"], "t": "Cambio de orientación al lado difícil", "x": "Tu equipo tiene el balón en el lado derecho y el rival está muy cargado en ese lado. Puedes cambiar al lado izquierdo o buscar el pase corto.", "o": [{"l": "Cambiar al espacio de tu extremo", "fx": {"inst": {"asis": 0.2}, "nota": 2}, "ok": "El cambio llega al extremo sin marca y lo pone en carrera.", "ko": "El cambio sale largo y el rival recupera.", "mid": "El extremo recibe, pero sin espacio para avanzar.", "juicio": "buena", "por": "Cambiar al espacio libre obliga al rival a moverse y deja a tu extremo de cara a la portería."}, {"l": "Pasar a tu central para ganar tiempo", "fx": {"nota": 0}, "ok": "El central recibe y el equipo se reordena con calma.", "ko": "El central se complica y el rival roba.", "mid": "El central pasa lateral y no hay progresión.", "juicio": "discreta", "por": "Ganar tiempo sirve para reorganizarte, pero el ataque pierde profundidad."}, {"l": "Forzar el pase al lado difícil", "fx": {"ta": 0.2, "nota": 2}, "ok": "El pase llega al extremo y desborda con éxito.", "ko": "El pase lo intercepta el rival y sale en contra.", "mid": "El pase sale fuera de banda y se pierde.", "juicio": "mala", "por": "Forzar un cambio de orientación cuando el rival está cargado en ese lado regala la posesión."}]}, {"id": "n-mm-pase-entre-lineas", "pos": ["MC", "MCO"], "t": "Pase vertical entre líneas", "x": "Tu compañero recibe de espaldas entre líneas rivales. Hay un hueco vertical para el delantero.", "o": [{"l": "Pase vertical al hueco", "fx": {"inst": {"asis": 0.22}, "nota": 3}, "ok": "El pase entra al hueco y el delantero se planta solo.", "ko": "El pase llega a un defensa y el rival sale en contra.", "mid": "El compañero recibe, pero le cierran la salida.", "juicio": "buena", "por": "Entre líneas el pase vertical rompe la defensa rival; si el compañero está en posición es lo que pide el juego."}, {"l": "Girar y buscar la banda", "fx": {"nota": 1}, "ok": "El lateral recibe libre y gana metros.", "ko": "El cambio llega tarde y el rival recupera.", "mid": "El balón llega a la banda, pero sin ventaja.", "juicio": "discreta", "por": "Girar y jugar por fuera es seguro, pero el ataque pierde profundidad."}, {"l": "Dos pases atrás para ordenarte", "fx": {"nota": 0}, "ok": "El rival se confunde, pero el equipo no gana nada.", "ko": "El rival recupera y el contraataque es peligroso.", "mid": "Los pases atrás salen bien, pero se pierde el ritmo.", "juicio": "mala", "por": "Dos pases atrás seguidos dan tiempo al rival para reorganizarse; sin necesidad, pierdes el impulso."}]}, {"id": "n-mm-disparo-frontal", "pos": ["MC", "MCO"], "t": "Balón en la frontal con rival encima", "x": "Recibes en la frontal con un defensa muy pegado. Tienes dos opciones: disparar o dar al compañero que llega desde atrás.", "o": [{"l": "Girarte y disparar", "fx": {"inst": {"gol": 0.12, "golR": 0.1}, "nota": 2}, "ok": "El disparo entra por el palo y el estadio se levanta.", "ko": "El disparo sale alto y el rival sale con el balón.", "mid": "El disparo sale desviado a córner.", "juicio": "discreta", "por": "Disparar desde la frontal con presión tiene poco porcentaje; el tiro solo compensa si el portero está descolocado."}, {"l": "Pasar al compañero que llega desde atrás", "fx": {"inst": {"asis": 0.14}, "nota": 1}, "ok": "El compañero entra solo y tiene una ocasión.", "ko": "El pase llega al defensa que cortaba.", "mid": "El compañero recibe, pero el rival lo cierra.", "juicio": "buena", "por": "Dar al compañero que llega desde atrás aprovecha el desmarque y saca al rival de su posición."}, {"l": "Regatear hacia los dos rivales", "fx": {"ta": 0.3, "nota": 2}, "ok": "Sales del cruce y avanzas diez metros.", "ko": "Pierdes el balón y los dos rivales salen en contra.", "mid": "Sales, pero el rival te toca y se pierde la jugada.", "juicio": "mala", "por": "Regatear hacia dos rivales es perder el balón en zona peligrosa; un pase seguro es mejor."}]}, {"id": "n-mm-contra-tres-dos", "pos": ["MC", "MCO"], "t": "Contra de tres contra dos", "x": "Tu equipo recupera el balón en campo contrario. Tres atacantes contra dos defensas. Tú eres el que lleva el balón.", "o": [{"l": "Atacar el espacio y pedir el pase", "fx": {"inst": {"asis": 0.18}, "nota": 2}, "ok": "Pides el balón en el espacio y el pase llega en carrera. Ocasión clara.", "ko": "El pase llega cortado y el rival sale con el balón.", "mid": "El pase llega, pero el defensa lo tapa.", "juicio": "buena", "por": "Con superioridad numérica, buscar el espacio y pedir el pase es lo que la convierte en ocasión."}, {"l": "Esperar y pasar al lateral libre", "fx": {"nota": 1}, "ok": "El lateral recibe libre y centra con tiempo.", "ko": "El lateral se queda sin ángulo y el contraataque se pierde.", "mid": "El lateral recibe, pero sin opciones de centro.", "juicio": "discreta", "por": "Pasar al lateral libre es prudente, pero deja que el rival se recoloque."}, {"l": "Conducir hacia el centro y disparar", "fx": {"inst": {"gol": 0.08, "golR": 0.14}, "nota": 2}, "ok": "Disparas y el balón entra por el segundo palo. Un golazo.", "ko": "Te cortan la conducción y pierdes el balón.", "mid": "El disparo sale alto. Ocasión perdida.", "juicio": "mala", "por": "Conducir hacia el centro entre dos defensas y disparar tiene poca probabilidad: la superioridad la desperdicias."}]}, {"id": "n-mm-presion-perdida", "pos": ["MC", "MCO"], "t": "Pérdida en el centro del campo", "x": "Acabas de perder el balón en el centro. El rival que lo tiene está a cinco metros y tienes dos compañeros cerca.", "o": [{"l": "Presionar al que tiene el balón", "fx": {"opp": 0.9, "ta": 0.2, "nota": 2}, "ok": "Lo recuperas al primer intento y el equipo sale en ventaja.", "ko": "El rival te pasa con facilidad y se marcha en contra.", "mid": "Lo frenas, pero el balón sale a la banda.", "juicio": "buena", "por": "Presionar en el momento de la pérdida, con dos compañeros cerca, es la mejor forma de recuperar."}, {"l": "Replegarte a tu línea y esperar", "fx": {"nota": 0}, "ok": "El equipo se reordena y el rival no encuentra espacio.", "ko": "El rival avanza entre líneas y se planta ante tu defensa.", "mid": "El rival recupera y pasa sin peligro.", "juicio": "discreta", "por": "Replegarte da seguridad, pero cede la iniciativa y el rival tiene tiempo para elegir."}, {"l": "Ir a por el balón sin apoyos", "fx": {"ta": 0.4, "nota": 2}, "ok": "Robas el balón y lanzas el contraataque.", "ko": "Vas solo, te superan y el rival sale en ventaja.", "mid": "Te quedas solo y el rival recupera sin problemas.", "juicio": "mala", "por": "Presionar solo, sin apoyos, te deja fuera de posición y regala el espacio al rival."}]}, {"id": "n-mm-centro-desde-frontal", "pos": ["MC", "MCO"], "t": "Centro al área desde la frontal", "x": "Recibes en la frontal con espacio. Hay dos delanteros en el área y el portero está adelantado.", "o": [{"l": "Centrar con la pierna buena al segundo palo", "fx": {"inst": {"asis": 0.18}, "nota": 2}, "ok": "El centro llega al segundo palo y el delantero remata sin oposición.", "ko": "El centro sale demasiado alto y el portero lo recoge.", "mid": "El centro llega, pero el defensa despeja.", "juicio": "buena", "por": "Un centro bien colocado al segundo palo aprovecha el desmarque y la falta de cobertura del defensa."}, {"l": "Pasar atrás para el disparo de otro", "fx": {"nota": 1}, "ok": "El compañero dispara desde buena posición.", "ko": "El disparo del compañero es alto y sin peligro.", "mid": "El compañero recibe sin posición de remate.", "juicio": "discreta", "por": "Pasar atrás es seguro, pero el disparo de otro depende de su posición; tú pierdes la ocasión."}, {"l": "Lanzarte al área sin ver a nadie", "fx": {"ta": 0.2, "nota": 2}, "ok": "Llegas solo al área y te encuentras al portero con un tiro cruzado.", "ko": "Llegas, pero el defensa te corta y se acaba la jugada.", "mid": "Llegas sin balón y el rival lo despeja.", "juicio": "mala", "por": "Lanzarte al área sin ver a nadie y sin cobertura deja el balón al rival en la frontal."}]}, {"id": "n-mm-corner-corto", "pos": ["MC", "MCO"], "t": "Córner corto a tu favor", "x": "El árbitro concede un córner. El balón está en la esquina y el rival tiene el área cargada. Puedes jugarlo corto o centrar.", "o": [{"l": "Jugar el córner corto y romper la línea", "fx": {"own": 1.05, "nota": 1}, "ok": "Recibes el pase corto y sales por la banda con espacio.", "ko": "El pase corto llega al rival y se pierde el córner.", "mid": "El compañero recibe, pero el rival lo cierra.", "juicio": "discreta", "por": "Jugar corto rompe la línea, pero pierdes el peligro del centro al área."}, {"l": "Centrar el córner al área", "fx": {"inst": {"asis": 0.15}, "nota": 2}, "ok": "El centro encuentra un remate de cabeza libre.", "ko": "El centro se marcha largo y el portero lo recoge.", "mid": "El centro lo despeja un defensa sin problemas.", "juicio": "buena", "por": "Centrar el córner aprovecha la altura de tus rematadores frente a un área cargada."}, {"l": "Lanzar el córner sin mirar el área", "fx": {"nota": 0}, "ok": "El balón llega solo y el rival lo despeja.", "ko": "El balón llega sin dueño y el rival sale en contra.", "mid": "El córner sale sin peligro.", "juicio": "mala", "por": "Lanzar sin mirar la zona deja el balón sin dueño y el rival sale en contra."}]}, {"id": "n-mm-rebote-frontal", "pos": ["MC", "MCO"], "t": "Balón libre tras un rebote en la frontal", "x": "Un rebote cae en la frontal y tienes el balón controlado con dos rivales a tu alrededor.", "o": [{"l": "Disparar sin pensarlo", "fx": {"inst": {"gol": 0.15, "golR": 0.1}, "nota": 2}, "ok": "El disparo entra por el palo. Un golazo de la nada.", "ko": "El disparo sale alto y el rival sale con el balón.", "mid": "El disparo sale desviado a córner.", "juicio": "discreta", "por": "Disparar desde fuera del área, con dos rivales encima, tiene baja probabilidad y pocas consecuencias si fallas."}, {"l": "Controlar y buscar el hueco", "fx": {"nota": 1}, "ok": "Controlas, encaras y encuentras un hueco para pasar.", "ko": "Controlas tarde y el rival te quita el balón.", "mid": "Controlas, pero el hueco se cierra antes del pase.", "juicio": "buena", "por": "Controlar primero asegura el balón y te da tiempo para buscar el hueco con calma."}, {"l": "Pasar lateral al compañero desmarcado", "fx": {"inst": {"asis": 0.12}, "nota": 1}, "ok": "El compañero recibe libre y se planta.", "ko": "El pase lateral llega al rival.", "mid": "El compañero recibe, pero el rival llega a cerrarlo.", "juicio": "buena", "por": "Un pase lateral al compañero desmarcado mantiene el ataque y lo lleva a una posición de remate."}]}, {"id": "n-mm-retroceso-hueco", "pos": ["MC", "MCO"], "t": "Hueco central tras perder el balón", "x": "Tu equipo ha perdido el balón arriba y hay un hueco en el centro de tu defensa. El rival puede atacar en contra.", "o": [{"l": "Retroceder a cubrir el hueco central", "fx": {"nota": 1}, "ok": "Cubres el hueco y el rival se queda sin opción de pase.", "ko": "Llegas tarde y el rival entra al área.", "mid": "Llegas, pero el rival ya tiene el balón.", "juicio": "buena", "por": "Retroceder a cubrir el hueco evita que el rival se quede solo frente al central."}, {"l": "Presionar al rival que tiene el balón", "fx": {"ta": 0.2, "nota": 2}, "ok": "Lo presionas y recuperas el balón en campo contrario.", "ko": "El rival te pasa y se mete en el hueco.", "mid": "Lo presionas, pero el balón sigue en juego.", "juicio": "discreta", "por": "Presionar puede recuperar, pero si no llegas a tiempo el hueco queda abierto."}, {"l": "Quedarte arriba esperando", "fx": {"nota": -1}, "ok": "El rival se equivoca y el balón vuelve a tu equipo.", "ko": "El rival entra por el hueco central y se planta ante el portero.", "mid": "El rival pasa atrás y se para la jugada.", "juicio": "mala", "por": "Quedarte arriba sin cubrir deja un hueco central que el contraataque rival aprovecha."}]}, {"id": "n-dc-primer-palo", "pos": ["EXT", "DC"], "t": "Centro al área con dos rematadores", "x": "Un centro llega al área. Tienes dos opciones: rematar al primer palo o dejar que el balón llegue al segundo.", "o": [{"l": "Rematar de cabeza al primer palo", "fx": {"inst": {"gol": 0.22, "golR": 0.1}, "nota": 2}, "ok": "Cabeceas al primer palo y el balón entra junto al poste.", "ko": "El cabezazo sale fuera. Un remate sin fuerza.", "mid": "El portero para sin problemas.", "juicio": "buena", "por": "El primer palo deja al portero sin ángulo; el remate de cabeza ahí es lo que más gol da."}, {"l": "Dejar pasar el balón al segundo palo", "fx": {"inst": {"asis": 0.1}, "nota": 1}, "ok": "Tu compañero del segundo palo remata solo.", "ko": "El balón llega al defensa y se despeja.", "mid": "Tu compañero recibe y el remate sale desviado.", "juicio": "discreta", "por": "Dejar pasar al segundo palo es buena idea solo si tu compañero está libre; si no, se pierde la ocasión."}, {"l": "Rematar de volea fuera del área", "fx": {"inst": {"gol": 0.05, "golR": 0.12}, "nota": 3}, "ok": "La volea entra por el ángulo. Una maravilla.", "ko": "La volea sale alta y el rival recupera.", "mid": "La volea sale desviada y sin peligro.", "juicio": "mala", "por": "Una volea forzada desde lejos tiene poca probabilidad y regala el balón si no entra."}]}, {"id": "n-dc-espalda-central", "pos": ["EXT", "DC"], "t": "Espacio a la espalda de un central lento", "x": "El central rival se ha quedado atrás y hay espacio entre él y el lateral. El balón está en campo propio.", "o": [{"l": "Desmarcarte a la espalda del central", "fx": {"inst": {"gol": 0.18}, "nota": 2}, "ok": "Te desmarcas y el compañero te pone el balón en carrera.", "ko": "El pase llega tarde y el central te cierra el paso.", "mid": "El pase llega, pero el lateral despeja.", "juicio": "buena", "por": "Desmarcarte a la espalda de un central lento obliga a elegir entre dos defensas y deja la carrera a tu favor."}, {"l": "Esperar fuera de la línea", "fx": {"nota": 0}, "ok": "El compañero te busca y el espacio se abre.", "ko": "El compañero no te ve y el balón se pierde.", "mid": "El compañero pasa atrás y el ataque se detiene.", "juicio": "discreta", "por": "Esperar fuera de la línea es seguro, pero te quita la carrera que el central ha dejado libre."}, {"l": "Pararte en medio del central", "fx": {"nota": -1}, "ok": "El central te sigue y el espacio se cierra.", "ko": "El central te tapa y el balón se pierde.", "mid": "El balón sale a banda y se pierde la jugada.", "juicio": "mala", "por": "Pararte delante del central te quita el espacio y te deja sin posición de remate."}]}, {"id": "n-dc-banda-centro", "pos": ["EXT", "DC"], "t": "Balón en la banda y rival que cierra", "x": "Recibes en la banda con un defensa que te cierra la línea de fondo. Hay espacio por dentro.", "o": [{"l": "Desbordar por fuera y centrar", "fx": {"inst": {"asis": 0.2}, "nota": 2}, "ok": "Desbordas, centras y el delantero remata solo.", "ko": "El centro sale largo y el portero lo recoge.", "mid": "El centro llega, pero sin rematador.", "juicio": "buena", "por": "Desbordar y centrar obliga al defensa a elegir y deja al rematador de cara."}, {"l": "Pasar atrás y reiniciar", "fx": {"nota": 0}, "ok": "Tu compañero recibe y el equipo reinicia con orden.", "ko": "El pase atrás llega al rival y te quitan el balón.", "mid": "El compañero pasa lateral y se diluye el ataque.", "juicio": "discreta", "por": "Reiniciar es seguro, pero pierdes el carril que tenías abierto."}, {"l": "Regatear hacia la línea de fondo sin salida", "fx": {"ta": 0.3, "nota": 2}, "ok": "Te quedas sin ángulo y el balón sale fuera.", "ko": "Pierdes el balón en la línea de fondo.", "mid": "El defensa te frena y el árbitro te advierte.", "juicio": "mala", "por": "Regatear hacia la línea de fondo sin salida hace perder el balón y el ataque."}]}, {"id": "n-dc-aguantar", "pos": ["EXT", "DC"], "t": "Balón de espaldas con central encima", "x": "Recibes de espaldas a la portería con un central pegado. Tu compañero está a diez metros.", "o": [{"l": "Aguantar el balón y esperar apoyo", "fx": {"nota": 1}, "ok": "Aguantas, el compañero llega y el balón vuelve a tu pie.", "ko": "El central te roba mientras esperas.", "mid": "Aguantas, pero el balón se queda sin dueño.", "juicio": "buena", "por": "Aguantar espera el apoyo y mantiene la posesión hasta que el compañero llega."}, {"l": "Girarte y disparar desde fuera", "fx": {"inst": {"gol": 0.08, "golR": 0.12}, "nota": 2}, "ok": "El disparo entra por el palo. Gol de fuera del área.", "ko": "El disparo sale alto y el rival recupera.", "mid": "El disparo sale desviado a córner.", "juicio": "discreta", "por": "Girarte y disparar desde fuera tiene poca probabilidad, aunque no te cuesta nada si no entra."}, {"l": "Cargar contra el central de espaldas", "fx": {"ta": 0.4, "nota": 2}, "ok": "Lo empujas y el central cae. Falta a tu favor.", "ko": "El central te empuja y pierdes el balón.", "mid": "Cargas, pero el árbitro te advierte.", "juicio": "mala", "por": "Cargar contra el central de espaldas te hace perder el balón o te lleva a la tarjeta."}]}, {"id": "n-dc-profundidad-central", "pos": ["EXT", "DC"], "t": "Balón en profundidad al espacio central", "x": "Tu compañero tiene el balón en campo rival y hay un espacio libre entre los centrales. Puedes correr a él.", "o": [{"l": "Correr al espacio y recibir", "fx": {"inst": {"gol": 0.2}, "nota": 2}, "ok": "Recibes en carrera y te plantas ante el portero.", "ko": "El pase llega largo y el portero sale a por el balón.", "mid": "El pase llega, pero el central te tapa.", "juicio": "buena", "por": "Correr al espacio te coloca de cara a la portería antes de que el central se reponga."}, {"l": "Pararte y esperar el balón", "fx": {"nota": 0}, "ok": "El balón llega y el central no te puede cerrar.", "ko": "El balón llega, pero el central te gana la posición.", "mid": "El balón se queda corto y el rival lo recupera.", "juicio": "discreta", "por": "Esperar el balón es seguro, pero el central tiene tiempo de cerrarte el espacio."}, {"l": "Quedarte atrás", "fx": {"nota": -1}, "ok": "El balón se pierde y el equipo sale ordenado.", "ko": "El balón se va al rival y el ataque se rompe.", "mid": "El balón sale por la banda sin peligro.", "juicio": "mala", "por": "Quedarte atrás cuando hay espacio libre aleja al equipo del área y regala la posición."}]}, {"id": "n-dc-pase-llega", "pos": ["EXT", "DC"], "t": "Pase al que llega de segunda línea", "x": "Tu compañero se incorpora desde la segunda línea y tiene el balón. Tú estás de espaldas al arco con el defensa encima.", "o": [{"l": "Cederla de cara al que entra", "fx": {"inst": {"asis": 0.22}, "nota": 2}, "ok": "La cedes y el compañero dispara con mucho espacio.", "ko": "El pase llega al defensa y se pierde.", "mid": "El compañero recibe, pero sin ángulo de remate.", "juicio": "buena", "por": "Ceder de cara al que entra aprovecha su movimiento y deja al rival sin tiempo de cubrir."}, {"l": "Rematar tú", "fx": {"inst": {"gol": 0.15, "golR": 0.1}, "nota": 1}, "ok": "Rematas con potencia. Ocasión clara.", "ko": "Rematas sin apoyo y el portero para.", "mid": "El remate sale desviado y sin peligro.", "juicio": "discreta", "por": "Rematar de espaldas al arco tiene poca probabilidad; el compañero que llega suele tener más ángulo."}, {"l": "Frenar el balón y esperar", "fx": {"nota": -1}, "ok": "El compañero recibe y el balón llega al área.", "ko": "El defensa te quita el balón mientras esperas.", "mid": "El compañero recibe lejos del área y el ataque se diluye.", "juicio": "mala", "por": "Frenar el balón da tiempo al defensa para cerrar el espacio y rompe el movimiento del compañero."}]}, {"id": "n-dc-fuera-juego", "pos": ["EXT", "DC"], "t": "Fuera de juego dudoso", "x": "El árbitro levanta el banderín. Tú dudas de que estuvieras en posición. Tienes que reaccionar ya.", "o": [{"l": "Protestar al árbitro", "fx": {"ta": 0.5, "nota": -1}, "ok": "El árbitro te escucha y no cambia la decisión.", "ko": "El árbitro te amonesta por protestar.", "mid": "El árbitro te pide que vuelvas a tu posición.", "juicio": "mala", "por": "Protestar una decisión de línea casi siempre acaba en tarjeta sin cambiar nada."}, {"l": "Seguir la jugada sin parar", "fx": {"nota": 1}, "ok": "Sigues la jugada, el balón llega a otro compañero y tienes una ocasión.", "ko": "La jugada sigue, pero el rival recupera.", "mid": "La jugada sigue sin dueño y se pierde.", "juicio": "buena", "por": "Seguir jugando mantiene la concentración: si la decisión se mantiene, no pierdes nada."}, {"l": "Quedarte parado mirando", "fx": {"nota": -1}, "ok": "El árbitro pita y se para el juego.", "ko": "El rival aprovecha el parón y avanza.", "mid": "El árbitro sigue el juego y la jugada se diluye.", "juicio": "mala", "por": "Quedarte parado mirando el banderín rompe tu ritmo y deja al rival ventaja."}]}, {"id": "n-dc-pelota-dividida", "pos": ["EXT", "DC"], "t": "Pelota dividida con el central", "x": "Tú y el central rival disputáis un balón suelto. Es una pelota dividida y tu posición es buena.", "o": [{"l": "Ganar la posición y tapar al central", "fx": {"nota": 2}, "ok": "Ganas la posición y el balón llega a tu pie.", "ko": "El central te gana la posición y el balón se pierde.", "mid": "Ganas la posición, pero el balón sale fuera.", "juicio": "buena", "por": "Ganar la posición antes que el central te da el balón sin necesidad de entrar."}, {"l": "Ir fuerte a por ella", "fx": {"ta": 0.4, "nota": 2}, "ok": "Ganas el duelo y el balón queda a tu favor.", "ko": "Llegas tarde, el central te gana y te lleva por delante.", "mid": "Llegas, pero el balón se queda suelto.", "juicio": "discreta", "por": "Ir fuerte puede ganarla, pero si llegas tarde te juegas la tarjeta."}, {"l": "Quedarte parado mirando la pelota", "fx": {"nota": -1}, "ok": "El central despeja y el balón sale fuera.", "ko": "El central pasa a su compañero y el ataque se rompe.", "mid": "El balón queda suelto y el central lo recupera.", "juicio": "mala", "por": "Quedarte parado deja al central el balón sin oposición y te aleja de la jugada."}]}, {"id": "n-dc-atacar-espacio-lateral", "pos": ["EXT", "DC"], "t": "Espacio a la espalda del lateral", "x": "Tu compañero está en campo rival con el balón. Hay espacio libre a la espalda del lateral rival.", "o": [{"l": "Atacar el espacio del lateral", "fx": {"inst": {"gol": 0.16}, "nota": 2}, "ok": "Te metes a la espalda del lateral y recibes en carrera.", "ko": "El pase llega tarde y el lateral te cierra el espacio.", "mid": "El pase llega, pero el defensa despeja.", "juicio": "buena", "por": "Atacar la espalda del lateral obliga al defensa a elegir y deja el espacio para la carrera."}, {"l": "Tocar hacia atrás con el compañero", "fx": {"nota": 0}, "ok": "El compañero recibe y reinicia con calma.", "ko": "El pase atrás llega al rival y se pierde.", "mid": "El compañero pasa lateral y el ataque se diluye.", "juicio": "discreta", "por": "Tocar atrás mantiene la posesión, pero desaprovechas el espacio que el lateral ha dejado."}, {"l": "Tirarte al suelo para pedir penalti", "fx": {"ta": 0.9, "nota": -1}, "ok": "El árbitro no pita nada y te quedas en el suelo.", "ko": "El árbitro te amonesta por simulación.", "mid": "El árbitro pita falta en contra y el juego se corta.", "juicio": "mala", "por": "Tirarte al suelo sin contacto te cuesta tarjeta y quita credibilidad a tus reclamaciones futuras."}]}, {"id": "n-mm-pivote-frontal", "pos": ["MC", "MCO"], "t": "Tu pivote te pide el balón", "x": "Tu pivote te pide el balón en la frontal. Tienes dos rivales cerca y otro compañero libre por la banda.", "o": [{"l": "Dársela de primeras al pivote", "fx": {"own": 1.04, "nota": 2}, "ok": "Un toque de calidad y el pivote gira con ventaja.", "ko": "El pivote recibe encimado y el rival recupera.", "mid": "El pivote recibe, pero no tiene más opciones.", "juicio": "buena", "por": "Un toque de calidad mantiene la posesión y cambia el orden del equipo."}, {"l": "Recibir y girarte", "fx": {"nota": 1}, "ok": "Recibes, te giras y encuentras el hueco.", "ko": "Recibes y te cierran antes de girarte.", "mid": "Recibes sin problemas, pero la jugada se diluye.", "juicio": "discreta", "por": "Recibir y girarte es posible, pero el rival ya tiene tiempo para cerrarte la salida."}, {"l": "Recibir de espaldas sin mirar al rival", "fx": {"nota": 1}, "ok": "Recibes sin problemas y tienes tiempo para decidir.", "ko": "Recibes de espaldas y el rival te roba.", "mid": "Recibes, pero el balón queda sin dueño.", "juicio": "mala", "por": "Recibir de espaldas sin mirar al rival te deja sin salida y aumenta el riesgo de pérdida."}]}, {"id": "n-md-hueco-delante", "pos": ["MCD", "MC"], "t": "Hueco delante de los centrales", "x": "Has perdido el balón y el hueco entre tus centrales y tú queda libre. Un rival puede recibir ahí de cara.", "o": [{"l": "Cubrir el espacio delante de los centrales", "fx": {"nota": 1}, "ok": "Te colocas en el hueco y el rival no puede recibir.", "ko": "El rival recibe entre tú y tu central y se planta de cara.", "mid": "El rival recibe, pero le cierras el ángulo de pase.", "juicio": "buena", "por": "Cubrir el hueco delante de los centrales evita que el rival reciba de cara y lance la jugada."}, {"l": "Subir a presionar al que recibe", "fx": {"ta": 0.2, "nota": 2}, "ok": "Llegas a tiempo y le robas el balón al rival.", "ko": "Llegas tarde y el rival gira con espacio.", "mid": "Presionas, pero el rival se libra con un pase lateral.", "juicio": "discreta", "por": "Subir a presionar puede funcionar, pero deja el hueco abierto si el rival tiene un pase al espacio."}, {"l": "Quedarte en la línea del medio campo", "fx": {"nota": 0}, "ok": "El rival no tiene espacio y el balón se detiene.", "ko": "El rival recibe libre entre líneas y se planta ante tu defensa.", "mid": "El rival pasa lateral y el ataque no progresa.", "juicio": "mala", "por": "Quedarte en la línea del medio campo deja libre el hueco delante de los centrales para el rival."}]}, {"id": "n-md-mediapunta-entra", "pos": ["MCD", "MC"], "t": "Mediapunta rival que entra entre líneas", "x": "Un mediapunta rival se mete entre tú y tu central. Recibe de espaldas con espacio para girarse.", "o": [{"l": "Seguirlo hasta que llegue el relevo", "fx": {"nota": 1}, "ok": "Lo sigues y el relevo llega a tiempo. El rival no encuentra el pase.", "ko": "Lo sigues, pero el rival te gira y sale con el balón.", "mid": "Lo sigues, pero el rival se libra con un pase lateral.", "juicio": "buena", "por": "Seguirlo hasta que llegue un compañero evita que el rival se gire, y eso es lo que más peligro tiene."}, {"l": "Dejarlo y cubrir al pivote", "fx": {"nota": 0}, "ok": "Cubres al pivote y el mediapunta no tiene salida.", "ko": "El mediapunta recibe y gira con espacio.", "mid": "El mediapunta recibe, pero el pase no llega.", "juicio": "discreta", "por": "Dejarlo libre cubre el pase directo, pero le das tiempo a girarse y elegir."}, {"l": "Entrar al suelo para cortarlo", "fx": {"ta": 0.8, "nota": -1}, "ok": "Recuperas el balón, pero el árbitro te amonesta.", "ko": "Entras tarde, te quedas en el suelo y el rival sale en contra.", "mid": "Entras sin llegar al balón y el árbitro pita falta.", "juicio": "mala", "por": "Entrar al suelo contra un mediapunta que recibe de espaldas te cuesta tarjeta y deja libre el espacio."}]}, {"id": "n-md-saque-banda-propia", "pos": ["MCD", "MC"], "t": "Saque de banda en tu campo con presión", "x": "Tu equipo saca de banda en campo propio y el rival aprieta en la zona. Tienes que decidir a quién le das el balón.", "o": [{"l": "Sacarlo al pivote que se ofrece", "fx": {"nota": 1}, "ok": "El pivote recibe, se gira y el equipo sale con criterio.", "ko": "El pase llega al rival y se pierde el balón en tu zona.", "mid": "El pivote recibe, pero le cierran la salida.", "juicio": "buena", "por": "Dar el balón a quien se ofrece y puede girarse rompe la presión sin arriesgar en exceso."}, {"l": "Lanzarlo largo al delantero", "fx": {"nota": 1}, "ok": "El delantero gana el duelo y el equipo avanza.", "ko": "El delantero pierde el duelo y el rival recupera a diez metros de tu área.", "mid": "El balón sale sin dueño y se pierde la posesión.", "juicio": "discreta", "por": "El balón largo es una salida rápida, pero renuncias a la posesión y dejas el juego en manos del rival."}, {"l": "Sacar corto con dos rivales encima", "fx": {"nota": 0}, "ok": "El compañero se libra y el equipo sale en limpio.", "ko": "El pase llega a un rival y se acaba la jugada en tu área.", "mid": "El pase sale sin dueño y se pierde la posesión.", "juicio": "mala", "por": "Sacar corto con dos rivales encima es arriesgar la posesión en tu propia zona."}]}];
+/* explicación de cada opción de entreno: [juicio, por qué] (buena / discreta / mala) */
+var PORQUE={
+"por-salida":{
+ "Salir a puños con todo":["discreta","Salir es correcto si llegas al balón, pero con tres cuerpos en el área el riesgo de llegar tarde es alto."],
+ "Quedarte en línea y achicar el remate":["buena","Quedarte en línea y achicar el remate cubre el ángulo que necesita un cabezazo para entrar."],
+ "Ordenar a gritos y confiar en tu central":["discreta","Mandar ayuda, pero si el central no llega, el balón queda dentro del área sin que lo hayas tapado."]},
+"por-mano-a-mano":{
+ "Achicar espacio y esperar de pie":["buena","Achicar el ángulo y esperar de pie te permite cubrir los dos palos si el delantero duda."],
+ "Tirarte a los pies":["discreta","Tirarte a los pies sin estar seguro deja un hueco por encima: el delantero puede pasarte."],
+ "Quedarte y cubrir tu palo corto":["discreta","Cubrir el palo corto es lógico, pero el delantero puede picarla por el otro lado."]},
+"por-saque":{
+ "Jugar en corto y romper la presión":["buena","Jugar en corto con un compañero libre rompe la presión y mantiene la posesión."],
+ "Salir jugando por dentro, como un central más":["buena","Con el talento de líbero, salir por dentro gana un jugador en la salida."],
+ "Balón largo a pelear":["discreta","El balón largo regala la posesión, pero da una opción de segunda jugada."],
+ "Congelar el saque: el reloj también juega":["mala","Perder tiempo en el saque puede costarte tarjeta sin que el rival pierda el ritmo."]},
+"por-disparo-lejano":{
+ "Blocar seguro contra el pecho":["buena","Blocar elimina el rebote, que es la jugada que más peligro tiene."],
+ "Despejar a córner sin arriesgar":["discreta","Despejar a córner es seguro, pero el saque de esquina vuelve a poner el área en peligro."],
+ "Achicar dos pasos y achicar ángulo":["discreta","Achicar el ángulo ayuda, pero si el balón se va al palo lejano el riesgo aumenta."]},
+"por-corner-contra":{
+ "Salir a por todas":["discreta","Salir es buena si el balón está a tu alcance; con tanta gente en el área, es arriesgado."],
+ "Quedarte en línea y reaccionar":["buena","Quedarte en línea te deja reaccionar al remate sin perder el ángulo."],
+ "Colocar la defensa y confiar":["discreta","Colocar la defensa es positivo, pero confiar sin mandar es insuficiente con tanta gente en el área."]},
+"por-mando":{
+ "Mandar a gritos y colocar a cada uno":["buena","Ordenar la defensa en voz alta evita huecos en las jugadas a balón parado."],
+ "Hablar en corto con tu central en la siguiente pausa":["discreta","Hablar en la pausa es útil, pero el error ya se ha producido y no lo corriges en ese momento."],
+ "Callar y centrarte en tu portería":["mala","Callar en una defensa desordenada deja fallos sin corregir y te deja sin apoyo."]},
+"por-penalti":{
+ "Estudiar su carrera y esperar hasta el final":["buena","Esperar hasta el final y leer la carrera te da la mejor opción de parada."],
+ "Jugártela a un lado antes del golpeo":["discreta","Jugártela a un lado es una apuesta: si aciertas paras, si no, el penalti es gol."],
+ "Calentarle: hablarle antes del lanzamiento":["mala","Calentar al lanzador te cuesta tarjeta y no cambia la ejecución."]},
+"def-ultimo-hombre":{
+ "Ir al balón: llegar limpio o nada":["discreta","Ir al balón puede frenar la jugada si llegas limpio; si no llegas, el delantero queda solo."],
+ "Falta táctica: frenarlo como sea":["mala","Una falta táctica puede acabar en roja y penalti, y el peligro sigue en el área."],
+ "Acompañar hacia la banda sin entrar":["buena","Acompañarlo hacia la banda sin entrar limita el ángulo de tiro sin regalar falta."]},
+"def-marca-crack":{
+ "Pegarte a él desde el primer segundo":["buena","Pegarte desde el primer segundo le quita espacio y tiempo, aunque conlleve algún riesgo de falta."],
+ "Darle un metro y leer las jugadas":["discreta","Darle un metro te permite leer la jugada, pero le das espacio para girarse."],
+ "Hablarle todo el partido para sacarlo de quicio":["mala","Hablarle todo el partido gasta tu concentración y termina en amarilla."]},
+"def-salida-balon":{
+ "Conducir y romper la primera línea":["buena","Conducir y romper la primera línea saca al equipo de su campo sin regalar la posesión."],
+ "Conducir cuarenta metros y romper líneas":["buena","Con el talento de conductor, avanzar cuarenta metros rompe varias líneas a la vez."],
+ "Pase seguro al lateral":["discreta","El pase seguro protege la posesión, pero no hay progresión."],
+ "Pelotazo y a correr":["mala","Un pelotazo sin control regala la posesión y el rebote es casi siempre del rival."]},
+"def-cabeza-area":{
+ "Ir al primer palo a rematar":["buena","Ir al primer palo a rematar aprovecha la altura y la sorpresa en las jugadas de estrategia."],
+ "Bloquear a su central para liberar a otro":["discreta","Bloquear al central crea espacio, pero es un remate de poca probabilidad."],
+ "Quedarte atrás por si hay contra":["buena","Quedarte atrás protege la contra y es lo más prudente si el equipo va perdiendo."]},
+"mc-conduccion":{
+ "Conducir hasta que salga alguien":["discreta","Conducir sin decidir pierde ritmo si nadie se abre y te expone a una pérdida."],
+ "Pase interior de primeras":["buena","Un pase interior de primeras mantiene el ritmo y pone el balón donde el equipo lo necesita."],
+ "Cambio de orientación a la banda":["buena","Cambiar a la banda contraria obliga al rival a moverse y da tiempo al equipo."]},
+"mc-duelo-pivote":{
+ "Salir a por él y no dejarle recibir":["discreta","Salir a por el pivote puede cortar el pase, pero deja un hueco que el rival puede aprovechar."],
+ "Taparle la sombra sin salir":["buena","Taparle la sombra sin salir mantiene tu posición y le quita el pase directo."],
+ "Robo alto: quitársela antes de que gire":["buena","Con el talento de ladrón, robar alto quita el balón antes de que el rival gire."],
+ "Ignorarlo y multiplicarte en ataque":["mala","Ignorar al pivote rival te deja sin cobertura en la zona y le regala espacio."]},
+"mc-falta-frontal":{
+ "Tirarla tú":["discreta","Tirarla tú depende de tu golpeo; si no eres especialista, el porcentaje baja."],
+ "Ensayada: pase corto y disparo":["buena","Una jugada ensayada suele sorprender a la barrera y da una opción de disparo limpia."],
+ "Tu falta ensayada de siempre":["buena","Con el talento de especialista, tu falta ensayada es la opción de mayor probabilidad."],
+ "Dársela al especialista":["buena","Si hay un especialista en el equipo, dársela es la decisión que más gol da."]},
+"mc-tapon":{
+ "Barrer todo lo que pase por tu zona":["discreta","Barrer todo acaba en faltas y tarjetas; hay que tapar, no entrar a cada balón."],
+ "Colocarte bien y no entrar nunca":["buena","Colocarte bien y no entrar te deja cubrir el pase sin regalar faltas."],
+ "Salir a robar arriba y matar la jugada antes":["discreta","Salir a robar arriba corta la jugada antes, aunque te expones a un pase al espacio."]},
+"mc-desmarque":{
+ "Pase al hueco de primeras":["buena","Pasar al hueco de primeras aprovecha el movimiento del compañero antes de que el rival se cierre."],
+ "Esperar un segundo a que se abra mejor":["buena","Esperar un segundo a que el hueco se abra mejor aumenta la calidad del pase."],
+ "Cambiar el juego a la banda contraria":["discreta","Cambiar el juego evita la presión, pero renuncias a la ocasión inmediata."]},
+"lat-fondo":{
+ "Centro raso al primer palo":["buena","Un centro raso al primer palo pilla a los defensas girados."],
+ "Buscar la cabeza del delantero al segundo palo":["buena","El centro al segundo palo busca la cabeza del delantero, la opción más peligrosa desde la línea de fondo."],
+ "Pararla y esperar a que llegue gente":["discreta","Parar el balón y esperar a los compañeros da tiempo al defensa para cerrar el espacio."]},
+"del-area":{
+ "Rematar de primeras, sin pensarlo":["buena","Rematar de primeras aprovecha el balón antes de que el defensa se coloque."],
+ "Controlar y buscar el hueco":["discreta","Controlar primero reduce la calidad del remate y da tiempo al defensa para cubrir."],
+ "Cedérsela al que llega solo":["buena","Ceder al que llega solo es la opción de mayor probabilidad, porque el rival no puede cerrarla."]},
+"def-cruce":{
+ "Anticiparte y despejar de cabeza":["buena","Anticiparte y despejar de cabeza evita que el balón llegue al rematador."],
+ "Marcarle y no dejarle saltar":["buena","Marcarle sin dejarle saltar es correcto; el contacto excesivo puede costar falta."],
+ "Achicar y dejarlo en fuera de juego":["discreta","Dejar en fuera de juego es arriesgado: si tu línea no está perfecta, el delantero se queda solo."]},
+"por-ultimo-cornero":{
+ "Subir a rematar":["discreta","Subir a rematar puede dar un gol en el último minuto, pero deja la portería vacía ante una contra."],
+ "Quedarte en tu sitio":["buena","Quedarte en tu sitio protege la portería ante una contra y mantiene el resultado."]},
+"por-saque-largo":{
+ "Saque en largo al espacio":["discreta","El saque largo al espacio es útil si el delantero te gana la posición, pero regala la posesión."],
+ "Sacar en corto y empezar la jugada":["buena","Sacar en corto y empezar la jugada mantiene la posesión y ordena al equipo."],
+ "Perder tiempo con calma":["mala","Perder tiempo puede costarte tarjeta y restar disciplina al equipo."]},
+"por-disparo-area":{
+ "Achicar y taparle todo el arco":["buena","Achicar y taparle el arco deja al delantero sin ángulo limpio de remate."],
+ "Quedarte y reaccionar al disparo":["discreta","Quedarte y reaccionar es válido, pero deja la parada a tu reflejo."],
+ "Adivinar el palo antes del golpeo":["mala","Adivinar el palo antes del golpeo convierte la parada en casualidad: si fallas, el balón entra."]},
+"del-mano-a-mano":{
+ "Disparo cruzado abajo":["buena","El disparo cruzado abajo es el que menos alcanza el portero y el que más gol da."],
+ "Picarla por encima":["discreta","Picar por encima es un recurso de calidad, pero arriesgado si el portero sale."],
+ "Esperar y regatearle":["discreta","Esperar y regatear puede funcionar, pero el portero tiene tiempo para cerrar el ángulo."],
+ "Cederla al compañero que llega solo":["buena","Ceder al compañero que llega solo es la opción de mayor probabilidad."]},
+"del-sequia":{
+ "Bajar a recibir y participar":["discreta","Bajar a recibir ayuda al equipo, pero te aleja del área y de la ocasión."],
+ "Seguir atacando el espacio: la tuya llegará":["buena","Seguir atacando el espacio mantiene tu posición de remate y tu confianza."],
+ "Pelearte con el central: llevártelo a tu terreno":["mala","Pelearte con el central gasta energía y puede costarte tarjeta."]},
+"ext-uno-contra-uno":{
+ "Encarar por fuera y colgarla":["buena","Encarar por fuera y colgarla aprovecha la superioridad en la banda."],
+ "Irte de dos en tres metros":["buena","Con el talento de desborde, irte en tres metros deja al defensa sin opción."],
+ "Cortar hacia dentro y disparar":["discreta","Cortar hacia dentro y disparar tiene poco ángulo si el defensa cierra la diagonal."],
+ "Ruleta y buscar la falta":["discreta","La ruleta busca la falta, pero el árbitro puede no pitarla y perder el balón es fácil."]},
+"del-penalti":{
+ "Fuerte y arriba":["buena","Fuerte y arriba es la opción de más probabilidad para un penalti."],
+ "Colocada a un palo":["discreta","Colocada a un palo tiene algo menos de probabilidad que fuerte y arriba."],
+ "Panenka: tu momento de gloria":["mala","La panenka tiene menos probabilidad; si el portero se queda, el fallo es humillante."],
+ "@":["discreta","Cederlo a un compañero solo compensa si tiene mejor pegada que tú; si no, pierdes calidad en el lanzamiento."]},
+"pen-l":{
+ "Colocado, a media altura":["buena","Colocado a media altura combina precisión y potencia, con la mayor probabilidad de gol."],
+ "Fuerte, al centro":["discreta","Fuerte al centro da menos margen si el portero adivina el lado."],
+ "Panenka":["mala","La panenka baja la probabilidad de gol y expone al lanzamiento a una parada fácil."]},
+"pen-p":{
+ "Jugártela a un palo":["discreta","Jugártela a un palo es una apuesta: si aciertas paras, si no, el penalti es gol."],
+ "Aguantar hasta el último instante":["buena","Aguantar hasta el último instante te da la mejor lectura del lanzamiento."],
+ "Provocarle: señalar una esquina":["mala","Señalar una esquina da pistas al lanzador y puede hacer que cambie de lado."]},
+"clutch-mano-90":{
+ "Definir cruzado, a lo tuyo":["buena","Definir cruzado, a lo tuyo, es la opción con más probabilidad de gol en el último minuto."],
+ "Recortar y buscar el hueco seguro":["discreta","Recortar y buscar el hueco seguro reduce el ángulo y da tiempo al defensa."],
+ "Levantar la cabeza y servirla atrás":["buena","Servir atrás a un compañero libre es la opción de mayor probabilidad en el último minuto."]},
+"clutch-llegada-area":{
+ "Rematar al primer toque":["buena","Rematar al primer toque aprovecha el balón antes de que el defensa se coloque."],
+ "Controlar y ajustar":["discreta","Controlar y ajustar pierde el momento y da tiempo al defensa."]},
+"clutch-falta-ultima":{
+ "Buscar la escuadra":["discreta","Buscar la escuadra tiene menos probabilidad que un centro bien colocado al área."],
+ "Servirla al área con veneno":["buena","Servirla al área con veneno busca la cabeza de los rematadores, la opción más peligrosa."],
+ "No arriesgar: jugarla corta y mantener la posesión":["discreta","Jugarla corta mantiene la posesión, pero desaprovecha la falta en zona de peligro."]},
+"clutch-corner-subes":{
+ "Atacar el primer palo con todo":["discreta","Atacar el primer palo con todo arriesga un contraataque si el balón sale y el área queda vacía."],
+ "Bloquear al marcador para un compañero":["buena","Bloquear al marcador para un compañero libre aprovecha la jugada de estrategia sin arriesgar el área."]},
+"clutch-remate-centro":{
+ "Cabezazo picado abajo":["buena","El cabezazo picado abajo es el remate que menos alcanza el portero."],
+ "Bajarla al pecho y fusilar":["discreta","Bajarla al pecho y fusilar tiene buen ángulo, pero el control te resta tiempo."]},
+"ent-dc-espalda":{
+ "Controlar y girarte hacia la portería":["buena","Controlar y girarte te coloca de cara a la portería con el defensa ya encima."],
+ "Pasar al hueco que se abre a tu lado":["buena","Pasar al hueco que se abre a tu lado aprovecha el espacio que el defensa deja."],
+ "Protegerlo de espaldas y esperar apoyo":["discreta","Proteger el balón y esperar apoyo es seguro, pero el defensa tiene tiempo para recuperar."]},
+"ent-dc-cabeza":{
+ "Rematar de primeras":["buena","Rematar de primeras aprovecha el centro antes de que el defensa se coloque."],
+ "Amortiguar para el que llega detrás":["buena","Amortiguar para el que llega detrás aprovecha el movimiento del compañero."],
+ "Esperar y no arriesgar":["discreta","Esperar y no arriesgar es seguro, pero renuncias a la ocasión inmediata."]},
+"ent-dc-presion":{
+ "Presionar en diagonal y cortar la salida":["buena","Presionar en diagonal corta la salida sin dejar espacio por dentro."],
+ "Presión directa y fuerte":["discreta","La presión directa puede recuperar, pero arriesga tarjeta y deja espacio si el rival se la quita."],
+ "Ordenar a los compañeros y esperar":["mala","Ordenar y esperar deja al rival salir sin presión y sin que el equipo se mueva."]},
+"ent-ext-centro-bajo":{
+ "Centro raso al área":["buena","Un centro raso al área pilla a los defensas girados y deja al delantero de cara."],
+ "Centro al primer palo":["buena","El centro al primer palo busca el remate del delantero antes de que el defensa cierre."],
+ "Buscar el tiro de cerca":["discreta","Buscar el tiro de cerca tiene poco ángulo si el defensa cierra, y aumenta el riesgo de rechace."]},
+"ent-lat-solapa":{
+ "Llegar por dentro sin balón":["discreta","Llegar por dentro sin balón abre la banda, pero te aleja de la línea de fondo."],
+ "Pedir el pase en profundidad":["buena","Pedir el pase en profundidad obliga al defensa a girarse y te da espacio."],
+ "Quedarte y cubrir la banda":["buena","Quedarte y cubrir la banda es lo más prudente cuando el equipo está expuesto en la contra."]},
+"ent-dfc-salida-presion":{
+ "Pasar al portero":["discreta","Pasar al portero es seguro, pero si el portero está muy presionado, el rival lo recupera."],
+ "Sacar jugado por abajo al pivote":["buena","Sacar jugado por abajo al pivote rompe la presión y mantiene la posesión."],
+ "Despejar largo":["mala","Despejar largo bajo presión regala la posesión sin progresar."]},
+"ent-dfc-anticipar":{
+ "Adelantarte y cortar el pase":["buena","Adelantarte y cortar el pase es correcto si tienes un compañero detrás que cubra el hueco."],
+ "Mantener la línea y esperar":["discreta","Mantener la línea es seguro, pero dejas que el rival elija el pase."],
+ "Hacer falta táctica":["mala","Hacer falta táctica en el medio campo puede costarte tarjeta sin cortar la jugada."]},
+"ent-mc-cambio-juego":{
+ "Cambio de juego largo":["buena","Cambiar el juego a largo aprovecha un espacio que el rival ha dejado."],
+ "Pase corto y ritmo":["discreta","Pase corto y ritmo mantiene la posesión, pero no rompe la defensa rival."],
+ "Atraer al rival y luego soltarlo":["buena","Atraer al rival y soltar el balón al compañero libre crea espacio para el siguiente pase."]},
+"ent-mc-recuperar":{
+ "Presionar al que lleva el balón":["discreta","Presionar al que lleva el balón puede recuperar, pero arriesga tarjeta y deja espacio."],
+ "Replegar y cerrar el carril":["buena","Replegar y cerrar el carril evita el pase interior sin regalar faltas."],
+ "Hacer falta para cortar la jugada":["mala","Hacer falta para cortar la jugada cuesta tarjeta y deja un libre peligroso."]}
+};
+SITS=SITS.concat(SITS_NUEVAS, SITS_ENTRENO_EXTRA);
+SITS.forEach(function(s){ if(!s.cond) s.cond=function(){ return true; }; });
+function aplicarPorque(){
+  SITS.concat(SITS_CLUTCH||[], [SIT_PEN_L, SIT_PEN_P]).forEach(function(s){
+    var m=PORQUE[s.id]; if(!m) return;
+    s.o.forEach(function(o){ var e=m[typeof o.l==="function"? "@" : o.l]; if(e){ o.juicio=e[0]; o.por=e[1]; } });
+  });
+}
+aplicarPorque();
+/* ---------- charla de descanso (como jugador) ---------- */
+function charlaDescanso(c){
+  var d=c.sc[0]-c.sc[1];
+  var t = d<0? "Descanso: el vestuario, en silencio" : d===0? "Descanso: partido por decidir" : "Descanso: vais por delante";
+  var x = d<0? "El míster ha entrado dando voces y ha salido dando un portazo. Quedan cinco minutos y nadie habla. Alguien tiene que decir algo."
+        : d===0? "Botellines, hielo y miradas. El míster ha dado las instrucciones y se ha ido. El grupo espera."
+        : "Ambiente bueno, quizá demasiado. Alguno ya se ve ganando y quedan cuarenta y cinco minutos.";
+  var o = d<0? [
+    {l:"Levantar la voz tú: «Esto se arregla corriendo»", fx:{own:1.08, nota:2, mis:2},
+     ok:"El vestuario se engancha a tu grito. Salís siendo otro equipo.", ko:"Alguno te contesta mal y el vestuario se parte justo antes de salir.", mid:"Palabras y palmadas. Algo se mueve."},
+    {l:"Hablar en corto con tu línea", fx:{own:1.05, nota:1},
+     ok:"Los tres ajustes que pactáis en voz baja funcionan mejor que la pizarra.", ko:"", mid:"Acuerdos en pequeño comité. Sin ruido."},
+    {l:"Callar y salir el primero al campo", fx:{own:1.02, nota:1},
+     ok:"Sales solo al césped y el resto te sigue sin decir nada. Liderazgo mudo.", ko:"", mid:"Ni una palabra: solo botas y hierba."}
+  ] : d===0? [
+    {l:"Recordar el plan en voz alta", fx:{own:1.05, nota:1},
+     ok:"Tu recordatorio ordena la segunda parte entera.", ko:"", mid:"El grupo asiente. Todos saben qué toca."},
+    {l:"Pedirle al míster que te suelten más arriba", fx:{own:1.06, opp:1.03, nota:1, mis:-3},
+     ok:"Te da libertad y en la segunda parte apareces donde duele.", ko:"Te recuerda tus obligaciones delante de todos. Vergüenza y a callar.", mid:"Te escucha y toma nota, sin comprometerse."}
+  ] : [
+    {l:"Avisar: «Ni un paso atrás»", fx:{own:1.04, nota:2},
+     ok:"El aviso cala: nadie se relaja y el partido se cierra.", ko:"", mid:"Recordatorio recibido. Hay que seguir."},
+    {l:"Disfrutar el momento y bromear", fx:{own:0.97, nota:0},
+     ok:"El vestuario se relaja de la buena manera y sale suelto.", ko:"La relajación se contagia al campo y el rival lo huele.", mid:"Risas en el vestuario. A ver cómo sienta."}
+  ];
+  return {t:t, x:x, o:o};
+}
+/* ---------- previa (como jugador) ---------- */
+function planPrevio(c){
+  var pos=POS[S.pos].n.toLowerCase();
+  var x = c.dElo<=-60? "Nadie os da opciones. En el túnel de vestuarios, su estrella ni os mira. Hay maneras y maneras de encarar una tarde así."
+        : c.dElo>=60? "Sois favoritos y la grada lo da por hecho. Los partidos así se pierden por dentro antes que por fuera."
+        : "Partido igualado, ambiente eléctrico y una hora larga de calentamiento por delante.";
+  return {t:"Antes de salir al campo", x:x, o:[
+    {l:"Calentamiento a tope: entrar enchufado", fx:{own:1.05, lesion:0.06, nota:1},
+     ok:"Sales al campo con el motor a temperatura y se nota en el primer balón.", ko:"Te pasas de intensidad calentando y sales ya cargado.", mid:"Sudas la camiseta antes de empezar."},
+    {l:"Estudiar a tu par en el túnel", fx:{opp:0.96, nota:1},
+     ok:"Le has leído las intenciones: hoy le ganas casi todos los duelos.", ko:"", mid:"Sabes por dónde va a querer irse. Algo es algo."},
+    {l:"Música, cascos y burbuja", fx:{own:1.03, nota:1},
+     ok:"Entras en tu mundo y sales al campo en estado de gracia.", ko:"Te aíslas tanto que tardas veinte minutos en entrar en el partido.", mid:"Tu ritual de siempre. Cabeza en su sitio."},
+    {l:"Arengar al grupo en el círculo", fx:{own:1.06, nota:2},
+     ok:"Tu arenga levanta al equipo y salís como un puño.", ko:"Te sale un discurso torpe y alguno mira al suelo. Momento incómodo.", mid:"Manos al centro y grito. Lo de siempre, que funciona."}
+  ]};
+}
+/* ---------- post partido (como jugador) ---------- */
+function postPartido(c,res){
+  var gane=res>0, perdi=res<0;
+  var t = perdi? "Zona mixta tras la derrota" : gane? "Micrófonos tras ganar" : "Zona mixta: el empate";
+  var x = perdi? "Un periodista te espera con la grabadora y una pregunta con veneno sobre el vestuario."
+        : gane? "Cámara, micro y la tentación de decir de más con la adrenalina aún alta."
+        : "Un punto que cada uno cuenta a su manera. Te toca a ti dar la cara.";
+  var o = perdi? [
+    {l:"Dar la cara: «Somos todos responsables»", fx:{nota:2, mor:3},
+     ok:"", ko:"", mid:"Asumes el golpe delante de las cámaras. En el vestuario se agradece a los que salen cuando se pierde."},
+    {l:"Señalar al árbitro", fx:{nota:0, mor:1},
+     ok:"La polémica tapa la derrota y a nadie le preguntan por tu partido.", ko:"Multa del comité y fama de llorón.", mid:"Balones fuera con oficio."},
+    {l:"Evitar la zona mixta", fx:{nota:-1, mor:-1, mis:-4},
+     ok:"", ko:"", mid:"Sales por la puerta de atrás. Los periodistas toman nota, y no de las buenas."}
+  ] : gane? [
+    {l:"Repartir el mérito con el grupo", fx:{nota:1, mor:2},
+     ok:"", ko:"", mid:"Nombras a los que no salen en los resúmenes. Eso vuelve."},
+    {l:"Reivindicarte: «Merezco más minutos»", fx:{nota:0, mor:-1, mis:-7},
+     ok:"El mensaje llega al míster y te lo tiene en cuenta.", ko:"El míster lo lee como un desafío público. Mal momento.", mid:"Lo dices con educación. Queda en el aire."},
+    {l:"Dedicar la victoria a la grada", fx:{nota:1, mor:2},
+     ok:"La afición te adopta como uno de los suyos.", ko:"", mid:"Aplausos y camiseta al público."}
+  ] : [
+    {l:"«Sumar siempre es sumar»", fx:{nota:1, mor:1},
+     ok:"", ko:"", mid:"Diplomacia de manual. Sin titulares."},
+    {l:"«Nos han faltado cosas»: autocrítica", fx:{nota:1, mor:0},
+     ok:"La autocrítica sienta bien puertas adentro: hablas como un veterano.", ko:"Suena a reproche a los compañeros y alguno se da por aludido.", mid:"Sinceridad medida."}
+  ];
+  return {t:t, x:x, o:o};
+}
+/* ================= NARRADOR ================= */
+var VOZ_AMB={
+ dominas:["Achucháis sin descanso.","Su portero mira el reloj.","Otro córner. Y otro más.","El asedio no afloja.","Su defensa, con el agua al cuello.","El balón no sale de su área."],
+ sufres:["No sale un balón limpio.","Toca correr hacia atrás.","El rival juega en tu campo.","Pelotazo y a empezar otra vez.","Se atasca todo en la medular."],
+ igualado:["Ni unos ni otros.","Partido trabado.","Se juega a empujones.","Nadie se atreve todavía.","El balón cambia de dueño cada tres pases."],
+ tarde:["El estadio mira al marcador.","Piernas pesadas en los dos bandos.","Huele a todo o nada.","El banquillo ya se mueve.","Minutos de infarto."]
+};
+/* Los ecos se derivan del propio fx de la opción: cualquier contenido nuevo
+   (incluido el creado en el editor) queda hilado sin escribir nada extra. */
+function ecosDe(o, quePaso, cls){
+  if(!o) return [];
+  var f=o.fx||{}, E=[];
+  if(quePaso==="gol") E.push(pick(["Todavía te están abrazando cuando el árbitro pita el centro.","La grada sigue coreando tu nombre.","Vuelves al centro del campo señalando al que te la dio."]));
+  else if(quePaso==="golR") E.push(pick(["El banquillo pide calma a gritos.","Levantas la cabeza y pides el balón otra vez.","Silencio en las gradas de tu color."]));
+  else if(quePaso==="ta") E.push(pick(["Juegas con la amarilla encima y se nota en cada duelo.","Tu par lo sabe y te busca las cosquillas.","El árbitro no te quita el ojo."]));
+  if(f.own && f.own>1.02) E.push(pick(["El equipo se ha soltado tras tu decisión.","Ahora el balón circula con otra intención.","Tu gesto ha empujado al equipo hacia arriba."]));
+  if(f.own && f.own<0.98) E.push(pick(["El equipo baja una marcha, como pediste.","Se juega más lento desde tu decisión."]));
+  if(f.opp && f.opp<0.97) E.push(pick(["Al rival le cuesta pasar de medio campo desde entonces.","Su ataque se ha quedado sin ideas."]));
+  if(f.opp && f.opp>1.03) E.push(pick(["El rival huele la sangre y aprieta.","Se han venido arriba después de eso."]));
+  if(f.mis && f.mis<0) E.push(pick(["El míster te mira desde la banda sin decir nada.","Tu nombre suena en la zona técnica, y no para bien."]));
+  if(!E.length){
+    if(M && !M.enCampo && !M.yaJugado){
+      /* estás en el banquillo: los ecos son de banquillo */
+      if(cls==="ok") E.push(pick(["Vuelves a sentarte, pero ya no es lo mismo: ahora estás dentro del partido.",
+        "El segundo se lleva la mano al pinganillo. Algo se cuece.",
+        "Notas que la banda te mira distinto."]));
+      else if(cls==="ko") E.push(pick(["Te sientas y te tragas la respuesta.",
+        "Nadie vuelve a mirarte en un buen rato.",
+        "El banquillo es un sitio muy largo cuando la lías."]));
+      else E.push(pick(["Vuelves al banquillo sin novedad.",
+        "Sigues el partido con las manos en las rodillas.",
+        "Nada cambia. Todavía."]));
+    }
+    else if(cls==="ok") E.push(pick(["Tu banquillo lo celebra de pie.","Se oye tu nombre desde la grada.","Tu capitán te busca para chocarla."]));
+    else if(cls==="ko") E.push(pick(["Notas la mirada de tus compañeros.","Te quedas con la espina clavada.","Aprietas los dientes y a la siguiente."]));
+    else E.push(pick(["Vuelves a tu sitio y el juego sigue.","El partido te devolverá el balón enseguida.","A colocarse otra vez."]));
+  }
+  return E;
+}
+function cronica(){
+  var L=[], d=M.sc[0]-M.sc[1], dom=M.modOwn/M.modOpp;
+  if(M.golesTramo && M.golesTramo.length){
+    M.golesTramo.forEach(function(g){ L.push(g); });
+  } else {
+    var base = M.min>=75? VOZ_AMB.tarde : dom>1.08? VOZ_AMB.dominas : dom<0.94? VOZ_AMB.sufres : VOZ_AMB.igualado;
+    if(!M.dichas) M.dichas={};
+    var libres=base.filter(function(x){ return !M.dichas[x]; });
+    var linea = libres.length? pick(libres) : pick(base);
+    M.dichas[linea]=1;
+    L.push(linea);
+  }
+  if(!M.enCampo && !M.yaJugado){
+    var sinRepetir=function(arr){
+      M.dichas=M.dichas||{};
+      var libres=arr.filter(function(x){ return !M.dichas[x]; });
+      var el=pick(libres.length? libres : arr);
+      M.dichas[el]=1;
+      return el;
+    };
+    if(M.min<40) L.push(sinRepetir([
+      "Desde el banquillo, con el chándal puesto y las manos en los bolsillos.",
+      "Sentado, siguiendo el partido con los ojos y la cabeza.",
+      "En el banquillo se ve todo: los huecos, los errores, lo que tú harías.",
+      "El frío del banquillo se te mete en las piernas.",
+      "Miras al míster de reojo cada vez que se levanta."]));
+    else if(M.min<M.entraEn-5 || !M.entraEn) L.push(sinRepetir([
+      "Estiramientos discretos por si acaso.",
+      "Cuentas los minutos sin querer contarlos.",
+      "El banquillo entero se levanta con cada ocasión. Tú también.",
+      "Te suenan las tripas de los nervios."]));
+    else if(M.noEntra) L.push(pick([
+      "El míster ya no mira hacia aquí. Hoy no hay más.",
+      "El cuarto árbitro guarda el cartel. No era para ti."]));
+    else L.push(sinRepetir([
+      "Calientas junto al córner sin quitarle ojo al cuarto árbitro.",
+      "El delegado te pide el dorsal. Ya falta poco.",
+      "Te quitas el chándal: en cuanto pare el juego, entras.",
+      "El cuarto árbitro prepara el cartel. Ese número es el tuyo.",
+      "Últimos sprints en la banda con el corazón a mil."]));
+  }
+  else if(M.miTA && rnd()<0.35) L.push("Con la amarilla encima, mides cada entrada.");
+  else if(M.min>=60 && d===0 && rnd()<0.3) L.push("Empate y el banquillo moviéndose.");
+  M.golesTramo=[];
+  return L;
+}
+/* ================= FLASHES ================= */
+function pushFlash(f){
+  f.min=f.min||M.min;
+  if(!f.sc) f.sc=[M.sc[0],M.sc[1]];   /* congela el marcador de ESE momento */
+  M.flash.push(f);
+}
+function hayFlash(){ return M.flash && M.flash.length>0; }
+/* (El reparto automático de goles del equipo se retiró: sin decisión no hay gol.) */
+var VAR_REV=0.14, VAR_ANULA=0.45;
+function pVarAnula(){ return VAR_REV*VAR_ANULA; }
+var PESO_GOL={POR:0, DFC:1, LAT:0.8, MCD:0.8, MC:1.6, MCO:2.6, EXT:3, DC:5};
+/* reparte n goles reales del equipo entre los compañeros disponibles */
+function onceVivo(){
+  if(!M || !M.once) return compis().filter(function(c){return c.lesion<=0 && c.sancion<=0;});
+  return compis().filter(function(c){ return M.once.indexOf(c.n)>=0 && (M.fuera||[]).indexOf(c.n)<0; });
+}
+function elegirOnce(){
+  var vivos=compis().filter(function(c){return c.lesion<=0 && c.sancion<=0;});
+  vivos.sort(function(a,b){return b.media-a.media;});
+  var pors=vivos.filter(function(c){return c.pos==="POR";}).slice(0,1);
+  var campo=vivos.filter(function(c){return c.pos!=="POR";});
+  var n=(M && M.titular)? 10:11;
+  M.once=pors.concat(campo).slice(0, Math.max(1,n)).map(function(c){return c.n;});
+  M.fuera=[];
+}
+function asegurarOnce(){ if(M && !M.once) elegirOnce(); }
+function repartirGoles(n, misAsis){
+  if(!n || n<=0) return;
+  asegurarOnce();
+  var L=onceVivo().filter(function(c){ return (PESO_GOL[c.pos]||0)>0; });
+  if(!L.length) return;
+  for(var i=0;i<n;i++){
+    var tot=0;
+    L.forEach(function(c){ tot+=(PESO_GOL[c.pos]||1)*(0.6+c.media/140); });
+    var r=rnd()*tot, acc=0, elegido=L[L.length-1];
+    for(var k=0;k<L.length;k++){
+      acc+=(PESO_GOL[L[k].pos]||1)*(0.6+L[k].media/140);
+      if(r<acc){ elegido=L[k]; break; }
+    }
+    elegido.g++;
+    /* la asistencia de ese gol: tuya (ya contada) o de otro compañero */
+    if(misAsis>0){ misAsis--; continue; }
+    if(rnd()<0.62){
+      var otros=L.filter(function(c){ return c!==elegido; });
+      if(otros.length) pick(otros).a++;
+    }
+  }
+}
+/* cómo llega un gol que no nace de una decisión tuya */
+var JUGADA_GOL={
+ DC:["Centro medido desde la banda y la empujas en el segundo palo.","Rechace en el área pequeña y llegas antes que nadie.","Pase al hueco, control orientado y definición cruzada.","Balón muerto tras un córner y no perdonas."],
+ EXT:["Contra rapidísima, recibes en carrera y la cruzas.","Recortas hacia dentro y la cuelas por el palo largo.","Te cuelas a la espalda del lateral y la mandas al fondo."],
+ MCO:["Apareces entre líneas, control y disparo raso.","Robo en tres cuartos y disparo desde la frontal.","Le ganas la espalda a la defensa y la picas."],
+ MC:["Llegada desde segunda línea sin que nadie te siga.","Rechace en la frontal y zapatazo a la escuadra."],
+ MCD:["Zapatazo desde treinta metros que se cuela.","Rechace largo tras un córner y disparo colocado."],
+ LAT:["Aparece el lateral en el segundo palo y la remata.","Te sumas al ataque y encuentras el hueco."],
+ DFC:["A balón parado, ganas el salto y la peinas al fondo.","Córner al primer palo y cabezazo imparable."],
+ POR:["Increíble: subes a rematar en el último córner y entra."]
+};
+var JUGADA_ASIS={
+ DC:["Aguantas de espaldas y la descargas para el gol.","Tu pase al hueco deja solo a tu compañero."],
+ EXT:["Te vas por fuera y pones el centro del gol.","Recortas y la pones atrás, a placer."],
+ MCO:["Pase entre líneas de los que se aplauden. Gol.","Filtras el balón y solo hay que empujarla."],
+ MC:["Cambio de orientación y de ahí sale el gol.","Tu pase interior rompe la defensa entera."],
+ MCD:["Robo tuyo y pase inmediato: gol en cinco segundos."],
+ LAT:["Ochenta metros de banda y centro al área: gol."],
+ DFC:["Sacas jugando en largo y de ahí nace el gol."],
+ POR:["Saque en largo tuyo y el delantero la caza. Asistencia del portero."]
+};
+function goleadorDe(eqId, excluir){
+  /* los porteros no marcan salvo milagro, y ese milagro tiene su propia situación */
+  if(eqId==="PRA"||eqId==="PRB") return nombrePrueba();
+  if(typeof M!=="undefined" && M && eqId===S.equipo){
+    /* TU equipo: solo el once vivo puede marcar (sancionados, lesionados y expulsados miran) */
+    asegurarOnce();
+    var V=onceVivo().filter(function(c){ return c.n!==excluir && c.pos!=="POR"; });
+    if(V.length){
+      var tv=0; V.forEach(function(c){ tv+=(PESO_GOL[c.pos]||1)*(0.6+c.media/120); });
+      var rv=rnd()*tv, av=0;
+      for(var vi=0;vi<V.length;vi++){ av+=(PESO_GOL[V[vi].pos]||1)*(0.6+V[vi].media/120); if(rv<av) return V[vi].n; }
+      return V[V.length-1].n;
+    }
+  }
+  var L=plantillaObj(eqId).filter(function(j){ return j.n!==excluir && j.pos!=="POR"; });
+  if(!L.length) L=plantillaObj(eqId).filter(function(j){ return j.n!==excluir; });
+  if(!L.length) return "un jugador";
+  var tot=0; L.forEach(function(j){ tot+=(PESO_GOL[j.pos]||1)*(0.6+j.media/120); });
+  var r=rnd()*tot;
+  for(var i=0;i<L.length;i++){
+    r-=(PESO_GOL[L[i].pos]||1)*(0.6+L[i].media/120);
+    if(r<=0) return L[i].n;
+  }
+  return L[L.length-1].n;
+}
+function tocaNotaMax(){
+  if(!M || !M.yaJugado || !(M.minJugados>0)) return;
+  var _nv=Math.round(clamp(notaDelPartido(),3,10)*10)/10;
+  if(!M.notaMax || _nv>M.notaMax.v) M.notaMax={v:_nv, min:Math.min(90,M.min||0)};
+}
+function anotarGol(mio, quien){
+  /* Regla del juego: un gol o una asistencia TUYA solo puede nacer de una
+     decisión que hayas tomado. Los goles del equipo son de tus compañeros. */
+  var participo=null;
+  var revision = rnd()<VAR_REV;
+  var anula = revision && rnd()<VAR_ANULA;
+  var motivo = pick(["fuera de juego milimétrico","falta previa en el salto","mano en el control antes del remate","el balón había salido por línea de fondo"]);
+  /* el orden real: se celebra el gol y DESPUÉS aparece el monitor */
+  if(revision && anula){
+    pushFlash({tipo:"gol", mio:mio, quien:quien, autor:(quien==="yo"?S.nombre:goleadorDe(mio?S.equipo:M.rival, S.nombre)),
+               revisando:true, sc:[M.sc[0]+(mio?1:0), M.sc[1]+(mio?0:1)]});
+  }
+  /* si el VAR valida, la pantalla del VAR va DESPUÉS de la del gol (se pinta tras pushFlash del gol más abajo) */
+  var varValida = revision && !anula ? {tipo:"var", mio:mio, anula:false, quien:quien, motivo:motivo} : null;
+  if(revision && anula) pushFlash({tipo:"var", mio:mio, anula:true, quien:quien, motivo:motivo});
+  if(anula){
+    M.golesTramo.push(mio? "El gol sube al marcador… y el VAR lo borra: "+motivo+"." : "El rival celebra, pero el VAR lo anula: "+motivo+".");
+    return false;
+  }
+  /* el relato describe cómo acabó TU jugada (los goles tuyos nacen de decisiones) */
+  var relato=null;
+  if(quien==="yo") relato=pick(JUGADA_GOL[S.pos]||JUGADA_GOL.MC);
+  else if(quien==="asis") relato=pick(JUGADA_ASIS[S.pos]||JUGADA_ASIS.MC);
+  M.sc[mio?0:1]++;
+  var autor, asistente=null;
+  if(quien==="yo") autor=S.nombre;
+  else if(quien==="asis"){ autor=goleadorDe(S.equipo, S.nombre); M.ultimoAsistido=autor; asistente=S.nombre; }
+  else if(mio) autor=goleadorDe(S.equipo, S.nombre);
+  else autor=goleadorDe(M.rival, null);
+  var zGol=null;
+  if(quien==="yo" && M.sitAct) zGol=ZCODE[zonaDeSit(M.sitAct)]||null;
+  if(mio && quien!=="yo"){
+    var cg=compiPorNombre(autor);
+    if(cg){
+      cg.g++;
+      /* toda jugada tiene quien la empieza */
+      if(quien!=="asis" && rnd()<0.60){
+        var ayud=onceVivo().filter(function(x){ return x!==cg && x.pos!=="POR"; });
+        if(ayud.length){ var ay=pick(ayud); ay.a++; asistente=ay.n; }
+      }
+    }
+  }
+  M.min=Math.min(90, Math.max((M.min||1)+1, minutoDe(M.tramo||0)));
+  if(!zGol && autor){ var _pz=posDeNombre(autor, mio? null:M.rival);
+    zGol=(_pz==="DC")? "arearival" : (_pz==="EXT"||_pz==="MCO")? (rnd()<0.5?"arearival":"frontal") : "frontal"; }
+  M.goles.push({m:M.min, mio:mio, yo:quien==="yo", asis:quien==="asis", a:autor, as:asistente, z:zGol});
+  M.goles[M.goles.length-1] && (M.goles[M.goles.length-1].autor=autor);
+  regEvento("gol", autor, mio, (quien==="asis"? S.nombre:""), quien==="yo"?"tuyo":null);
+  if(M.rivalDirecto){
+    if(quien==="yo") sumarTension(M.rivalDirecto.nombre, M.rival, M.rivalDirecto.pos, 9, "Se la marcaste en el "+M.min+"′.");
+    else if(!mio && autor===M.rivalDirecto.nombre) sumarTension(M.rivalDirecto.nombre, M.rival, M.rivalDirecto.pos, 7, "Te la marcó en el "+M.min+"′.");
+  }
+  pushFlash({tipo:"gol", mio:mio, quien:quien, autor:autor, txt:relato});
+  if(varValida) pushFlash(varValida);
+  tocaNotaMax();   /* el pico también sube con los goles narrados, no solo con tus decisiones */
+  if(relato) M.golesTramo.push(relato);
+  return true;
+}
+var GOL_TEXTO={
+ yo:["Tu nombre en el marcador y el estadio coreándolo.","Rematas y la red se hincha. Momentos por los que se juega a esto.","La has metido tú. Punto."],
+ asis:["Tu pase, su gol. Los dos lo sabéis y el estadio también.","Asistencia de las que se recuerdan en el vestuario."],
+ equipo:["Gol del equipo. Celebración en la esquina con toda la grada de pie.","La jugada acaba dentro. Abrazo colectivo."],
+ rival:["Gol del rival. El silencio del estadio se te mete en el cuerpo.","La red de tu portería se mueve. Toca levantar la cabeza."]
+};
+function renderFlashSiguiente(){
+  if(!M) return;
+  var f=M.flash.shift();
+  var casaN=M.casa?EQ[S.equipo]:EQ[M.rival], visN=M.casa?EQ[M.rival]:EQ[S.equipo];
+  var SC=f.sc||[M.sc[0],M.sc[1]];
+  var scA=M.casa?SC[0]:SC[1], scB=M.casa?SC[1]:SC[0];
+  var marcador='<div class="fsc mono">'+esc(casaN.c)+' <b>'+scA+'</b> <span>–</span> <b>'+scB+'</b> '+esc(visN.c)+'</div>';
+  var H="";
+  if(f.tipo==="gol"){
+    var propio = f.quien==="yo";
+    H='<div class="flash fl-gol'+(f.mio?"":" fl-golR")+'">'
+      +'<div class="fmin">'+f.min+"′</div>"
+      +'<div class="fbig disp">'+(f.mio?(propio?"¡TU GOL!":"GOL"):"GOL EN CONTRA")+'</div>'
+      +(propio?'<div class="fdor mono">'+S.dorsal+' · '+esc(S.nombre)+'</div>'
+              :'<div class="fdor">'+esc(f.autor||"")+(f.quien==="asis"?' <span class="note">· asistencia tuya</span>':'')+'</div>')
+      +'<p class="ftxt">'+esc(f.txt||pick(GOL_TEXTO[f.mio?(f.quien||"equipo"):"rival"]))+'</p>'
+      +(f.revisando? '<p class="fdor" style="color:var(--bloom)">…el árbitro se lleva la mano al pinganillo</p>':'')
+      +marcador+'</div>';
+  } else if(f.tipo==="arq"){
+    H='<div class="flash" style="--fc:'+f.arq.col+'44">'
+      +'<div class="fmin">Te estás convirtiendo en</div>'
+      +'<div class="fbig disp" style="color:'+f.arq.col+'">'+esc(f.arq.n.toUpperCase())+'</div>'
+      +'<p class="ftxt">'+esc(f.arq.d)+'</p>'
+      +'<p class="fdor" style="color:var(--muted)">antes eras «'+esc(f.antes.n)+'»</p>'
+      +marcador+'</div>';
+  } else if(f.tipo==="banca"){
+    /* aviso discreto: el banquillo no merece pantalla completa */
+    H='<div class="avisobanca '+(f.mal?"mal":"bien")+'">'
+      +'<div class="abtit">'+(f.mal?"▼":"▲")+' '+esc(f.tit)+'</div>'
+      +(f.deTuDecision? '<div class="abdec">'+esc(String(f.deTuDecision).replace(/^«|»$/g,""))+'</div>':'')
+      +'<p class="abtxt">'+esc(f.txt)+'</p></div>';
+    $("ov-match-inner").innerHTML='<div class="matchcard" style="position:relative">'+btnsPausa()+cabeceraMatch()
+      +'<div class="mbody"><div id="mpanel" class="mpanel mp-corto">'+panelHTML()+'</div></div>'
+      +'<div class="mfoot">'+H+btnTerminar()+autoBarHTML(2400)+'</div></div>';
+    $("ov-match").classList.remove("hidden");
+    $("ov-match").onclick=saltarAuto;
+    activarSwipe();
+    autoAvance(2400, function(){ $("ov-match").onclick=null; flashSeguir(); }, 700);
+    return;
+  } else if(f.tipo==="nunca"){
+    H='<div class="flash '+(f.mal?"fl-out":"fl-in")+'">'
+      +'<div class="fmin">'+f.min+"′ · banquillo</div>"
+      +'<div class="arrow '+(f.mal?"down":"up")+'">'+(f.mal?"▼":"▲")+'</div>'
+      +'<div class="fbig disp">'+esc(f.tit)+'</div>'
+      +(f.deTuDecision? '<div class="fdor">'+esc(String(f.deTuDecision).replace(/^«|»$/g,""))+'</div>':'')
+      +'<p class="ftxt">'+esc(f.txt)+'</p>'+marcador+'</div>';
+  } else if(f.tipo==="var"){
+    H='<div class="flash fl-var">'
+      +'<div class="fmin">'+f.min+"′</div>"
+      +'<div class="varbox"><div class="varscreen">◻</div><div class="disp" style="letter-spacing:4px;font-size:13px;margin-top:8px">REVISIÓN VAR</div></div>'
+      +'<div class="fbig disp" style="font-size:34px;color:'+(f.anula?"var(--bad)":"var(--ok)")+'">'+(f.anula?"GOL ANULADO":"GOL VALIDADO")+'</div>'
+      +'<p class="ftxt">'+esc(f.anula? "El colegiado dibuja el rectángulo, se va al monitor y vuelve señalando el centro del campo: "+f.motivo+"." : "Larga espera junto al monitor. El árbitro vuelve corriendo y señala el centro: el gol es legal.")+'</p>'
+      +marcador+'</div>';
+  } else if(f.tipo==="ta"){
+    H='<div class="flash fl-ta">'
+      +'<div class="fmin">'+f.min+"′</div>"
+      +'<div class="cardico ci-am"></div>'
+      +'<div class="fbig disp" style="font-size:32px">AMARILLA</div>'
+      +'<div class="fdor mono">'+S.dorsal+' · '+esc(S.nombre)+'</div>'
+      +'<p class="ftxt">'+esc(f.txt||"El árbitro anota tu dorsal sin escuchar explicaciones.")+'</p>'+marcador+'</div>';
+  } else if(f.tipo==="roja"){
+    H='<div class="flash fl-roja">'
+      +'<div class="fmin">'+f.min+"′</div>"
+      +'<div class="cardico ci-ro"></div>'
+      +'<div class="fbig disp" style="font-size:32px">EXPULSADO</div>'
+      +'<div class="fdor mono">'+S.dorsal+' · '+esc(S.nombre)+'</div>'
+      +'<p class="ftxt">'+esc(f.txt||"Camino del túnel con el estadio encima. El equipo se queda con diez.")+'</p>'+marcador+'</div>';
+  } else if(f.tipo==="lesion"){
+    H='<div class="flash fl-les">'
+      +'<div class="fmin">'+f.min+"′</div>"
+      +'<div class="fbig disp" style="font-size:30px">🚑 LESIÓN</div>'
+      +'<div class="fdor mono">'+S.dorsal+' · '+esc(S.nombre)+'</div>'
+      +'<p class="ftxt">'+esc(f.txt||"Te llevas la mano atrás y pides el cambio. El fisio ya salta al césped.")+'</p>'
+      +'<p class="note">Baja estimada: '+f.semanas+' jornada(s).</p>'+marcador+'</div>';
+  } else if(f.tipo==="sub-in"){
+    H='<div class="flash fl-in">'
+      +'<div class="fmin">'+f.min+"′</div>"
+      +'<div class="arrow up">▲</div>'
+      +'<div class="fbig disp" style="font-size:28px">SALTAS AL CAMPO</div>'
+      +'<div class="fdor mono">'+S.dorsal+' · '+esc(S.nombre)+'</div>'
+      +'<p class="ftxt">'+esc(pick(["Palmada del míster, camiseta por dentro y a correr. Tienes "+(90-f.min)+" minutos para cambiar el partido.","El cuarto árbitro levanta tu número. La grada te recibe con un aplauso.","Entras con el partido en juego y las piernas frescas: ahora te toca a ti."]))+'</p>'+marcador+'</div>';
+  } else if(f.tipo==="sub-out"){
+    H='<div class="flash fl-out">'
+      +'<div class="fmin">'+f.min+"′</div>"
+      +'<div class="arrow down">▼</div>'
+      +'<div class="fbig disp" style="font-size:28px">TE CAMBIAN</div>'
+      +'<div class="fdor mono">'+S.dorsal+' · '+esc(S.nombre)+'</div>'
+      +'<p class="ftxt">'+esc(f.txt||pick(["Sales al banquillo entre aplausos, con la camiseta pesada de sudor.","Cambio hecho: te sientas a ver el final desde fuera.","Chocas la mano con el que entra y te vas al banquillo."]))+'</p>'+marcador+'</div>';
+  }
+  var dTxt = f.deTuDecision? '<p class="fdor" style="opacity:.85;font-weight:600">'
+     +((f.tipo==="roja"||f.tipo==="ta"||f.tipo==="lesion"||(f.tipo==="gol"&&!f.mio))? '<span style="color:var(--bad)">✘ </span>':'')
+     +esc(f.deTuDecision)+'</p>':'';
+  H=H.replace('<p class="ftxt">', dTxt+'<p class="ftxt">');
+  H+=btnTerminar()+autoBarHTML(2000);
+  $("ov-match-inner").innerHTML='<div class="inner-flash">'+H+'</div>';
+  $("ov-match").classList.remove("hidden");
+  $("ov-match").onclick=saltarAuto;
+  /* los momentos importantes duran más y no se saltan en el primer segundo */
+  var grande=(f.tipo==="gol"||f.tipo==="roja"||f.tipo==="lesion"||f.tipo==="var");
+  autoAvance(grande?3200:2200, function(){ $("ov-match").onclick=null; flashSeguir(); }, grande?0:500);
+}
+function flashSeguir(){
+  if(!M) return;
+  if(hayFlash()){ renderFlashSiguiente(); return; }
+  if(M.pendienteFin){ M.pendienteFin=false; finPartido(); return; }
+  renderMatch(null, true);
+}
+/* ================= FLUJO DE PARTIDO ================= */
+var M=null, M_ficha=null;
+function partidoDe(jornada){
+  var jor=S.fixture && S.fixture[jornada];
+  if(!jor) return null;          /* tras la 38 no hay más partidos: la liga ha terminado */
+  for(var i=0;i<jor.length;i++){
+    if(jor[i].h===S.equipo || jor[i].a===S.equipo) return jor[i];
+  }
+  return null;
+}
+/* ================= PARTIDILLO DE OJEADORES ================= */
+/* Cada club mira a un tipo de jugador: los grandes no fichan medias de 55 */
+function franjaDe(rank){
+  if(rank>=21) return {n:"segunda", exige:48, sal:150000, cl:10};
+  if(rank<=3) return {n:"élite", exige:78, sal:3400000, cl:60};
+  if(rank<=6) return {n:"alta",  exige:71, sal:1500000, cl:45};
+  if(rank<=11) return {n:"media",exige:65, sal:750000,  cl:30};
+  if(rank<=16) return {n:"baja", exige:59, sal:380000,  cl:22};
+  return {n:"modesta", exige:52, sal:190000, cl:16};
+}
+function clubsDeFranja(f){
+  if(f==="segunda") return poolSegunda();
+  return poolPrimera().filter(function(e){ return franjaDe(rankDe(e.id)).n===f; });
+}
+var FRANJAS=["segunda","modesta","baja","media","alta","élite"];
+function franjaPorMedia(mia){
+  if(mia>=78) return 5;
+  if(mia>=71) return 4;
+  if(mia>=65) return 3;
+  if(mia>=59) return 2;
+  if(mia>=53) return 1;
+  return 0;   /* con esa media, el fútbol profesional empieza en Segunda */
+}
+/* salario según club, tu media y tu edad */
+function salarioDe(eq, mia, edad){
+  var f=franjaDe(rankDe(eq.id));
+  var ajusteMedia=Math.pow(clamp(mia/f.exige, 0.55, 1.4), 2.2);
+  var ajusteEdad = edad<19? 0.45 : edad<22? 0.7 : edad<=30? 1 : 0.75;
+  return Math.round(f.sal*ajusteMedia*ajusteEdad/1000)*1000;
+}
+function fmtDinero(v){
+  if(v>=1000000) return (v/1000000).toFixed(v>=10000000?0:1).replace(".",",")+" M€";
+  if(v>=1000) return Math.round(v/1000)+" k€";
+  return v+" €";
+}
+function contratoDe(eq, mia, edad, dif){
+  var f=franjaDe(rankDe(eq.id));
+  var sal=salarioDe(eq, mia, edad);
+  var anos = edad<20? 4+(rnd()<0.4?1:0) : edad<24? 3+(rnd()<0.5?1:0) : edad<=30? 3 : 2;
+  return {
+    salario:sal, anos:anos,
+    clausula: Math.round(sal*f.cl/100000)*100000,
+    prima: Math.round(sal*0.06/1000)*1000,
+    franja:f.n, exige:f.exige
+  };
+}
+function ojeadoresDe(mia){
+  var nivel=clamp((mia-46)/40,0,1);
+  var eloObj=1822+nivel*(2298-1822)-(PICK.esperas||0)*22;
+  var pool=poolPrimera().slice().sort(function(a,b){ return Math.abs(eloDe(a.id)-eloObj)-Math.abs(eloDe(b.id)-eloObj); });
+  var cand=pool.slice(0,7), out=[];
+  while(out.length<3 && cand.length){ out.push(cand.splice(Math.floor(rnd()*cand.length),1)[0].id); }
+  return out;
+}
+function iniciarPrueba(){
+  PICK.nombre=($("in-nombre").value||"").trim() || "Tú";
+  PICK.dorsal=clamp(parseInt($("in-dorsal").value,10)||9,1,99);
+  PICK.edad=clamp(parseInt($("in-edad").value,10)||18,16,38);
+  PICK.altura=clamp(parseInt($("in-altura").value,10)||180,160,205);
+  PICK.peso=clamp(parseInt($("in-peso").value,10)||75,55,105);
+  /* estado temporal: el partidillo se juega con el motor de siempre */
+  S=nuevoEstado("PRA", PICK.pos, PICK.nombre, PICK.dorsal, PICK.pierna, PICK.rol, PICK.edad);
+  S.altura=PICK.altura; S.peso=PICK.peso; S.posSec=(PICK.sec||[]).map(function(x){return {pos:x.pos, lado:x.lado};});
+  if(PICK.attrBonus){ for(var k in S.attr){ S.attr[k]=Math.round(clamp(S.attr[k]+PICK.attrBonus,15,92)); } }
+  S.prueba=true;
+  PLANT_PRUEBA={};                 /* plantillas nuevas cada partidillo */
+  S.compis=crearCompis("PRA", S.nombre);
+  PICK.ojeadores=ojeadoresDe(miMedia());
+  var attrM=0.88+(atr("TEC")*0.6+atr("TAC")*0.25+atr("FIS")*0.15)/330;
+  attrM*=apoyoAficion()*mVestuario();
+  var COMP={DC:0.62, EXT:0.95, MCO:0.86, MC:1.05, MCD:1, LAT:1, DFC:1, POR:1};
+  M={
+    jor:0, rival:"PRB", casa:true, dElo:0, prueba:true,
+    lam:[1.29*attrM*(COMP[S.pos]||1), 1.25], sc:[0,0], min:0, tramo:0,   /* 1,29 compensa el recentrado de apoyo×vestuario */
+    tramosDec:[0,1,2,3,4,5], decHechas:0, usadas:{},
+    dec:[], modOwn:1, modOpp:1, goles:[], log:null, fase:"pre",
+    conPrevia:true, conPost:true, morDelta:0, rojaPropia:false,
+    nota:5.9, miGol:0, miAsis:0, paradas:0, miTA:0, miTR:0, miLesion:0,
+    finAnticipado:false, eventos:[], flash:[], golesTramo:[],
+    enCampo:true, yaJugado:true, entraEn:null, salidaMin:null, minJugados:90
+  };
+  M_ficha={mia:miMedia(), mejor:0, dif:0, puntos:0, pTit:1};
+  $("scr-pos").classList.add("hidden");
+  $("scr-pick").classList.add("hidden");
+  mostrarSituacion(previaPrueba(), "previa");
+}
+function previaPrueba(){
+  var ojs=(PICK.ojeadores||[]).map(function(id){ return EQ[id].c; });
+  return {
+    t:"Partidillo con ojeadores en la banda",
+    x:"Once contra once en la ciudad deportiva, sin público y con tres carpetas en la banda: "+ojs.join(", ")+". Noventa minutos para convencerles.",
+    o:[
+     {l:"Salir a comerse el mundo desde el primer balón", fx:{own:1.10, opp:1.06, nota:2},
+      ok:"Los primeros diez minutos son tuyos y las tres carpetas se abren a la vez.",
+      ko:"Tanta ansia te hace precipitar todo: dos pérdidas malas y a remar.",
+      mid:"Entras enchufado. Los de la banda levantan la cabeza."},
+     {l:"Empezar sencillo y crecer con el partido", fx:{own:1.03, nota:1},
+      ok:"Cero errores al principio y, cuando coges confianza, apareces.",
+      ko:"",
+      mid:"Nada llamativo, nada malo. El partido es largo."},
+     {l:"Salir a buscar la jugada de lucimiento", fx:{own:1.09, opp:1.06, nota:3},
+      ok:"Te prometes a ti mismo intentarlo desde el primer balón. Sales con los ojos encendidos.",
+      ko:"Te obsesionas tanto con lucirte que sales del vestuario pensando en ti y no en el partido.",
+      mid:"Sales decidido a probar cosas. Los ojeadores verán fútbol, para bien o para mal."}
+    ]
+  };
+}
+function pendientesSemana(){
+  var p=[];
+  if(S.lesion<=0 && S.contrato && !entMisterHecho()) p.push({t:"el entreno del míster sin hacer", ir:function(){ SUB.equipo="entreno"; irSec("equipo"); }});
+  if(S.semanaHecha!==S.jornada) p.push({t:"la semana personal sin decidir", ir:function(){ SUB.jugador="animo"; irSec("jugador"); }});
+  var listas=skillsDisp().filter(function(k){ return sklPuedeSubir(k); });
+  if(listas.length) p.push({t:"puntos para subir "+listas.length+" habilidad(es)", ir:function(){ SUB.jugador="fisico"; irSec("jugador"); }});
+  return p;
+}
+var AVISOS_PREPARTIDO=false; /* aviso "Te dejas cosas por hacer" antes del partido: apagado por ahora */
+function iniciarJornada(){
+  /* nada de diálogos del navegador: aviso del propio juego */
+  if(AVISOS_PREPARTIDO && !M && !S.avisoSaltado){
+    var pend=pendientesSemana();
+    if(pend.length){
+      S.avisoSaltado=false;
+      modal({
+        ico:"⏳", t:"Te dejas cosas por hacer",
+        x:"Antes de saltar al campo te queda:<br><br>"+pend.map(function(x){ return "• "+esc(x.t); }).join("<br>")
+          +"<br><br>Una vez empiece el partido, esta semana ya no vuelve.",
+        okTxt:"Ir a resolverlo",
+        cancelTxt:"Jugar igualmente",
+        onOk:function(){ pend[0].ir(); },
+        onCancel:function(){ S.avisoSaltado=true; iniciarJornada(); }
+      });
+      return;
+    }
+  }
+  S.avisoSaltado=false;
+  SEMANA_CORRE=true;
+  try{
+    mercadoSemanal();   /* el mercado vive toda la temporada: rumores, ventanas, decisiones */
+    semanaTienda();     /* y el bazar cobra, regenera, tienta y a veces roba */
+  } finally { SEMANA_CORRE=false; }
+  /* arranca la jornada: el mercado de verano se cierra solo */
+  if(S.ofertasVerano){
+    S.ofertasVerano=null;
+    if(S.libre){
+      if(S.contrato) S.contrato.salario=Math.round(S.contrato.salario*0.55);
+      S.libre=null;
+      S.avisoMercado="Arranca la liga y el mercado se cierra: renuevas con el "+EQ[S.equipo].c+" con la ficha recortada un 45%.";
+    } else {
+      S.avisoMercado="Arranca la liga: el mercado de verano queda cerrado.";
+    }
+    guardar();
+  }
+  cerrarEntrenoPendiente();
+  var conv=convocatoria();
+  if(conv.rol==="lesion" || conv.rol==="sancion"){ jornadaSinTi(); return; }
+  var p=partidoDe(S.jornada);
+  var casa=p.h===S.equipo;
+  var rival=casa?p.a:p.h;
+  var dElo=(eloDe(S.equipo)+(casa?HOME_ADV:0))-(eloDe(rival)+(casa?0:HOME_ADV));
+  var lam=casa? lambdas(S.equipo,rival) : (function(){var l=lambdas(rival,S.equipo);return [l[1],l[0]];})();
+  var moralM=0.9+S.moral/500;
+  var formaM=0.92+((S.forma===undefined?70:S.forma)/100)*0.16;
+  var attrM=0.94+(atr("TEC")*0.6+atr("TAC")*0.25+atr("FIS")*0.15)/660;
+  var COMP={DC:0.62, EXT:0.95, MCO:0.86, MC:1.05, MCD:1, LAT:1, DFC:1, POR:1};
+  var compP=COMP[S.pos]||1;
+  /* cuántas decisiones trae el partido: 2 son lo común, 6 es una noche loca */
+  var REPARTO=[[2,0.30],[3,0.34],[4,0.22],[5,0.11],[6,0.03]];
+  var rr=rnd(), acc=0, nDec=3;
+  for(var ri=0; ri<REPARTO.length; ri++){ acc+=REPARTO[ri][1]; if(rr<acc){ nDec=REPARTO[ri][0]; break; } }
+  nDec=clamp(nDec, PARTIDO.min, PARTIDO.max);   /* el panel fija el mínimo y el máximo de situaciones por partido */
+  var _decMax=nDec;
+  var tramosDec=[];
+  var candidatos=[0,1,2,3,4,5];
+  for(var k=0;k<nDec;k++){ tramosDec.push(candidatos.splice(Math.floor(rnd()*candidatos.length),1)[0]); }
+  tramosDec.sort();
+  M={
+    jor:S.jornada, rival:rival, casa:casa, dElo:dElo,
+    lam:[lam[0]*moralM*compP*formaM*attrM*apoyoAficion()*mVestuario()*estiloMister().estilo.own*estiloFactores(rival).own,
+         lam[1]*estiloMister().estilo.opp*estiloFactores(rival).opp*(0.92+rnd()*0.2)], sc:[0,0], min:0, tramo:0,
+    tramosDec:tramosDec, decHechas:0, decMax:_decMax, usadas:{},
+    dec:[], modOwn:1, modOpp:1, goles:[], log:null, fase:"pre",
+    conPrevia:rnd()*100<PARTIDO.previa, conPost:rnd()*100<PARTIDO.post, morDelta:0,
+    rojaPropia:false,
+    nota:6.2, miGol:0, miAsis:0, paradas:0, miTA:0, miTR:0, miLesion:0,
+    finAnticipado:false, eventos:[], flash:[], golesTramo:[],
+    enCampo:true, yaJugado:false, entraEn:null, salidaMin:null, minJugados:90
+  };
+  /* tu némesis manda si juega para el rival de hoy; si no, un rival directo nuevo cada partido */
+  M.rivalDirecto = (S.nemesis && S.nemesis.club===rival)? {nombre:S.nemesis.nombre, pos:S.nemesis.pos} : elegirRivalDirecto(rival);
+  M.nemesisHoy = !!(S.nemesis && S.nemesis.club===rival && M.rivalDirecto && M.rivalDirecto.nombre===S.nemesis.nombre);
+  /* compites con los de tu puesto: la media manda, el míster y la forma matizan */
+  var mia=miMedia();
+  var rivalesPuesto=compis().filter(function(c){ return c.pos===S.pos && !c.lesion && !c.sancion; });
+  var mejor=rivalesPuesto.length? Math.max.apply(null, rivalesPuesto.map(function(c){return c.media;})) : 0;
+  var dif = mejor? (mia-mejor) : 6;
+  var ajuste = (S.mister-55)/12 + (S.conf-55)/25 + ((S.forma||70)-70)/22;
+  var puntos = dif + ajuste;
+  var pTit = clamp(0.5+puntos*0.085, 0.02, 0.97);
+  if(S.pos==="POR") pTit=clamp(0.5+puntos*0.12, 0.02, 0.99);
+  M_ficha={mia:mia, mejor:mejor, dif:Math.round(dif*10)/10, puntos:Math.round(puntos*10)/10, pTit:pTit};
+  var borrado=(conv.rol==="fuera");
+  if(S.castigo>0){ S.castigo--; }
+  if(S.castigo>0){
+    S.castigo--;
+    if(rnd()<0.6){ M.sinConvocar=true; }
+    pTit=0.03;
+  }
+  if(rnd()>pTit){
+    M.enCampo=false;
+    M.entraEn = 3+Math.floor(rnd()*2);        /* segunda parte */
+    if(S.conf<42 && rnd()<0.35) M.entraEn=null; /* hoy no juegas */
+  }
+  compis().forEach(function(c){ c.taPartido=0; c.lesionPartido=false; });
+  PANEL=0;   /* cada partido arranca en su cronología */
+  M.enCampo = (conv.rol==="titular"); M.convRol=conv.rol;
+  if(conv.rol==="titular"){ M.entraEn=null; M.yaJugado=true; M.minJugados=90; M.minEntrada=0; }
+  else if(conv.rol==="suplente"){ M.entraEn=45+Math.floor(rnd()*30); M.yaJugado=false; M.minJugados=0; }
+  else { M.entraEn=null; M.yaJugado=false; M.minJugados=0; M.sinMinutos=true; }
+  /* las decisiones solo llegan mientras estés en el campo */
+  if(!M.enCampo){
+    /* el banquillo también decide: un par de momentos antes de entrar */
+    var trEntra = M.entraEn!==null? Math.floor(M.entraEn/15) : 6;
+    var antes=[]; for(var t=1;t<Math.min(trEntra,6);t++) antes.push(t);
+    var bqT=[];
+    for(var b=0;b<2 && antes.length;b++){ bqT.push(antes.splice(Math.floor(rnd()*antes.length),1)[0]); }
+    var desp=M.tramosDec.filter(function(t){ return t>=trEntra; });
+    if(!desp.length && trEntra<6) desp=[Math.min(5,trEntra), Math.min(5,trEntra+1)];
+    M.tramosDec=bqT.concat(desp).sort(function(a,b){ return a-b; });
+  }
+  if(M.sinMinutos){ partidoSinMinutos(); return; }
+  if(M.conPrevia && M.enCampo && !M.sinMinutos){ mostrarSituacion(planPrevio(M), "previa"); }
+  else { M.fase="juego"; renderMatch(); }
+}
+function minutoDe(tramo){ return tramo*15 + 1 + Math.floor(rnd()*13); }
+/* ============================================================
+   SUCESOS DEL PARTIDO — lo que pasa aunque tú no decidas nada:
+   tarjetas de otros, lesiones, cambios, penaltis, palos. Con nombre
+   y apellidos, y con efecto real sobre el resto del partido.
+   ============================================================ */
+function unRival(){ var L=plantillaObj(M.rival); return L.length? pick(L).n : "un rival"; }
+/* ===== EL NÉMESIS: una rivalidad que se gana partido a partido, no se elige ===== */
+var POS_FRICCION={ DC:["DFC"], EXT:["LAT","DFC"], MCO:["MCD","DFC"], MC:["MC","MCD"],
+  MCD:["MC","MCO","EXT","DC"], LAT:["EXT","DC"], DFC:["DC","EXT","MCO"], POR:["DC"] };
+function elegirRivalDirecto(rivalId){
+  var cand=POS_FRICCION[S.pos]||["MC"];
+  var pl=plantillaObj(rivalId).filter(function(j){ return cand.indexOf(j.pos)>=0; });
+  if(!pl.length) pl=plantillaObj(rivalId);
+  if(!pl.length) return null;
+  /* determinista por club+tu posición: siempre el MISMO rival cada vez que os veis las caras,
+     igual que las plantillas ya son deterministas por semilla del club */
+  var r=lcgDe(hashStr("rivaldirecto:"+rivalId+":"+S.pos));
+  var tot=0; pl.forEach(function(j){ tot+=Math.max(1,j.media-55); });
+  var rr=r()*tot, acc=0, el=pl[pl.length-1];
+  for(var i=0;i<pl.length;i++){ acc+=Math.max(1,pl[i].media-55); if(rr<acc){ el=pl[i]; break; } }
+  return {nombre:el.n, pos:el.pos, media:el.media};
+}
+function factorTension(){ return clamp(0.55+eje("temperamento")/105, 0.55, 1.55); }
+function nivelNemesis(t){
+  return t>=100? {n:4,txt:"El partido que todos esperan"} : t>=60? {n:3,txt:"Rivalidad declarada"}
+       : t>=30? {n:2,txt:"Rivalidad naciente"} : {n:1,txt:"Tensión creciente"};
+}
+function sumarTension(nombre, club, pos, delta, motivo){
+  if(!nombre || !club || delta<=0) return;
+  S.tensiones=S.tensiones||{};
+  var real=Math.round(delta*factorTension()*10)/10;
+  var t=S.tensiones[nombre]||{club:club, pos:pos, tension:0, veces:0, historial:[]};
+  t.club=club; t.pos=pos; t.tension=Math.round((t.tension+real)*10)/10; t.veces++;
+  t.historial.push({jor:S.jornada+1, txt:motivo, d:real});
+  if(t.historial.length>10) t.historial.shift();
+  S.tensiones[nombre]=t;
+  promoverNemesis(nombre);
+}
+function promoverNemesis(nombre){
+  var t=S.tensiones[nombre]; if(!t) return;
+  var yaEra = S.nemesis && S.nemesis.nombre===nombre;
+  if(t.tension>=30 && (!S.nemesis || t.tension>S.nemesis.tension || yaEra)){
+    var nuevo = !S.nemesis || S.nemesis.nombre!==nombre;
+    S.nemesis={nombre:nombre, club:t.club, pos:t.pos, tension:t.tension, veces:t.veces, historial:t.historial};
+    if(nuevo){
+      prensaPush("Nace una rivalidad: cada cruce con "+nombre+" (de puesto en "+esc(POS[t.pos]?POS[t.pos].n:t.pos).toLowerCase()+") empieza a pesar.");
+      S.muro.unshift({jor:S.jornada+1, u:pick(["GradaNorte","UltrasSur","PeñaFiel"]),
+        t:S.nombre+" y "+nombre+", una rivalidad que promete.", bien:true});
+      if(S.muro.length>16) S.muro.pop();
+    }
+  }
+}
+function unCompi(soloCampo){
+  var L=compis().filter(function(c){
+    if(c.n===S.nombre || c.lesionPartido) return false;
+    if(soloCampo && c.pos==="POR") return false;
+    return true;
+  });
+  return L.length? pick(L) : null;
+}
+/* ===== EL CAMPO: dónde pasa tu temporada =====
+   Zonas (atacando a la derecha): ppro, defensa, medio, bandaI, bandaD, frontal, arearival */
+function zonaBase(){
+  if(!S) return "medio";
+  var p=S.pos, lado=bandaMia();
+  if(p==="POR") return "ppro";
+  if(p==="DFC") return "defensa";
+  if(p==="MCD") return "medio";
+  if(p==="MC") return "medio";
+  if(p==="MCO") return "frontal";
+  if(p==="DC") return "arearival";
+  return lado;   /* LAT y EXT viven en su banda */
+}
+function zonaDeSit(sit){
+  var id=(sit&&sit.id)||"";
+  if(S && S.pos==="POR") return /salida|pies|saque/.test(id)? "defensa":"ppro";
+  if(/penal|mano-a-mano|cabeza-area|area|remate|rechace|punto-de/.test(id)) return "arearival";
+  if(/frontal|falta|lejan|vaselina|disparo/.test(id)) return "frontal";
+  if(/banda|centro|carril|desborde|cordon/.test(id)) return S? bandaMia():"bandaD";
+  if(/def-|corte|despeje|duelo|repliegue|achique|marca/.test(id)) return "defensa";
+  if(/salida|circul|medio|pivote|pausa|tempo/.test(id)) return "medio";
+  return zonaBase();
+}
+var ZCODE={arearival:"A", frontal:"F", medio:"M", bandaD:"D", bandaI:"I", defensa:"B", ppro:"P"};
+var ZINV={A:"arearival", F:"frontal", M:"medio", D:"bandaD", I:"bandaI", B:"defensa", P:"ppro"};
+var ZNOMBRE={A:"área rival", F:"frontal del área", M:"centro del campo", D:"banda derecha", I:"banda izquierda", B:"zona defensiva", P:"área propia"};
+/* el libro del partido: qué intentaste, dónde, cómo salió y cuánto pesó en tu nota */
+function regDec(o, sit, cls, dn, fuera, oi, real){
+  if(!M) return;
+  M.dec=M.dec||[];
+  var inst=(o.fx&&o.fx.inst)||{};
+  var k;
+  if(fuera) k="v";
+  else if(inst.gol) k="t";
+  else if(inst.asis) k="p";
+  else if(inst.golR||inst.parada) k="d";
+  else if(o.fx && (o.fx.ta||o.fx.roja||o.fx.lesion)) k="r";
+  else { var z0=zonaDeSit(sit); k=(z0==="defensa"||z0==="ppro")? "d":"j"; }
+  var _reg=[M.min||0, (sit&&sit.id)||("fase-"+((M&&M.faseAct)||"juego")), fuera? "":(ZCODE[zonaDeSit(sit)]||"M"), k, cls, Math.round(dn*100), (oi===undefined?-1:oi), Math.round(dn*1000), real?1:0];
+  M.dec.push(_reg);
+  if(!fuera) usoSkillsPartido({m:_reg[0], s:_reg[1], z:_reg[2], k:_reg[3], r:_reg[4]});
+}
+/* lector universal: tuplas nuevas y objetos de partidas 4.7.0 */
+function decObj(x){
+  if(Array.isArray(x)) return {m:x[0], s:x[1], z:x[2]||null, k:x[3], r:x[4], d:(x.length>7? x[7]/10 : x[5]), oi:(x.length>6?x[6]:null), real:(x.length>8? !!x[8] : (x[4]==="ok"))};
+  return {m:x.m, s:x.s, z:x.z||null, k:x.k, r:x.r, d:x.d, oi:null, real:(x.r==="ok")};
+}
+/* buscador de situaciones por id (juego + banquillo + tuyas) */
+var _SIT_MAPA=null;
+function sitPorId(id){
+  if(!_SIT_MAPA){
+    _SIT_MAPA={};
+    SITS.concat(SITS_BANQUILLO).concat((S&&S.custom)||[]).forEach(function(s2){ if(s2.id && !_SIT_MAPA[s2.id]) _SIT_MAPA[s2.id]=s2; });
+  }
+  return _SIT_MAPA[id]||null;
+}
+var ZONA_VECINAS={ arearival:["frontal","medio"], frontal:["medio","arearival"], medio:["frontal","defensa"],
+  defensa:["medio","ppro"], ppro:["defensa","defensa"], bandaD:["medio","frontal"], bandaI:["medio","frontal"] };
+function pintarZona(z, peso){
+  if(!S) return;
+  S.zonas=S.zonas||{};
+  S.zonas[z]=(S.zonas[z]||0)+(peso||1);
+}
+/* nadie se queda clavado en una baldosa: el tránsito reparte hacia las zonas vecinas */
+function pintarTransito(z, peso){
+  pintarZona(z, peso);
+  var v=ZONA_VECINAS[z]||[];
+  if(v[0]) pintarZona(v[0], Math.max(1, Math.round(peso*0.42)));
+  if(v[1]) pintarZona(v[1], Math.max(1, Math.round(peso*0.22)));
+}
+function regTarjeta(nombre, roja, mio){
+  regEvento(roja?"roja":"ta", nombre, !!mio);
+}
+/* cronología del partido, al estilo de las retransmisiones */
+function cronoCompacto(cr){
+  return (cr||[]).filter(function(e){ return ["ta","roja","lesion","cambio"].indexOf(e.tipo)>=0; })
+                 .map(function(e){ return [e.m, e.tipo.charAt(0)+(e.tipo==="roja"?"r":""), e.n, e.mio?1:0]; });
+}
+function regEvento(tipo, nombre, mio, nombre2, extra){
+  M.crono=M.crono||[];
+  M.crono.push({m:M.min, tipo:tipo, n:nombre||"", n2:nombre2||"", mio:!!mio, x:extra||null});
+}
+function sucesosTramo(){
+  var E=[];
+  /* --- tarjetas ajenas --- */
+  if(rnd()<0.20){
+    var c=unCompi();
+    if(c){
+      c.taPartido=(c.taPartido||0)+1;
+      if(c.taPartido>=2){
+        M.modOwn*=0.86; c.tr++; c.sancion=1; c._castJor=jorAbs(); (M.fuera=M.fuera||[]).push(c.n);
+        E.push("🟥 Segunda amarilla para "+c.n+". Os quedáis con diez y toca sufrir."); regTarjeta(c.n,true,true);
+      } else {
+        c.ta++; c.ciclo++;
+        var _t="🟨 Amarilla para "+c.n+" "+pick(["por cortar una contra.","por protestar una falta clara.","por llegar tarde en la disputa."]); E.push(_t); regTarjeta(c.n,false,true);
+      }
+    }
+  }
+  if(rnd()<0.24){ var _ra=unRival(); E.push("🟨 Amarilla para "+_ra+" "+pick(["por protestar.","por perder tiempo.","por una entrada por detrás."])); regTarjeta(_ra,false,false); }
+  if(rnd()<0.030){
+    M.modOpp*=0.80; M.modOwn*=1.10;
+    var _r=unRival(); E.push("🟥 ¡ROJA a "+_r+"! El rival se queda con uno menos y el partido cambia."); regTarjeta(_r,true,false);
+  }
+  /* --- lesiones --- */
+  if(rnd()<0.055){
+    var cl=unCompi();
+    if(cl){
+      cl.lesionPartido=true; cl.lesion=1+Math.floor(rnd()*3); cl._castJor=jorAbs(); M.modOwn*=0.95; (M.fuera=M.fuera||[]).push(cl.n);
+      E.push("🚑 "+cl.n+" se queda en el suelo pidiendo el cambio. Se retira tocado."); regEvento("lesion", cl.n, true);
+    }
+  }
+  if(rnd()<0.04){ var _rl=unRival(); E.push("🚑 Se retira lesionado "+_rl+" entre aplausos de su grada."); regEvento("lesion", _rl, false); }
+  /* --- cambios --- */
+  if(M.tramo>=3){
+    if(rnd()<0.26){ var _s1=unRival(), _s2=unRival(); E.push("🔄 Cambio en el rival: se va "+_s1+" y entra "+_s2+"."); regEvento("cambio", _s2, false, _s1); }
+    if(rnd()<0.22){
+      var cs=unCompi(true);
+      if(cs){ var _e=unCompi(true); E.push("🔄 El míster mueve el banquillo: sale "+cs.n+(_e?" y entra "+_e.n:"")+"."); regEvento("cambio", _e?_e.n:"", true, cs.n); }
+    }
+  }
+  /* --- penalti, con consecuencia real --- */
+  if(rnd()<(M.pPEN!==undefined? M.pPEN:0.07)){
+    var aFavor=rnd()<0.5;
+    if(aFavor && M.enCampo && !M.usadas["pen-l"] && ["DC","MCO","EXT","MC"].indexOf(S.pos)>=0){
+      M.sitForzada=SIT_PEN_L;
+      E.push("⚽ ¡PENALTI a favor! El árbitro señala los once metros… y todo el equipo te mira a ti.");
+      return E;
+    }
+    if(!aFavor && M.enCampo && S.pos==="POR" && !M.usadas["pen-p"]){
+      M.sitForzada=SIT_PEN_P;
+      E.push("🧤 Penalti en contra. Coges tu botella, miras al lanzador y el estadio entero se calla.");
+      return E;
+    }
+    var cp=unCompi(true);
+    var lanza = aFavor? (cp? cp.n : "vuestro capitán") : unRival();
+    if(rnd()<0.76){
+      E.push("⚽ Penalti "+(aFavor?"a favor":"en contra")+": "+lanza+" no falla desde los once metros.");
+      anotarGol(aFavor,"equipo");
+    } else {
+      E.push("😱 Penalti "+(aFavor?"a favor":"en contra")+" y "+lanza+" LO FALLA. El estadio entero se lleva las manos a la cabeza.");
+    }
+  }
+  /* --- adorno --- */
+  if(rnd()<0.10) E.push(pick([
+    "💥 Al palo. El balón sale escupido hacia fuera y nadie se lo explica.",
+    "🚩 Gol anulado por fuera de juego de la punta de la bota.",
+    "🧤 Paradón del portero rival a bocajarro.",
+    "💥 Remate al larguero desde la frontal. Milímetros."]));
+  return E;
+}
+function simTramo(){
+  var lh=M.lam[0]*M.modOwn/6, la=M.lam[1]*M.modOpp/6;
+  var gh=poisson(lh), ga=poisson(la);
+  var eventos=[];
+  asegurarOnce();
+  for(var i=0;i<gh;i++){ M.min=Math.min(90,Math.max((M.min||1)+1,minutoDe(M.tramo))); eventos.push({mio:true, m:M.min}); }
+  for(var j=0;j<ga;j++){ M.min=Math.min(90,Math.max((M.min||1)+1,minutoDe(M.tramo))); eventos.push({mio:false, m:M.min}); }
+  if(M.enCampo && rnd()<(M.pLES!==undefined? M.pLES:0.018)){
+    S.lesion=2+Math.floor(rnd()*3); S._castJor=jorAbs(); M.finAnticipado=true; M.yaJugado=true; M.modOwn*=0.95;
+    S.motivoBaja=pick(["un pinchazo en el isquio","un golpe feo en el tobillo","una sobrecarga que muerde"]);
+    (M.golesTramo=M.golesTramo||[]).push("🚑 Te quedas en el suelo. "+S.motivoBaja.charAt(0).toUpperCase()+S.motivoBaja.slice(1)+": te retiras entre aplausos y con gesto de dolor.");
+    regEvento("lesion", S.nombre, true);
+    (S.histLes=S.histLes||[]).push({t:S.temporada,j:S.jornada,motivo:S.motivoBaja,sem:S.lesion});
+  }
+  eventos.sort(function(a,b){return a.m-b.m;});
+  eventos.forEach(function(ev){
+    M.min=ev.m;
+    anotarGol(ev.mio, "equipo");
+  });
+  (M.pulso=M.pulso||[]).push([Math.round(M.lam[0]*M.modOwn*10), Math.round(M.lam[1]*M.modOpp*10)]);
+  M.tramo++;
+  M.min=Math.min(90, M.tramo*15);
+  /* si eres portero y el rival huele el gol, decides tú antes de encajar */
+  if(S.pos==="POR" && M.enCampo && !M.finAnticipado && !M.paradaPendiente){
+    if(rnd()<clamp(M.lam[1]*M.modOpp/6*0.55, 0, 0.5)) M.paradaPendiente=true;
+  }
+  /* estadísticas vivas del partido */
+  if(!M.est) M.est={tirosA:0,tirosB:0,puertaA:0,puertaB:0,corA:0,corB:0,falA:0,falB:0,posA:50};
+  var e=M.est, fA=M.lam[0]*M.modOwn/6, fB=M.lam[1]*M.modOpp/6;
+  e.tirosA+=Math.round(0.5+rnd()*2+fA*1.5); e.tirosB+=Math.round(0.5+rnd()*2+fB*1.5);
+  e.puertaA+=Math.round(rnd()*0.8+fA*0.5); e.puertaB+=Math.round(rnd()*0.8+fB*0.5);
+  e.corA+=Math.round(0.4+rnd()*1.2); e.corB+=Math.round(0.4+rnd()*1.2);
+  e.falA+=Math.round(1+rnd()*2.5); e.falB+=Math.round(1+rnd()*2.5);
+  e.posA=Math.round(clamp(50+(M.modOwn-M.modOpp)*60+(rnd()-0.5)*10, 28, 72));
+  /* la vida del partido: tarjetas, lesiones y cambios de los demás */
+  sucesosTramo().forEach(function(t){ M.golesTramo.push(t); });
+  /* techo de dominio: cualquier suceso del tramo (roja rival, lesión, tarjeta) también respeta el cap — no solo las decisiones */
+  M.modOwn=clamp(M.modOwn,0.6,1.4); M.modOpp=clamp(M.modOpp,0.65,1.55);
+}
+function avanzarPartido(){
+  if(!M) return;
+  if(hayFlash()){ renderFlashSiguiente(); return; }
+  /* el penalti no espera: decisión forzada fuera de cupo — ni siquiera al pitido final.
+     Se anunció "¡PENALTI!" narrado; si el partido lo enterrase sin resolverlo, sería
+     justo el bug de "promete y no cumple" que ya cerramos en otras decisiones. */
+  if(M.sitForzada && M.enCampo && !M.finAnticipado){
+    var sf=M.sitForzada; M.sitForzada=null; M.usadas[sf.id]=1;
+    M.min=Math.min(90, M.min+1);
+    mostrarSituacion(sf, "juego"); return;
+  }
+  if(M.tramo>=6){ finPartido(); return; }
+  /* si te has ido del campo, el partido se termina de simular de golpe */
+  if(M.finAnticipado && M.enCampo){
+    /* entraEn es un MINUTO (antes era un tramo): quien pisó el campo siempre cuenta */
+    M.enCampo=false; M.salidaMin=M.min; M.minJugados=Math.max(1, M.min-(M.entraEn||0));
+  }
+  /* entras desde el banquillo */
+  if(M.noEntra){ M.entraEn=null; }
+  if(M.entraSeguro && !M.enCampo && !M.yaJugado && M.tramo>=5 && M.entraEn!==null && !M.finAnticipado){
+    M.entraEn=Math.min(M.entraEn, M.tramo*15);   /* lo prometido es deuda */
+  }
+  if(!M.enCampo && !M.yaJugado && M.entraEn!==null && (M.tramo*15)>=M.entraEn && !M.finAnticipado){
+    asegurarOnce();
+    var oc3=onceVivo().filter(function(c){return c.pos!=="POR";});
+    var mEntra=M.min;   /* el minuto del cambio es el mismo para la salida y tu entrada: un solo evento */
+    var sale=null;
+    if(oc3.length){ sale=oc3[oc3.length-1]; (M.fuera=M.fuera||[]).push(sale.n);
+      (M.golesTramo=M.golesTramo||[]).push("🔄 Cambio: se marcha "+sale.n+" tocándose el gemelo. Entras tú. A por ellos."); }
+    M.crono=M.crono||[];
+    M.crono.push({m:mEntra, tipo:"cambio", n:S.nombre, n2:sale? sale.n : "", mio:true, x:"entras"});
+    M.enCampo=true; M.yaJugado=true; M.min=Math.max(M.min, M.entraEn, M.minNarrado||0);
+    M.minEntrada=M.min;
+    M.minJugados=Math.max(5, 92-M.min);
+    pushFlash({tipo:"sub-in"});
+    renderFlashSiguiente(); return;
+  }
+  /* al salir sustituido, el gesto también se elige — y se paga o se cobra */
+  if(M.reaccionCambio && !M.enCampo){
+    var motR=M.reaccionCambio;
+    M.reaccionCambio=null;
+    var sitR=SITS_CAMBIO.filter(function(s2){ return s2.id==="cambio-"+motR; })[0];
+    if(sitR && !M.usadas[sitR.id]){
+      M.usadas[sitR.id]=1;
+      mostrarSituacion(sitR, "banquillo");
+      return;
+    }
+  }
+  /* el partido te busca: si se escapa, el final pasa por tus botas */
+  if(M.enCampo && !M.finAnticipado && M.tramo>=5 && (M.clutchN||0)<2 && !M.prueba && (M.clutchEval||0)<=(M.clutchN||0)){
+    M.clutchEval=(M.clutchN||0)+1;   /* cada bala del descuento se sortea UNA vez */
+    var difC=M.sc[0]-M.sc[1];
+    var pC=pClutch(difC, M.clutchN||0);
+    if(S.pos==="POR") pC=(difC===-1 && (M.clutchN||0)===0)? Math.min(pC,0.25):0;   /* subir al córner es leyenda, no rutina */
+    if(pC>0 && rnd()<pC){
+      var sc2=SITS_CLUTCH.filter(function(s2){ return (!s2.pos || s2.pos.indexOf(S.pos)>=0) && !M.usadas[s2.id]; });
+      if(sc2.length){
+        M.clutchN=(M.clutchN||0)+1;
+        M.min=Math.max(M.min, 84+Math.floor(rnd()*7));
+        var sitC=pick(sc2);
+        M.usadas[sitC.id]=1;
+        mostrarSituacion(sitC, "juego");
+        return;
+      }
+    }
+  }
+  /* decisión de este tramo (solo si estás jugando) */
+  if((M.enCampo || (!M.yaJugado && !M.noEntra)) && M.tramosDec.indexOf(M.tramo)>=0){
+    M.min=minutoDe(M.tramo);
+    M.tramosDec=M.tramosDec.filter(function(t){return t!==M.tramo;});
+    if(!M.enCampo && (M.decBanq||0)>=1){
+      /* en el banquillo se decide UNA vez; el resto de tu partido se juega jugando */
+      if(M.tramo<5 && M.tramosDec.indexOf(M.tramo+1)<0) M.tramosDec.push(M.tramo+1);
+    } else {
+      var sit=elegirSituacion();
+      if(sit){ if(!M.enCampo) M.decBanq=(M.decBanq||0)+1; mostrarSituacion(sit, M.enCampo? "juego":"banquillo"); return; }
+    }
+  }
+  simTramo();
+  /* ¿te cambian por rendimiento? */
+  if(M.enCampo && !M.finAnticipado && !M.entraEn && M.minJugados>=60 && S.pos!=="POR" && M.tramo===5){
+    var motivoSub=null;
+    if(M.nota<5.7 && rnd()<0.28) motivoSub="rendimiento";
+    else if((S.forma===undefined?70:S.forma)<=40 && rnd()<0.35) motivoSub="cansancio";
+    if(motivoSub){
+      M.finAnticipado=true; M.enCampo=false; M.salidaMin=M.min; M.minJugados=M.min;
+      M.reaccionCambio=motivoSub; M.reaccionCambioVisto=motivoSub;
+      regEvento("cambio", S.nombre, true, "", "sales");
+      pushFlash({tipo:"sub-out", txt: motivoSub==="rendimiento"
+        ? "El cuarto árbitro levanta tu número. No ha sido tu tarde y el míster lo ha visto igual que tú."
+        : "Llevas un rato pidiendo aire sin decirlo. El míster lo ha visto en tus piernas antes que tú."});
+      M.eventos.push("🔁 Sustituido en el "+M.min+"′"+(motivoSub==="cansancio"? " por desgaste.":"."));
+    }
+  }
+  /* descanso */
+  if(M.tramo===3 && M.fase!=="descansoHecho"){
+    M.fase="descansoHecho";
+    M.est1=JSON.parse(JSON.stringify(M.est||{}));
+    M.est1.golA=M.sc[0]; M.est1.golB=M.sc[1];
+    if(M.enCampo && !M.finAnticipado){
+      var d=M.sc[0]-M.sc[1];
+      var quiere = d<0 ? true : d===0 ? rnd()<0.5 : rnd()<0.25;
+      if(quiere){ if(hayFlash()){ M.trasFlashDescanso=true; renderFlashSiguiente(); return; } mostrarSituacion(charlaDescanso(M), "descanso"); return; }
+    }
+  }
+  if(hayFlash()){ renderFlashSiguiente(); return; }
+  if(M.tramo>=6){ M.pendienteFin=true; renderMatch(null,true); return; }
+  renderMatch(null, true);
+}
+/* una situación es "ocasión" si puede acabar en gol o asistencia tuya */
+function esOcasion(sit){
+  return sit.o.some(function(o){
+    var i=(o.fx&&o.fx.inst)||{};
+    return (i.gol||0)>=0.12 || (i.asis||0)>=0.12;
+  });
+}
+function elegirSituacion(){
+  var t=ctxTag(M);
+  /* el portero atiende primero al peligro: nada de encajar sin decidir */
+  if(S.pos==="POR" && M.enCampo && M.paradaPendiente){
+    M.paradaPendiente=false;
+    var pel=todasSits().filter(function(x){
+      return x.pos && x.pos.indexOf("POR")>=0 && !M.usadas[x.id] && x.o.some(function(o){ return ((o.fx.inst||{}).parada||0)>0; });
+    });
+    if(pel.length){ var pp=pick(pel); M.usadas[pp.id]=1; return pp; }
+  }
+  if(M.tope===undefined) M.tope = 1 + (rnd()<0.45?1:0);   /* 1 o 2 ocasiones por partido */
+  /* garantiza que en cada partido lleguen los momentos propios de tu puesto:
+     al delantero, ocasiones; al central, cruces; al portero, disparos */
+  if(M.enCampo && !M.coreHecho){
+    var core=todasSits().filter(function(x){
+      if(!x.core || M.usadas[x.id] || !x.pos || x.pos.indexOf(S.pos)<0) return false;
+      if(x.cond && !x.cond(M,t)) return false;
+      if(esOcasion(x) && (M.ocasiones||0)>=M.tope) return false;
+      return true;
+    });
+    if(core.length && (M.decHechas>=1 || rnd()<0.6)){
+      var c=pick(core);
+      M.usadas[c.id]=1; M.coreHecho=true;
+      if(esOcasion(c)) M.ocasiones=(M.ocasiones||0)+1;
+      return c;
+    }
+  }
+  /* si estás en el banquillo, las decisiones son otras: convencer, calentar, esperar */
+  if(!M.enCampo && !M.yaJugado){
+    var bq=SITS_BANQUILLO.filter(function(x){
+      if(M.usadas[x.id]) return false;
+      if(x.pos && x.pos.indexOf(S.pos)<0) return false;
+      return x.cond(M);
+    });
+    if(bq.length){ var b=pick(bq); M.usadas[b.id]=1; return b; }
+    return null;
+  }
+  var _estR=estiloDe(M.rival);
+  function pickEstilo(cands){
+    var pesos=cands.map(function(s){ return estiloPesoSit(s,_estR); });
+    var tot=0; pesos.forEach(function(w){tot+=w;});
+    var x=rnd()*tot;
+    for(var i=0;i<cands.length;i++){ x-=pesos[i]; if(x<0) return cands[i]; }
+    return cands[cands.length-1];
+  }
+  function pool(conCool){
+    return todasSits().filter(function(s){
+      if(M.usadas[s.id]) return false;
+      if(s.pos && s.pos.indexOf(S.pos)<0) return false;
+      if(esOcasion(s) && (M.ocasiones||0)>=M.tope) return false;
+      if(s.arq && s.arq.indexOf(arquetipo().id)<0) return false;
+      if(conCool && S.sitGlobal && S.sitGlobal[s.id]!==undefined && S.jornada-S.sitGlobal[s.id]<2) return false;
+      return s.cond(M,t);
+    });
+  }
+  var cands=pool(true);
+  if(cands.length<2) cands=pool(false);
+  if(!cands.length) return null;
+  var pesado=[];
+  cands.forEach(function(c){ pesado.push(c); if(c.pos) pesado.push(c); });
+  var s=pickEstilo(pesado);   /* el estilo del rival sesga lo que te encuentras */
+  M.usadas[s.id]=1;
+  if(esOcasion(s)) M.ocasiones=(M.ocasiones||0)+1;
+  if(!S.sitGlobal) S.sitGlobal={};
+  S.sitGlobal[s.id]=S.jornada;
+  return s;
+}
+function mostrarSituacion(sit, fase){
+  M.sitAct=sit; M.faseAct=fase;
+  fijarOpciones(sit);
+  renderMatch(sit);
+}
+/* Opciones que se enseñan en esta situación. Si hay más de 3 válidas, se eligen 3 al azar
+   y se fijan para toda la situación (no cambian al repintar). Devuelve índices de sit.o. */
+function opcionesValidas(sit){
+  var ids=[];
+  sit.o.forEach(function(o,i){
+    if(o.cond && !o.cond(M)) return;
+    if(o.skill && !tieneSkill(o.skill)) return;
+    ids.push(i);
+  });
+  if(ids.length<=3) return ids;
+  var pool=ids.slice(), out=[];
+  while(out.length<3){ out.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]); }
+  return out.sort(function(a,b){ return a-b; });
+}
+function fijarOpciones(sit){
+  M.sitOpcId=sit.id;
+  M.sitOpc=opcionesValidas(sit);
+}
+function opcionesMostradas(sit){
+  if(!M.sitOpc || M.sitOpcId!==sit.id) fijarOpciones(sit);
+  return M.sitOpc;
+}
+/* Puntos de valoración que aporta una opción según cómo acabe.
+   Lo usan el motor y el panel de debug: no pueden discrepar. */
+function deltaNota(o, cls, real){
+  var n=(o.fx&&o.fx.nota)||0;
+  if(cls==="ok") return Math.abs(n)*0.26+0.12+(real?0.55:0);
+  if(cls==="ko") return -(Math.abs(n)*0.20+0.20);
+  return n*0.08;
+}
+/* Probabilidad de cada desenlace, replicando el orden del motor. */
+function probDesenlaces(o){
+  var E=probsEfectivas(o);
+  var pBueno=(E.gol||0)+(E.asis||0)+(E.parada||0);
+  var pTa=E.ta||0, pRoja=E.roja||0, pGolR=E.golR||0, pLes=E.lesion||0;
+  var tieneMecanica=pBueno>0||pTa>0||pRoja>0||pGolR>0||pLes>0;
+  if(!tieneMecanica){
+    var po=o.ok?0.34:0, pk=o.ko?0.22:0;
+    return {ok:po, mid:1-po-pk, ko:pk, sinMecanica:true};
+  }
+  var pMal = 1-(1-pTa)*(1-pRoja)*(1-pGolR);
+  var ok = pBueno*(1-pTa)*(1-pRoja);
+  var ko = pMal;
+  var mid = Math.max(0, 1-ok-ko);
+  if(!o.mid){ ko+=mid; mid=0; }   /* sin texto neutro, no salir bien es salir mal */
+  return {ok:ok, mid:mid, ko:ko};
+}
+/* ===== PROBABILIDADES: única fuente de verdad (motor + debug) ===== */
+/* Un multiplicador de rol nunca debe disparar una probabilidad alta por encima
+   de lo razonable: se aplica sobre lo que falta, no sobre lo que ya hay. */
+function mult(pr, m){ if(!pr) return 0; if(m===1) return pr; return 1-Math.pow(1-pr, m); }
+var PROBS=[
+ {k:"gol",    lb:"Gol tuyo",        f:function(o){ var v=(o.fx.inst||{}).gol||0; return mult(v,rf("gol")*mPierna("gol",o)*mTec()*sk("gol")*mAnimo())*((S&&S.pos==="POR")?0.05:1); }},
+ {k:"asis",   lb:"Asistencia",      f:function(o){ return mult((o.fx.inst||{}).asis||0, rf("asis")*mPierna("asis",o)*mAsis()*mAfin()*sk("asis")*mComp()*mAnimo()); }},
+ {k:"golR",   lb:"Gol en contra",   f:function(o){ return clamp(((o.fx.inst||{}).golR||0)*mEncaja()*sk("golR"),0,1); }, malo:true},
+ {k:"parada", lb:"Parada decisiva", f:function(o){ return mult((o.fx.inst||{}).parada||0, rf("parada")*mPar()*sk("parada")*mAnimo()); }},
+ {k:"ta",     lb:"Amarilla",        f:function(o){ var v=o.fx.ta? mult(o.fx.ta,rf("tarjeta")*mTarj()*sk("ta")*mTemp())*0.42:0; if(M&&M.miTA) v*=0.5; return v; }, malo:true},
+ {k:"roja",   lb:"Roja directa",    f:function(o){ return clamp((o.fx.roja||0)*mTarj()*mTemp(),0,1); }, malo:true},
+ {k:"lesion", lb:"Lesión",          f:function(o){ return clamp((o.fx.lesion||0)*0.55*mLesion()*sk("lesion"),0,1); }, malo:true}
+];
+function probOpc(o,k){
+  for(var i=0;i<PROBS.length;i++) if(PROBS[i].k===k) return clamp(PROBS[i].f(o),0,1);
+  return 0;
+}
+/* El motor resuelve gol → asistencia → gol rival → parada en cascada:
+   si uno entra, los siguientes ni se tiran. El debug debe contarlo igual. */
+function probsEfectivas(o){
+  var out={}, resto=1;
+  ["gol","asis","golR","parada"].forEach(function(k){
+    var p=probOpc(o,k);
+    out[k]=p*resto;
+    resto*=(1-p);
+  });
+  out.golCuenta = out.gol*(1-pVarAnula());
+  out.asisCuenta = out.asis*(1-pVarAnula());
+  out.golRCuenta = out.golR*(1-pVarAnula());
+  out.ta=probOpc(o,"ta");
+  out.roja=probOpc(o,"roja");
+  out.lesion=probOpc(o,"lesion");
+  return out;
+}
+/* ============================================================
+   CONTRATO DE CONTENIDO (para todo lo que se añada de aquí en adelante)
+   ------------------------------------------------------------
+   Una opción de decisión se describe SOLO con estas claves de fx:
+     inst:{gol, asis, golR, parada}   probabilidades 0..1
+     ta, roja, lesion                 probabilidades 0..1
+     own, opp                         multiplicadores del resto del partido
+     nota, mis, mor                   deltas (jugador / míster / vestuario)
+     fin                              te retiras del campo
+   Y estos textos: ok (salió), mid (no pasó nada), ko (salió mal).
+   El debug muestra además, para cada opción, la probabilidad de cada
+   desenlace (✔ / – / ✘) y los puntos de valoración que otorga cada uno.
+   Importante al escribir contenido: si una opción no tiene texto neutro
+   (mid), no lograr el suceso cuenta como fracaso y usa el texto ko.
+   Respetando esto, el modo debug documenta la opción automáticamente:
+   no hay que escribir nada específico para él. Si se inventa una clave
+   nueva, el panel la muestra igualmente en crudo para que se vea.
+   Las probabilidades SIEMPRE se leen de PROBS/probsEfectivas, que es
+   lo mismo que ejecuta el motor: el debug no puede desincronizarse.
+   ============================================================ */
+/* ============================================================
+   CARÁCTER — dos ejes que se llenan con tus decisiones:
+     disciplina  -100 (díscolo) ... +100 (profesional ejemplar)
+     ego         -100 (colectivo) ... +100 (individualista)
+   De ahí sale un arquetipo que cambia qué situaciones te llegan,
+   cómo te trata la prensa y qué clubes te quieren.
+   Cualquier opción puede usar fx.disc y fx.ego.
+   ============================================================ */
+/* ---- rasgos personales: definen la huella dentro del arquetipo ---- */
+var RASGOS_P={
+ disciplina: {n:"Disciplina",   izq:"díscolo",    der:"profesional", rango:[-100,100],
+   d:"Cuánto te aguantan el míster y los despachos."},
+ ego:        {n:"Ego",          izq:"colectivo",  der:"protagonista", rango:[-100,100],
+   d:"Si juegas para el equipo o para la portada."},
+ temperamento:{n:"Temperamento",izq:"sangre fría",der:"volcán",      rango:[0,100],
+   d:"Tarjetas, tanganas y respuestas al primer roce."},
+ companerismo:{n:"Compañerismo",izq:"a lo tuyo",  der:"generoso",    rango:[0,100],
+   d:"Pases que das y crédito que te da el vestuario."},
+ liderazgo:  {n:"Liderazgo",    izq:"uno más",    der:"arrastra",    rango:[0,100],
+   d:"Cuánto sube el equipo cuando tú aciertas."},
+ resiliencia:{n:"Resiliencia",  izq:"te hundes",  der:"te creces",   rango:[0,100],
+   d:"Cómo respondes al error, a la derrota y a la lesión."}
+};
+var RASGOS_ORDEN=["disciplina","ego","temperamento","companerismo","liderazgo","resiliencia"];
+function eje(k){
+  if(!S || !S.car) return (RASGOS_P[k] && RASGOS_P[k].rango[0]===0)? 50 : 0;
+  if(S.car[k]===undefined) return (RASGOS_P[k] && RASGOS_P[k].rango[0]===0)? 50 : 0;
+  return S.car[k];
+}
+function tocarEje(k,d){
+  if(!S) return;
+  if(!S.car) S.car={};
+  var r=(RASGOS_P[k]&&RASGOS_P[k].rango)||[-100,100];
+  if(S.car[k]===undefined) S.car[k]=(r[0]===0)?50:0;
+  var antes=S.car[k];
+  var arqAntes=arquetipo().id;
+  /* cuanto más extremo eres, más cuesta seguir en esa dirección */
+  var span=r[1]-r[0];
+  var margen = d>0? (r[1]-antes)/span : (antes-r[0])/span;
+  var freno = clamp(0.22+margen*1.55, 0.22, 1);
+  S.car[k]=clamp(antes + d*freno, r[0], r[1]);
+  var real=Math.round((S.car[k]-antes)*10)/10;
+  if(M && real){
+    M.cambiosCar=M.cambiosCar||[];
+    M.cambiosCar.push({t:(RASGOS_P[k]?RASGOS_P[k].n:k)+" "+(real>0?"+":"")+real, b:real>0, car:true});
+  }
+  /* cambiar de arquetipo es un acontecimiento */
+  var arqAhora=arquetipo().id;
+  if(arqAhora!==arqAntes){
+    if(M) pushFlash({tipo:"arq", arq:ARQUETIPOS[arqAhora], antes:ARQUETIPOS[arqAntes]});
+  }
+}
+/* ---- lo que hace cada rasgo, en números ---- */
+/* ============================================================
+   VULNERABILIDAD Y TENTACIÓN
+   No hay rasgo "adicción": hay rasgos que te hacen vulnerable y un
+   medidor OCULTO que avanza. La trampa está en que la primera fase
+   sienta bien de verdad y el precio llegue con jornadas de retraso.
+   ============================================================ */
+function vulnerabilidad(){
+  var dis=(eje("disciplina")+100)/2;      /* 0..100 */
+  var res=eje("resiliencia");
+  var ego=(eje("ego")+100)/2;
+  var fama=S? (S.fama||30):30;
+  return Math.round(clamp((100-dis)*0.35 + (100-res)*0.35 + ego*0.15 + fama*0.15, 0, 100));
+}
+function vicio(){ if(!S.vicios) S.vicios={noche:0}; return S.vicios; }
+function nivelVicio(k){ return (S && S.vicios && S.vicios[k])||0; }
+function faseVicio(k){
+  var v=nivelVicio(k);
+  return v>=75? 3 : v>=50? 2 : v>=25? 1 : 0;
+}
+function subirVicio(k, base){
+  vicio();
+  var mult=0.6+vulnerabilidad()/90;    /* el vulnerable cae más rápido */
+  var B=bonusTienda();
+  mult*=clamp(1 + (B.vicioTent||0)*0.06 + bonusPatros().vicioTent*0.06 + (B.vicioMod||0)*0.12, 0.5, 1.6);   /* la sala de juegos tienta; la escolta te saca del lío antes de entrar */
+  S.vicios[k]=clamp((S.vicios[k]||0)+base*mult, 0, 100);
+}
+/* el precio llega tarde: se cobra en diferido cada jornada */
+function cobrarVicios(){
+  if(!S.vicios) return null;
+  var aviso=null;
+  for(var k in S.vicios){
+    var f=faseVicio(k), v=S.vicios[k];
+    if(v<=0) continue;
+    S.vicios[k]=Math.max(0, v-0.8);      /* baja solo, muy despacio */
+    if(f===0) continue;
+    if(f===1){
+      S.forma=clamp((S.forma||70)-1.5,20,100);
+    } else if(f===2){
+      S.forma=clamp((S.forma||70)-3.5,20,100);
+      var kk=pick(["FIS","TEC","TAC"]);
+      S.attr[kk]=clamp(atr(kk)-0.6,10,95);
+      if(rnd()<0.25) aviso="Llegas tarde al entrenamiento otra vez. El míster no dice nada, pero mira.";
+      S.mister=clamp(S.mister-1.5,5,95);
+    } else if(f===3){
+      S.forma=clamp((S.forma||70)-6,20,100);
+      ["FIS","TEC","TAC","MEN"].forEach(function(a){ S.attr[a]=clamp(atr(a)-0.9,10,95); });
+      S.mister=clamp(S.mister-4,5,95);
+      if(!S.crisisAvisada){ S.crisisAvisada=true; aviso="El club te ha citado en las oficinas. No es por el contrato."; }
+    }
+  }
+  return aviso;
+}
+function mTemp(){   return clamp(0.65+eje("temperamento")/140, 0.65, 1.45); }   /* tarjetas */
+function mComp(){   return clamp(0.75+eje("companerismo")/200, 0.75, 1.25); }   /* asistencias */
+function mLider(){  return clamp((0.55+eje("liderazgo")/95)*sk("lider"), 0.55, 1.9); }        /* empuje al equipo, ya con talentos */
+function mResil(){  return clamp((1.35-eje("resiliencia")/145)*sk("resil"), 0.5, 1.35); }    /* castigo tras el error, ya con talentos */
+function bonusTalentosForma(campo){
+  var m=1;
+  if(!S || !S.talentos) return m;
+  TALENTO_ORDEN.forEach(function(rama){
+    TALENTOS[rama].nodes.forEach(function(node){
+      if(!node.fxForma || !node.fxForma[campo]) return;
+      var r=talentoRango(rama,node.id); if(!r) return;
+      m *= 1 + (node.fxForma[campo]-1)*(r/node.rank);
+    });
+  });
+  return m;
+}
+var ARQUETIPOS={
+ crack:   {id:"crack",   n:"La estrella",      d:"El equipo gira a tu alrededor y todos lo aceptan… mientras rindas.", col:"#FFC24B"},
+ capitan: {id:"capitan", n:"El capitán",       d:"Ejemplo dentro y fuera. El vestuario te sigue sin que levantes la voz.", col:"#4FA3FF"},
+ soldado: {id:"soldado", n:"El soldado",       d:"Nunca fallas, nunca sobras. El míster te pondría con una pierna rota.", col:"#3DDC97"},
+ showman: {id:"showman", n:"El showman",       d:"Juegas para la grada y para la cámara. El fútbol como espectáculo.", col:"#FF9E3D"},
+ genio:   {id:"genio",   n:"El genio rebelde", d:"Insoportable e imprescindible. Ganas partidos que nadie más gana.", col:"#B45CFF"},
+ problema:{id:"problema",n:"El problema",      d:"Talento y titulares, en ese orden. Los despachos te temen.", col:"#FF5470"},
+ guerrero:{id:"guerrero",n:"El guerrero",     d:"Profesional en la semana, bestia el domingo. Te temen y te quieren de su lado.", col:"#FF6B4A"},
+ peon:    {id:"peon",    n:"Uno más",          d:"Todavía sin sello propio. Tus decisiones dirán quién eres.", col:"#8891AA"}
+};
+/* Fronteras validadas contra 40 futbolistas reales: primero manda la disciplina
+   (un profesional con mucho ego es una estrella, no un showman), y dentro de cada
+   banda de disciplina decide el ego. */
+function arquetipoDe(dis, ego, temp){
+  /* el temperamento manda cuando es extremo: el guerrero existe en cualquier banda */
+  if(temp!==undefined && temp>=74 && dis>=-35 && ego<55) return ARQUETIPOS.guerrero;
+  if(dis>=45){
+    if(ego>=45) return ARQUETIPOS.crack;
+    if(ego<=-40) return ARQUETIPOS.soldado;
+    return ARQUETIPOS.capitan;
+  }
+  if(dis>=15){
+    if(ego>=35) return ARQUETIPOS.crack;
+    if(ego<=-25) return ARQUETIPOS.soldado;
+    return ARQUETIPOS.capitan;
+  }
+  if(dis>=-29){
+    if(ego>=60) return ARQUETIPOS.showman;
+    if(ego>=30) return ARQUETIPOS.crack;
+    if(ego<=-25) return ARQUETIPOS.soldado;
+    return ARQUETIPOS.peon;
+  }
+  if(dis>=-44){
+    if(ego>=55) return ARQUETIPOS.showman;
+    if(ego>=30) return ARQUETIPOS.crack;
+    return ARQUETIPOS.problema;
+  }
+  if(ego>=45) return ARQUETIPOS.genio;
+  return ARQUETIPOS.problema;
+}
+function arquetipo(){ return arquetipoDe(eje("disciplina"), eje("ego"), eje("temperamento")); }
+/* ---- los 40 futbolistas de referencia: nombre|disciplina|ego|temperamento ---- */
+var REFS=("Maradona|-65|70|72|85|92|70,Balotelli|-75|25|82|45|20|30,Zlatan|-15|85|70|45|75|85,Cristiano|70|75|55|40|80|95,"+
+"Roy Keane|25|-10|92|55|95|80,Maldini|90|-20|30|80|90|85,Puyol|85|-30|65|85|88|85,Gattuso|40|-70|90|80|70|75,"+
+"Cantona|-55|80|85|60|80|65,Ronaldinho|-35|60|25|88|60|55,G. Best|-85|75|55|60|45|30,Gascoigne|-70|55|75|75|40|25,"+
+"Adriano|-60|20|45|60|30|15,Riquelme|-20|55|40|85|70|45,Cassano|-75|50|80|25|20|30,Barton|-90|30|95|30|35|40,"+
+"Anelka|-45|60|55|35|25|45,Bellamy|-65|25|88|40|45|55,Diego Costa|-40|15|92|45|55|70,Pepe|10|-30|88|70|60|75,"+
+"Neymar|-25|75|60|70|55|50,Higuita|-30|85|60|55|65|60,Okocha|5|70|30|75|55|60,R. Carlos|45|45|45|70|65|80,"+
+"Chilavert|-25|80|85|40|75|65,Messi|65|55|35|90|70|80,Mbappé|60|80|45|55|65|85,Bale|20|40|30|55|40|55,"+
+"Lewandowski|85|50|40|60|70|90,Zanetti|95|-25|30|90|92|90,Casillas|75|20|35|85|85|70,Buffon|90|40|55|80|95|90,"+
+"S. Ramos|30|70|88|65|90|92,Totti|55|65|55|80|85|70,Kanté|95|-80|15|95|45|85,Makélélé|80|-70|45|85|55|80,"+
+"Park Ji-sung|85|-60|40|90|50|85,Mascherano|75|-45|80|85|80|85,Bergkamp|80|30|50|75|60|60,R. Nazário|20|65|30|70|60|95")
+ .split(",").map(function(x){ var p=x.split("|"); return {n:p[0], d:+p[1], e:+p[2], t:+p[3], c:+p[4], l:+p[5], r:+p[6]}; });
+/* probabilidad del momento clutch: perder de uno lo pide a gritos */
+function pClutch(dif, ya){
+  if(ya>=2) return 0;
+  if(ya===1) return dif<0? 0.55:0;      /* la segunda, solo si sigues por detrás */
+  if(dif===-1) return 0.85;
+  if(dif===-2) return 0.5;
+  if(dif===0) return 0.28;
+  if(dif===1) return 0.18;   /* sentenciar el 1-0... o pinchar con todo de cara */
+  return 0;
+}
+function pareceteA(){
+  /* disciplina y ego son el titular (rango 200); temperamento/compañerismo/liderazgo/resiliencia
+     son la letra pequeña (rango 100, y a media potencia) — lo que distingue a dos jugadores del
+     mismo cuadrante, tal y como quedó escrito en dis/perfiles-caracter.md */
+  var d=eje("disciplina"), e=eje("ego"), t=eje("temperamento"),
+      c=eje("companerismo"), l=eje("liderazgo"), r=eje("resiliencia");
+  var W=0.55;
+  return REFS.map(function(x){
+    var dist=Math.sqrt(
+      Math.pow(x.d-d,2) + Math.pow(x.e-e,2)
+      + W*(Math.pow(x.t-t,2) + Math.pow(x.c-c,2) + Math.pow(x.l-l,2) + Math.pow(x.r-r,2))
+    );
+    return {n:x.n, dist:dist};
+  }).sort(function(a,b){ return a.dist-b.dist; }).slice(0,3);
+}
+/* ===== mapa de calor: tu temporada pintada sobre el césped (atacas → ) ===== */
+var ZONAS_XY={ ppro:[26,100,16,34], defensa:[74,100,26,46], medio:[150,100,42,52],
+  bandaD:[168,38,52,22], bandaI:[168,162,52,22], frontal:[228,100,26,40], arearival:[271,100,15,30] };
+function mapaCalorSVG(ZZ){
+  var Z=ZZ||S.zonas||{}, mx=0, tot=0;
+  Object.keys(Z).forEach(function(k){ if(Z[k]>mx) mx=Z[k]; tot+=Z[k]; });
+  var g='<svg viewBox="0 0 300 200" class="pitchsvg">';
+  g+='<rect width="300" height="200" rx="10" fill="#1d6b34"/>';
+  for(var f=0;f<8;f++) g+='<rect x="0" y="'+(f*25)+'" width="300" height="25" fill="'+(f%2?"#1d6b34":"#20753a")+'" opacity=".8"/>';
+  g+='<g stroke="#eaf5ec" stroke-width="1.1" fill="none" opacity=".55">'
+    +'<rect x="4" y="4" width="292" height="192" rx="6"/>'
+    +'<line x1="150" y1="4" x2="150" y2="196"/><circle cx="150" cy="100" r="24"/>'
+    +'<rect x="4" y="55" width="40" height="90"/><rect x="4" y="79" width="16" height="42"/>'
+    +'<rect x="256" y="55" width="40" height="90"/><rect x="280" y="79" width="16" height="42"/></g>';
+  if(mx>0){
+    var CAPAS=[["#ffd23f",.30,1.9],["#ff8c1a",.34,1.25],["#e23c22",.42,0.62]];
+    var JIT=[[0,0],[ -9,6],[8,-7],[-4,-10],[6,9]];
+    Object.keys(ZONAS_XY).forEach(function(k){
+      var v=Z[k]||0; if(!v) return;
+      var p=ZONAS_XY[k], f=Math.sqrt(v/mx);
+      CAPAS.forEach(function(c){
+        JIT.forEach(function(j,ji){
+          if(ji>0 && ji>Math.ceil(f*4)) return;
+          g+='<ellipse cx="'+(p[0]+j[0]*f)+'" cy="'+(p[1]+j[1]*f)+'" rx="'+(p[2]*c[2]*f).toFixed(1)+'" ry="'+(p[3]*c[2]*f).toFixed(1)
+            +'" fill="'+c[0]+'" opacity="'+(c[1]*(ji?0.55:1)).toFixed(2)+'"/>';
+        });
+      });
+    });
+  }
+  g+='<path d="M120 187 h52 m0 0 l-7 -5 m7 5 l-7 5" stroke="#eaf5ec" stroke-width="2" fill="none" opacity=".8"/>';
+  g+='</svg>';
+  return {svg:g, n:tot};
+}
+/* ===== radar de atributos: hoy contra tus veranos ===== */
+var RADAR_SEL=null;
+function radarSel(t){ RADAR_SEL=t; irSub("jugador","stats"); }
+function radarSVG(){
+  var ejes=ATTR_ORDEN.concat(S.pos==="POR"?["POR"]:[]);
+  var n=ejes.length, C=105, R=78;
+  function punto(i,v){ var a=-Math.PI/2 + i*2*Math.PI/n; var r=R*clamp(v,0,95)/95; return (C+r*Math.cos(a)).toFixed(1)+","+(C+r*Math.sin(a)).toFixed(1); }
+  var g='<svg viewBox="0 0 210 210" class="radarsvg">';
+  [0.33,0.66,1].forEach(function(f){
+    var pts=ejes.map(function(_,i){ return punto(i,95*f); }).join(" ");
+    g+='<polygon points="'+pts+'" fill="none" stroke="#EDF0F8" stroke-width=".6" opacity=".14"/>';
+  });
+  ejes.forEach(function(k,i){
+    var a=-Math.PI/2 + i*2*Math.PI/n, tx=C+(R+15)*Math.cos(a), ty=C+(R+13)*Math.sin(a)+3;
+    g+='<line x1="'+C+'" y1="'+C+'" x2="'+(C+R*Math.cos(a)).toFixed(1)+'" y2="'+(C+R*Math.sin(a)).toFixed(1)+'" stroke="#EDF0F8" stroke-width=".5" opacity=".12"/>';
+    g+='<text x="'+tx.toFixed(1)+'" y="'+ty.toFixed(1)+'" fill="#8891AA" font-size="10" text-anchor="middle">'+k+' <tspan fill="#EDF0F8" font-weight="700">'+Math.round(atr(k))+'</tspan></text>';
+  });
+  var snap=null;
+  if(RADAR_SEL!==null){ (S.carrera||[]).forEach(function(r){ if(r.temp===RADAR_SEL && r.at) snap=r.at; }); }
+  if(snap){
+    var pts0=ejes.map(function(k,i){ return punto(i, snap[k]!==undefined? snap[k] : 40); }).join(" ");
+    g+='<polygon points="'+pts0+'" fill="#8891AA" opacity=".18" stroke="#8891AA" stroke-width="1.2"/>';
+  }
+  var pts=ejes.map(function(k,i){ return punto(i, atr(k)); }).join(" ");
+  g+='<polygon points="'+pts+'" fill="#3DDC97" opacity=".16" stroke="#3DDC97" stroke-width="1.8"/>';
+  g+='</svg>';
+  return g;
+}
+function mapaCaracterSVG(){
+  var W=300, H=300, M=6;
+  var X=function(v){ return M+(v+100)/200*(W-2*M); };
+  var Y=function(v){ return M+(100-v)/200*(H-2*M); };
+  var Z=[[45,100,45,100,"crack"],[45,100,-40,45,"capitan"],[45,100,-100,-40,"soldado"],
+    [15,45,35,100,"crack"],[15,45,-25,35,"capitan"],[15,45,-100,-25,"soldado"],
+    [-29,15,60,100,"showman"],[-29,15,30,60,"crack"],[-29,15,-25,30,"peon"],[-29,15,-100,-25,"soldado"],
+    [-44,-29,55,100,"showman"],[-44,-29,30,55,"crack"],[-44,-29,-100,30,"problema"],
+    [-100,-44,45,100,"genio"],[-100,-44,-100,45,"problema"]];
+  var g='<svg viewBox="0 0 '+W+' '+H+'" class="mapasvg">';
+  Z.forEach(function(z){
+    var c=ARQUETIPOS[z[4]].col;
+    g+='<rect x="'+X(z[0]).toFixed(1)+'" y="'+Y(z[3]).toFixed(1)+'" width="'+(X(z[1])-X(z[0])).toFixed(1)
+      +'" height="'+(Y(z[2])-Y(z[3])).toFixed(1)+'" fill="'+c+'" opacity=".14"/>';
+  });
+  g+='<line x1="'+M+'" y1="'+Y(0)+'" x2="'+(W-M)+'" y2="'+Y(0)+'" stroke="#EDF0F8" stroke-width=".6" opacity=".28"/>';
+  g+='<line x1="'+X(0)+'" y1="'+M+'" x2="'+X(0)+'" y2="'+(H-M)+'" stroke="#EDF0F8" stroke-width=".6" opacity=".28"/>';
+  REFS.forEach(function(r){
+    g+='<circle cx="'+X(r.d).toFixed(1)+'" cy="'+Y(r.e).toFixed(1)+'" r="2.4" fill="#EDF0F8" opacity=".30"/>';
+  });
+  var cerca=pareceteA();
+  REFS.filter(function(r){ return cerca.some(function(c){return c.n===r.n;}); }).forEach(function(r){
+    g+='<circle cx="'+X(r.d).toFixed(1)+'" cy="'+Y(r.e).toFixed(1)+'" r="3.4" fill="#EDF0F8" opacity=".85"/>'
+      +'<text x="'+X(r.d).toFixed(1)+'" y="'+(Y(r.e)-6).toFixed(1)+'" fill="#EDF0F8" font-size="9" text-anchor="middle" opacity=".8">'+esc(r.n)+'</text>';
+  });
+  var a=arquetipo();
+  g+='<circle cx="'+X(eje("disciplina")).toFixed(1)+'" cy="'+Y(eje("ego")).toFixed(1)+'" r="9" fill="'+a.col+'" opacity=".28"/>';
+  g+='<circle cx="'+X(eje("disciplina")).toFixed(1)+'" cy="'+Y(eje("ego")).toFixed(1)+'" r="5" fill="'+a.col+'" stroke="#070810" stroke-width="1.6"/>';
+  g+='<text x="'+W/2+'" y="'+(H-1)+'" fill="#8891AA" font-size="8" text-anchor="middle">← díscolo · profesional →</text>';
+  g+='<text x="'+(M+2)+'" y="12" fill="#8891AA" font-size="8">ego alto</text>';
+  g+='</svg>';
+  return g;
+}
+function tolMister(){
+  var base=clamp(1 - eje("disciplina")/220, 0.6, 1.5);
+  return base / clamp(estiloMister().tol, 0.5, 1.6);   /* el técnico decide cuánto te aguanta */
+}
+function interesClubes(){ var dis=eje("disciplina"); return clamp(1 + dis/300 - (dis<-40? 0.12:0), 0.75, 1.15); }
+function auraGrada(){ return clamp(1 + eje("ego")/260, 0.85, 1.4); }
+function apoyoAficion(){ return clamp(0.881+((S&&S.publico?S.publico.afic:50))/420, 0.88, 1.12); }
+function presionPrensa(){ return clamp(1.10-((S&&S.publico?S.publico.prensa:50))/500, 0.9, 1.10); }
+/* ===== MODO DEBUG =====
+   Lee automáticamente el objeto fx de cada opción: cualquier situación
+   nueva queda documentada sin escribir nada específico para el debug.
+   Los atributos entrenables (TEC/FIS/TAC/DEF/MEN/POR) modulan estas mismas
+   probabilidades dentro de PROBS, así que el debug los refleja sin tocar nada.
+   Una opción puede llevar skill:"id" — solo aparece si esa habilidad está
+   desbloqueada por entrenamiento. Las habilidades pasivas multiplican dentro
+   de PROBS, así que el debug las refleja sin tocar nada.
+   Claves reconocidas: inst.{gol,asis,golR,parada}, ta, roja, lesion,
+   own, opp, nota, mis, mor, fin, cond. */
+var DBGLOG=[];
+function pc(v){ return Math.round(v*100)+"%"; }
+function sgn(v){ return (v>0?"+":"")+ (Math.round(v*100)/100); }
+function dbgOn(){ return !!(S && S.debug); }
+var DBGOV_HTML=null;
+function dbgHold(ev, i){
+  try{ ev.stopPropagation(); ev.preventDefault(); }catch(e){}
+  if(!M || !M.sitAct || !dbgOn()) return;
+  var o=M.sitAct.o[i]; if(!o) return;
+  pausarReloj();
+  var et=typeof o.l==="function"? o.l():o.l;
+  DBGOV_HTML='<div class="dbgov-t">'+esc(et)+'</div>'+dbgEstado(M.sitAct)+(dbgOpcion(o)||'<small class="note">sin mecánica: 34/44/22</small>');
+  if(typeof document!=="undefined" && document.body && document.createElement){
+    dbgQuitaOv();
+    var d=document.createElement("div");
+    d.id="dbgov"; d.innerHTML=DBGOV_HTML;
+    document.body.appendChild(d);
+  }
+}
+function dbgQuitaOv(){
+  if(typeof document!=="undefined" && document.getElementById){
+    var v=document.getElementById("dbgov");
+    if(v){ if(v.parentNode && typeof v.parentNode.removeChild==="function") v.parentNode.removeChild(v); else v.innerHTML=""; }
+  }
+}
+function dbgSuelta(ev){
+  if(ev){ try{ ev.stopPropagation(); ev.preventDefault(); }catch(e){} }
+  if(DBGOV_HTML===null) return;
+  DBGOV_HTML=null;
+  dbgQuitaOv();
+  reanudarReloj();
+}
+function dbgOpcion(o){
+  if(!dbgOn()) return "";
+  var fueraCampo = M && (M.faseAct==="previa"||M.faseAct==="descanso"||M.faseAct==="post"||M.faseAct==="banquillo"||!M.enCampo);
+  var partes=[], E=probsEfectivas(o);
+  (function(){
+    var iD=(o.fx||{}).inst||{}, fxD=o.fx||{};
+    var constructivo=(iD.golR>0)||(fxD.opp&&fxD.opp<0.985)||(fxD.own&&fxD.own>1.015);
+    if(constructivo && o.ok && !fueraCampo){
+      var pBase=iD.golR>0? clamp(0.72-iD.golR*1.6,0.30,0.72):0.42;
+      var mAtr=(S.pos==="POR")?(0.72+atr("POR")/190):(["DFC","LAT","MCD"].indexOf(S.pos)>=0)?(0.72+atr("DEF")/190):(0.72+(atr("TAC")*0.6+atr("TEC")*0.4)/190);
+      partes.push('<span class="dgood">Trabajo bien hecho '+pc(clamp(pBase*mAtr,0.15,0.82))+'</span>');
+    } else if(o.ok && !fueraCampo && ((fxD.ta>0)||(fxD.roja>0)||(fxD.lesion>0)||(fxD.mis>0)||(fxD.afin>0))){
+      var arr=(fxD.ta>0)||(fxD.roja>0)||(fxD.lesion>0);
+      var pS2=arr? clamp(0.55*(0.7+atr("MEN")/200)*(1.25-eje("temperamento")/220),0.18,0.75)
+                 : clamp(0.45*(0.7+atr("MEN")/200),0.18,0.70);
+      partes.push('<span class="dgood">Te sale bien '+pc(pS2)+'</span>');
+    }
+  })();
+  PROBS.forEach(function(P){
+    var v=E[P.k]||0;
+    if(fueraCampo && ["gol","asis","golR","parada","ta","roja","lesion"].indexOf(P.k)>=0) return;
+    if(v<=0) return;
+    var extra="";
+    if(P.k==="gol"||P.k==="asis"){ extra=" → "+pc(E[P.k==="gol"?"golCuenta":"asisCuenta"])+" tras VAR"; }
+    partes.push('<span class="'+(P.malo?"dbad":"dgood")+'">'+P.lb+' '+pc(v)+extra+'</span>');
+  });
+  var fx=o.fx||{};
+  if(fx.own && fx.own!==1) partes.push('<span class="'+(fx.own>1?"dgood":"dbad")+'">Tu equipo ×'+fx.own+'</span>');
+  if(fx.opp && fx.opp!==1) partes.push('<span class="'+(fx.opp<1?"dgood":"dbad")+'">Rival ×'+fx.opp+'</span>');
+  if(fx.nota) partes.push('<span class="'+(fx.nota>0?"dgood":"dbad")+'">Nota base '+sgn(fx.nota)+'</span>');
+  if(fx.mis) partes.push('<span class="'+(fx.mis>0?"dgood":"dbad")+'">Míster '+sgn(fx.mis*(fx.mis<0?(1+Math.min(1.2,Math.min(S.desafios||0,4)*0.15)):1))+'</span>');
+  if(fx.mor) partes.push('<span class="'+(fx.mor>0?"dgood":"dbad")+'">Vestuario '+sgn(fx.mor)+'</span>');
+  if(fx.afin) partes.push('<span class="'+(fx.afin>0?"dgood":"dbad")+'">Afinidad '+sgn(fx.afin)+'</span>');
+  if(fx.disc) partes.push('<span class="'+(fx.disc>0?"dgood":"dbad")+'">Disciplina '+sgn(fx.disc)+'</span>');
+  ["temp","comp","lid","res"].forEach(function(k){
+    if(fx[k]) partes.push('<span class="dneu">'+({temp:"Temperamento",comp:"Compañerismo",lid:"Liderazgo",res:"Resiliencia"}[k])+' '+sgn(fx[k])+'</span>');
+  });
+  if(fx.ego) partes.push('<span class="dneu">Ego '+sgn(fx.ego)+'</span>');
+  if(fx.entra!==undefined) partes.push('<span class="'+(fx.entra<0?"dgood":"dbad")+'">'+(fx.entra>=90?"No entras":"Entras "+(fx.entra<0?Math.abs(fx.entra)+"′ antes":fx.entra+"′ después"))+'</span>');
+  if(fx.fin) partes.push('<span class="dbad">Te retiras del campo</span>');
+  /* claves no contempladas: se muestran igual, para no ocultar contenido nuevo */
+  Object.keys(fx).forEach(function(k){
+    if(["inst","ta","roja","lesion","own","opp","nota","mis","mor","fin","afin","afinCon","entra","disc","ego","temp","comp","lid","res"].indexOf(k)<0){
+      partes.push('<span class="dneu">'+esc(k)+': '+esc(JSON.stringify(fx[k]))+'</span>');
+    }
+  });
+  if(o.skill){ var _sk=SKILLS.filter(function(x){return x.id===o.skill;})[0]; if(_sk) partes.push('<span class="dneu">★ '+esc(_sk.n)+'</span>'); }
+  var D=probDesenlaces(o);
+  var filas=[
+    {k:"ok",  ic:"✔", cl:"dgood", tx:o.ok},
+    {k:"mid", ic:"–", cl:"dneu",  tx:o.mid},
+    {k:"ko",  ic:"✘", cl:"dbad",  tx:o.ko}
+  ].map(function(f){
+    var pts=deltaNota(o,f.k);
+    return '<div class="dsal"><span class="'+f.cl+'">'+f.ic+' '+pc(D[f.k])+'</span>'
+      +'<span class="dpts '+(pts>0?"dgood":pts<0?"dbad":"dneu")+'">'+(pts>=0?"+":"")+pts.toFixed(2)+' pts</span>'
+      +'<span class="dtx">'+esc(f.tx||"—")+'</span></div>';
+  }).join("");
+  var _E2=probsEfectivas(o), _hb2=((_E2.gol||0)+(_E2.asis||0)+(_E2.parada||0))>0;
+  var esperado=D.ok*deltaNota(o,"ok",_hb2)+D.mid*deltaNota(o,"mid")+D.ko*deltaNota(o,"ko");
+  return '<div class="dbg">'+(partes.join("")||'<span class="dneu">sin sucesos mecánicos</span>')
+    +'<div class="dsals">'+filas+'</div>'
+    +'<div class="desp">valor esperado <b class="'+(esperado>0?"dgood":"dbad")+'">'+(esperado>=0?"+":"")+esperado.toFixed(2)+' pts</b>'
+    +(D.sinMecanica?' · desenlace narrativo':'')+'</div></div>';
+}
+function dbgEstado(sit){
+  if(!dbgOn()) return "";
+  var l=[];
+  l.push("sit: "+(sit?sit.id||"—":"—")+" · fase: "+(M.faseAct||M.fase));
+  l.push("tramo "+M.tramo+"/6 · min "+M.min+" · en campo: "+(M.enCampo?"sí":"no"));
+  l.push("λ tramo → tú "+ (M.lam[0]*M.modOwn/6).toFixed(2) +" · rival "+ (M.lam[1]*M.modOpp/6).toFixed(2));
+  l.push("modOwn "+M.modOwn.toFixed(3)+" · modOpp "+M.modOpp.toFixed(3)+" · ΔElo "+Math.round(M.dElo));
+  l.push("interior (solo decisiones) "+M.nota.toFixed(2)+" · valoración proyectada "+notaDelPartido().toFixed(2)+" · G"+M.miGol+" A"+M.miAsis+" P"+M.paradas+" 🟨"+M.miTA+" 🟥"+M.miTR);
+  l.push("rol "+rolAct().n+" → gol ×"+rf("gol")+" asis ×"+rf("asis")+" tarjeta ×"+rf("tarjeta")+" parada ×"+rf("parada"));
+  if(S && (S.pos==="EXT"||S.pos==="LAT")) l.push("lateralidad ("+bandaMia().replace("banda","banda ")+") → centro ×"+mPierna("asis",{l:"centro al área",ok:""}).toFixed(2)+" · recorte-disparo ×"+mPierna("gol",{l:"recortar y disparar",ok:""}).toFixed(2)+(enBanda()?"":" (fuera de banda: ×1)"));
+  l.push("ocasiones de gol este partido: "+(M.ocasiones||0)+"/"+(M.tope===undefined?"?":M.tope));
+  return '<div class="dbgstate">'+l.map(esc).join("<br>")+'</div>';
+}
+function dbgResultado(){
+  if(!dbgOn() || !DBGLOG.length) return "";
+  return '<div class="dbgstate">tiradas: '+DBGLOG.map(esc).join(" · ")+'</div>';
+}
+function toggleDebug(){ if(!S) return; S.debug=!S.debug; guardar(); renderHub(); }
+/* las mismas fórmulas del resolutor, con nombre: quien las quiera leer, lee la verdad */
+function pSaleBien(arriesgado){
+  return arriesgado? clamp(0.55*(0.7+atr("MEN")/200)*(1.25-eje("temperamento")/220), 0.18, 0.75)
+                   : clamp(0.45*(0.7+atr("MEN")/200), 0.18, 0.70);
+}
+function pTrabajoBien(iD){
+  var pBase = (iD&&iD.golR>0) ? clamp(0.72-iD.golR*1.6, 0.30, 0.72) : 0.42;
+  var mAtr = (S.pos==="POR")? (0.72+atr("POR")/190)
+           : (["DFC","LAT","MCD"].indexOf(S.pos)>=0)? (0.72+atr("DEF")/190)
+           : (0.72+(atr("TAC")*0.6+atr("TEC")*0.4)/190);
+  return clamp(pBase*mAtr, 0.15, 0.82);
+}
+/* ---- la lectura de la jugada: qué opción es la buena, según el motor de verdad ---- */
+function pOkDe(o){
+  var fx=o.fx||{}, iD=fx.inst||{};
+  var D=probDesenlaces(o), ok=D.ok;
+  var constructivo=(iD.golR>0)||(fx.opp&&fx.opp<0.985)||(fx.own&&fx.own>1.015);
+  var arriesgado=(fx.ta>0)||(fx.roja>0)||(fx.lesion>0);
+  var social=(fx.mis>0)||(fx.afin>0);
+  if(o.ok && !D.sinMecanica){
+    var pX=constructivo? pTrabajoBien(iD):(arriesgado||social)? pSaleBien(arriesgado):0;
+    if(pX>0) ok+=D.mid*pX;
+  }
+  return clamp(ok,0,1);
+}
+function scoreOpcion(o){
+  /* esperanza de valoración: desenlaces del motor × deltaNota + los bonos de la fórmula final − los costes */
+  var fx=o.fx||{}, iD=fx.inst||{};
+  var E=probsEfectivas(o), D=probDesenlaces(o);
+  var ok=D.ok, mid=D.mid, ko=D.ko;
+  /* el bloque «acierto sin gol» del resolutor: mueve masa neutra hacia el acierto */
+  var constructivo = (iD.golR>0) || (fx.opp && fx.opp<0.985) || (fx.own && fx.own>1.015);
+  var arriesgado = (fx.ta>0) || (fx.roja>0) || (fx.lesion>0);
+  var social = (fx.mis>0) || (fx.afin>0);
+  if(o.ok && !D.sinMecanica){
+    var pX = constructivo? pTrabajoBien(iD) : (arriesgado||social)? pSaleBien(arriesgado) : 0;
+    if(pX>0){ var shift=mid*pX; ok+=shift; mid-=shift; }
+  }
+  var _EE=probsEfectivas(o), _hayBuena=((_EE.gol||0)+(_EE.asis||0)+(_EE.parada||0))>0;
+  var e = ok*deltaNota(o,"ok",_hayBuena) + mid*deltaNota(o,"mid") + ko*deltaNota(o,"ko")
+        + (E.golCuenta!==undefined? E.golCuenta:E.gol)*0.55
+        + (E.asisCuenta!==undefined? E.asisCuenta:E.asis)*0.35
+        + ((S&&S.pos==="POR")? (E.parada||0)*0.3 : 0)
+        - (E.ta||0)*0.15
+        - (fx.roja? clamp(fx.roja,0,1)*1.1 : 0)
+        - (E.golR||0)*0.40
+        - (E.lesion||probOpc(o,"lesion")||0)*0.25;
+  return e;
+}
+/* el léxico de la lectura: cada concepto de acción, su regex sobre las palabras REALES de la opción,
+   y las condiciones de mundo que lo favorecen. La pista nace del texto de la mejor opción: encaja por construcción. */
+var PISTAS_ON=true;
+var PISTA_LEX=[
+ {id:"portero-duelo", re:/taparle todo el arco|achicar el remate|estudiar su carrera|quedarte en línea|salir a por|manos firmes|bloca/i,
+  cue:["con el cruzado cantado","leyéndole el apoyo","con su carrera larga"]},
+ {id:"remate", re:/remat|dispar|tiro|chut|fusil|de primeras|primer palo|fuerte y arriba|cruzado|empeine|rosca/i,
+  cue:["con hueco al palo","con el meta adelantado","con la portería grande"]},
+ {id:"cesion", re:/céde|ceder|cedé|dásela|se la das|apoyo|descarga|que llega solo|pase corto|filtra|asistir/i,
+  cue:["con un apoyo libre","con alguien llegando solo","con la mano levantada"]},
+ {id:"centro", re:/centro|cuelga|colgar|línea de cal|al área|banda a banda|segundo palo/i,
+  cue:["con el segundo palo solo","con el área ganada","sin nadie doblando"]},
+ {id:"conduccion", re:/conduc|romper líneas|irte de|regate|caño|encara|desbord|salir andando|avanzar con/i,
+  cue:["con césped por delante","con la vía libre","sin nadie saltando"]},
+ {id:"salida", re:/salir jugando|por dentro|como un central|desde atrás|salida limpia/i,
+  cue:["con el interior libre","con su presión ciega"]},
+ {id:"saque-largo", re:/saque en largo|en largo|al espacio|balón largo/i,
+  cue:["con la espalda regalada","con tu punta lanzado"]},
+ {id:"despeje", re:/despej|a córner|a la grada|sin arriesgar|patadón|fuera de peligro/i,
+  cue:["con el bote traidor","sin jugada limpia","con el área ardiendo"]},
+ {id:"anticipo", re:/anticip|robo|robar|quitársela|leerlo antes|cortar el pase|al cruce/i,
+  cue:["con medio segundo dormido","con enseñando el balón","con de espaldas y ciego"]},
+ {id:"contencion", re:/achicar|esperar|de pie|no entrar|darle un metro|colocarte|acompañar|aguanta|frena|bajar el ritmo|pararla|temporiza|sin hacer falta/i,
+  cue:["con amagando antes de tiempo","con el reloj aliado","con buscando tu mordida"]},
+ {id:"falta-tactica", re:/derriba|agarra|hacer falta|cortar con falta|freno de mano/i,
+  cue:["con el árbitro tapado","con lejos de tu área"]},
+ {id:"mando", re:/mandar|gritos|colocar a cada uno|reunirlos|echarte el equipo|saltar el primero|levantarlo|tirar del grupo/i,
+  cue:["con el grupo mirándote","con buscando una voz"]},
+ {id:"calma-social", re:/separar y calmar|callarles|apaciguar|poner paz|bajar la temperatura/i,
+  cue:["con la mecha corta","con al borde del lío"]},
+ {id:"amparo", re:/pedirle al árbitro|que lo controle|pide protección/i,
+  cue:["con el árbitro avisando","con buscándote la mirada"]},
+ {id:"protesta", re:/protestar|encararte con el árbitro|reclamar/i,
+  cue:["con el colegiado dudando"]},
+ {id:"implicacion", re:/pedir la bola|implicado|bajar a recibir|participar|pedir más a la grada|hacerte ver/i,
+  cue:["con lejos de tu órbita","con la grada esperando"]},
+ {id:"obediencia", re:/exactamente como él quiere|lo que pide el míster|a la primera|sin rechistar/i,
+  cue:["con su mirada clavada","sin sitio para enmiendas"]},
+ {id:"instinto", re:/talento|improvisar|inventar|instinto/i,
+  cue:["con el guion roto","a puro instinto"]},
+ {id:"esfuerzo", re:/apretar los dientes|cabeza baja|correr como si|correr por todos|predicar con el ejemplo|trabajar|sacrificio/i,
+  cue:["a base de piernas","sin preguntar al cuerpo"]},
+ {id:"marcaje", re:/pegarte a él|barrer todo|entrar con todo|que sepa a lo que juegas|marcarlo en corto|no darle un metro/i,
+  cue:["con pegado a su bota","con su control largo"]},
+ {id:"picardia", re:/calentarle|hablarle antes|sonreírle|picar al rival|provocar/i,
+  cue:["con su fusible corto","con respirando corto él"]},
+ {id:"responsabilidad", re:/tirarla tú|asumir|dar la cara|tragar y pedir/i,
+  cue:["con miradas al suelo","con las piernas firmes"]},
+ {id:"insistencia", re:/seguir atacando|la tuya llegará|insistir|volver a intentarlo/i,
+  cue:["con su central fundido","con el espacio abriéndose"]},
+ {id:"comunicacion", re:/hablar en corto|con tu central|dar una orden|ajustar con/i,
+  cue:["con tu pareja buscándote"]},
+ {id:"celebracion", re:/celebrarlo|con la grada|festejar/i,
+  cue:["con grada a punto"]},
+ {id:"pared", re:/pared|toca y va|uno-dos/i,
+  cue:["leyéndote la intención"]}
+];
+var STOP_PISTA={"que":1,"con":1,"para":1,"como":1,"los":1,"las":1,"una":1,"del":1,"sin":1,"por":1,"hasta":1,"antes":1,"todos":1,"nada":1,"bien":1,"todo":1};
+/* la pista es un INCISO de 2-4 palabras dentro de una oración real de la escena */
+function planPista(txt){
+  return { cue:txt, semilla:Math.floor(rnd()*997) };
+}
+function tejerPista(xTxt, plan){
+  var oraciones=String(xTxt).split(/(?<=[.!?…])\s+/).filter(function(s){return s.length;});
+  if(!oraciones.length) oraciones=[String(xTxt)];
+  var n=oraciones.length, idx=plan.semilla % n;
+  var span='<span class="pista">'+esc(plan.cue)+'</span>';
+  return oraciones.map(function(o,i){
+    if(i!==idx) return esc(o);
+    var m=o.match(/^([\s\S]*?)([.!?…]+)$/);
+    var cuerpo=m? m[1]:o, fin=m? m[2]:".";
+    /* si la oración tiene coma interna, el inciso entra tras la primera coma; si no, antes del punto */
+    var k=cuerpo.indexOf(", ");
+    if(k>6 && (plan.semilla%2===0)) return esc(cuerpo.slice(0,k+2))+span+", "+esc(cuerpo.slice(k+2))+fin;
+    return esc(cuerpo)+", "+span+fin;
+  }).join(" ");
+}
+function pistaDe(sit){
+  if(!sit || !sit.o || !sit.o.length) return null;
+  var mejor=-1, sc=-1e9;
+  var ids=(M.sitOpcId===sit.id && M.sitOpc)? M.sitOpc : sit.o.map(function(_,k){ return k; });
+  for(var k=0;k<ids.length;k++){ var i=ids[k];
+    if(sit.o[i].cond && !sit.o[i].cond(M)) continue;
+    var s2=scoreOpcion(sit.o[i]);
+    if(s2>sc){ sc=s2; mejor=i; }
+  }
+  if(mejor<0) return null;
+  var o=sit.o[mejor], texto=((o.l||"")+" "+(o.ok||""));
+  var kwP=(o.l||"").toLowerCase().replace(/[^a-záéíóúüñ ]/g,"").split(" ")
+    .filter(function(w){ return w.length>4 && !STOP_PISTA[w]; })
+    .sort(function(a,b){ return b.length-a.length; })[0];
+  var dura=pOkDe(o)<0.40;
+  for(var c=0;c<PISTA_LEX.length;c++){
+    if(PISTA_LEX[c].re.test(texto)){
+      return { oi:mejor, cid:PISTA_LEX[c].id, kw:kwP||null, dura:dura, txt:pick(PISTA_LEX[c].cue) };
+    }
+  }
+  /* sin concepto: la pista incrusta la palabra de la propia opción — encaja siempre */
+  var kw=(o.l||"").toLowerCase().replace(/[^a-záéíóúüñ ]/g,"").split(" ")
+    .filter(function(w){ return w.length>4 && !STOP_PISTA[w]; })
+    .sort(function(a,b){ return b.length-a.length; })[0];
+  if(!kw) return null;
+  return { oi:mejor, cid:"eco", kw:kw, dura:dura, txt:"oliendo a "+kw };
+}
+function elegirOpcion(i){
+  pararReloj();
+  if(!M || !M.sitAct || !M.sitAct.o || !M.sitAct.o[i]) return;   /* doble toque o llamada huérfana */
+  var sit=M.sitAct, o=sit.o[i];
+  if(M.sitOpcId===sit.id && M.sitOpc && M.sitOpc.indexOf(i)<0) return;   /* opción no mostrada en esta situación */
+  if(o.cond && !o.cond(M)) return;
+  var txt="", cls="mid";
+  DBGLOG=[];
+  M._gAntes=M.miGol||0; M._gcAntes=M.sc[1]; M._taAntes=M.miTA;
+  /* en el vestuario o en el banquillo no rueda el balón: ningún suceso de juego */
+  var fueraDelCampo = (M.faseAct==="previa"||M.faseAct==="descanso"||M.faseAct==="post"||M.faseAct==="banquillo"||!M.enCampo);
+  if(fueraDelCampo && o.fx){
+    var lim={};
+    for(var kk in o.fx){ if(["inst","ta","roja","lesion"].indexOf(kk)<0) lim[kk]=o.fx[kk]; }
+    o={l:o.l, fx:lim, ok:o.ok, mid:o.mid, ko:o.ko, cond:o.cond, skill:o.skill, pers:o.pers, rx:o.rx};
+  }
+  /* instantáneos */
+  var inst=o.fx.inst||{};
+  var pasoAlgo=false, huboMal=false;
+  /* --- 1) tarjetas primero: la narración debe poder contarlas --- */
+  var pTA = probOpc(o,"ta");
+  var salioTA=false;
+  var _r;
+  if(pTA && (_r=rnd())<pTA){
+    DBGLOG.push("ta "+_r.toFixed(2)+"<"+pTA.toFixed(2)+" ✔");
+    salioTA=true;
+    if(M.miTA){          /* ...pero si la saca, es la segunda y no hay discusión */
+      M.miTR=1; M.rojaPropia=true; M.modOwn*=0.82; M.modOpp*=1.16; M.finAnticipado=true;
+      S.sancion=2; S._castJor=jorAbs();
+      regTarjeta(S.nombre,true,true);
+      tocarEje("disciplina",-7); tocarEje("temperamento", 4);
+      pushFlash({tipo:"roja", txt:"Doble amarilla. El árbitro junta las manos y señala el túnel: no hay nada que hablar."});
+      M.eventos.push("🟥 Expulsado en el "+M.min+"′ por doble amarilla.");
+    } else {
+      M.miTA=1; regTarjeta(S.nombre,false,true); tocarEje("temperamento", 2.2);
+      pushFlash({tipo:"ta", txt:pick(["El árbitro anota tu dorsal sin escuchar explicaciones.","Cartulina al aire y tu nombre en la libreta.","Amarilla sin discusión posible. A medir de aquí al final."])});
+      M.eventos.push("🟨 Amarilla en el "+M.min+"′.");
+    }
+    huboMal=true;
+  } else if(pTA){ DBGLOG.push("ta no ("+pTA.toFixed(2)+")"); }
+  if(probOpc(o,"roja") && rnd()<probOpc(o,"roja")){
+    DBGLOG.push("roja ✔");
+    M.miTR=1; M.rojaPropia=true; M.modOwn*=0.82; M.modOpp*=1.16; M.finAnticipado=true;
+    S.sancion=2; S._castJor=jorAbs();
+    pushFlash({tipo:"roja", txt:"Roja directa. Ocasión manifiesta de gol y el colegiado no duda."});
+    M.eventos.push("🟥 Roja directa en el "+M.min+"′.");
+    huboMal=true; pasoAlgo=true;
+  }
+  /* --- 2) sucesos del balón --- */
+  var logroReal=false;
+  if(probOpc(o,"gol") && rnd()<probOpc(o,"gol")){ DBGLOG.push("gol ✔ ("+pc(probOpc(o,"gol"))+")");
+    if(anotarGol(true,"yo")){ M.miGol=(M.miGol||0)+1; pasoAlgo=true; cls="ok"; logroReal=true; }
+    else { pasoAlgo=true; cls="mid"; DBGLOG.push("…anulado por el VAR"); } }
+  else if(probOpc(o,"asis") && rnd()<probOpc(o,"asis")){ DBGLOG.push("asistencia ✔");
+    if(anotarGol(true,"asis")){ M.miAsis=(M.miAsis||0)+1; pasoAlgo=true; cls="ok"; logroReal=true; }
+    else { pasoAlgo=true; cls="mid"; DBGLOG.push("…anulada por el VAR"); } }
+  else if(probOpc(o,"golR") && rnd()<probOpc(o,"golR")){ DBGLOG.push("gol rival ✔");
+    if(anotarGol(false,"rival")){ pasoAlgo=true; cls="ko"; huboMal=true; }
+    else { pasoAlgo=true; cls="mid"; DBGLOG.push("…su gol, anulado"); } }
+  else if(probOpc(o,"parada") && rnd()<probOpc(o,"parada")){ DBGLOG.push("parada ✔"); M.paradas=(M.paradas||0)+1; pasoAlgo=true; cls="ok"; logroReal=true; }
+  /* --- la ficha apunta lo que intentas, no solo lo que entra --- */
+  if(!fueraDelCampo){
+    var _pg=probOpc(o,"gol"), _pa=probOpc(o,"asis");
+    if(_pg>0){
+      S.yo.tiros=(S.yo.tiros||0)+1;
+      if((M.miGol||0)<=M._gAntes && _pg>=0.40) S.yo.claras=(S.yo.claras||0)+1;
+    }
+    if(_pa>0) S.yo.clave=(S.yo.clave||0)+1;
+    pintarZona(zonaDeSit(sit), 2);
+  }
+  /* --- 3) el texto SIEMPRE cuenta lo que de verdad ha pasado --- */
+  var tieneMecanica = !!(inst.gol||inst.asis||inst.golR||inst.parada||o.fx.ta||o.fx.roja);
+  /* ---- el acierto sin gol: defender, organizar, mandar ---- */
+  if(!pasoAlgo && !huboMal && o.ok){
+    var fxD=o.fx||{}, iD=fxD.inst||{};
+    var constructivo = (iD.golR>0) || (fxD.opp && fxD.opp<0.985) || (fxD.own && fxD.own>1.015);
+    /* salir indemne de una jugada arriesgada también es acertar */
+    var arriesgado = (fxD.ta>0) || (fxD.roja>0) || (fxD.lesion>0);
+    /* y ganarte al vestuario o al míster, también */
+    var social = (fxD.mis>0) || (fxD.afin>0);
+    if(!constructivo && (arriesgado || social)){
+      var pS=pSaleBien(arriesgado);
+      DBGLOG.push("te sale bien: "+pc(pS));
+      if(rnd()<pS){ cls="ok"; pasoAlgo=true; }
+    }
+    if(constructivo){
+      var pExito=pTrabajoBien(iD);
+      DBGLOG.push("trabajo bien hecho: "+pc(pExito));
+      if(rnd()<pExito){ cls="ok"; pasoAlgo=true; }
+    }
+  }
+  if(cls==="ok" && !huboMal){
+    if(o.ok){ txt=o.ok; }
+    else { txt=o.mid||""; cls="mid"; }   /* sin texto de acierto, no se anuncia acierto */
+  }
+  else if(huboMal){
+    if(o.ko){ txt=o.ko; cls="ko"; }
+    else { txt=o.mid||""; cls="mid"; }
+  }
+  else if(tieneMecanica){
+    if(o.mid){ txt=o.mid; cls="mid"; DBGLOG.push("sin suceso → neutro"); }
+    else { txt=o.ko||""; cls="ko"; DBGLOG.push("no salió → fracaso"); }
+  }   /* no pasó nada: nunca el texto del éxito ni el del fallo */
+  else {
+    var r=rnd();
+    if(r<0.34 && o.ok && !/GOL|ASISTEN|a la red|red se hincha|escuadra/i.test(o.ok)){ txt=o.ok; cls="ok"; }
+    else if(r>0.78 && o.ko){ txt=o.ko; cls="ko"; }
+    else { txt=o.mid||o.ok||o.ko||""; cls="mid"; }
+  }
+  if(o.fx && o.fx.penContra && cls!=="ok"){ if(anotarGol(false,"rival")){ huboMal=true; if(cls==="mid") cls="ko"; } }
+  /* lesión propia */
+  if(probOpc(o,"lesion") && rnd()<probOpc(o,"lesion")){ M.miLesion=1+Math.floor(rnd()*3); M.finAnticipado=true;
+    pushFlash({tipo:"lesion", semanas:M.miLesion, txt:pick(["Te llevas la mano al isquio y te dejas caer. No hace falta preguntar.","El gesto lo dice todo: pides el cambio sin mirar al banquillo.","Intentas seguir dos zancadas y te paras en seco."])});
+    M.eventos.push("🚑 Lesión en el "+M.min+"′."); }
+  if(o.fx.fin && !M.miLesion){ M.finAnticipado=true;
+    regEvento("cambio", S.nombre, true, "", "sales");
+    pushFlash({tipo:"sub-out", txt:"Pides el cambio por precaución. Mejor perder un partido que perder un mes."});
+    M.eventos.push("🔁 Cambio en el "+M.min+"′."); }
+  /* valoración personal: solo el césped puntúa; el vestuario mueve estado, no nota */
+  var _dn=fueraDelCampo? 0 : deltaNota(o, cls, logroReal);
+  M._dnUlt=fueraDelCampo? null : Math.round(_dn*100)/100;
+  M.nota += _dn;
+  tocaNotaMax();
+  regDec(o, sit, cls, _dn, fueraDelCampo, i, logroReal);
+  /* modificadores del resto del partido */
+  if(o.fx.own) M.modOwn*= (o.fx.own>1? 1+(o.fx.own-1)*mLider() : o.fx.own);
+  if(o.fx.opp) M.modOpp*=o.fx.opp;
+  M.modOwn=clamp(M.modOwn,0.6,1.4); M.modOpp=clamp(M.modOpp,0.65,1.55);
+  if(o.fx.mor) M.morDelta+=o.fx.mor;
+  if(o.fx.entra!==undefined && !M.enCampo && !M.yaJugado){
+    /* ¿queda partido para que te dé tiempo a entrar? */
+    var margenReal = (M.tramo<=3);
+    if(o.fx.entra>=90){
+      M.entraEn=null; M.noEntra=true;
+      pushFlash({tipo:"banca", mal:true, tit:"HOY NO JUEGAS",
+        txt:"El míster ni se gira. El cuarto árbitro guarda el cartel y tú vuelves a sentarte."});
+    } else if(M.entraEn!==null && M.entraEn!==undefined){
+      var antesE=M.entraEn;
+      M.entraEn=Math.max(M.min+2, Math.min(88, M.entraEn+o.fx.entra));
+      var gan=antesE-M.entraEn;
+      var acierto=(cls==="ok" && o.fx.entra<0);
+      if(acierto && margenReal && !M.prometido){
+        /* promesa firme: si sale este mensaje, entras SÍ O SÍ */
+        M.prometido=true;
+        M.entraEn=Math.min(75, Math.max(M.min+2, (M.tramo+1)*15));
+        M.entraSeguro=true;
+        pushFlash({tipo:"banca", tit:"TE LLAMAN",
+          txt:"Funciona. El segundo cruza la banda, le dice algo al oído al míster y el míster te busca con la mirada. Cógete el chándal."});
+      } else if(acierto && !margenReal){
+        /* tenías razón, pero ya no hay partido para ti */
+        pushFlash({tipo:"banca", mal:true, tit:"DEMASIADO TARDE",
+          txt:"El segundo te da la razón… y mira el reloj. Quedan cuatro minutos. Hoy ya no sales, pero esto queda anotado para el domingo."});
+        S.mister=clamp(S.mister+2,5,95);
+      } else if(gan>0 && margenReal){
+        pushFlash({tipo:"banca", tit:"ALGO SE MUEVE",
+          txt:"No es un sí, pero el segundo asiente y vuelve a la banda mirándote de reojo. Has adelantado terreno."});
+      } else if(gan>0 && !margenReal){
+        pushFlash({tipo:"banca", mal:true, tit:"YA NO DA TIEMPO",
+          txt:"Te escuchan, pero el partido se acaba. Lo que has ganado hoy lo cobrarás otro día."});
+      } else if(gan<0){
+        pushFlash({tipo:"banca", mal:true, tit:"MAL MOMENTO",
+          txt:"El míster escucha, aprieta la mandíbula y se da la vuelta. Acabas de alejarte del campo."});
+      } else {
+        pushFlash({tipo:"banca", tit:"SIN NOVEDAD",
+          txt:"Asiente sin comprometerse y vuelve a lo suyo. Ni ganas ni pierdes."});
+      }
+    } else {
+      /* ni siquiera estabas en la lista de cambios */
+      pushFlash({tipo:"banca", mal:true, tit:"NO ENTRA EN LOS PLANES",
+        txt:"Te escucha por educación. Hoy el míster ya ha decidido sin contar contigo."});
+    }
+  }
+  if(o.fx.mis && !M.enCampo && !M.yaJugado && !hayFlash()){
+    var hayMargen=(M.tramo<=3);
+    pushFlash({tipo:"banca", mal:(o.fx.mis<0), tit:(o.fx.mis>0?(hayMargen?"TOMA NOTA":"PARA LA PRÓXIMA"):"LE HA SENTADO MAL"),
+      txt:(o.fx.mis>0? (hayMargen? "El segundo se lo traslada al míster tal cual. En el banquillo se cotiza al alza."
+                                 : "Toma nota, pero el partido está sentenciado. Esto cuenta para el domingo que viene.")
+                     : "Tu frase corre por el banquillo antes de que acabes de decirla. Y no cae bien.")});
+  }
+  if(o.fx.temp){ tocarEje("temperamento", o.fx.temp); DBGLOG.push("temperamento "+sgn(o.fx.temp)); }
+  if(o.fx.comp){ tocarEje("companerismo", o.fx.comp); DBGLOG.push("compañerismo "+sgn(o.fx.comp)); }
+  if(o.fx.lid){ tocarEje("liderazgo", o.fx.lid); DBGLOG.push("liderazgo "+sgn(o.fx.lid)); }
+  if(o.fx.res){ tocarEje("resiliencia", o.fx.res); DBGLOG.push("resiliencia "+sgn(o.fx.res)); }
+  /* deducciones: lo que haces te define aunque no lleve etiqueta */
+  /* elegir la vía dura te define un poco, aunque no te pillen */
+  if(o.fx.ta && !o.fx.temp) tocarEje("temperamento", 0.9);
+  if(o.fx.afin>0 && !o.fx.comp) tocarEje("companerismo", 2.2);
+  if(o.fx.afin<0 && !o.fx.comp) tocarEje("companerismo", -2.6);
+  if((o.fx.inst||{}).asis && !o.fx.comp) tocarEje("companerismo", 1.2);
+  /* quien busca el gol para sí alimenta el ego; quien da el pase, lo baja */
+  if(!o.fx.ego){
+    var iE=o.fx.inst||{};
+    if(iE.gol>=0.15) tocarEje("ego", 2.4);
+    if(iE.asis>=0.12) tocarEje("ego", -1.1);
+    if(o.fx.own>=1.05) tocarEje("ego", -0.55);
+    if(o.fx.nota>=3 && !iE.asis) tocarEje("ego", 1.1);
+  }
+  if(o.fx.disc){ tocarEje("disciplina", o.fx.disc); DBGLOG.push("disciplina "+sgn(o.fx.disc)); }
+  if(o.fx.ego){ tocarEje("ego", o.fx.ego); DBGLOG.push("ego "+sgn(o.fx.ego)); }
+  /* lo que no lleva etiqueta también dice quién eres */
+  if(o.fx.mis && !o.fx.disc) tocarEje("disciplina", o.fx.mis>0? 1.4 : -2.6);
+  if(o.fx.afin){ var cAf=tocarAfin(o.fx.afinCon||null, o.fx.afin); if(cAf) DBGLOG.push("afinidad "+cAf.n+" "+sgn(o.fx.afin)); }
+  if(o.fx.afin) tocarEje("ego", o.fx.afin>0? -1.2 : 1.5);
+  if(o.fx.mis){
+    var m=o.fx.mis;
+    if(m<0) m *= 0.65*(1 + Math.min(1.2, Math.min(S.desafios||0,4)*0.15));  /* el míster no olvida, pero tampoco exagera */
+    M.misDelta=(M.misDelta||0)+m;
+    if(o.fx.mis<0) M.desafio=true;
+  }
+  if(txt && cls==="ko" && o.fx.mor===undefined) M.morDelta-=0.3;
+  /* qué ha cambiado de verdad, para que se vea */
+  var efe=[];
+  var fx=o.fx||{};
+  if(cls!=="ko"){
+    if(fx.own && fx.own!==1) efe.push({t:"equipo "+(fx.own>1?"+":"")+Math.round((fx.own-1)*100)+"%", b:fx.own>1});
+    if(fx.opp && fx.opp!==1) efe.push({t:"rival "+(fx.opp>1?"+":"")+Math.round((fx.opp-1)*100)+"%", b:fx.opp<1});
+  }
+  if(fx.mis) efe.push({t:"míster "+sgn(fx.mis), b:fx.mis>0});
+  if(fx.afin) efe.push({t:"vestuario "+sgn(fx.afin), b:fx.afin>0});
+  if(fx.entra!==undefined && fx.entra<90 && !M.enCampo) efe.push({t:(fx.entra<0? "entras "+Math.abs(fx.entra)+"′ antes":"entras "+fx.entra+"′ después"), b:fx.entra<0});
+  if(M.cambiosCar && M.cambiosCar.length) M.cambiosCar.forEach(function(c){ efe.push({t:c.t, b:c.b, car:true}); });
+  M.cambiosCar=[];
+  /* ¿el acierto ha salido gratis? */
+  var precio = (fx.mis<0) || (fx.afin<0) || huboMal || (fx.opp&&fx.opp>1.02) || (M.miTA>(M._taAntes||0));
+  var premio = (fx.mis>0) || (fx.own&&fx.own>1.02) || (fx.afin>0);
+  var matiz = (cls==="ok" && precio)? "okpeaje" : (cls==="ko" && premio)? "kopremio" : cls;
+  var etiqueta=(typeof o.l==="function"? o.l():o.l);
+  M.decisiones=M.decisiones||[];
+  M.decisiones.push({min:(M.faseAct==="previa"?0:M.min), l:etiqueta, txt:txt||"—", cls:cls, matiz:matiz, efe:efe, dn:M._dnUlt});
+  M.log={l:etiqueta, txt:txt, cls:cls, matiz:matiz, efe:efe, dn:M._dnUlt};
+  var quePaso = cls==="ok" && M.miGol>(M._gAntes||0)? "gol"
+    : (M.sc[1]>(M._gcAntes||0)? "golR" : (M.miTA&&!M._taAntes? "ta" : null));
+  M.ecoPend = ecosDe(o, quePaso, cls).slice(0,2);
+  M.ultimaDec = etiqueta;
+  if(M.faseAct==="juego") M.decHechas++;
+  if(M.faseAct==="post"){ M.fase="cierre"; M.postTxt=txt; M.postDec=etiqueta; M.postAviso=avisoDecHTML({dec:etiqueta, t:txt||"—", cls:cls, matiz:matiz}); renderCierre(); return; }
+  M.fase="juego";
+  /* si la decisión provoca gol, tarjeta, lesión o VAR, esa pantalla va PRIMERO:
+     nada de narrar tres frases antes de enseñar lo que acaba de pasar */
+  if(hayFlash()){
+    M.flash[0].deTuDecision=etiqueta;
+    M.flash[0].txt=M.flash[0].txt||txt;
+    /* la línea de la decisión se conserva: tras el flash se narra con su caja de aviso */
+    renderFlashSiguiente();
+    return;
+  }
+  renderMatch(null, true);
+}
+function finPartido(){
+  if(!M) return;
+  M.min=90+Math.floor(rnd()*5);
+  var res=M.sc[0]-M.sc[1];
+  /* a los micrófonos solo va quien ha acabado el partido en el campo:
+     si te cambian, te expulsan o no juegas, no das la cara al final */
+  var puedeHablar = M.enCampo && !M.finAnticipado && !M.miTR && M.minJugados>=25;
+  if(puedeHablar && (M.conPost || Math.abs(res)>=3) && !M.postHecho){
+    M.postHecho=true;
+    M.fase="post";
+    mostrarSituacion(postPartido(M,res), "post");
+    return;
+  }
+  M.fase="cierre";
+  renderCierre();
+}
+function trayectoriaNota(){
+  if(M && M.prueba) return "";
+  var DD=(M.dec||[]).map(decObj).filter(function(d){ return (d.d/100)!==0; });
+  if(!DD.length) return "";
+  var ult=DD.slice(-8), resto=DD.slice(0,-8);
+  var restoSum=0; resto.forEach(function(d){ restoSum+=(d.d/100); });
+  function etiq(d){
+    var sit=sitPorId(d.s);
+    var o=sit && sit.o && sit.o[d.oi];
+    var l=(o && o.l) || (d.k==="x"? "indecisión" : d.s || "");
+    l=String(l); if(l.length>26) l=l.slice(0,25)+"…";
+    return l;
+  }
+  var H3='<div class="mline" style="margin-top:10px"><span>Cómo se movió</span></div>';
+  ult.slice().reverse().forEach(function(d){
+    var v=(d.d/100);
+    H3+='<div class="row2" style="font-size:12px"><span><b class="mono">'+(d.m>90?"90+"+(d.m-90):d.m)+'′</b> '+esc(etiq(d))+'</span>'
+      +'<b style="color:'+(v>0?"var(--ok)":"var(--bad)")+'">'+(v>0?"+":"")+v.toFixed(2)+'</b></div>';
+  });
+  if(resto.length) H3+='<div class="row2" style="font-size:12px"><span>'+resto.length+' jugadas anteriores</span>'
+    +'<b style="color:'+(restoSum>=0?"var(--ok)":"var(--bad)")+'">'+(restoSum>0?"+":"")+restoSum.toFixed(2)+'</b></div>';
+  return H3;
+}
+function trozosNota(){   /* los mismos sumandos de la fórmula, desde la fuente única */
+  if(M && M.prueba) return [];   /* el amistoso puntúa con su propia vara: sin anatomía de liga */
+  var C=notaComponentes(), T=[];
+  T.push(["decisiones", (M.ajVes!==undefined)? Math.round((C.interior-C.vestuario)*100)/100 : C.interior]);
+  if(C.vestuario) T.push(["vestuario", C.vestuario]);
+  if(C.resultado) T.push([C.resultado>0? "vais ganando":"vais perdiendo", C.resultado]);
+  if(C.goles) T.push([M.miGol>1? M.miGol+" goles":"tu gol", C.goles]);
+  if(C.asistencias) T.push([M.miAsis>1? "asistencias":"tu asistencia", C.asistencias]);
+  if(C.paradas && S.pos==="POR") T.push(["paradas", C.paradas]);
+  if(C.bonusDef) T.push(["cierre defensivo", C.bonusDef]);
+  if(C.amarillas) T.push(["amarilla", C.amarillas]);
+  if(C.expulsion) T.push(["expulsión", C.expulsion]);
+  return T;
+}
+function notaComponentes(){
+  var _def=(S.pos==="POR"||S.pos==="DFC"||S.pos==="LAT"||S.pos==="MCD"), _bd=0;
+  if(_def){
+    if(M.sc[1]===0) _bd+=(S.pos==="POR"?1.5:0.85);
+    else if(M.sc[1]===1) _bd+=(S.pos==="POR"?0.45:0.25);
+    else if(M.sc[1]>=4) _bd-=(S.pos==="POR"?0.6:0.45);
+    if(S.pos==="POR") _bd+=M.paradas*0.7;
+  }
+  var _r=M.sc[0]-M.sc[1];
+  /* términos CRUDOS: la única fuente no redondea; redondear es cosa de quien pinta */
+  var C={ interior:M.nota,
+          resultado:(_r>0?0.3:_r<0?-0.2:0),
+          goles:M.miGol*0.80,
+          asistencias:M.miAsis*0.55,
+          paradas:_def?0:M.paradas*0.45,
+          bonusDef:_bd,
+          expulsion:-(M.miTR*1.1),
+          amarillas:-(M.miTA*0.15),
+          vestuario:(M.ajVes!==undefined? M.ajVes : 0) };
+  var t=0; for(var k in C){ if(k!=="interior") t+=C[k]; }
+  C.total=clamp(C.interior - (M.ajVes!==undefined? C.vestuario:0) + t, 3, 10);
+  return C;
+}
+function notaBrutaLiga(){
+  return notaComponentes().total;
+}
+function notaDelPartido(){
+  if(M && M.prueba) return notaDePrueba();   /* en el amistoso, la única vara es la de prueba: en vivo y al cierre */
+  return notaBrutaLiga();
+}
+/* el resumen de tu actuación: frases con precondición sobre hechos reales del partido */
+function resumenActuacion(n){
+  var F=[];
+  var DD=(M.dec||[]).map(decObj);
+  var ind=DD.filter(function(d){return d.k==="x";}).length;
+  var clutchOk=DD.some(function(d){return /^clutch-/.test(d.s||"") && d.r==="ok";});
+  var clutchKo=DD.some(function(d){return /^clutch-/.test(d.s||"") && d.k==="t" && d.r==="ko";});
+  var golTarde=(M.goles||[]).some(function(g){return g.yo && (g.m||0)>=85;});
+  F.push(n>=8.3? "Partido para enmarcar." : n>=7.2? "Actuación seria, de las que suman." : n>=6.0? "Cumpliste sin brillar." : "Tarde para olvidar.");
+  if(golTarde) F.push("Apareciste en el descuento, que es cuando pesan los nombres.");
+  else if(clutchOk) F.push("El partido te buscó al final y respondiste.");
+  else if(clutchKo) F.push("Tuviste la última bala en la bota y se marchó.");
+  if(S.pos==="POR" && M.paradas>=3) F.push("Sostuviste al equipo con "+M.paradas+" paradas.");
+  if(M.miAsis && !M.miGol) F.push("Tu pase valió "+(M.miAsis>1?"goles":"un gol")+".");
+  if(ind>=2) F.push("Te comiste "+ind+" balones por dudar: eso también puntúa.");
+  if(M.miTR) F.push("La roja lo condicionó todo.");
+  else if(M.miTA && n<6.5) F.push("La amarilla te tuvo a medio gas.");
+  if(M.salidaMin && M.reaccionCambioVisto==="cansancio") F.push("Las piernas dijeron basta antes que tú.");
+  else if(M.salidaMin && n<5.9) F.push("El cambio fue lo más piadoso de tu tarde.");
+  return F.slice(0,3).join(" ");
+}
+function exportPartidoJSON(){
+  if(!M) return null;
+  var C=(M.yaJugado && M.minJugados>0)? notaComponentes() : null;
+  var sumaD=0; (M.dec||[]).map(decObj).forEach(function(d){ sumaD+=d.d/100; });
+  var out={ version:VERSION, jornada:(S.jornada||0)+1, rival:M.rival, casa:!!M.casa, sc:M.sc,
+    marcador45:M.est1||null, est:M.est||null,
+    yo:{ pos:S.pos, rol:S.rol, pierna:S.pierna, lado:S.lado||null, min:minutosAhora(),
+         gol:M.miGol||0, asis:M.miAsis||0, paradas:M.paradas||0, ta:M.miTA||0, tr:M.miTR||0,
+         notaFinal:M.notaFinal, notaMax:M.notaMax||null },
+    componentes:(function(){ if(!C) return null;
+      if(M.prueba) return { prueba:true, brutoLiga:Math.round(C.total*1000)/1000, total:Math.round(notaDePrueba()*1000)/1000 };
+      var R={}; for(var k in C) R[k]=Math.round(C[k]*1000)/1000; return R; })(),
+    sumaDeltasLibro:Math.round(sumaD*1000)/1000,
+    decisiones:(M.dec||[]).map(function(x){ var d=decObj(x); var sit=sitPorId(d.s); var o=sit&&sit.o&&sit.o[d.oi];
+      return { min:d.m, sit:d.s, opcion:(o&&o.l)||null, tipo:d.k, resultado:d.r, delta:Math.round(d.d)/100, zona:d.z||null, raw:x }; }),
+    goles:(M.goles||[]).map(function(g){ return {min:g.m, mio:!!g.mio, tuyo:!!g.yo, autor:g.a||g.autor||null, zona:g.z||null}; }),
+    crono:(M.crono||[]).map(function(e){ return {min:e.m, tipo:e.tipo, quien:e.n||null, mio:!!e.mio}; }),
+    libro:(M.libro||[]).map(function(l){ return [l[0], l[1], l[2]||null]; })
+  };
+  return JSON.stringify(out, null, 1);
+}
+function copiarPartidoJSON(){
+  var j=exportPartidoJSON(); if(!j) return;
+  function hecho(){ var b=$("btn-json"); if(b){ b.textContent="Copiado ✔"; setTimeout(function(){ var b2=$("btn-json"); if(b2) b2.textContent="Copiar JSON del partido"; }, 1600); } }
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(j).then(hecho, function(){ copiarFallback(j); hecho(); }); }
+    else { copiarFallback(j); hecho(); }
+  }catch(e){ copiarFallback(j); hecho(); }
+}
+function copiarFallback(t){
+  try{
+    var ta=document.createElement("textarea");
+    ta.value=t; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  }catch(e){}
+}
+function renderCierre(){
+  if(!M) return;
+  if(!M.cierreAbierto){ M.cierreAbierto=true; PANEL=0; }   /* la lista del cierre empieza en Resumen */
+  cancelarAuto(); if($("ov-match")) $("ov-match").onclick=null;
+  if(!M.prueba && M.ajVes===undefined && M.yaJugado && M.minJugados>0){
+    M.ajVes=Math.round(((afinMedia()-55)/45)*1000)/1000;   /* el vestuario pesa: aquí, a la vista, no después */
+    M.nota=clamp(M.nota+M.ajVes,1,10);
+  }
+  var n=M.prueba? notaDePrueba() : notaDelPartido(), res=M.sc[0]-M.sc[1];
+  var jugo = M.minJugados>0 && M.yaJugado;
+  M.notaFinal=jugo? Math.round(n*10)/10 : null;   /* la nota del cierre es UNA: orbe y pestaña Yo leen de aquí */
+  var _caida=(jugo && M.notaMax)? Math.round((M.notaMax.v-M.notaFinal)*10)/10 : 0;
+  var cuerpo="";
+  M.postTxt=null;   /* la sala de prensa ya hizo su trabajo en la mecánica: el resumen es tuyo y breve */
+  cuerpo+='<div class="mline"><span>'+(res>0?"Victoria":res<0?"Derrota":"Empate")+' '+M.sc[0]+"–"+M.sc[1]+'</span></div>';
+  if(jugo){
+    cuerpo+='<div style="position:relative;z-index:1">'+orbeHTML(n, POS[S.pos].n+(M.minJugados>=88?"":" · "+Math.max(0,Math.round(M.minJugados))+"′ jugados"))+'</div>';
+    if(n>=8.3) cuerpo+='<p class="fdor" style="text-align:center;margin:8px 0 0">★ Mejor jugador del partido</p>';
+  } else {
+    cuerpo+='<div class="tick" style="min-height:0"><p class="now" style="text-align:center">'
+      +esc(pick(["No has jugado ni un minuto. Noventa minutos de banquillo y frío.",
+                 "Te has quedado sin entrar. El calentamiento fue todo tu partido.",
+                 "Ni un segundo sobre el césped. Toca tragar y esperar a la próxima."]))+'</p></div>'
+      +'';
+  }
+  var linea=[];
+  if(M.miGol) linea.push(M.miGol+" gol"+(M.miGol>1?"es":""));
+  if(M.miAsis) linea.push(M.miAsis+" asistencia"+(M.miAsis>1?"s":""));
+  if(M.paradas) linea.push(M.paradas+" parada"+(M.paradas>1?"s":"")+" decisiva"+(M.paradas>1?"s":""));
+  if(M.miTA) linea.push("🟨");
+  if(M.miTR) linea.push("🟥 expulsado");
+  if(linea.length) cuerpo+='<p class="note" style="text-align:center;margin-top:10px">'+esc(linea.join(" · "))+'</p>';
+  if(jugo) cuerpo+='<p style="text-align:center;margin:10px 8px 0;font-size:13px;line-height:1.45">'+esc(resumenActuacion(n))+'</p>';
+  if(jugo && _caida>=0.5) cuerpo+='<p class="note" style="text-align:center;margin:8px 8px 0">Llegaste a estar en <b>'+M.notaMax.v.toFixed(1)+'</b> ('+M.notaMax.min+'′): el tramo final te costó <b style="color:var(--bad)">−'+_caida.toFixed(1)+'</b>. El detalle, jugada a jugada, en la pestaña Mi Perfil.</p>';
+  if(M.cicloCumplido) cuerpo+='<p class="note" style="text-align:center;margin-top:8px;padding:9px 11px;border-radius:12px;background:rgba(255,194,75,.12);color:var(--ink)">🟨 Quinta amarilla del ciclo: te pierdes la próxima jornada por sanción.</p>';
+  else if(M.miTR) cuerpo+='<p class="note" style="text-align:center;margin-top:8px;padding:9px 11px;border-radius:12px;background:rgba(255,84,112,.12);color:var(--ink)">🟥 Expulsado: sanción de un partido.</p>';
+  M.resumenHTML=cuerpo;
+  pintarMatch('<div id="mpanel" class="mpanel">'+panelHTML()+'</div>',
+    (M.postAviso||'')+extraNemesis()+'<button class="gold-btn" onclick="cerrarJornada()">Continuar</button>');
+  activarSwipe();
+}
+function cerrarJornada(){
+  if(S.ofertaPend && S.ofertaInv){ S.ofertaPend=false; alMenu(sitOferta); }
+  cancelarAuto(); if($("ov-match")) $("ov-match").onclick=null;
+  if(M && M.prueba){ finPrueba(); return; }
+  /* veros las caras también cuenta, aunque el partido no deje incidentes: cada cruce con
+     tu némesis escribe un capítulo más, jugaras o no lo decisivo de ese día */
+  if(M && M.nemesisHoy && M.rivalDirecto){
+    sumarTension(M.rivalDirecto.nombre, M.rival, M.rivalDirecto.pos, 3, "Otro cruce sobre el césped. La historia sigue.");
+  }
+  var res=M.sc[0]-M.sc[1];
+  /* tabla: mi partido */
+  var p=partidoDe(S.jornada);
+  if(M.casa) aplicarResultado(p.h,p.a,M.sc[0],M.sc[1]);
+  else aplicarResultado(p.h,p.a,M.sc[1],M.sc[0]);
+  /* resto de la jornada */
+  var otros=[];
+  S.fixture[S.jornada].forEach(function(pp){
+    if(pp.h===S.equipo||pp.a===S.equipo) return;
+    var r=simRapido(pp.h,pp.a);
+    aplicarResultado(pp.h,pp.a,r[0],r[1]);
+    otros.push({h:pp.h,a:pp.a,gh:r[0],ga:r[1]});
+  });
+  /* moral y racha */
+  var morBase = res>0? (M.dElo<0?5:2) : res<0? (M.dElo>0?-5:-2) : (M.dElo>0?-1:1);
+  S.moral=clamp(S.moral + morBase + M.morDelta, 30, 78);
+  S.moral += (55-S.moral)*0.08;
+  S.moral = clamp(S.moral + (afinMedia()-55)/40, 30, 78);
+  S.mister = clamp(S.mister + (afinMedia()>=70?0.5:afinMedia()<=30?-0.5:0), 5, 95);
+  /* el enfado se diluye: nadie te odia eternamente por una temporada */
+  if(S.castigo<=0) S.mister = clamp(S.mister + (52-S.mister)*0.05, 5, 95);
+  S.racha.push(res>0?"V":res<0?"D":"E");
+  /* estadísticas personales */
+  var defensivo = (S.pos==="POR"||S.pos==="DFC"||S.pos==="LAT"||S.pos==="MCD");
+  var bonusDef = 0;
+  if(defensivo){
+    if(M.sc[1]===0) bonusDef += (S.pos==="POR"?1.5:0.85);
+    else if(M.sc[1]===1) bonusDef += (S.pos==="POR"?0.45:0.25);
+    else if(M.sc[1]>=4) bonusDef -= (S.pos==="POR"?0.6:0.45);
+    if(S.pos==="POR") bonusDef += M.paradas*0.7;
+  }
+  var _ajVes=(M.ajVes!==undefined)? M.ajVes : (afinMedia()-55)/45;
+  if(M.ajVes===undefined) M.nota=clamp(M.nota+_ajVes,1,10);   /* sin cierre visual (simulado): se aplica aquí */
+  var nota=notaDelPartido();   /* fuente única de verdad: la misma llamada que el orbe del cierre */
+  var jugoAlgo = M.minJugados>0 && M.yaJugado;
+  var Y=S.yo;
+  if(jugoAlgo){
+    Y.pj++; Y.g+=M.miGol; Y.a+=M.miAsis; Y.ta+=M.miTA; Y.tr+=M.miTR; Y.paradas+=M.paradas;
+    Y.notaSum+=nota; Y.notaN++;
+  }
+  var esMVP = jugoAlgo && nota>=8.3 && (M.miGol>0||M.miAsis>0||M.paradas>0||(M.sc[1]===0&&defensivo));
+  if(esMVP) Y.mvp++;
+  var dConf=(nota-6.4)*3;
+  if(dConf<0) dConf*=mResil()*presionPrensa()*((S.vida&&S.vida.mentor)?0.85:1);   /* con la prensa encima, cuesta más levantarse; el mentor amortigua */
+  S.conf=clamp(S.conf+dConf, 25, 95);
+  if(M.miTR){ S.sancion=1; S.motivoBaja="expulsión"; }
+  /* los compañeros también tienen temporada: minutos, tarjetas y lesiones */
+  compis().forEach(function(c){
+    if(c.lesion>0){ if(c._castJor!==jorAbs()) c.lesion--; return; }
+    if(c.sancion>0){ if(c._castJor!==jorAbs()) c.sancion--; return; }
+    if(rnd()<0.82){
+      c.pj++;
+      if(rnd()<0.16){ c.ta++; c.ciclo++; if(c.ciclo>=5){ c.ciclo=0; c.sancion=1; } }
+      if(rnd()<0.012){ c.tr++; c.sancion=1; }
+      if(rnd()<0.035){ c.lesion=1+Math.floor(rnd()*4); }
+    }
+  });
+  /* (los goles del partido ya se acreditaron a su autor en anotarGol) */
+  /* el vestuario reacciona a lo que haces en el campo — pero cuánto cala depende de si juegas
+     PARA el equipo o para la portada: el mismo partidazo calienta el doble a un compañero, o
+     apenas roza a alguien que solo mira por sí mismo (antes esto ignoraba el carácter del todo,
+     y por eso cualquiera acababa siendo "uña y carne" con solo jugar bien un rato) */
+  var afinFactor = clamp(0.3 + eje("companerismo")/100, 0.3, 1.3);
+  var driftAfin = ((nota-6.6)*0.9 + (esMVP?1.5:0) + (M.miTR?-4:0) + (M.miAsis*1.2)) * afinFactor;
+  compis().forEach(function(c){
+    var r=c.rasgo;
+    var d=driftAfin;
+    if(r==="ego") d-=0.6;
+    if(r==="currante") d+=0.3;
+    if(r==="lider" && nota<5.8) d-=0.8;
+    c.afin=Math.round(clamp(c.afin+d+(rnd()-0.5), 0, 100));
+  });
+  /* ciclo de amonestaciones: cinco amarillas, un partido fuera */
+  if(M.miTA){
+    S.ciclo++;
+    if(S.ciclo>=5){
+      S.ciclo=0;
+      S.sancion=Math.max(S.sancion,1);
+      S.motivoBaja="ciclo de amarillas";
+      M.cicloCumplido=true;
+    }
+  }
+  var misBase=((nota-6.5)*0.9+(M.miTR?-6:0)+(res>0?1:res<0?-0.5:0));
+  if(misBase<0) misBase*=tolMister()*0.62;   /* al ejemplar se le perdona; al díscolo, no */
+  if(!jugoAlgo){ misBase=-1.2; }   /* si no cuenta contigo, la relación se enfría */
+  S.mister=clamp(S.mister+misBase+(M.misDelta||0),5,95);
+  if(M.desafio) S.desafios++;
+  if(S.mister<40 && S.desafios>=2 && !S.castigo){
+    S.castigo=1+Math.floor(rnd()*3);
+    S.avisoMister="El míster te ha borrado: no entras en los planes de las próximas "+S.castigo+" jornada(s).";
+  } else if(S.mister<50 && M.desafio){
+    S.avisoMister="El míster ha tomado nota de lo tuyo. La relación se enfría.";
+  } else if(S.mister>=78 && rnd()<0.3){
+    S.avisoMister="El míster te señala como ejemplo delante del grupo.";
+  }
+  if(M.miLesion) S.lesion=M.miLesion;
+  Y.min=(Y.min||0)+Math.max(0,Math.round(M.minJugados));
+  if(jugoAlgo) pintarTransito(zonaBase(), Math.max(2, Math.round(M.minJugados/25)));
+  if(jugoAlgo && M.minJugados>=80){
+    skillsDisp().forEach(function(k){ if(USO_SKILL[k.id] && USO_SKILL[k.id].minJug && S.skl && S.skl[k.id] && S.skl[k.id].niv>0) S.skl[k.id].u=jorAbs(); });
+  }
+  oxidarSkills();
+  oxidarTalentos();
+  evaluarReto();
+  var desgaste=(M.minJugados>=88?9:M.minJugados>0?5:1)*bonusTalentosForma("desgaste");
+  /* el cuerpo también descansa entre jornada y jornada */
+  var recupera=(20-((S.edad||22)>=31?4:(S.edad||22)<=21?-1:0)-(faseVicio("noche")>=1?5:0)
+    +(((S.animo===undefined?65:S.animo)-65)/12)
+    +((S.vida?(S.vida.casa||0):0)+((S.vida&&S.vida.fisio)?2:0))) * bonusTalentosForma("recupera");
+  S.forma=clamp((S.forma===undefined?70:S.forma)-desgaste+recupera,20,100);
+  /* cuántas sesiones hiciste ESTA semana, capturado ANTES de limpiar S.entreno —
+     si no, la comprobación de "sin trabajo" de más abajo siempre vería 0 y penalizaría
+     a todo el mundo, entrenases o no (bug real, preexistente: el reset llegaba antes del chequeo) */
+  var _sesionesSemana=(S.entreno && S.entreno.jor===S.jornada)? (S.entreno.hechos||[]).length : 0;
+  S.entreno=null;
+  S.puntualBonus=0;   /* la cita vale para las sesiones de SU semana */
+  S.animo=clamp((S.animo===undefined?65:S.animo)+(res>0?4:res<0?-4:0),20,100);
+  S.animo=clamp(S.animo+(animoBase()-S.animo)*0.06,20,100);   /* la vida tira hacia TU normal: 62 + casa + coche */
+  /* sin alimentarlos, los rasgos regresan poco a poco hacia el centro:
+     una temporada tranquila te enfría, una temporada de guerra te enciende */
+  ["temperamento","companerismo","liderazgo","resiliencia"].forEach(function(k){
+    if(S.car && S.car[k]!==undefined) S.car[k]=S.car[k]+(50-S.car[k])*0.045;
+  });
+  if(S.car){
+    S.car.disciplina=S.car.disciplina*0.997;
+    S.car.ego=S.car.ego*0.997;
+  }
+  /* el vestuario también pide mantenimiento: sin gestos que lo alimenten, cada relación deriva
+     hacia TU equilibrio natural — un compañerismo alto sostiene vínculos cálidos solo, uno bajo
+     los enfría solo. Antes solo subía (4 disparadores raros, nunca bajaba): por eso todo el
+     mundo acababa siendo "uña y carne" tarde o temprano, dijeras lo que dijeras. */
+  (function(){
+    var base=clamp(30+eje("companerismo")*0.55, 30, 85);
+    S.compis.forEach(function(c){ c.afin=Math.round(clamp(c.afin+(base-c.afin)*0.05, 5, 99)); });
+  })();
+  /* sin trabajo, el nivel se cae solo */
+  var sesiones=_sesionesSemana;
+  var _entOk=(S.entMister && S.entMister.jor===S.jornada && !S.entMister.auto);
+  if(sesiones===0 && !_entOk && S.lesion<=0){
+    var kk=pick(ATTR_ORDEN.concat(S.pos==="POR"?["POR"]:[]));
+    S.attr[kk]=clamp(atr(kk)-0.5,10,95);
+    S.mister=clamp(S.mister-0.8,5,95);
+  }
+  /* declive por edad: pasados los 28 el techo baja; lo que quede por encima se va acercando a él poco a poco */
+  if((S.edad||22)>28) ATTR_ORDEN.concat(S.pos==="POR"?["POR"]:[]).forEach(function(k){
+    var T=techoAtributoDe(k), v=atr(k);
+    if(v>T) S.attr[k]=Math.round(Math.max(T, v-Math.max(0.05,(v-T)*0.08))*100)/100;
+  });
+  revisarDestitucion();
+  revisarCapricho();
+  var avisoVicio=cobrarVicios();
+  if(avisoVicio) S.avisoMister=avisoVicio;
+  if(S.contrato){
+    var K=S.contrato;
+    S.dinero=(S.dinero||0)+Math.round(K.salario/38)+(jugoAlgo? K.prima:0)+(M.miGol*Math.round(K.prima*0.5));
+    if(K.primaGol) S.dinero+=M.miGol*K.primaGol;
+    if(K.primaPartido && jugoAlgo) S.dinero+=K.primaPartido;
+    if(K.casa) S.animo=clamp((S.animo||65)+0.6,20,100);
+    if(K.familia) S.animo=clamp((S.animo||65)+0.5,20,100);
+  }
+  /* rendir bien de forma sostenida también te construye */
+  if(jugoAlgo){
+    if(nota>=7.8){ tocarEje("liderazgo", 1.4); tocarEje("resiliencia", 0.8); }
+    else if(nota<=5.2){ tocarEje("resiliencia", -1.2); }
+    if(M.miAsis>0) tocarEje("companerismo", 1.6*M.miAsis);
+    if(M.miGol>=2) tocarEje("ego", 1.6);
+  }
+  actualizarPublico(nota, jugoAlgo, res);
+  /* la prensa construye tu personaje */
+  var arqAct=arquetipo();
+  if(jugoAlgo && rnd()<0.35){
+    var TIT={
+      genio:["«Insoportable y genial»: el debate de siempre vuelve con "+S.nombre,"Lo aman y lo odian: "+S.nombre+" vuelve a partir la opinión pública"],
+      problema:["El club, harto: nueva reunión por la actitud de "+S.nombre,S.nombre+", más titulares fuera del campo que dentro"],
+      showman:[S.nombre+" convierte cada partido en un espectáculo","La grada ya viene a ver a "+S.nombre],
+      crack:["El equipo es "+S.nombre+" y diez más",S.nombre+", el nombre que aparece en todas las portadas"],
+      capitan:[S.nombre+", el ejemplo que el vestuario necesitaba","Liderazgo silencioso: la temporada de "+S.nombre],
+      soldado:["El trabajo invisible de "+S.nombre+" que solo ven los entendidos",S.nombre+": nunca falla, nunca sobra"],
+      peon:[]
+    };
+    var pool=TIT[arqAct.id]||[];
+    if(pool.length){ S.prensa=(S.prensa||[]).concat([{jor:S.jornada+1, t:pick(pool), arq:arqAct.id}]); if(S.prensa.length>12) S.prensa.shift(); }
+  }
+  S.hist.push({jor:S.jornada+1, rival:M.rival, casa:M.casa, sc:[M.sc[0],M.sc[1]], goles:M.goles, otros:otros,
+    dec:(M.dec||[]), pulso:(M.pulso||[]), lib:(M.libro||[]),
+    crono:cronoCompacto(M.crono),
+    yo: jugoAlgo? {nota:Math.round(nota*10)/10, g:M.miGol, a:M.miAsis, p:M.paradas, ta:M.miTA, tr:M.miTR, mvp:esMVP, min:Math.max(0,Math.round(M.minJugados)),
+                   aj:Math.round(_ajVes*1000), bd:Math.round(bonusDef*100), df:defensivo?1:0, rs:res>0?1:res<0?-1:0} : null,
+    sinTi: jugoAlgo? null : "sin minutos"});
+  M.notaFinal=jugoAlgo? Math.round(nota*10)/10 : null; M.esMVP=esMVP;
+  var _subidas=ganarXP(xpPartido());
+  if(_subidas) M.subioNivel={de:S.nivel-_subidas, a:S.nivel};
+  vitrinaRegistrar(S.hist[S.hist.length-1]);
+  (function(){ var h=S.hist[S.hist.length-1]; if(!h || !h.otros || !h.otros.length) return;
+    var mejor=null;
+    h.otros.forEach(function(p){
+      var d=Math.abs(p.gh-p.ga), tot=p.gh+p.ga;
+      var e1=eloDe(p.h)||1900, e2=eloDe(p.a)||1900;
+      var sorpresa=((p.gh>p.ga && e1<e2-70)||(p.ga>p.gh && e2<e1-70))? 40:0;
+      var v=d*9+tot+sorpresa;
+      if(!mejor || v>mejor.v) mejor={v:v, p:p, sorpresa:sorpresa, d:d};
+    });
+    if(!mejor) return;
+    var p=mejor.p, cH=EQ[p.h]?EQ[p.h].c:p.h, cA=EQ[p.a]?EQ[p.a].c:p.a;
+    var t=mejor.sorpresa? ("Batacazo de la jornada: el "+(p.gh>p.ga?cH:cA)+" tumba al favorito ("+p.gh+"-"+p.ga+").")
+        : mejor.d>=3? ("Goleada del "+(p.gh>p.ga?cH:cA)+": "+p.gh+"-"+p.ga+" y la grada en pie.")
+        : (cH+" "+p.gh+"-"+p.ga+" "+cA+": el partido del que habla todo el mundo.");
+    S.prensa=(S.prensa||[]).concat([{jor:S.jornada+1, t:t}]);
+    if(S.prensa.length>12) S.prensa.shift();
+  })();
+  S.jornada++;
+  S.conv=null;
+  resetSub();
+  guardar();
+  M=null;
+  $("ov-match").classList.add("hidden");
+  if(S.jornada>=38){ finTemporada(); } else { renderHub(); }
+}
+function partidoSinMinutos(){
+  var p=partidoDe(S.jornada), casa=M.casa, rival=M.rival;
+  while(M.tramo<6) simTramo();
+  M.flash=[];
+  var res=M.sc[0]-M.sc[1];
+  if(casa) aplicarResultado(p.h,p.a,M.sc[0],M.sc[1]); else aplicarResultado(p.h,p.a,M.sc[1],M.sc[0]);
+  var otros=[];
+  S.fixture[S.jornada].forEach(function(pp){
+    if(pp.h===S.equipo||pp.a===S.equipo) return;
+    var rr=simRapido(pp.h,pp.a); aplicarResultado(pp.h,pp.a,rr[0],rr[1]); otros.push({h:pp.h,a:pp.a,gh:rr[0],ga:rr[1]});
+  });
+  S.racha.push(res>0?"V":res<0?"D":"E");
+  S.moral=clamp(S.moral+(res>0?3:res<0?-3:0),30,78);
+  S.conf=clamp(S.conf-4,25,95);
+  S.hist.push({jor:S.jornada+1, rival:rival, casa:casa, sc:[M.sc[0],M.sc[1]], goles:M.goles, otros:otros, pulso:(M.pulso||[]),
+    crono:cronoCompacto(M.crono),
+    sinTi:"decisión técnica"});
+  vitrinaRegistrar(S.hist[S.hist.length-1]);
+  (function(){ var h=S.hist[S.hist.length-1]; if(!h || !h.otros || !h.otros.length) return;
+    var mejor=null;
+    h.otros.forEach(function(p){
+      var d=Math.abs(p.gh-p.ga), tot=p.gh+p.ga;
+      var e1=eloDe(p.h)||1900, e2=eloDe(p.a)||1900;
+      var sorpresa=((p.gh>p.ga && e1<e2-70)||(p.ga>p.gh && e2<e1-70))? 40:0;
+      var v=d*9+tot+sorpresa;
+      if(!mejor || v>mejor.v) mejor={v:v, p:p, sorpresa:sorpresa, d:d};
+    });
+    if(!mejor) return;
+    var p=mejor.p, cH=EQ[p.h]?EQ[p.h].c:p.h, cA=EQ[p.a]?EQ[p.a].c:p.a;
+    var t=mejor.sorpresa? ("Batacazo de la jornada: el "+(p.gh>p.ga?cH:cA)+" tumba al favorito ("+p.gh+"-"+p.ga+").")
+        : mejor.d>=3? ("Goleada del "+(p.gh>p.ga?cH:cA)+": "+p.gh+"-"+p.ga+" y la grada en pie.")
+        : (cH+" "+p.gh+"-"+p.ga+" "+cA+": el partido del que habla todo el mundo.");
+    S.prensa=(S.prensa||[]).concat([{jor:S.jornada+1, t:t}]);
+    if(S.prensa.length>12) S.prensa.shift();
+  })();
+  S.jornada++;
+  S.conv=null;
+  resetSub();
+  guardar();
+  var H='<div class="flash fl-out">'
+    +'<div class="fmin">90′</div><div class="arrow down">▼</div>'
+    +'<div class="fbig disp" style="font-size:26px">SIN MINUTOS</div>'
+    +'<div class="fdor mono">'+S.dorsal+' · '+esc(S.nombre)+'</div>'
+    +'<p class="ftxt">Noventa minutos calentando la banda sin que el míster mirara hacia ti. De las tardes que se hacen largas.</p>'
+    +'<div class="fsc mono">'+esc(EQ[S.equipo].c)+' <b>'+M.sc[0]+'</b> <span>–</span> <b>'+M.sc[1]+'</b> '+esc(EQ[rival].c)+'</div></div>'
+    +'<button class="gold-btn" style="margin-top:14px" onclick="cerrarSinTi()">Continuar</button>';
+  M=null;
+  $("ov-match-inner").innerHTML=H;
+  $("ov-match").classList.remove("hidden");
+}
+function jornadaSinTi(){
+  var motivo = S.sancion>0? (S.motivoBaja||"sanción") : "lesión";
+  var p=partidoDe(S.jornada), casa=p.h===S.equipo, rival=casa?p.a:p.h;
+  var r = casa? simRapido(p.h,p.a) : simRapido(p.h,p.a);
+  aplicarResultado(p.h,p.a,r[0],r[1]);
+  var mios=casa?r[0]:r[1], suyos=casa?r[1]:r[0];
+  var otros=[];
+  S.fixture[S.jornada].forEach(function(pp){
+    if(pp.h===S.equipo||pp.a===S.equipo) return;
+    var rr=simRapido(pp.h,pp.a); aplicarResultado(pp.h,pp.a,rr[0],rr[1]);
+    otros.push({h:pp.h,a:pp.a,gh:rr[0],ga:rr[1]});
+  });
+  var res=mios-suyos;
+  /* el equipo juega sin ti: esos goles también tienen dueño */
+  compis().forEach(function(c){
+    if(c.lesion>0){ if(c._castJor!==jorAbs()) c.lesion--; return; }
+    if(c.sancion>0){ if(c._castJor!==jorAbs()) c.sancion--; return; }
+    if(rnd()<0.85){
+      c.pj++;
+      if(rnd()<0.16){ c.ta++; c.ciclo++; if(c.ciclo>=5){ c.ciclo=0; c.sancion=1; } }
+      if(rnd()<0.012){ c.tr++; c.sancion=1; }
+      if(rnd()<0.035){ c.lesion=1+Math.floor(rnd()*4); }
+    }
+  });
+  repartirGoles(mios, 0);
+  S.racha.push(res>0?"V":res<0?"D":"E");
+  S.moral=clamp(S.moral+(res>0?2:res<0?-2:0),30,78);
+  S.hist.push({jor:S.jornada+1, rival:rival, casa:casa, sc:[mios,suyos], goles:[], otros:otros, sinTi:motivo});
+  if(S.sancion>0 && S._castJor!==jorAbs()) S.sancion--;
+  else if(S.lesion>0){
+    var pasoRehab=1;
+    if(MERCADO_ON && S.rehabSem!==S.jornada){
+      S.rehabSem=S.jornada;
+      var eleccion=S.rehabPlan||"conservador";
+      if(eleccion==="agresivo"){
+        var rr=rnd();
+        if(rr<0.5){ pasoRehab=2; S.avisoMercado="La rehab agresiva funciona: recortas una semana."; }
+        else if(rr<0.75){ pasoRehab=0; S.lesion++; S.conf=clamp(S.conf-3,5,95); S.avisoMercado="Recaída. El cuerpo pasa factura por las prisas."; }
+        S.forma=clamp((S.forma||70)-2,20,100);
+      } else if(eleccion==="reforzar"){
+        S.rehabReforzada=true;
+      }
+    }
+    S.lesion=Math.max(0, S.lesion - pasoRehab);
+    if(S.lesion===0){
+      if(S.rehabReforzada){ S.forma=clamp((S.forma||70)+6,20,100); S.modLesTemp={f:0.8, hasta:jorAbs()+5}; S.rehabReforzada=false; S.avisoMercado="Vuelves reforzado: el trabajo invisible se nota."; }
+      S.rehabPlan=null;
+    }
+  }
+  vitrinaRegistrar(S.hist[S.hist.length-1]);
+  (function(){ var h=S.hist[S.hist.length-1]; if(!h || !h.otros || !h.otros.length) return;
+    var mejor=null;
+    h.otros.forEach(function(p){
+      var d=Math.abs(p.gh-p.ga), tot=p.gh+p.ga;
+      var e1=eloDe(p.h)||1900, e2=eloDe(p.a)||1900;
+      var sorpresa=((p.gh>p.ga && e1<e2-70)||(p.ga>p.gh && e2<e1-70))? 40:0;
+      var v=d*9+tot+sorpresa;
+      if(!mejor || v>mejor.v) mejor={v:v, p:p, sorpresa:sorpresa, d:d};
+    });
+    if(!mejor) return;
+    var p=mejor.p, cH=EQ[p.h]?EQ[p.h].c:p.h, cA=EQ[p.a]?EQ[p.a].c:p.a;
+    var t=mejor.sorpresa? ("Batacazo de la jornada: el "+(p.gh>p.ga?cH:cA)+" tumba al favorito ("+p.gh+"-"+p.ga+").")
+        : mejor.d>=3? ("Goleada del "+(p.gh>p.ga?cH:cA)+": "+p.gh+"-"+p.ga+" y la grada en pie.")
+        : (cH+" "+p.gh+"-"+p.ga+" "+cA+": el partido del que habla todo el mundo.");
+    S.prensa=(S.prensa||[]).concat([{jor:S.jornada+1, t:t}]);
+    if(S.prensa.length>12) S.prensa.shift();
+  })();
+  S.jornada++;
+  S.conv=null;
+  resetSub();
+  guardar();
+  var H='<div class="matchcard" style="text-align:center">'
+    +'<div class="mtag">Jornada '+S.jornada+' · desde la grada</div>'
+    +crestSVG(S.equipo,48)
+    +'<p style="margin:12px 0 4px">'+(S.sancion>0? (motivo==="ciclo de amarillas"? "Cumples el partido de sanción por el ciclo de amarillas. Desde la grada se ve todo mejor y se sufre el doble." : "Cumples la sanción por la expulsión. Toca mirar y callar.") : "Sigues en la enfermería y ves el partido con hielo en la pierna.")+'</p>'
+    +'<div class="msc mono" style="margin:8px 0">'+mios+'<span>–</span>'+suyos+'</div>'
+    +'<p class="note">'+esc(EQ[S.equipo].c)+' vs '+esc(EQ[rival].c)+(casa?"":" (fuera)")+'</p>'
+    +'<p class="note">'+(S.sancion+S.lesion>0? "Te queda"+((S.sancion+S.lesion)>1?"n ":" ")+(S.sancion+S.lesion)+" jornada(s) de baja." : "La próxima ya estás disponible.")+'</p>'
+    +'<button class="gold-btn" style="margin-top:12px" onclick="cerrarSinTi()">Continuar</button></div>';
+  $("ov-match-inner").innerHTML=H;
+  $("ov-match").classList.remove("hidden");
+}
+function cerrarSinTi(){ $("ov-match").classList.add("hidden"); if(S.jornada>=38){ finTemporada(); } else { renderHub(); } }
+/* ================= RENDER PARTIDO ================= */
+var AUTOFN=null, AUTOT=null, DECT=null;
+function pararReloj(){ if(DECT){ clearInterval(DECT.iv); clearTimeout(DECT.to); DECT=null; } DECP=null; }
+var DECP=null;
+function holdP(e){
+  if(PAUSA) return;
+  if(e && e.target && e.target.closest && e.target.closest("button,.opt,.chip,.gold-btn,.ghost")) return;   /* los botones mandan: ahí no se pausa */
+  pausarReloj();
+}
+function holdR(){ reanudarReloj(); }
+function pausarReloj(){
+  if(!DECT || DECP) return;
+  DECP={rest: Math.max(400, DECT.ms-(Date.now()-DECT.t0)), total: DECT.total};
+  clearInterval(DECT.iv); clearTimeout(DECT.to); DECT=null;
+  var w=$("relojwrap"); if(w) w.classList.add("pausa");
+}
+function reanudarReloj(){
+  if(!DECP) return;
+  var rest=DECP.rest, total=DECP.total; DECP=null;
+  var w=$("relojwrap"); if(w) w.classList.remove("pausa");
+  arrancarReloj(rest, total);
+}
+function arrancarReloj(ms, total){
+  pararReloj();
+  var t0=Date.now(), T=total||ms;
+  DECT={ t0:t0, ms:ms, total:T,
+    to:setTimeout(function(){ pararReloj(); decisionExpirada(); }, ms),
+    iv:setInterval(function(){
+      var q=(ms-(Date.now()-t0))/T;
+      var b=$("relojbar");
+      if(!b){ return; }
+      b.style.width=Math.max(0,q*100)+"%";
+      b.style.background = q<0.28? "var(--bad)" : q<0.55? "#FFA23A" : "var(--gold)";
+    }, 60)
+  };
+}
+var INDECISION={
+  juego:[
+   "Te lo piensas demasiado y el balón se va solo. Cuando reaccionas, la jugada ya es de otro.",
+   "Dudas. En el fútbol dudar es elegir, y has elegido mal.",
+   "El momento pasa por delante de ti mientras decides. Nadie espera en un campo.",
+   "Te quedas parado. Tu marcador no, y eso lo cambia todo."
+  ],
+  previa:["Sales al campo sin plan propio, arrastrado por lo que hagan los demás."],
+  descanso:["Te quedas callado mirando el suelo. La segunda parte empieza sin que hayas aportado nada."],
+  post:["Pasas de largo ante los micrófonos sin decir palabra. Mañana lo contarán a su manera."]
+};
+function decisionExpirada(){
+  var fase=M.faseAct||"juego";
+  var txt=pick(INDECISION[fase]||INDECISION.juego);
+  M.sitAct=null;
+  if(fase==="juego"){
+    M.nota-=0.75;
+    (M.dec=M.dec||[]).push([M.min||0, "indecision", "", "x", "ko", -75, -1, -750]);
+    M.modOwn*=0.97;
+    if(rnd()<0.16){ anotarGol(false,"rival"); }
+    M.decHechas++;
+  } else if(fase==="descanso"){ M.nota-=0.3; (M.dec=M.dec||[]).push([45, "indecision", "", "x", "ko", -30, -1, -300]); M.misDelta=(M.misDelta||0)-2; }
+  else if(fase==="post"){ M.misDelta=(M.misDelta||0)-3; M.morDelta-=1; }
+  else { M.modOwn*=0.97; M.nota-=0.2; (M.dec=M.dec||[]).push([M.min||0, "indecision", "", "x", "ko", -20, -1, -200]); }
+  M.log={l:"Sin decisión", txt:txt, dn:(M._dnUlt!==undefined? M._dnUlt:null)};
+  if(hayFlash()){ M.flash[0].deTuDecision="Te quedaste sin decidir"; renderFlashSiguiente(); return; }
+  M.fase="juego";
+  renderMatch(null,true);
+}
+var AUTOLOCK=0;
+function autoAvance(ms, fn, bloqueo){
+  clearTimeout(AUTOT); AUTOFN=fn;
+  AUTOLOCK=Date.now()+Math.max(bloqueo||0, Math.round(ms*0.05));   /* mínimo 5 % de la barra antes de poder saltar */
+  AUTOT=setTimeout(function(){ AUTOT=null; var f=AUTOFN; AUTOFN=null; if(f) f(); }, ms);
+}
+function saltarAuto(ev){
+  if(!AUTOFN) return;
+  /* los controles (pestañas, flechas, botones) no saltan la lectura: solo el resto de la pantalla */
+  if(ev && ev.target && ev.target.closest && ev.target.closest("button,.chip,.pnav,.opt,.gold-btn,.ghost")) return;
+  if(Date.now()<AUTOLOCK) return;   /* un toque perdido no puede borrar un gol */
+  clearTimeout(AUTOT); AUTOT=null;
+  var f=AUTOFN; AUTOFN=null; f();
+}
+function cancelarAuto(){ clearTimeout(AUTOT); AUTOT=null; AUTOFN=null; AUTO_HOLD=null; pararReloj(); }
+/* barras de tiempo: grises = lectura (un toque la salta, mantenerla pausa); naranjas = tu decisión (mantenerla pausa) */
+var AUTO_MS=0, AUTO_T0=0, AUTO_HOLD=null, BAR_HOLD=null, BAR_SUPR=false;
+function autoBarHTML(dur){
+  return '<div class="autobar" style="--dur:'+dur+'ms" onpointerdown="barDown(event,\'auto\')" onpointerup="barUp(event,\'auto\')" onpointerleave="barCancel()" onpointercancel="barCancel()" onclick="barClick(event)"><i></i></div>';
+}
+function pausarAuto(){
+  if(!AUTOT || AUTO_HOLD) return;
+  var rest=Math.max(300, AUTO_MS-(Date.now()-AUTO_T0));
+  clearTimeout(AUTOT); AUTOT=null;
+  AUTO_HOLD={fn:AUTOFN, rest:rest};
+  var b=document.querySelector('.autobar i'); if(b) b.style.animationPlayState='paused';
+}
+function reanudarAuto(){
+  if(!AUTO_HOLD) return;
+  var h=AUTO_HOLD; AUTO_HOLD=null;
+  AUTOFN=h.fn; AUTO_MS=h.rest; AUTO_T0=Date.now();
+  AUTOT=setTimeout(function(){ AUTOT=null; var f=AUTOFN; AUTOFN=null; if(f) f(); }, h.rest);
+  var b=document.querySelector('.autobar i'); if(b) b.style.animationPlayState='running';
+}
+function skipBarra(){
+  if(PAUSA || !AUTOFN) return;
+  clearTimeout(AUTOT); AUTOT=null; var f=AUTOFN; AUTOFN=null; f();
+}
+function barDown(e,k){
+  if(PAUSA) return;
+  BAR_SUPR=false;
+  if(BAR_HOLD) clearTimeout(BAR_HOLD.to);
+  BAR_HOLD={k:k, held:false, to:setTimeout(function(){ if(!BAR_HOLD) return; BAR_HOLD.held=true; if(k==="dec") pausarReloj(); else pausarAuto(); }, 220)};
+}
+function barUp(e,k){
+  if(!BAR_HOLD) return;
+  clearTimeout(BAR_HOLD.to);
+  var h=BAR_HOLD; BAR_HOLD=null;
+  if(h.held){ BAR_SUPR=true; if(h.k==="dec") reanudarReloj(); else reanudarAuto(); }
+}
+function barCancel(){
+  if(!BAR_HOLD) return;
+  clearTimeout(BAR_HOLD.to);
+  var h=BAR_HOLD; BAR_HOLD=null;
+  if(h.held){ if(h.k==="dec") reanudarReloj(); else reanudarAuto(); }
+}
+function barClick(e){
+  if(e) e.stopPropagation();
+  if(BAR_SUPR){ BAR_SUPR=false; return; }
+  skipBarra();
+}
+/* aviso de la consecuencia de cada decisión (mismo formato que el de banquillo, bajo el marcador no) */
+function avisoDecHTML(l){
+  var k=l.matiz||l.cls, bien=(k==="ok"||k==="okpeaje"), mal=(k==="ko"||k==="kopremio");
+  var tit={ok:"✔ salió bien", okpeaje:"✔ bien, pero con precio", ko:"✘ salió mal", kopremio:"✘ mal, aunque algo sacas", mid:"— sin consecuencias"}[k]||"";
+  return '<div class="avisobanca avisodec '+(bien?"bien":mal?"mal":"")+'"><div class="abtit">'+tit+'</div>'
+    +(l.dec?'<div class="abdec">'+esc(l.dec)+'</div>':'')+'<p class="abtxt">'+esc(l.t)+'</p></div>';
+}
+/* situación del jugador en el partido: titular, suplente o fuera */
+function rolPartido(){
+  var r=M && M.convRol;
+  if(r==="titular") return M.enCampo? ["En el campo","tit"] : ["Has salido del campo","fue"];
+  if(r==="suplente"){
+    if(M.enCampo) return ["Ya en el campo","sup"];
+    if(M.entraEn) return ["En el banquillo","sup"];
+    return ["Hoy no juegas","fue"];
+  }
+  return ["Fuera de la convocatoria","fue"];
+}
+var PAUSA=false, AUTO_P=null;
+function pausarTodo(){
+  if(!M || M.fin || PAUSA) return;
+  PAUSA=true;
+  pausarReloj();
+  if(AUTOT){ AUTO_P={fn:AUTOFN}; clearTimeout(AUTOT); AUTOT=null; AUTOFN=null; }
+  var inner=$("ov-match-inner");
+  try{
+  if(inner && inner.appendChild && !$("pausaveil")){
+    var v=document.createElement("div");
+    v.id="pausaveil";
+    v.style.cssText="position:absolute;inset:0;background:rgba(6,10,16,.82);backdrop-filter:blur(2px);z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px";
+    v.innerHTML='<div style="font-size:26px;letter-spacing:.2em;color:var(--gold)">PAUSA</div>'
+      +'<button class="opt" style="min-width:220px" onclick="reanudarTodo()"><b>▶ Reanudar</b></button>'
+      +'<button class="opt" style="min-width:220px" onclick="simularResto()"><b>⏭ Simular el resto</b><small>El partido se juega solo hasta el final.</small></button>'
+      +'<div class="note" style="max-width:260px;text-align:center">El reloj de la decisión queda congelado donde estaba.</div>';
+    inner.style.position="relative";
+    inner.appendChild(v);
+  }
+  }catch(e){}
+}
+function reanudarTodo(){
+  if(!PAUSA) return;
+  PAUSA=false;
+  var v=$("pausaveil"); if(v && v.remove) v.remove();
+  reanudarReloj();
+  if(AUTO_P){ autoAvance(900, AUTO_P.fn, 0); AUTO_P=null; }
+}
+function simularResto(){
+  if(!M || M.fin) return;
+  PAUSA=false; AUTO_P=null;
+  var v=$("pausaveil"); if(v && v.remove) v.remove();
+  cancelarAuto(); DECP=null;
+  if(M.fase==="decision"){ M.simResto=true; decisionExpirada(); }
+  M.simResto=true;
+  M.flash=[];
+  while(M && !M.fin && M.tramo<6) simTramo();
+  /* al simular el resto no se muestran uno a uno los flashes: los hechos quedan en la cronología y el resumen */
+  if(M) M.flash=[];
+  if(M && !M.fin) avanzarPartido();
+}
+function btnsPausa(){
+  if(M && M.prueba) return "";
+  return '<div style="position:absolute;top:8px;right:10px;z-index:55;display:flex;gap:6px">'
+    +'<button class="chip" style="padding:4px 9px" onclick="pausarTodo()" title="Pausa">⏸</button>'
+    +'<button class="chip" style="padding:4px 9px" onclick="simularResto()" title="Simular el resto">⏭</button></div>';
+}
+function cabeceraMatch(){
+  var casaN=M.casa?EQ[S.equipo]:EQ[M.rival], visN=M.casa?EQ[M.rival]:EQ[S.equipo];
+  var scA=M.casa?M.sc[0]:M.sc[1], scB=M.casa?M.sc[1]:M.sc[0];
+  return '<div class="mhead">'
+    +'<div class="mtag">Jornada '+(M.jor+1)+' · '+esc(EQ[M.casa?S.equipo:M.rival].est)+'</div>'
+    +'<div class="mtag rolx '+rolPartido()[1]+'">'+esc(rolPartido()[0])+'</div>'
+    +(M.nemesisHoy? '<div class="mtag" style="color:var(--bad);font-weight:700">⚔ '+esc(M.rivalDirecto.nombre)+' — '+esc(nivelNemesis(S.nemesis.tension).txt)+'</div>':'')
+    +'<div class="mrow">'
+    +'<div class="mteam'+(M.casa?' mine':'')+'">'+crestSVG(casaN.id,36)+'<span class="tn">'+esc(casaN.c)+'</span></div>'
+    +'<div class="mmid"><div class="msc mono">'+scA+'<span>–</span>'+scB+'</div>'
+    +'<div class="mmin">'+(M.fase==="pre"?"Previa":(M.fase==="post"||M.fase==="cierre")?"Final":(M.min>=90?"90+":M.min+"′"))+'</div></div>'
+    +'<div class="mteam'+(M.casa?'':' mine')+'">'+crestSVG(visN.id,36)+'<span class="tn">'+esc(visN.c)+'</span></div>'
+    +'</div></div>';
+}
+/* expulsado, lesionado o cambiado: ya no decides nada; puedes terminar el partido de golpe */
+function jugadorFuera(){
+  return !!M && !M.fin && M.fase!=="post" && M.fase!=="cierre" && (!!M.finAnticipado || (M.enCampo===false && (M.convRol==="titular" || !!M.yaJugado)));
+}
+function btnTerminar(){
+  return jugadorFuera()? '<button class="gold-btn" style="margin-top:10px;width:100%" onclick="simularResto()">Terminar el partido</button>' : '';
+}
+/* preguntar por tu archienemigo: en la previa si eres titular, al final si eres suplente */
+function extraNemesis(){
+  if(!M || !M.nemesisHoy || !S.nemesis) return '';
+  var h='';
+  if(M.nemTxt) h+='<div class="avisobanca bien"><p class="abtxt">'+esc(M.nemTxt)+'</p></div>';
+  var pre=(M.faseAct==="previa" && M.convRol==="titular");
+  var post=(M.fase==="cierre" && M.convRol!=="titular");
+  if((pre||post) && !M.nemPreguntado) h+='<button class="ghost" style="width:100%;margin-top:8px" onclick="preguntarNemesis()">Preguntar por '+esc(S.nemesis.nombre)+'</button>';
+  return h;
+}
+function preguntarNemesis(){
+  if(!M || M.nemPreguntado || !S.nemesis) return;
+  M.nemPreguntado=true;
+  M.nemTxt=S.nemesis.nombre+" te devuelve la mirada y no contesta.";
+  sumarTension(S.nemesis.nombre, M.rival, S.nemesis.pos, 1, "Le preguntaste por lo suyo. No le hizo gracia.");
+  if(M.fase==="cierre") renderCierre(); else renderMatch(null,true);
+}
+function irAlFinalTl(){ var t=document.querySelector("#ov-match .tl"); if(t) t.scrollTop=0; }   /* arriba: lo último, y lo antiguo baja */
+function pintarMatch(cuerpo, pie){
+  if(!M) return;   /* si el partido ya acabó, nada puede volver a taparlo todo */
+  $("ov-match-inner").innerHTML='<div class="matchcard" style="position:relative">'+btnsPausa()+cabeceraMatch()
+    +'<div class="mbody">'+cuerpo+'</div>'
+    +'<div class="mfoot">'+(pie||"")+extraNemesis()+btnTerminar()+'</div></div>';
+  $("ov-match").classList.remove("hidden");
+  activaMantenerEnPartido();
+  irAlFinalTl();
+  vigilaGifs();
+}
+/* mantener en cualquier punto de la pantalla del partido (salvo los controles) pausa la barra activa */
+var OVP_OK=false;
+function activaMantenerEnPartido(){
+  if(OVP_OK) return;
+  var ov=$("ov-match"); if(!ov) return;
+  OVP_OK=true;
+  ov.addEventListener("contextmenu", function(e){ e.preventDefault(); });
+  ov.addEventListener("selectstart", function(e){ e.preventDefault(); });
+  ov.addEventListener("pointerdown", function(e){
+    if(e.target.closest && e.target.closest("button,.opt,.chip,.pnav,.chips,.gold-btn,.ghost,.autobar,.reloj")) return;
+    if(PAUSA || !M) return;
+    var k = $("relojwrap")? "dec" : (AUTOFN? "auto" : null);
+    if(k) barDown(e,k);
+  });
+  ov.addEventListener("pointerup", function(e){ barUp(e); });
+  ov.addEventListener("pointercancel", function(){ barCancel(); });
+}
+function renderMatch(sit, tras){
+  cancelarAuto();
+  var cuerpo="", pie="";
+  if(sit){
+    cuerpo+='<div class="mline"><span>'+(M.faseAct==="previa"?"Antes del partido · vestuario"
+      :M.faseAct==="descanso"?"Descanso · 45′"
+      :M.faseAct==="post"?"Partido terminado · sala de prensa"
+      :M.faseAct==="banquillo"?"Minuto "+M.min+" · desde el banquillo"
+      :"Minuto "+M.min)+'</span></div>';
+    if(M.faseAct==="previa" || (M.faseAct==="banquillo" && M.min<=5)) cuerpo+='<p class="note" style="text-align:center;margin:4px 0 8px">'+(M.convRol==="titular"? "Eres titular. Sales en el once." : "Eres suplente. Empiezas en el banquillo.")+'</p>';
+    M.pistas=M.pistas||{};
+    if(PISTAS_ON && M.pistas[sit.id]===undefined && M.faseAct==="juego" && M.enCampo){
+      var _p0=pistaDe(sit);
+      if(_p0){ _p0.plan=planPista(_p0.txt); }
+      M.pistas[sit.id]=_p0;
+    }
+    var _pi=M.pistas[sit.id];
+    var _xTxt=(typeof sit.x==="function"? sit.x(M):sit.x)||"";
+    cuerpo+='<div class="sit-lee"><h3 class="sit-t">'+esc(sit.t)+'</h3><p class="sit-x">'
+      +(_pi&&_pi.plan? tejerPista(_xTxt,_pi.plan) : esc(_xTxt))+'</p></div>';
+    cuerpo+=dbgEstado(sit);
+    opcionesMostradas(sit).forEach(function(i){
+      var o=sit.o[i];
+      var marca = o.skill? '<span class="skmark">★</span> ':'';
+      var iconoDbg = dbgOn()? '<span class="dbg-i" onmousedown="dbgHold(event,'+i+')" ontouchstart="dbgHold(event,'+i+')" onmouseup="dbgSuelta(event)" onmouseleave="dbgSuelta(event)" ontouchend="dbgSuelta(event)" ontouchcancel="dbgSuelta(event)">i</span>' : '';
+      pie+='<button class="opt'+(o.skill?' opt-sk':'')+'" onclick="elegirOpcion('+i+')">'+marca+esc(typeof o.l==="function"?o.l():o.l)+iconoDbg+'</button>';
+    });
+    var texto=(typeof sit.x==="function"?sit.x(M):sit.x)||"";
+    var ms=msReloj(sit,texto);
+    pie+='<div class="reloj" id="relojwrap" onpointerdown="barDown(event,\'dec\')" onpointerup="barUp(event,\'dec\')" onpointerleave="barCancel()" onpointercancel="barCancel()"><i id="relojbar" style="width:100%"></i><span class="pausatip">⏸ leyendo — suelta para seguir</span></div>';
+    pintarMatch('<div class="sit-hold" ontouchstart="holdP(event)" ontouchend="holdR()" ontouchcancel="holdR()" onmousedown="holdP(event)" onmouseup="holdR()" onmouseleave="holdR()">'+cuerpo+'</div>', pie);
+    if(!dbgOn()) arrancarReloj(ms);
+    return;
+  }
+  /* --- narración estilo retransmisión: una frase cada vez --- */
+  if(!M.colaCron || !M.colaCron.length){
+    var nuevas=[];
+    var enVestuario=(M.faseAct==="previa"||M.fase==="pre"||M.faseAct==="descanso");
+    M.minNarrado=Math.max(M.minNarrado||0, M.min);
+    var minAhora=enVestuario?0:Math.max(1,M.minNarrado);
+    var etq=(M.faseAct==="descanso")?"DESC.":"PREVIA";
+    if(M.log){ nuevas.push({t:M.log.txt, dec:M.log.l, cls:M.log.cls, matiz:M.log.matiz, efe:M.log.efe, dn:M.log.dn, min:minAhora, et:etq}); M.log=null; }
+    if(M.ecoPend && M.ecoPend.length){ M.ecoPend.forEach(function(e){ nuevas.push({t:e, min:minAhora, et:etq}); }); M.ecoPend=null; }
+    var base = (M.tramo>0 || M.narrado)? cronica() : [pick([
+        "El árbitro mira el reloj. Silbato en la boca.",
+        "Los capitanes se dan la mano en el centro.",
+        "Balón al centro y a rodar."])];
+    if(M.tramo===0 && !M.estiloContado){ M.estiloContado=1; base.push("El "+(EQ[M.rival]?EQ[M.rival].c:M.rival)+" "+estiloDe(M.rival).rasgo+": lo vas a notar."); }
+    M.narrado=true;
+    M.minNarrado=Math.max(M.minNarrado||0, M.min);
+    var mBase=(M.tramo===0 && M.min===0)?0:Math.max(1,M.minNarrado);
+    base.forEach(function(l,i){ nuevas.push({t:l, min: mBase? Math.min(90, mBase+i*2) : 0}); });
+    M.colaCron=nuevas;
+  }
+  narrarSiguiente();
+}
+var PANEL=0, PANEL_EST="t";
+function scrollPanelEl(){
+  var m=$("mpanel"); if(!m || !m.querySelector) return null;
+  return m.querySelector(".presumen,.tl,.pstats,.plista");
+}
+function panelesDe(){ return (M && M.fase==="cierre")? ["res","tl","cro","est","yo"] : ["tl","cro","est","yo"]; }
+var PANEL_N={res:"Resumen", tl:"Cronología", cro:"Crónica", est:"Estadísticas", dec:"Decisiones", yo:"Mi Perfil"};
+function panelSlide(d){
+  if(!M) return;
+  var n=panelesDe().length;
+  PANEL=(PANEL+d+n)%n;
+  var el=$("mpanel"); if(el) el.innerHTML=panelHTML();
+  vigilaGifs();
+}
+function panelIr(i){
+  if(!M) return;
+  PANEL=clamp(i,0,panelesDe().length-1);
+  var el=$("mpanel"); if(el) el.innerHTML=panelHTML();
+  irAlFinalTl();
+  vigilaGifs();
+}
+/* lista de decisiones: la usa la pestaña Yo, bajo la línea «Cómo se movió» */
+function decisionesCardsHTML(full){
+  var D=(M && M.decisiones)||[];
+  if(!D.length) return '<p class="note" style="text-align:center;margin:14px 0">Todavía no has tenido que decidir nada.</p>';
+  var LD="";
+  D.slice().reverse().forEach(function(d){
+    LD+='<div class="pdec pd-'+(d.matiz||d.cls)+'"><div class="pdtop"><span class="pm mono">'+d.min+'′</span>'
+      +'<b>'+esc(d.l)+'</b><span class="pdres">'+({ok:"✔",okpeaje:"✔·",ko:"✘",kopremio:"✘·",mid:"—"}[d.matiz||d.cls])
+      +(typeof d.dn==="number"? (function(){ var v=(M&&M.prueba)? Math.round(d.dn*0.46*100)/100 : d.dn;
+          return ' <i class="dnmini" style="font-style:normal;font-size:10px;color:'+(v>0?"var(--ok)":v<0?"var(--bad)":"var(--dim)")+'">'+(v>0?"+":"")+v.toFixed(2)+'</i>'; })():'')+'</span></div>'
+      +'<div class="pdtxt">'+esc(d.txt)+'</div>'
+      +(d.efe&&d.efe.length? '<div class="pdefe">'+d.efe.map(function(x){ var col=x.b===undefined?"var(--bloom)":(x.b?"var(--ok)":"var(--bad)"); return '<span style="color:'+col+'">'+esc(x.t)+'</span>'; }).join(' <span style="color:var(--dim)">·</span> ')+'</div>':'')
+      +'</div>';
+  });
+  var ok=D.filter(function(d){return d.cls==="ok";}).length;
+  return '<div class="pdres-tot">'+ok+' de '+D.length+' acertadas</div><div class="plista'+(full||"")+'">'+LD+'</div>';
+}
+function panelHTML(){
+  if(!M) return "";
+  var casaN=M.casa?EQ[S.equipo]:EQ[M.rival], visN=M.casa?EQ[M.rival]:EQ[S.equipo];
+  var full=(M.fase==="cierre")? " full":"";
+  var PP=panelesDe(), pid=PP[clamp(PANEL,0,PP.length-1)];
+  var H='<div class="pnav"><button onclick="panelSlide(-1)">‹</button>'
+    +'<span>'+PANEL_N[pid]+'</span>'
+    +'<button onclick="panelSlide(1)">›</button></div>'
+    +'<div class="chips full" style="grid-template-columns:repeat('+PP.length+',1fr);margin:2px 0 8px">'
+    +PP.map(function(id2,i2){ return '<button class="chip'+(i2===PANEL?" on":"")+'" onclick="panelIr('+i2+')">'+PANEL_N[id2]+'</button>'; }).join("")
+    +'</div>';
+  if(pid==="res") return H+'<div class="presumen">'+(M.resumenHTML||"")+'</div>';
+  if(pid==="tl"){
+    var C=(M.crono||[]).slice().sort(function(a,b){ return b.m-a.m; });   /* lo último arriba, el minuto 1 abajo */
+    function sep(txt, marca){ return '<div class="tlsep">'+txt+(marca? ' · <b>'+marca+'</b>':'')+'</div>'; }
+    var g45=[0,0];
+    (M.goles||[]).forEach(function(g){ if((g.m||0)<=45){ if(!!g.mio===!!M.casa) g45[0]++; else g45[1]++; } });
+    var m45=(M.est1 && M.est1.golA!==undefined)? M.est1.golA+"–"+M.est1.golB : g45[0]+"–"+g45[1];
+    /* rol fijo con el que empezaste: no cambia aunque entres al campo */
+    var notaPrevia=(M.convRol==="titular")? '<p class="note tlnota">⚽ Titular ⚽</p>'
+      : (M.convRol==="suplente")? '<p class="note tlnota">🪑 Suplente 🪑</p>' : '';
+    var esCierre=(M.fase==="cierre"), pasado45=esCierre||M.tramo>=3||M.min>45, hayDescuento=C.some(function(e){return e.m>90;})||M.min>90;
+    if(!C.length) return H
+      +'<div class="tl'+full+' vacio">'
+      +'<p class="note" style="text-align:center;margin:4px 0 0">Todavía no ha pasado nada reseñable.</p>'
+      +(pasado45? sep("Descanso", m45):"")+(esCierre? sep("Final", M.sc[0]+"–"+M.sc[1]):"")
+      +sep("Previa","")+notaPrevia
+      +'</div>';
+    var ICO={gol:"⚽", ta:'<b class="tcard tam"></b>', roja:'<b class="tcard tro"></b>', cambio:"", lesion:"🚑"};
+    var FILAS=[];
+    C.forEach(function(ev){
+      var ic = ev.tipo==="cambio"
+        ? '<span class="tlsub"><i class="up">▲</i><i class="dn">▼</i></span>'
+        : ICO[ev.tipo]||"•";
+      var nom = ev.tipo==="cambio"
+        ? '<span class="tln1">'+esc(ev.n||"—")+'</span><span class="tln2">'+esc(ev.n2||"")+'</span>'
+        : '<span class="tln1">'+esc(ev.n)+'</span>'+(ev.n2? '<span class="tln2">asist. '+esc(ev.n2)+'</span>':'');
+      var destaca=(ev.x==="tuyo"||ev.x==="entras"||ev.n===S.nombre)? " yo":"";
+      var izq=(!!ev.mio)===(!!M.casa);   /* la columna izquierda es SIEMPRE la del equipo local */
+      var mTxt=ev.m>90? "90+"+(ev.m-90):String(ev.m);   /* el descuento se lee como descuento */
+      FILAS.push('<div class="tlrow">'
+        +'<div class="tlL'+(izq?destaca:'')+'">'+(izq? nom+'<span class="tlic">'+ic+'</span>':'')+'</div>'
+        +'<span class="tlm mono">'+mTxt+'′</span>'
+        +'<div class="tlR'+(!izq?destaca:'')+'">'+(!izq? '<span class="tlic">'+ic+'</span>'+nom:'')+'</div>'
+        +'</div>');
+    });
+    /* fronteras del partido, leyendo de nuevo a viejo */
+    /* de arriba abajo: Final · minutos de la segunda parte · Descanso · minutos de la primera parte · Previa */
+    var cuerpoTl=(esCierre? sep("Final", M.sc[0]+"–"+M.sc[1]):""), desc=false;
+    C.forEach(function(ev,i){
+      if(!desc && ev.m<=45 && pasado45){ cuerpoTl+=sep("Descanso", m45); desc=true; }
+      cuerpoTl+=FILAS[i];
+    });
+    if(pasado45 && !desc) cuerpoTl+=sep("Descanso", m45);
+    cuerpoTl+=sep("Previa","")+notaPrevia;
+    return H+'<div class="tlhead"><b>'+esc(casaN.c)+'</b><span></span><b>'+esc(visN.c)+'</b></div>'
+      +'<div class="tl'+full+'">'+cuerpoTl+'</div>';
+  }
+  if(pid==="cro"){
+    return H+'<div class="presumen" id="crovivo">'+pjNombre(narracionHTML(hDeM(), M.fase!=="cierre"))+'</div>';
+  }
+  if(pid==="yo"){
+    var hl=hDeM();
+    var media2=S.yo.notaN? (S.yo.notaSum/S.yo.notaN):0;
+    return H+'<div class="presumen">'+numsPartidoHTML(hl, M.fase!=="cierre", true)
+      +'</div>';
+  }
+  if(pid==="dec"){ return H+decisionesCardsHTML(full); }
+  var e=M.est||{tirosA:0,tirosB:0,puertaA:0,puertaB:0,corA:0,corB:0,falA:0,falB:0,posA:50};
+  var e1=M.est1||null, mio=M.casa;
+  function campo(k){
+    if(PANEL_EST==="t"||!e1) return e[k]||0;
+    if(PANEL_EST==="1") return e1[k]||0;
+    return Math.max(0,(e[k]||0)-(e1[k]||0));
+  }
+  var CR2=cronoCompacto(M.crono||[]);
+  function crN(code, lado){   /* lado true = tuyo */
+    return CR2.filter(function(ev){
+      if(ev[1]!==code || !!ev[3]!==lado) return false;
+      if(PANEL_EST==="1") return ev[0]<=45;
+      if(PANEL_EST==="2") return ev[0]>45 || !e1;
+      return true;
+    }).length;
+  }
+  function golesN(lado){
+    return (M.goles||[]).filter(function(g){
+      if(!!g.mio!==lado) return false;
+      if(PANEL_EST==="1") return (g.m||0)<=45;
+      if(PANEL_EST==="2") return (g.m||0)>45 || !e1;
+      return true;
+    }).length;
+  }
+  var pos1=e1? e1.posA : e.posA, pos2=e.posA;
+  var posV = PANEL_EST==="1"? pos1 : PANEL_EST==="2"? pos2 : (e1? Math.round((pos1+pos2)/2) : e.posA);
+  function fila(lb, a, b, pj){   /* pj = {v: lo del jugador, izq: si su equipo está a la izquierda} */
+    /* barras desde el centro: el equipo de la izquierda crece a la izquierda, el de la derecha a la derecha */
+    var tot=(a+b)||1, wa=(a/tot*50).toFixed(2), wb=(b/tot*50).toFixed(2), extra='';
+    if(pj && pj.v>0){ var wp=Math.min(50,pj.v/tot*50).toFixed(2); extra='<i class="pjb" style="'+(pj.izq?'right:50%':'left:50%')+';width:'+wp+'%"></i>'; }
+    var ta=String(a), tb=String(b);
+    if(pj){ var pn='<span class="pjn">('+(pj.v||0)+')</span>'; if(pj.izq) ta+=' '+pn; else tb=pn+' '+tb; }
+    return '<div class="psrow"><span class="psa mono">'+ta+'</span><span class="psl">'+lb+'</span><span class="psb mono">'+tb+'</span></div>'
+      +'<div class="psbar"><i class="pl" style="width:'+wa+'%"></i><i class="pr" style="width:'+wb+'%"></i>'+extra+'<b class="psmark">|</b></div>';
+  }
+  var gA=golesN(true), gB=golesN(false);
+  var tA=campo("tirosA"), tB=campo("tirosB"), pA2=campo("puertaA"), pB2=campo("puertaB");
+  var parA=Math.max(0, pB2-gB), parB=Math.max(0, pA2-gA);   /* paradas = lo que llegó a puerta y no entró */
+  var A=mio? posV : 100-posV;
+  var swap=function(x,y){ return mio? [x,y]:[y,x]; };
+  var g_=swap(gA,gB), t_=swap(tA,tB), p_=swap(pA2,pB2), par_=swap(parA,parB);
+  var c_=swap(campo("corA"),campo("corB")), f_=swap(campo("falA"),campo("falB"));
+  var ta_=swap(crN("t",true),crN("t",false)), tr_=swap(crN("rr",true),crN("rr",false));
+  var ca_=swap(crN("c",true),crN("c",false)), le_=swap(crN("l",true),crN("l",false));
+  return H+'<div class="pstats">'
+    +'<div class="pshead"><b>'+esc(casaN.c)+'</b><span>vs</span><b>'+esc(visN.c)+'</b></div>'
+    +'<div class="chips" style="justify-content:center;margin:2px 0 8px">'
+    +[["t","Todos"],["1","1.ª"],["2","2.ª"]].map(function(x){
+        return '<button class="chip'+(PANEL_EST===x[0]?" on":"")+'" onclick="PANEL_EST=\''+x[0]+'\';panelIr(PANEL)">'+x[1]+'</button>';
+      }).join("")+'</div>'
+    +((PANEL_EST!=="t" && !e1)? '<p class="note" style="text-align:center;margin:0 0 6px">La primera parte aún no ha terminado.</p>':'')
+    +fila("Goles", g_[0], g_[1], {v:(M.miGol||0), izq:!!M.casa})
+    +fila("Posesión %", A, 100-A)
+    +fila("Tiros", t_[0], t_[1], {v:(M.dec||[]).map(decObj).filter(function(d){ return d.k==="t"; }).length, izq:!!M.casa})
+    +fila("A puerta", p_[0], p_[1])
+    +fila("Tiros fuera", Math.max(0,t_[0]-p_[0]), Math.max(0,t_[1]-p_[1]))
+    +fila("Efectividad %", t_[0]? Math.round(g_[0]/t_[0]*100):0, t_[1]? Math.round(g_[1]/t_[1]*100):0)
+    +fila("Paradas", par_[0], par_[1], S.pos==="POR"? {v:(M.paradas||0), izq:!!M.casa} : null)
+    +fila("Córners", c_[0], c_[1])
+    +fila("Faltas", f_[0], f_[1])
+    +fila("🟨 Amarillas", ta_[0], ta_[1])
+    +((tr_[0]+tr_[1])? fila("🟥 Rojas", tr_[0], tr_[1]):'')
+    +((ca_[0]+ca_[1])? fila("Cambios", ca_[0], ca_[1]):'')
+    +((le_[0]+le_[1])? fila("Lesiones", le_[0], le_[1]):'')
+    +'</div>';
+}
+function narrarSiguiente(){
+  if(!M) return;
+  cancelarAuto();
+  if(!M.colaCron || !M.colaCron.length){
+    if(M.tramo>=6 || M.pendienteFin){ M.pendienteFin=false; cierreInminente(); return; }
+    avanzarPartido(); return;
+  }
+  var linea=M.colaCron.shift();
+  M.minNarrado=Math.max(M.minNarrado||0, M.min);
+  if(linea.min===undefined) linea.min=(M.fase==="pre"?0:Math.max(1,M.minNarrado));
+  if(linea.min) M.minNarrado=Math.max(M.minNarrado, linea.min);
+  M.histCron=M.histCron||[];
+  M.histCron.push(linea);
+  (M.libro=M.libro||[]).push([linea.min||0, linea.t||"", linea.dec||""]);
+  if(M.histCron.length>3) M.histCron.shift();
+  var enCro=(panelesDe()[clamp(PANEL,0,panelesDe().length-1)]==="cro");
+  var _stPanel=(function(){ var el2=scrollPanelEl(); return el2? (el2.scrollTop||0):0; })();
+  var cuerpo=dbgResultado()+'<div id="mpanel" class="mpanel mp-corto">'+panelHTML()+'</div>'+(enCro?'':'<div class="tick tick-bajo">');
+  (enCro? []:M.histCron).forEach(function(l,i){
+    var ultima=i===M.histCron.length-1;
+    cuerpo+='<p class="'+(ultima?"now":"old")+'">'
+      +'<b class="tmin">'+(l.min? l.min+'′' : (l.et||'PREVIA'))+'</b> '
+      +(l.cls? '<b class="tres t-'+(l.matiz||l.cls)+'">'+({
+          ok:"✔ salió bien", okpeaje:"✔ bien, pero con precio", ko:"✘ salió mal",
+          kopremio:"✘ mal, aunque algo sacas", mid:"— sin consecuencias"
+        }[l.matiz||l.cls])+'</b> ':'')
+      +(l.dec?'<b class="tdec">'+esc(l.dec)+'.</b> ':'')+esc(l.t)
+      +((ultima && l.efe && l.efe.length)? '<span class="efechips">'+l.efe.map(function(x){
+          return '<span class="efe '+(x.car?"efe-car":(x.b?"efe-ok":"efe-ko"))+'">'+esc(x.t)+'</span>';
+        }).join("")+'</span>':'')
+      +'</p>';
+  });
+  if(!enCro) cuerpo+='</div>';
+  var dur=Math.round(clamp(800+linea.t.length*24, 1000, 2300));
+  pintarMatch(cuerpo, autoBarHTML(dur));   /* sin caja de consecuencias bajo la lectura: la decisión ya sale en la narración */
+  (function(){
+    var el2=scrollPanelEl(); if(!el2) return;
+    try{
+      if(enCro) el2.scrollTop = (_stPanel<=8)? 0 : _stPanel;   /* si estabas arriba, lo nuevo te encuentra; si leías, te quedas */
+      else el2.scrollTop=_stPanel;
+    }catch(e){}
+  })();
+  $("ov-match").onclick=saltarAuto;
+  activarSwipe();
+  autoAvance(dur, function(){ $("ov-match").onclick=null; narrarSiguiente(); });
+}
+function activarSwipe(){
+  var n=$("mpanel"); if(!n || n._sw || typeof n.addEventListener!=="function") return;
+  n._sw=true;
+  var x0=null;
+  var y0=null;
+  n.addEventListener("touchstart", function(ev){ x0=ev.touches[0].clientX; y0=ev.touches[0].clientY; }, {passive:true});
+  n.addEventListener("touchend", function(ev){
+    if(x0===null) return;
+    var dx=ev.changedTouches[0].clientX-x0, dy=ev.changedTouches[0].clientY-y0;
+    x0=null; y0=null;
+    /* gesto claramente horizontal y largo: un toque con temblor no cambia de pestaña */
+    if(Math.abs(dx)>78 && Math.abs(dx)>Math.abs(dy)*2.2){ ev.stopPropagation(); panelSlide(dx<0?1:-1); }
+  }, {passive:true});
+}
+function cierreInminente(){
+  var cuerpo='<div class="tick"><p class="now"><b class="tmin">90′</b> '+esc(pick([
+    "El árbitro se lleva el silbato a la boca por última vez.",
+    "Se acabó. Noventa minutos en las piernas.",
+    "Pitido final en el estadio."]))+'</p></div>';
+  pintarMatch(cuerpo, autoBarHTML(900));
+  $("ov-match").onclick=saltarAuto;
+  autoAvance(900, function(){ $("ov-match").onclick=null; finPartido(); });
+}
+function notaDePrueba(){
+  var bruto=notaBrutaLiga();
+  return clamp(5.9+(bruto-6.1)*0.46 - (M.miTR?1.4:0) - (M.miTA?0.2:0), 2.5, 9.5);
+}
+function finPrueba(){
+  var n=notaDePrueba();
+  PICK.notaPrueba=Math.round(n*10)/10;
+  PICK.golesPrueba=M.miGol; PICK.asisPrueba=M.miAsis; PICK.paradasPrueba=M.paradas;
+  PICK.rojaPrueba=M.miTR;
+  /* la valoración pesa sobre lo que te ofrecen */
+  PICK.bonusPrueba=clamp(Math.round((n-6.3)*(n>=8?12:8)), -16, 26);
+  S=null; M=null; M_ficha=null; OVSEM_COLA=[];   /* lo que esperaba menú era de la carrera que se cierra */
+  cerrarOverlays();
+  PICK.tanda=generarTanda();
+  $("scr-hub").classList.add("hidden");
+  $("scr-sec").classList.add("hidden");
+  $("scr-pos").classList.add("hidden");
+  $("scr-pick").classList.remove("hidden");
+  renderOfertas();
+  SCR_KEY=null; window.scrollTo(0,0);
+}
+/* ================= HUB ================= */
+var SEC="inicio";
+var PARTIDA_ABIERTA=false;   /* solo el hub real la enciende: Opciones desde el título no desbloquea nada */
+/* al volver a pintar la misma pantalla no se sube al principio: solo al cambiar de pantalla */
+var SCR_KEY=null;
+function scrollSiCambia(k){ if(k!==SCR_KEY){ SCR_KEY=k; window.scrollTo(0,0); } }
+function volverTitulo(){
+  ["scr-hub","scr-sec","scr-pos","scr-pick"].forEach(function(id){ var e=$(id); if(e) e.classList.add("hidden"); });
+  $("menu").classList.add("hidden"); document.body.classList.remove("conmenu");
+  $("scr-title").classList.remove("hidden"); SCR_KEY="titulo"; window.scrollTo(0,0);
+}
+var SUB={jugador:"ficha", equipo:"tabla", mercado:"hilos", cuentas:"dinero", ajustes:"info"};
+function resetSub(){ SUB={jugador:"ficha", equipo:"tabla", mercado:"hilos", cuentas:"dinero", ajustes:"info"}; }
+var SUBS={
+  jugador:[["ficha","Ficha"],["fisico","Físico"],["animo","Ánimo"],["caracter","Carácter"],["fama","Fama"],["stats","Números"],["hist","Carrera"]],
+  equipo:[["tabla","Clasificación"],["plantilla","Vestuario"],["mister","El míster"],["entreno","Entreno"],["jornada","Resultados"]],
+  cuentas:[["dinero","Dinero"],["tienda","Tienda"]],
+  mercado:[["hilos","Mover los hilos"],["agente","Agente"],["patros","Patrocinios"],["rumores","Rumores"],["fichajes","Fichajes"],["prensa","Prensa"]],
+  ajustes:[["info","Información"],["codigo","Código"],["reportar","Reportar"]]
+};
+/* subpestañas desactivadas en el juego (siguen en el admin, marcadas como ocultas) */
+var SUB_OCULTAS={jugador:["caracter"], equipo:["plantilla"], mercado:["rumores","fichajes","prensa"]};
+/* lo que el admin publica en «pantallas» (contAplicar lo rellena): PANT_OFF[P11].sub.caracter = true/false */
+var PANT_OFF={};
+var PANT_DE_SEC={jugador:"P11", equipo:"P12", mercado:"P13", cuentas:"P14", ajustes:"P15"};
+function subVisible(sec,k){
+  var pan=PANT_OFF[PANT_DE_SEC[sec]||""], sub=pan&&pan.sub;
+  if(sub && typeof sub[k]==="boolean") return sub[k];
+  return !(SUB_OCULTAS[sec]||[]).some(function(x){ return x===k; });
+}
+function irSub(sec,k){ SUB[sec]=k; irSec(sec); }
+function subTabs(sec){
+  var lista=SUBS[sec].filter(function(t){ return subVisible(sec,t[0]); });
+  if(lista.length && !subVisible(sec,SUB[sec])) SUB[sec]=lista[0][0];
+  var n=lista.length, cols=n>5? Math.ceil(n/2):n;
+  return '<div class="chips full" style="grid-template-columns:repeat('+cols+',1fr)">'+lista.map(function(t){
+    return '<button class="chip'+(SUB[sec]===t[0]?' on':'')+'" onclick="irSub(\''+sec+'\',\''+t[0]+'\')">'+esc(t[1])+((sec==="ajustes" && t[0]==="codigo" && CHEATS_ON)? ' <span style="opacity:.75">●</span>' : '')+'</button>';
+  }).join("")+'</div>';
+}
+/* al entrar en una pantalla se pide el contenido publicado; si ha cambiado, la pantalla se vuelve a pintar sin recargar el juego */
+function contAlEntrar(k){
+  var antes=CONT.n, pantAntes=JSON.stringify(PANT_OFF);
+  contSync(1500).then(function(){
+    if(SEC!==k) return;
+    if(CONT.n!==antes || JSON.stringify(PANT_OFF)!==pantAntes) irSec(k);
+  });
+}
+function pendIrEntreno(){ SUB.equipo="entreno"; irSec("equipo"); }
+function pendIrSemana(){ SUB.jugador="animo"; irSec("jugador"); }
+function irSec(k){
+  if(!PARTIDA_ABIERTA){
+    if(k!=="ajustes"){ volverTitulo(); return; }
+    SEC="ajustes";
+    ["scr-title","scr-pick","scr-pos","scr-hub"].forEach(function(id){ var e=$(id); if(e) e.classList.add("hidden"); });
+    $("menu").classList.add("hidden"); document.body.classList.remove("conmenu");
+    $("scr-sec").classList.remove("hidden");
+    $("sec-body").innerHTML='<button class="ghost" style="margin-bottom:12px" onclick="volverTitulo()">← Volver al menú</button>'+secAjustes();
+    scrollSiCambia("ajustes"); return;
+  }
+  contAlEntrar(k);
+  SEC=k;
+  ["scr-title","scr-pick","scr-pos"].forEach(function(id){ $(id).classList.add("hidden"); });
+  document.body.classList.add("conmenu");
+  $("menu").classList.remove("hidden");
+  renderTopbar();
+  var bs=$("menu").getElementsByTagName("button");
+  for(var i=0;i<bs.length;i++){ bs[i].className = bs[i].getAttribute("data-s")===k? "on":""; }
+  if(k==="inicio"){
+    if(!S){ ["scr-hub","scr-sec"].forEach(function(id){ $(id).classList.add("hidden"); }); $("menu").classList.add("hidden"); document.body.classList.remove("conmenu"); $("scr-title").classList.remove("hidden"); return; }
+    $("scr-sec").classList.add("hidden"); renderHub(); return; }
+  $("scr-hub").classList.add("hidden");
+  $("scr-sec").classList.remove("hidden");
+  if(k==="jugador") $("sec-body").innerHTML=secJugador();
+  else if(k==="cuentas") $("sec-body").innerHTML=secCuentas();
+  else if(k==="equipo") $("sec-body").innerHTML=secEquipo();
+  else if(k==="mercado") $("sec-body").innerHTML=secMercado();
+  else if(k==="ajustes") $("sec-body").innerHTML=secAjustes();
+  scrollSiCambia("sec:"+k+":"+(SUB[k]||""));
+}
+/* ---------- PERFIL DE PARTIDO ---------- */
+/* el nombre del jugador sale en naranja dentro del texto de la crónica */
+function pjNombre(html){
+  var n=esc(S.nombre||""); if(!n) return html;
+  return html.split(n).join('<span class="pjnom">'+n+'</span>');
+}
+var GIF_IO=null;
+/* el gif del gol solo corre cuando aparece en pantalla */
+function vigilaGifs(){
+  if(GIF_IO){ GIF_IO.disconnect(); GIF_IO=null; }
+  var els=document.querySelectorAll('#crovivo .golgif'); if(!els.length) return;
+  if(!('IntersectionObserver' in window)){ els.forEach(function(e){ e.classList.add('on'); }); return; }
+  GIF_IO=new IntersectionObserver(function(ents){ ents.forEach(function(en){ en.target.classList.toggle('on', en.isIntersecting); }); }, {threshold:0.5});
+  els.forEach(function(e){ GIF_IO.observe(e); });
+}
+function narracionHTML(h, enVivo){
+  /* si el partido guardó su relato, la crónica ES el relato: minuto, línea y poco más */
+  if(h.lib && h.lib.length){
+    var golesM={};
+    (h.goles||[]).forEach(function(g){ var mm=g.m||0; (golesM[mm]=golesM[mm]||[]).push(g); });
+    var lineas=h.lib.slice().reverse();   /* lo nuevo arriba: el 90′ corona y el 1′ cierra abajo */
+    var H2="", vistos={}, prevMin=null;
+    function gifsDe(mm){
+      if(vistos[mm] || !golesM[mm]) return "";
+      vistos[mm]=1;
+      return golesM[mm].map(function(g){
+        return '<div class="cron" style="border-color:'+(g.mio?"var(--ok)":"var(--bad)")+'">'
+          +'<b>⚽ ¡GOL'+(g.mio?"":" DEL RIVAL")+'!</b> '+esc(g.a||"")+(g.yo?" (tú)":"")
+          +(g.as? " · asistencia de "+esc(g.as)+(g.asis?" — tuya":""):"")
+          +'<div style="margin-top:8px">'+golGifSVG(g,h)+'</div></div>';
+      }).join("");
+    }
+    function sep2(txt, marca){ return '<div class="tlsep">'+txt+(marca? ' · <b>'+marca+'</b>':'')+'</div>'; }
+    var g45c=[0,0];
+    (h.goles||[]).forEach(function(g){ if((g.m||0)<=45){ if(!!g.mio) g45c[0]++; else g45c[1]++; } });
+    var m45c=(h.est1 && h.est1.golA!==undefined)? h.est1.golA+"–"+h.est1.golB
+           : (h.casa? g45c[0]+"–"+g45c[1] : g45c[1]+"–"+g45c[0]);
+    var cierreC=!enVivo, pasa45=lineas.some(function(l){return l[0]>45;});
+    if(cierreC && h.sc) H2+=sep2("Final", h.sc[0]+"–"+h.sc[1]);
+    var descansoPuesto=false, previaPuesto=false;
+    var huerfanos=Object.keys(golesM).map(Number).sort(function(a,b){return b-a;});
+    function flushHasta(minLim){   /* goles sin línea propia: entran por su minuto, nunca al fondo */
+      while(huerfanos.length && huerfanos[0]>=minLim){ H2+=gifsDe(huerfanos.shift()); }
+    }
+    lineas.forEach(function(l,i){
+      flushHasta(l[0]+1);
+      if(!descansoPuesto && pasa45 && prevMin!==null && prevMin>45 && l[0]<=45){ H2+=sep2("Descanso", m45c); descansoPuesto=true; }
+      if(!previaPuesto && prevMin!==null && prevMin>0 && l[0]===0){ flushHasta(1); H2+=sep2("Previa",""); previaPuesto=true; }
+      if(l[0]!==prevMin){ H2+=gifsDe(l[0]); prevMin=l[0]; }   /* el gol corona su minuto */
+      var mLbl=l[0]>90? "90+"+(l[0]-90)+"′" : l[0]? l[0]+"′" : "PREVIA";
+      H2+='<p class="cron"><b class="mono">'+mLbl+'</b> '
+        +(l[2]? '<b class="tdec">'+esc(l[2])+'.</b> ':'')+esc(l[1])+'</p>';
+    });
+    if(pasa45 && !descansoPuesto) H2+=sep2("Descanso", m45c);
+    flushHasta(1);
+    if(!previaPuesto && lineas.some(function(l){return l[0]===0;})===false && lineas.length){ /* sin bloque de previa: nada que separar */ }
+    Object.keys(golesM).forEach(function(mm){ if(huerfanos.indexOf(+mm)<0) H2+=gifsDe(+mm); });
+    return H2;
+  }
+  /* sin relato guardado (partidas viejas, jornadas sin minutos): se reconstruye del libro de decisiones */
+  var items=[];
+  (h.dec||[]).forEach(function(x,ix){ var d=decObj(x); items.push({m:d.m, ord:ix, tipo:"dec", d:d}); });
+  (h.goles||[]).forEach(function(g){ items.push({m:g.m||0, ord:999, tipo:"gol", g:g}); });
+  (h.crono||[]).forEach(function(e){ items.push({m:e[0], ord:998, tipo:e[1], n:e[2], mio:!!e[3]}); });
+  items.sort(function(a,b){ return (b.m-a.m)||(b.ord-a.ord); });   /* reconstrucción también de nuevo a viejo */
+  var H2="";
+  if(!items.length) H2+='<p class="note" style="text-align:center;margin:14px 0">'+(enVivo?"Todavía no ha pasado nada que contar.":"No hay nada que contar de este partido.")+'</p>';
+  items.forEach(function(it){
+    if(it.tipo==="dec"){
+      var d=it.d, sit=d.s? sitPorId(d.s):null;
+      var col=d.r==="ok"?"var(--ok)":d.r==="ko"?"var(--bad)":"var(--gold)";
+      if(d.k==="x"){
+        H2+='<p class="cron" style="border-color:var(--bad)"><b class="mono">'+d.m+'′</b> · Te quedaste sin decidir. El balón siguió sin ti. <span class="note mono">'+(d.d/100).toFixed(2)+'</span></p>';
+        return;
+      }
+      if(sit && d.oi!==null && d.oi>=0 && sit.o && sit.o[d.oi]){
+        var op=sit.o[d.oi];
+        var prosa=op[d.r]||op.mid||op.ok||op.ko||"";
+        H2+='<div class="cron" style="border-color:'+col+'">'
+          +'<b class="mono">'+d.m+'′</b> · <b>'+esc(sit.t||"")+'</b>'
+          +(function(){ if(!sit.x) return "";
+              var xt=sit.x;
+              if(typeof xt==="function"){ try{ xt=xt(M||{sc:[0,0],min:0,miTA:0,casa:true,rival:h.rival||"SEV"}); }catch(e){ xt=""; } }
+              return xt? '<br><span class="note">'+esc(xt)+'</span>':''; })()
+          +'<br>➤ <i>'+esc(op.l)+'</i>'
+          +(prosa? '<br>'+esc(prosa):'')
+          +' <span class="note mono">'+(d.d>=0?"+":"")+(d.d/100).toFixed(2)+'</span></div>';
+      } else {
+        H2+='<p class="cron" style="border-color:'+col+'"><b class="mono">'+d.m+'′</b> · '+esc(DEC_K_N[d.k]||"Juego")+': '+decEtiqueta(d)+' <span class="note mono">'+(d.d>=0?"+":"")+(d.d/100).toFixed(2)+'</span></p>';
+      }
+    } else if(it.tipo==="gol"){
+      var g=it.g;
+      H2+='<div class="cron" style="border-color:'+(g.mio?"var(--ok)":"var(--bad)")+'"><b class="mono">'+(g.m||0)+'′</b> · <b>⚽ ¡GOL'+(g.mio?"":" DEL RIVAL")+'!</b> '+esc(g.a||"")+(g.yo?" (tú)":"")+(g.as? " · asistencia de "+esc(g.as):"")
+        +'<div style="margin-top:8px">'+golGifSVG(g,h)+'</div></div>';
+    } else {
+      var ic2=it.tipo==="t"?"🟨":it.tipo==="rr"?"🟥":it.tipo==="l"?"🚑":"🔁";
+      H2+='<p class="cron"><b class="mono">'+it.m+'′</b> · '+ic2+' '+esc(it.n||"")+' <span class="note">('+(it.mio?"tu equipo":"rival")+')</span></p>';
+    }
+  });
+  return H2+'<p class="note" style="margin:8px 2px 0">Crónica reconstruida del libro de decisiones (el relato literal no quedó guardado).</p>';
+}
+function numsPartidoHTML(h, enVivo, enPanel){
+  var DD=(h.dec||[]).map(decObj), yoX=h.yo;
+  function nK(ks,r2){ return DD.filter(function(d){ return ks.indexOf(d.k)>=0 && (!r2||d.r===r2); }).length; }
+  var sumD=0, sumV=0; DD.forEach(function(d){ sumD+=d.d; if(d.k==="v") sumV+=d.d; });
+  var zonasP={}; DD.forEach(function(d){ if(d.z) zonasP[d.z]=1; });
+  var tirosN=nK(["t"]), pasesN=nK(["p"]), limN=nK(["r"]);
+  var H2="";
+  if(yoX){
+    H2+='<div class="row2"><span>Minutos</span><b>'+yoX.min+"'"+(enVivo?" jugados":"")+'</b></div>'
+      +'<div class="row2"><span>'+(enVivo?"Valoración si acabara ahora":"Valoración")+'</span><b><span class="mchip" style="background:'+notaColor(yoX.nota)+'">'+yoX.nota.toFixed(1)+'</span>'+(yoX.mvp?" ⭐":"")+'</b></div>'
+      +'<div class="row2"><span>'+(S.pos==="POR"?"Paradas":"Goles · Asistencias")+'</span><b>'+(S.pos==="POR"? yoX.p : yoX.g+" · "+yoX.a)+'</b></div>'
+      +((typeof M!=="undefined" && M && !enPanel)? '<p class="note" style="margin:4px 2px 6px">'+trozosNota().map(function(t){ return t[0]+" "+(t[1]>=0&&t[0]!=="decisiones"?"+":"")+t[1].toFixed(2); }).join(" · ")+'</p>'+(enPanel? '' : trayectoriaNota()):'');
+  } else H2+='<p class="note">'+(enVivo?"Aún sin minutos.":"Sin minutos: solo cuenta lo que hiciste desde fuera.")+'</p>';
+  if(enPanel && yoX) H2+='<div class="mline" style="margin-top:10px"><span>Cómo se movió</span></div>'+decisionesCardsHTML('');
+  H2+=(enPanel? '' :
+    '<div class="row2"><span>Tiros · conversión</span><b>'+tirosN+(tirosN&&yoX? ' · '+Math.round((yoX.g||0)/tirosN*100)+'%':'')+'</b></div>'
+    +'<div class="row2"><span>Pases de peligro → asistencias</span><b>'+pasesN+' → '+((yoX&&yoX.a)||0)+'</b></div>'
+    +'<div class="row2"><span>Acciones defensivas</span><b>'+nK(["d"],"ok")+' resueltas · '+nK(["d"],"ko")+' superado</b></div>')
+    +(enPanel?'':'<div class="row2"><span>Jugadas al límite</span><b>'+nK(["r"],"ok")+' de '+limN+' salieron bien</b></div>')
+    +((nK(["x"]))? '<div class="row2"><span>Indecisiones</span><b style="color:var(--bad)">'+nK(["x"])+'</b></div>':'')
+    +(enPanel?'':'<div class="row2"><span>Impacto de tus decisiones</span><b style="color:'+(sumD>=0?"var(--ok)":"var(--bad)")+'">'+(sumD>=0?"+":"")+(sumD/100).toFixed(2)+' pts</b></div>')
+    +((sumV)? '<div class="row2"><span>· de vestuario y banquillo</span><b>'+(sumV>=0?"+":"")+(sumV/100).toFixed(2)+'</b></div>':'')
+    +((yoX&&(yoX.ta||yoX.tr))? '<div class="row2"><span>Tarjetas</span><b>'+(yoX.ta?"🟨 ":"")+(yoX.tr?"🟥":"")+'</b></div>':'');
+  var zk=Object.keys(zonasP);
+  if(zk.length && !enPanel) H2+='<div class="row2"><span>Zonas pisadas</span><b class="note" style="text-align:right">'+zk.map(function(z){return ZNOMBRE[z];}).join(" · ")+'</b></div>';
+  return H2;
+}
+function minutosAhora(){
+  if(!M || !M.yaJugado) return 0;
+  if(M.fase==="cierre" || M.salidaMin) return Math.max(0, Math.round(M.salidaMin? M.salidaMin-(M.minEntrada||0) : M.minJugados));
+  if(M.enCampo) return Math.max(0, Math.round(Math.min(M.min,90)-(M.minEntrada||0)));
+  return Math.max(0, Math.round(M.minJugados));
+}
+function hDeM(){
+  var jugo=M.minJugados>0 && M.yaJugado;
+  return { rival:M.rival, casa:M.casa, sc:M.sc,
+    dec:(M.dec||[]), goles:(M.goles||[]), crono:cronoCompacto(M.crono), lib:(M.libro||[]),
+    yo: jugo? {min:minutosAhora(), nota:(M.fase==="cierre" && M.notaFinal!=null)? M.notaFinal : Math.round(clamp(notaDelPartido(),3,10)*10)/10,
+               g:M.miGol||0, a:M.miAsis||0, p:M.paradas||0, ta:M.miTA||0, tr:M.miTR||0, mvp:false} : null };
+}
+var PARTIDO_SEL=null, PF_TAB="res", PARTIDO_TEMP=null;   /* null = temporada en curso */
+function histDe(t){
+  if(t===null || t===undefined || +t===S.temporada) return S.hist||[];
+  return (S.archivo && S.archivo[t] && S.archivo[t].h) || [];
+}
+function exportHistJSON(h){
+  if(!h) return null;
+  var D9=h.yo? desgloseNota(h) : null;
+  var sumaD=0; (h.dec||[]).map(decObj).forEach(function(d){ sumaD+=d.d/100; });
+  var out={ version:VERSION, archivado:true, jornada:h.jor, rival:h.rival, casa:!!h.casa, sc:h.sc,
+    marcador45:h.est1||null, est:h.est||null,
+    yo:h.yo||null,
+    desglose:D9? {filas:D9.filas, fin:D9.fin} : null,
+    sumaDeltasLibro:Math.round(sumaD*1000)/1000,
+    decisiones:(h.dec||[]).map(function(x){ var d=decObj(x); var sit=sitPorId(d.s); var o=sit&&sit.o&&sit.o[d.oi];
+      return { min:d.m, sit:d.s, opcion:(o&&o.l)||null, tipo:d.k, resultado:d.r, delta:Math.round(d.d)/100, zona:d.z||null, raw:x }; }),
+    goles:(h.goles||[]).map(function(g){ return {min:g.m, mio:!!g.mio, tuyo:!!g.yo, autor:g.a||g.autor||null, zona:g.z||null}; }),
+    libro:(h.lib||[]).map(function(l){ return [l[0], l[1], l[2]||null]; })
+  };
+  return JSON.stringify(out, null, 1);
+}
+function copiarHistJSON(){
+  var H2=histDe(PARTIDO_TEMP), h=H2 && H2[PARTIDO_SEL];
+  var j=exportHistJSON(h); if(!j) return;
+  function hecho(){ var b=$("btn-json-h"); if(b){ b.textContent="Copiado ✔"; setTimeout(function(){ var b2=$("btn-json-h"); if(b2) b2.textContent="Copiar JSON del partido"; }, 1600); } }
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(j).then(hecho, function(){ copiarFallback(j); hecho(); }); }
+    else { copiarFallback(j); hecho(); }
+  }catch(e){ copiarFallback(j); hecho(); }
+}
+function irResultados(){ irSec("equipo"); irSub("equipo","jornada"); }
+function verPartido(i){ PARTIDO_SEL=i; PF_TAB="res"; irResultados(); }
+function verPartidoTab(i,t){ PARTIDO_TEMP=null; PARTIDO_SEL=i; PF_TAB=t||"acta"; irResultados(); }
+function setTempPartidos(t){ PARTIDO_TEMP=(t===S.temporada? null:t); PARTIDO_SEL=null; irResultados(); }
+function cerrarYFicha(){
+  if(M) cerrarJornada();                     /* liquida la jornada como siempre */
+  if(S && S.hist && S.hist.length) verPartidoTab(S.hist.length-1, "acta");
+}
+/* una tarjeta de partido de la temporada (Ciudad deportiva › Resultados), con atajos al acta */
+function cardPartido(i){
+  if(!S || !S.hist || !S.hist[i]) return "";
+  var h=S.hist[i];
+  var res=h.sc[0]>h.sc[1]?"V":h.sc[0]<h.sc[1]?"D":"E";
+  var rc=res==="V"?"var(--ok)":res==="D"?"var(--bad)":"var(--gold)";
+  return '<div class="card" style="padding:12px 14px"><div style="display:flex;gap:10px;align-items:center">'
+    +crestSVG(h.rival,26)
+    +'<div style="flex:1;min-width:0"><b>Jornada '+h.jor+'</b><br><span class="note">'
+    +(h.casa?"casa":"fuera")+' · <b style="color:'+rc+'">'+h.sc[0]+"-"+h.sc[1]+'</b> vs '+esc(EQ[h.rival]?EQ[h.rival].c:h.rival)+'</span></div>'
+    +(h.yo? '<span class="mchip" style="background:'+notaColor(h.yo.nota)+'">'+h.yo.nota.toFixed(1)+'</span>':'')
+    +'</div><div class="chips full" style="grid-template-columns:repeat(3,1fr);margin-top:10px">'
+    +'<button class="chip" onclick="verPartidoTab('+i+',\'acta\')">📋 Acta</button>'
+    +'<button class="chip" onclick="verPartidoTab('+i+',\'pulso\')">📈 Pulso</button>'
+    +'<button class="chip" onclick="verPartidoTab('+i+',\'res\')">🔥 Desglose</button>'
+    +'</div></div>';
+}
+function cerrarPartido(){ PARTIDO_SEL=null; irResultados(); }
+function pfTab(t){ PF_TAB=t; irResultados(); }
+function zonasDePartido(h){
+  var Z={};
+  function suma(z,p){ Z[z]=(Z[z]||0)+p; var v=ZONA_VECINAS[z]||[]; if(v[0]) Z[v[0]]=(Z[v[0]]||0)+Math.max(1,Math.round(p*0.42)); if(v[1]) Z[v[1]]=(Z[v[1]]||0)+Math.max(1,Math.round(p*0.22)); }
+  (h.dec||[]).forEach(function(x){ var d=decObj(x); if(d.z && ZINV[d.z]) Z[ZINV[d.z]]=(Z[ZINV[d.z]]||0)+2; });
+  if(h.yo && h.yo.min) suma(zonaBase(), Math.max(2, Math.round(h.yo.min/25)));
+  return Z;
+}
+function dotsPartidoSVG(dec, tipos){
+  var g='<svg viewBox="0 0 300 200" class="pitchsvg">';
+  g+='<rect width="300" height="200" rx="10" fill="#1d6b34"/>';
+  for(var f=0;f<8;f++) g+='<rect x="0" y="'+(f*25)+'" width="300" height="25" fill="'+(f%2?"#1d6b34":"#20753a")+'" opacity=".8"/>';
+  g+='<g stroke="#eaf5ec" stroke-width="1.1" fill="none" opacity=".55">'
+    +'<rect x="4" y="4" width="292" height="192" rx="6"/>'
+    +'<line x1="150" y1="4" x2="150" y2="196"/><circle cx="150" cy="100" r="24"/>'
+    +'<rect x="4" y="55" width="40" height="90"/><rect x="256" y="55" width="40" height="90"/></g>';
+  var JIT=[[0,0],[-11,8],[10,-9],[-6,-13],[8,11],[-14,-3],[13,6],[3,14]];
+  var n=0;
+  (dec||[]).forEach(function(x,i){
+    var d=decObj(x);
+    if(!d.z || (tipos && tipos.indexOf(d.k)<0)) return;
+    var p=ZONAS_XY[ZINV[d.z]]; if(!p) return;
+    var j=JIT[i%JIT.length];
+    var col=d.r==="ok"? "#3DDC97" : d.r==="ko"? "#FF5470" : "#FFC24B";
+    var gol=(d.k==="t" && d.r==="ok");
+    g+='<circle cx="'+(p[0]+j[0])+'" cy="'+(p[1]+j[1])+'" r="'+(gol?7:5)+'" fill="'+col+'" stroke="#07110b" stroke-width="1.4"/>';
+    if(gol) g+='<circle cx="'+(p[0]+j[0])+'" cy="'+(p[1]+j[1])+'" r="10" fill="none" stroke="#3DDC97" stroke-width="1.4" opacity=".7"/>';
+    n++;
+  });
+  g+='<path d="M120 187 h52 m0 0 l-7 -5 m7 5 l-7 5" stroke="#eaf5ec" stroke-width="2" fill="none" opacity=".8"/>';
+  g+='</svg>';
+  return {svg:g, n:n};
+}
+function posDeNombre(nombre, rivalId){
+  if(nombre===S.nombre) return S.pos;
+  var c=compiPorNombre(nombre); if(c) return c.pos;
+  var pl=plantillaObj(rivalId||"");
+  for(var i=0;i<pl.length;i++) if(pl[i].n===nombre) return pl[i].pos;
+  return "DC";
+}
+function zonaDePos(p, pierna){
+  if(p==="POR") return "ppro";
+  if(p==="DFC") return "defensa";
+  if(p==="MCD"||p==="MC") return "medio";
+  if(p==="MCO") return "frontal";
+  if(p==="DC") return "arearival";
+  return (pierna==="I")? "bandaI":"bandaD";
+}
+function camisetaSVG(x,y,dorsal,nombre){
+  return '<g transform="translate('+x+','+y+')">'
+    +'<path d="M-11,-9 L-5,-13 L5,-13 L11,-9 L8,-4 L6,-5 L6,10 L-6,10 L-6,-5 L-8,-4 Z" fill="#f2f2f2" stroke="#111" stroke-width="1.2"/>'
+    +'<text y="4" text-anchor="middle" font-size="10" font-weight="800" fill="#111">'+esc(String(dorsal))+'</text>'
+    +'<text y="22" text-anchor="middle" font-size="8.5" fill="#EDF0F8" opacity=".9">'+esc((nombre||"").split(" ")[0])+'</text></g>';
+}
+/* los goles se rematan donde se rematan: si el libro no trae zona, se recrea en zona de remate */
+function zonaRemate(g){
+  if(g && g.z && ZINV[g.z]) return ZINV[g.z];
+  var seed=((g&&g.m)||0)*7+(((g&&g.a)||"").length);
+  return (seed%7===0)? "frontal":"arearival";
+}
+function zonaAsistente(pos){
+  var z=zonaDePos(pos,"D");
+  return (z==="ppro"||z==="defensa")? "medio":z;   /* quien asiste un gol ya había subido */
+}
+/* el gif del gol: cinco segundos en bucle — la jugada, y por dónde entró */
+function golGifSVG(g, h){
+  var seed=((g.m||0)*31+((g.a||"").length)*7+(g.as?13:0)+(g.mio?0:5));
+  var zTiro=zonaRemate(g);
+  var pT=ZONAS_XY[zTiro]||ZONAS_XY.arearival;
+  var tx=clamp(pT[0]+(((seed%7)-3)*3), 30, 258), ty=clamp(pT[1]+(((seed%5)-2)*5), 42, 158);
+  var dorsal=g.yo? S.dorsal : (g.a||"?").charAt(0);
+  var A='<svg viewBox="0 0 300 200" class="gfa">'
+    +'<rect width="300" height="200" fill="#1d6b34"/>';
+  for(var f=0;f<8;f++) A+='<rect x="0" y="'+(f*25)+'" width="300" height="25" fill="'+(f%2?"#1d6b34":"#20753a")+'" opacity=".8"/>';
+  A+='<g stroke="#eaf5ec" stroke-width="1.1" fill="none" opacity=".5">'
+    +'<rect x="4" y="4" width="292" height="192"/>'
+    +'<line x1="150" y1="4" x2="150" y2="196"/><circle cx="150" cy="100" r="24"/>'
+    +'<rect x="4" y="55" width="40" height="90"/><rect x="256" y="55" width="40" height="90"/></g>';
+  if(g.as){
+    var zA=zonaAsistente(posDeNombre(g.as, g.mio? null : h.rival));
+    var pA=ZONAS_XY[zA]||ZONAS_XY.medio;
+    var ax=clamp(pA[0]-14+((seed%3)*6), 24, 236), ay=clamp(pA[1]+18-((seed%4)*8), 42, 162);
+    A+='<line x1="'+ax+'" y1="'+ay+'" x2="'+tx+'" y2="'+ty+'" stroke="#eaf5ec" stroke-width="1.6" stroke-dasharray="3 4" opacity=".85"/>';
+    A+=camisetaSVG(ax, ay, (g.as||"?").charAt(0), g.as);
+  }
+  A+='<line x1="'+tx+'" y1="'+ty+'" x2="292" y2="100" stroke="#fff" stroke-width="2" stroke-dasharray="2 5" opacity=".95"/>';
+  A+=camisetaSVG(tx, ty, dorsal, g.a);
+  A+='<circle cx="292" cy="100" r="6" fill="#fff" stroke="#111" stroke-width="1.2"/>'
+    +'<text x="150" y="17" text-anchor="middle" font-size="11" fill="#eaf5ec" opacity=".85">'+g.m+'′ · la jugada</text></svg>';
+  var celda=seed%9, cx=[75,150,225][celda%3], cy=[54,88,122][Math.floor(celda/3)];
+  var B='<svg viewBox="0 0 300 200" class="gfb">'
+    +'<rect width="300" height="200" fill="#0d1420"/>'
+    +'<rect y="150" width="300" height="50" fill="#1d6b34"/>'
+    +'<g stroke="#f2f2f2" stroke-width="5" fill="none"><path d="M38,150 L38,32 L262,32 L262,150"/></g>'
+    +'<g stroke="#f2f2f2" stroke-width=".7" opacity=".35">';
+  for(var gx=1;gx<8;gx++) B+='<line x1="'+(38+gx*28)+'" y1="34" x2="'+(38+gx*28)+'" y2="149"/>';
+  for(var gy=1;gy<5;gy++) B+='<line x1="40" y1="'+(32+gy*23.5)+'" x2="260" y2="'+(32+gy*23.5)+'"/>';
+  B+='</g>'
+    +'<circle cx="'+cx+'" cy="'+cy+'" r="11" fill="#fff" stroke="#111" stroke-width="1.5"/>'
+    +'<path d="M'+(cx-4)+','+(cy-2)+' l3,3 l5,-6" stroke="#111" stroke-width="1.4" fill="none"/>'
+    +'<text x="150" y="184" text-anchor="middle" font-size="11" fill="#eaf5ec" opacity=".9">por dónde entró</text></svg>';
+  return '<div class="golgif">'+A+B+'</div>';
+}
+var DEC_K_N={t:"Tiro", p:"Pase de peligro", d:"Trabajo defensivo", r:"Jugada al límite", j:"Juego", v:"Vestuario y banquillo", x:"Indecisión"};
+function decEtiqueta(d){
+  if(d.k==="t") return (d.r==="ok"&&d.real)? "⚽ GOL" : d.r==="ok"? "Bien resuelto" : d.r==="ko"? "Salió mal" : "Fallado";
+  if(d.k==="p") return (d.r==="ok"&&d.real)? "🅰 Asistencia" : d.r==="ok"? "Pase con peligro" : d.r==="ko"? "Perdido" : "Sin premio";
+  if(d.k==="d") return d.r==="ok"? "Resuelto" : d.r==="ko"? "Superado" : "Sin consecuencias";
+  if(d.k==="x") return "Sin decidir";
+  return d.r==="ok"? "Salió bien" : d.r==="ko"? "Salió mal" : "Sin consecuencias";
+}
+function desgloseNota(h){
+  var yo=h.yo||{}, dec=h.dec||[];
+  var cats=[["Tiros",["t"]],["Pases",["p"]],["Defensa",["d"]],["Al límite",["r"]],["Juego",["j"]],["Fuera del campo",["v","x"]]];
+  var filas=[];
+  cats.forEach(function(c){
+    var v=0, nn=0;
+    dec.forEach(function(x){ var d=decObj(x); if(c[1].indexOf(d.k)>=0){ v+=d.d; nn++; } });
+    if(nn) filas.push({n:c[0], v:v/100});
+  });
+  filas.push({n:"Vestuario", v:(yo.aj||0)/1000});
+  filas.push({n:"Resultado", v:yo.rs>0?0.3:yo.rs<0?-0.2:0});
+  var prod=(yo.g||0)*0.80+(yo.a||0)*0.55+(yo.df?0:(yo.p||0)*0.45);
+  if(prod) filas.push({n:"Producción", v:prod});
+  if(yo.bd) filas.push({n:"Solidez", v:(yo.bd||0)/100});
+  var tarj=-(yo.tr||0)*1.1-(yo.ta||0)*0.15;
+  if(tarj) filas.push({n:"Tarjetas", v:tarj});
+  var interior=6.2; dec.forEach(function(x){ interior+=decObj(x).d/100; });
+  interior=clamp(interior+(yo.aj||0)/1000, 1, 10);
+  var fin=clamp(interior+(yo.rs>0?0.3:yo.rs<0?-0.2:0)+prod+(yo.bd||0)/100+tarj, 3, 10);
+  return {filas:filas, calc:Math.round(fin*10)/10, fin:fin};
+}
+/* ---------- JUGADOR ---------- */
+var EDIT_PERFIL=false;
+function guardarPerfil(){
+  if(!S || M) return;
+  var n=($("ed-nombre")&&$("ed-nombre").value||"").trim();
+  var d=parseInt(($("ed-dorsal")&&$("ed-dorsal").value)||S.dorsal,10);
+  var a=parseInt(($("ed-altura")&&$("ed-altura").value)||S.altura,10);
+  if(n.length<2 || n.length>22){ S.avisoPerfil="El nombre necesita entre 2 y 22 letras."; irSec("jugador"); return; }
+  if(!(d>=1 && d<=99)){ S.avisoPerfil="El dorsal va del 1 al 99."; irSec("jugador"); return; }
+  if(!(a>=165 && a<=200)){ S.avisoPerfil="La altura va de 165 a 200 cm."; irSec("jugador"); return; }
+  var cambios=[];
+  if(n!==S.nombre){ cambios.push("nombre «"+S.nombre+"» → «"+n+"»"); S.nombre=n; }
+  if(d!==S.dorsal){ cambios.push("dorsal "+S.dorsal+" → "+d); S.dorsal=d; }
+  if(a!==(S.altura||0)){ cambios.push("altura → "+a+" cm"); S.altura=a; }
+  if(cambios.length){ (S.vidaLog=S.vidaLog||[]).push("Perfil actualizado: "+cambios.join(", ")+"."); }
+  S.avisoPerfil=null;
+  EDIT_PERFIL=false;
+  guardar();
+  irSec("jugador");
+}
+function fichaFamilias(){
+  var B=bonusTienda? bonusTienda():{modLes:1};
+  var riesgo=(S.lesion>0)? "de baja" : (B.modLes<=0.75? "riesgo bajo" : B.modLes<=0.92? "riesgo medio" : "riesgo alto");
+  var r=rumorYo? rumorYo():null;
+  var cartel = r? ("tu nombre "+fuerzaTxt(r.fuerza)) : (S.transferPed? "has pedido salir" : "sin ruido ahí fuera");
+  var ejesTop=RASGOS_ORDEN.slice().sort(function(a,b){ return Math.abs(eje(b))-Math.abs(eje(a)); }).slice(0,2)
+    .map(function(k){ var v=eje(k), R=RASGOS_P[k]; return (v>=0? R.der:R.izq); }).join(" · ");
+  function fam(ic,n,l1,l2){ return '<div class="fam"><div class="famtop">'+ic+' <b>'+n+'</b></div><div class="faml">'+l1+'</div>'+(l2?'<div class="faml">'+l2+'</div>':'')+'</div>'; }
+  return '<div class="fam7">'
+    + fam("💪","Físico","forma <b>"+Math.round(S.forma===undefined?70:S.forma)+"</b>", riesgo)
+    + fam("🔥","Ánimo","confianza <b>"+Math.round(S.conf||55)+"</b>", (S.capricho2||((S.vida||{}).capricho))? "algo se te antoja":"en paz contigo")
+    + fam("🧬","Carácter", esc(ejesTop), "")
+    + fam("🏟","Ciudad deportiva","míster <b>"+Math.round(S.mister||50)+"</b>", "vestuario <b>"+Math.round(afinMedia())+"</b>")
+    + fam("⭐","Fama", nivelSeg(), "")
+    + fam("📻","Cartel", esc(cartel), (S.agente? "agente: "+esc(S.agente.n.split(" ")[0]):""))
+    + fam("💶","Cuentas", fmtDinero(S.dinero||0), (bonusTienda().upkeep? "nómina "+fmtDinero(bonusTienda().upkeep)+"/sem":""))
+    +'</div>';
+}
+/* VITRINA: registro propio de la carrera. Se alimenta al cerrar cada partido y al cerrar cada temporada,
+   así que borrar los partidos de una temporada no afecta a lo que ya está anotado. */
+function vitrinaVacia(){ return {pj:0, goles:0, golesT:{}, hitos:[], hat:false, mejor:null}; }
+function vitrinaLiga(h){ return !!(h && h.yo && h.rival!=="PRA" && h.rival!=="PRB"); }
+function vitrinaAnade(v, h, temp){
+  if(!vitrinaLiga(h)) return;
+  var cuando="T"+temp+" · J"+h.jor, rival=EQ[h.rival]?EQ[h.rival].c:h.rival, g=h.yo.g||0, antes=v.goles, nota=h.yo.nota||0;
+  function hito(ic,n,c){ v.hitos.push({ic:ic, n:n, c:c}); }
+  v.pj++; v.goles+=g; v.golesT[temp]=(v.golesT[temp]||0)+g;
+  if(v.pj===50) hito("🎖","50 partidos",cuando);
+  if(v.pj===100) hito("🎖","100 partidos",cuando);
+  [10,25,50].forEach(function(u){ if(antes<u && v.goles>=u) hito("⚽",u+" goles",cuando); });
+  if(g>=3 && !v.hat){ v.hat=true; hito("🎩","Hat-trick",cuando+" vs "+rival); }
+  if(!v.mejor || nota>v.mejor.nota) v.mejor={nota:nota, c:cuando+" vs "+rival};
+  if(nota>=9 && !v.recuerdo){ v.recuerdo=true; hito("🌟","Partido para el recuerdo ("+nota.toFixed(1)+")",cuando+" vs "+rival); }
+}
+function vitrinaRegistrar(h){
+  if(!S || !h) return;
+  if(!S.vitrina){ S.vitrina=vitrinaReconstruir(); return; }   /* ya incluye el partido recién guardado */
+  vitrinaAnade(S.vitrina, h, S.temporada);
+}
+function vitrinaCierreTemporada(golesTemp){
+  if(!S) return;
+  if(!S.vitrina) S.vitrina=vitrinaReconstruir();   /* antes de borrar los partidos de la temporada */
+  if(golesTemp>=15) S.vitrina.hitos.push({ic:"🥇", n:"Temporada de "+golesTemp+" goles", c:"T"+S.temporada});
+}
+/* partidas anteriores a esta versión: se reconstruye una sola vez desde lo que quede en el historial */
+function vitrinaReconstruir(){
+  var v=vitrinaVacia();
+  Object.keys(S.archivo||{}).map(Number).sort(function(a,b){return a-b;}).forEach(function(t){
+    (histDe(t)||[]).forEach(function(h){ vitrinaAnade(v, h, t); });
+  });
+  (S.hist||[]).forEach(function(h){ vitrinaAnade(v, h, S.temporada); });
+  return v;
+}
+function vitrinaHTML(){
+  if(!S) return "";
+  if(!S.vitrina) S.vitrina=vitrinaReconstruir();
+  var v=S.vitrina;
+  var H='<div class="card"><div class="eyebrow">🏆 Vitrina</div>';
+  if(!v.pj && !v.hitos.length){
+    return H+'<p class="note" style="margin:4px 2px">Aún vacía. Las vitrinas se llenan jugando.</p></div>';
+  }
+  H+='<div class="row2" style="font-size:12.5px;padding:5px 0"><span>Partidos</span><b>'+v.pj+'</b></div>';
+  H+='<div class="row2" style="font-size:12.5px;padding:5px 0"><span>Goles</span><b>'+v.goles+'</b></div>';
+  if(v.mejor) H+='<div class="row2" style="font-size:12.5px;padding:5px 0"><span>Mejor nota</span><span style="color:var(--dim);font-size:11px">'+v.mejor.nota.toFixed(1)+' · '+esc(v.mejor.c)+'</span></div>';
+  v.hitos.slice().reverse().forEach(function(b){ H+='<div class="row2" style="font-size:12.5px;padding:5px 0"><span>'+b.ic+' <b>'+esc(b.n)+'</b></span><span style="color:var(--dim);font-size:11px">'+esc(b.c)+'</span></div>'; });
+  return H+'</div>';
+}
+/* Partido por partido: detalle (acta, pulso, desglose) de un partido de la temporada. Se abre desde Ciudad deportiva › Resultados. */
+function secPartidos(){
+  var H="";
+    var tSel=(PARTIDO_TEMP===null? S.temporada:PARTIDO_TEMP);
+    var HH=histDe(PARTIDO_TEMP);
+    if(PARTIDO_SEL!==null && HH[PARTIDO_SEL]){
+      var h=HH[PARTIDO_SEL], yo2=h.yo;
+      var marcador=h.casa? esc(EQ[S.equipo].c)+" "+h.sc[0]+" - "+h.sc[1]+" "+esc(EQ[h.rival]?EQ[h.rival].c:h.rival)
+                        : esc(EQ[h.rival]?EQ[h.rival].c:h.rival)+" "+h.sc[1]+" - "+h.sc[0]+" "+esc(EQ[S.equipo].c);
+      H+='<button class="ghost" onclick="cerrarPartido()" style="margin-bottom:8px">← Todos los partidos</button>';
+      H+='<div class="card"><div style="display:flex;gap:12px;align-items:center">'+crestSVG(h.rival,44)
+        +'<div style="flex:1;min-width:0"><div style="font-weight:700">'+marcador+'</div>'
+        +'<div class="note" style="margin-top:3px">Jornada '+h.jor+' · '+(h.casa?"en casa":"a domicilio")+'</div></div>'
+        +(yo2? '<span class="mchip" style="background:'+notaColor(yo2.nota)+'">'+yo2.nota.toFixed(1)+'</span>' : '<span class="note">sin minutos</span>')+'</div>';
+      if(yo2) H+='<div class="row2" style="margin-top:10px"><span>⏱ Minutos jugados</span><b>'+yo2.min+"'"+'</b></div>'
+        +'<div class="row2"><span>'+(S.pos==="POR"?"Paradas":"Goles · Asistencias")+'</span><b>'+(S.pos==="POR"? yo2.p : yo2.g+" · "+yo2.a)+(yo2.mvp?" ⭐":"")+'</b></div>'
+        +((yo2.ta||yo2.tr)? '<div class="row2"><span>Tarjetas</span><b>'+(yo2.ta?"🟨":"")+(yo2.tr?"🟥":"")+'</b></div>':'');
+      H+='</div>';
+      H+='<div class="chips full" style="grid-template-columns:repeat(3,1fr)">'
+        +[["res","Resumen"],["acta","Acta"],["narr","Narración"],["nums","Números"],["pulso","Pulso"],["t","Tiros"],["p","Pases"],["d","Defensa"],["all","Todas"]].map(function(t){
+          return '<button class="chip'+(PF_TAB===t[0]?" on":"")+'" onclick="pfTab(\''+t[0]+'\')">'+t[1]+'</button>';
+        }).join("")+'</div>';
+      if(PF_TAB==="acta"){
+        var feed=[];
+        (h.goles||[]).forEach(function(g){ feed.push({m:g.m||0, tipo:"gol", g:g}); });
+        (h.crono||[]).forEach(function(e){ feed.push({m:e[0], tipo:e[1], n:e[2], mio:!!e[3]}); });
+        feed.sort(function(a,b){ return b.m-a.m; });
+        H+='<div class="card plist">';
+        if(!feed.length) H+='<p class="note" style="margin:0">Un partido sin sobresaltos: ni goles ni tarjetas que contar.</p>';
+        feed.forEach(function(f){
+          if(f.tipo==="gol"){
+            var g=f.g;
+            H+='<div class="actarow"><span class="am mono">'+(g.m||0)+'′</span><div style="flex:1;min-width:0">'
+              +'<b style="color:'+(g.mio?"var(--ok)":"var(--bad)")+'">⚽ ¡GOL'+(g.mio?"":" DEL RIVAL")+'!</b>'
+              +'<p class="note" style="margin:3px 0 8px">'+esc(g.a||"—")+(g.yo?" (tú)":"")
+              +(g.as? " · asistencia de "+esc(g.as)+(g.asis?" — tuya":""):"")
+              +(g.z? " · "+ZNOMBRE[g.z]:"")+'.</p>'
+              +golGifSVG(g,h)+'</div></div>';
+          } else {
+            var ic=f.tipo==="t"?"🟨":f.tipo==="rr"?"🟥":f.tipo==="l"?"🚑":"🔁";
+            var tx=f.tipo==="t"?"Amarilla para ":f.tipo==="rr"?"Roja para ":f.tipo==="l"?"Se lesiona ":"Cambio: ";
+            H+='<div class="actarow"><span class="am mono">'+f.m+'′</span><div style="flex:1">'
+              +ic+' '+esc(tx+(f.n||""))+' <span class="note">('+(f.mio?"tu equipo":"rival")+')</span></div></div>';
+          }
+        });
+        H+='</div>';
+      }
+      else if(PF_TAB==="pulso"){
+        var PU=h.pulso||[];
+        if(PU.length!==6) H+='<div class="card"><p class="note" style="margin:0">Este partido no guardó su pulso (es anterior a la 4.8.0).</p></div>';
+        else{
+          var mx=1; PU.forEach(function(t){ mx=Math.max(mx,t[0],t[1]); });
+          var golT=[[],[],[],[],[],[]];
+          (h.goles||[]).forEach(function(g){ golT[clamp(Math.floor(((g.m||1)-1)/15),0,5)].push(g.mio); });
+          H+='<div class="card"><div class="eyebrow">Impulso del partido</div><div class="pulso">';
+          PU.forEach(function(t,i){
+            var marks=golT[i].map(function(m){ return m?"⚽":"◦"; }).join("");
+            H+='<div class="pt"><div class="up"><i style="height:'+Math.round(t[0]/mx*100)+'%"></i></div>'
+              +'<div class="gmark">'+marks+'</div>'
+              +'<div class="dn"><i style="height:'+Math.round(t[1]/mx*100)+'%"></i></div></div>';
+          });
+          H+='</div><p class="note" style="margin:6px 2px 0">Las barras son la intensidad REAL del motor por tramo (tu λ arriba, la del rival abajo). Tus decisiones la mueven en directo; aquí queda fotografiada. ⚽ gol tuyo · ◦ del rival.</p></div>';
+        }
+      }
+      else if(PF_TAB==="narr"){
+        H+='<div class="card">'+narracionHTML(h,false)
+          +(h.comp? '<p class="note" style="margin:8px 2px 0">Archivo compacto: solo goles.</p>':'')+'</div>';
+      }
+      else if(PF_TAB==="nums"){
+        H+='<div class="card"><div class="eyebrow">Tus números del partido</div>'+numsPartidoHTML(h,false)
+          +'</div>';
+      }
+      else if(PF_TAB==="res"){
+        var CR=h.crono||[], G1=0,G2=0;
+        (h.goles||[]).forEach(function(g){ if(g.mio) G1++; else G2++; });
+        var cCount=function(code,mio){ var n=0; CR.forEach(function(e){ if(e[1]===code && !!e[3]===mio) n++; }); return n; };
+        var filasEq=[["Goles",G1,G2],["Amarillas",cCount("t",true),cCount("t",false)],["Rojas",cCount("rr",true),cCount("rr",false)],["Lesiones",cCount("l",true),cCount("l",false)],["Cambios",cCount("c",true),cCount("c",false)]];
+        H+='<div class="card"><div class="eyebrow" style="display:flex;justify-content:space-between"><span>'+esc(EQ[S.equipo].c)+'</span><span>El partido</span><span>'+esc(EQ[h.rival]?EQ[h.rival].c:h.rival)+'</span></div>';
+        filasEq.forEach(function(f){
+          if(!f[1] && !f[2] && f[0]!=="Goles") return;
+          var tot=Math.max(1,f[1]+f[2]);
+          H+='<div class="improw"><span class="vl">'+f[1]+'</span><div class="impbar"><span class="cen"></span>'
+            +'<i style="right:50%;width:'+(f[1]/tot*48).toFixed(0)+'%;background:var(--ok)"></i>'
+            +'<i style="left:50%;width:'+(f[2]/tot*48).toFixed(0)+'%;background:#5b6cff"></i></div>'
+            +'<span class="vl" style="text-align:left">'+f[2]+'</span><span class="lb" style="width:92px;text-align:center">'+f[0]+'</span></div>';
+        });
+        H+='<p class="note" style="margin:6px 2px 0">Todo sale del acta real del motor: goles, tarjetas, lesiones y cambios de los dos equipos.</p></div>';
+        H+='<div class="card"><div class="eyebrow">Mapa de calor del partido</div>'+mapaCalorSVG(zonasDePartido(h)).svg
+          +'<p class="note" style="margin:8px 2px 0">Tus decisiones y tus minutos de este partido. Atacas hacia la derecha.</p></div>';
+        if(yo2){
+          var D=desgloseNota(h), mxa=0.4;
+          D.filas.forEach(function(f){ if(Math.abs(f.v)>mxa) mxa=Math.abs(f.v); });
+          H+='<div class="card"><div class="eyebrow"><span class="mchip" style="background:'+notaColor(yo2.nota)+';margin-right:8px">'+yo2.nota.toFixed(1)+'</span>Desglose de la valoración</div>'
+            +'<div class="improw"><span class="lb">Base</span><div class="impbar"><span class="cen"></span></div><span class="vl">6,2</span></div>';
+          D.filas.forEach(function(f){
+            var w=Math.min(50, Math.abs(f.v)/mxa*50);
+            H+='<div class="improw"><span class="lb">'+esc(f.n)+'</span><div class="impbar"><span class="cen"></span>'
+              +'<i style="'+(f.v>=0? "left:50%":"right:50%")+';width:'+w.toFixed(1)+'%;background:'+(f.v>=0?"#33c6dc":"#ff9430")+'"></i></div>'
+              +'<span class="vl" style="color:'+(f.v>=0?"var(--ok)":"var(--bad)")+'">'+(f.v>=0?"+":"")+f.v.toFixed(2)+'</span></div>';
+          });
+          H+='</div>';
+          H+='<button class="ghost" id="btn-json-h" style="width:100%;margin:10px 0 0;font-size:12px" onclick="copiarHistJSON()">Copiar JSON del partido</button>';
+        }
+      } else {
+        var tipos=PF_TAB==="all"? null : PF_TAB==="d"? ["d","r"] : [PF_TAB];
+        var DP=dotsPartidoSVG(h.dec, tipos);
+        H+='<div class="card">'+DP.svg
+          +'<p class="note" style="margin:8px 2px 0">'+(DP.n? DP.n+" acciones sobre el campo (verde salió bien · ámbar neutro · rojo salió mal). El motor juega por zonas, no por coordenadas."
+            : "Nada que pintar en esta pestaña"+(PF_TAB==="t"&&S.pos==="POR"? ": los porteros no rematan." : ": ese día no hubo."))+'</p></div>';
+        var lista=(h.dec||[]).map(decObj).filter(function(d){ return !tipos || tipos.indexOf(d.k)>=0; });
+        if(lista.length){
+          H+='<div class="card plist">';
+          lista.forEach(function(d){
+            var col=d.r==="ok"?"var(--ok)":d.r==="ko"?"var(--bad)":"var(--gold)";
+            H+='<div class="row2"><span><b class="mono">'+d.m+"'"+'</b> · '+esc(DEC_K_N[d.k]||"Juego")
+              +'<br><span class="note">'+esc((d.s||"").replace(/-/g," "))+(d.z? " · "+ZNOMBRE[d.z]:"")+'</span></span>'
+              +'<b style="color:'+col+'">'+decEtiqueta(d)+' <span class="note mono">'+(d.d>=0?"+":"")+(d.d/100).toFixed(2)+'</span></b></div>';
+          });
+          H+='</div>';
+        }
+      }
+    } else {
+      var temps=Object.keys(S.archivo||{}).map(Number).sort(function(a,b){return b-a;});
+      if(temps.length){
+        H+='<div class="chips" style="margin-bottom:8px">'
+          +'<button class="chip'+(PARTIDO_TEMP===null?" on":"")+'" onclick="setTempPartidos('+S.temporada+')">t'+S.temporada+' · en curso</button>'
+          +temps.map(function(t){ return '<button class="chip'+(PARTIDO_TEMP===t?" on":"")+'" onclick="setTempPartidos('+t+')">t'+t+'</button>'; }).join("")
+          +'</div>';
+      }
+      H+='<div class="card"><div class="eyebrow">Partidos · temporada '+tSel+(PARTIDO_TEMP===null?"":" · archivo")+'</div>';
+      if(!HH.length) H+='<p class="note" style="margin:0">'+(PARTIDO_TEMP===null? "Todavía no has jugado. La primera jornada escribe la primera página." : "De esta temporada no quedó archivo.")+'</p>';
+      if(HH.length && HH[0].comp) H+='<p class="note" style="margin:0 0 6px">Archivo compacto: estos partidos conservan goles y números básicos.</p>';
+      HH.slice().reverse().forEach(function(h,ri){
+        var i=HH.length-1-ri;
+        var res=h.sc[0]>h.sc[1]?"V":h.sc[0]<h.sc[1]?"D":"E";
+        var rc=res==="V"?"var(--ok)":res==="D"?"var(--bad)":"var(--gold)";
+        H+='<button class="prow" onclick="verPartido('+i+')">'
+          +'<span class="pj mono">J'+h.jor+'</span>'+crestSVG(h.rival,20)
+          +'<span class="pn"><b>'+esc(EQ[h.rival]?EQ[h.rival].c:h.rival)+'</b><br><span class="note">'+(h.casa?"casa":"fuera")+' · '+h.sc[0]+"-"+h.sc[1]+'</span></span>'
+          +'<span class="res" style="color:'+rc+'">'+res+'</span>'
+          +(h.yo? '<span class="mchip" style="background:'+notaColor(h.yo.nota)+'">'+h.yo.nota.toFixed(1)+'</span>' : '<span class="note">—</span>')
+          +'</button>';
+      });
+      H+='<p class="note" style="margin:8px 2px 0">Cada partido guarda sus decisiones: toca uno y verás su mapa, su desglose y sus acciones.</p></div>';
+    }
+  return H;
+}
+function secJugador(){
+  var Y=S.yo, media=Y.notaN?(Y.notaSum/Y.notaN):0, yo=EQ[S.equipo], k=SUB.jugador;
+  var E=entrenoEstado();
+  if(S.forma===undefined) S.forma=70;
+  var H='<div class="eyebrow">Jugador</div><h2 class="disp">'+S.dorsal+' · '+esc(S.nombre)+'</h2>'+subTabs("jugador");
+  if(SUB.jugador==="ficha") H+=fichaFamilias();
+  if(S.skillNueva){
+    H+='<div class="card skcard"><div class="eyebrow" style="color:var(--bloom)">Habilidad desbloqueada</div>'
+      +'<p style="margin:0"><b style="color:var(--bloom)">★ '+esc(S.skillNueva)+'</b></p>'
+      +'</div>';
+    S.skillNueva=null;
+  }
+  if(k==="ficha"){
+    if(S.avisoPerfil){ H+='<div class="card" style="border-color:var(--bad)"><p class="note" style="margin:0;color:var(--bad)">'+esc(S.avisoPerfil)+'</p></div>'; S.avisoPerfil=null; }
+    var _sf=(pub().seg||1200), _vm=valorJugador();
+    var _hasta=2026+(S.temporada-1)+((S.contrato&&S.contrato.anos)||0);   /* anos = temporadas RESTANTES: decrementa cada verano */
+    var _resta=(S.contrato&&S.contrato.anos)||0;
+    H+='<div class="card"><div class="statgrid2">'
+      +celda((_sf>=1000? (Math.round(_sf/100)/10).toLocaleString("es")+" k" : _sf), "Seguidores")
+      +celda(fmtDinero(_vm), "Valor de mercado")
+      +celda("jun "+_hasta+(_resta<=1? " ⚠":""), "Contrato hasta")
+      +celda(S.altura? S.altura+" cm" : "—", "Altura")+'</div></div>';
+    if(EDIT_PERFIL){
+      H+='<div class="card" style="border-color:rgba(255,194,75,.35)"><div class="eyebrow">Editar perfil</div>'
+        +'<div class="row2"><span>Nombre</span><input id="ed-nombre" class="inp" maxlength="22" value="'+esc(S.nombre)+'" style="max-width:170px;text-align:right"></div>'
+        +'<div class="row2"><span>Dorsal</span><input id="ed-dorsal" class="inp" type="number" min="1" max="99" value="'+S.dorsal+'" style="max-width:70px;text-align:right"></div>'
+        +'<div class="row2"><span>Altura (cm)</span><input id="ed-altura" class="inp" type="number" min="165" max="200" value="'+(S.altura||180)+'" style="max-width:70px;text-align:right"></div>'
+
+        +'<div style="display:flex;gap:8px"><button class="gold-btn" style="flex:1" onclick="guardarPerfil()">Guardar</button>'
+        +'<button class="ghost" style="flex:1" onclick="EDIT_PERFIL=false;irSec(\'jugador\')">Cancelar</button></div></div>';
+    } else if(!M){
+      H+='<button class="ghost" style="width:100%;margin:0 0 10px" onclick="EDIT_PERFIL=true;irSec(\'jugador\')">✎ Editar perfil</button>';
+    }
+    H+='<div class="card"><div style="display:flex;gap:14px;align-items:center">'
+      +'<div style="flex:1"><div class="note">'+esc(POS[S.pos].n)+'</div>'
+      +'<div style="font-weight:700;margin-top:2px">'+esc(rolAct().n)+'</div>'
+      +'<div class="note" style="margin-top:6px">'+esc(rolAct().d)+'</div>'
+      +(S.mote? '<div class="note" style="margin-top:4px;color:var(--bloom)">«'+esc(S.mote)+'»</div>':'')
+      +'<div class="note" style="margin-top:6px">'+(S.edad||21)+' años · pierna '+esc((PIERNAS[S.pierna]||PIERNAS.D).n.toLowerCase())+' · '+(S.altura||180)+'cm · '+(S.peso||75)+'kg</div>'
+      +((S.pos==="EXT"||S.pos==="LAT"||S.pos==="DFC")? '<div class="note" style="margin-top:4px;font-size:11px">'+(bandaMia()==="bandaI"?"Banda izquierda":"Banda derecha")+'</div>':'')
+      +((S.posSec&&S.posSec.length)? '<div class="note" style="margin-top:4px;font-size:11px">También juega: '+S.posSec.map(function(x){return esc(POS[x.pos].ab)+(x.lado?" ("+(x.lado==="I"?"izq":"der")+")":"");}).join(" · ")+'</div>':'')
+      +'</div>'
+      +'<div style="width:104px;flex:none">'+(Y.notaN?orbeHTML(media,"Media"):'<div class="orb" style="--orbc:var(--dim)"><b class="disp">—</b></div><div class="orb-lb">Media</div>')+'</div>'
+      +'</div></div>';
+    var arq=arquetipo(), dis=eje("disciplina"), ego=eje("ego");
+    if(S.nemesis){
+      var nn=nivelNemesis(S.nemesis.tension);
+      H+='<div class="card" style="border-left:3px solid var(--bad)"><div class="eyebrow" style="color:var(--bad)">⚔ Tu némesis</div>'
+        +'<h3 style="margin:0 0 4px">'+esc(S.nemesis.nombre)+'</h3>'
+        +'<p class="note" style="margin:0 0 6px">'+esc(POS[S.nemesis.pos]?POS[S.nemesis.pos].n:S.nemesis.pos)+' del '+esc(EQ[S.nemesis.club]?EQ[S.nemesis.club].c:S.nemesis.club)+' · '+esc(nn.txt)+' · '+S.nemesis.veces+' cruce'+(S.nemesis.veces===1?"":"s")+'</p>'
+        +'<div class="pubbar"><i style="width:'+Math.min(100,Math.round(S.nemesis.tension))+'%;background:var(--bad)"></i></div>'
+        +(S.nemesis.historial&&S.nemesis.historial.length? '<div style="margin-top:8px;font-size:11.5px">'+S.nemesis.historial.slice(-4).reverse().map(function(h){return '<div>J'+h.jor+' · '+esc(h.txt)+'</div>';}).join("")+'</div>':'')
+        +'</div>';
+    }
+    H+='<div class="card" style="border-left:3px solid '+arq.col+'"><div class="eyebrow" style="color:'+arq.col+'">Quién eres</div>'
+      +'<h3 style="margin:0 0 4px;color:'+arq.col+'">'+esc(arq.n)+'</h3>'
+      +'<p class="note" style="margin:0 0 10px">'+esc(arq.d)+'</p>'
+      +'<div class="mapabox">'+mapaCaracterSVG()+'</div>'
+      +'<p class="note" style="margin:4px 0 10px;text-align:center">Te pareces a <b style="color:'+arq.col+'">'
+        +esc(pareceteA().map(function(x){return x.n;}).join(", "))+'</b></p>'
+      +RASGOS_ORDEN.map(function(k){
+          var r=RASGOS_P[k], v=eje(k);
+          return ejeBarra(r.n, r.rango[0]===0? (v-50)*2 : v, r.izq, r.der, Math.round(v));
+        }).join("")
+      +'<p class="note" style="margin:8px 0 0">'+esc(consecuenciaCaracter())+'</p>'
+      +(function(){
+          var v=vulnerabilidad();
+          var et=v>=70?"muy expuesto":v>=50?"expuesto":v>=32?"con defensas":"blindado";
+          var col=v>=70?"var(--bad)":v>=50?"#FFA23A":v>=32?"var(--muted)":"var(--ok)";
+          return '<div class="row2" style="margin-top:8px"><span>Vulnerabilidad</span>'
+            +'<b style="color:'+col+'">'+v+' · '+et+'</b></div>'
+            +'';
+        })()+'</div>';
+    var _op=objetivoPersonal(), _Y=S.yo, _prog=clamp((S.jornada+1)/38, 0, 1);
+    var _nMed=_Y.notaN? _Y.notaSum/_Y.notaN : 0;
+    function _meta(lb, act, obj, dec){
+      var esperado=obj*_prog;
+      var ok=act>=esperado;
+      return '<div class="row2"><span>'+esc(lb)+'</span><b style="color:'+(ok?"var(--ok)":"var(--bad)")+'">'
+        +(dec? act.toFixed(2):act)+' <i style="color:var(--dim);font-weight:400">/ '+(dec? obj.toFixed(1):obj)+'</i></b></div>';
+    }
+    H+='<div class="card"><div class="eyebrow">Lo que te pide el club</div>'
+      +_meta("Partidos", _Y.pj, _op.pj)
+      +(_op.gol>0? _meta("Goles", _Y.g, _op.gol):"")
+      +_meta("Nota media", _nMed, _op.nota, true)
+      +'<p class="note" style="margin:7px 0 0">'+({0:"No estás cumpliendo nada de lo que te pidieron.",
+        1:"Vas corto en casi todo.",2:"Vas cumpliendo la mayor parte.",3:"Estás por encima de lo que te pidieron."}[cumpleObjetivo()])+'</p></div>';
+    var mia=miMedia();
+    var rivPuesto=compis().filter(function(c){return c.pos===S.pos;});
+    var mejorRiv=rivPuesto.length? Math.max.apply(null,rivPuesto.map(function(c){return c.media;})):0;
+    H+='<div class="card"><div class="eyebrow">Media</div>'
+      +'<div style="display:flex;align-items:center;gap:14px">'
+      +'<div class="disp" style="font-size:44px;line-height:1;color:'+notaColor(mia/10)+'">'+mia+'</div>'
+      +'<div class="note" style="flex:1">'+(mejorRiv? (mia>=mejorRiv? "Eres el mejor "+POS[S.pos].n.toLowerCase()+" de la plantilla." : "Por detrás del titular ("+mejorRiv+"). Entrena para pelearle el puesto.") : "Sin competencia directa en tu puesto.")+'</div></div></div>';
+    H+='<div class="card"><div class="eyebrow">Atributos</div>';
+    ATTR_ORDEN.forEach(function(a){ H+=barraAttr(a); });
+    if(S.pos==="POR") H+=barraAttr("POR");
+    H+='</div>';
+    var sinJugar=jornadasSinJugar();
+    var _fm=fraseMister(), mrel=_fm.txt;
+    H+='<div class="card"><div class="eyebrow">Situación</div>'
+      +(S.contrato? '<div class="row2"><span>Salario</span><b style="color:var(--gold)">'+fmtDinero(S.contrato.salario)+'/año</b></div>'
+          +'<div class="row2"><span>Contrato</span><b>'+S.contrato.anos+' temporadas · cláusula '+fmtDinero(S.contrato.clausula)+'</b></div>'
+          +(S.contrato.primaFichaje? '<div class="row2"><span>Prima de fichaje</span><b>'+fmtDinero(S.contrato.primaFichaje)+' cobrada</b></div>':'')
+          +(S.contrato.primaGol? '<div class="row2"><span>Prima por gol</span><b>'+fmtDinero(S.contrato.primaGol)+'</b></div>':'')
+          +(S.contrato.primaPartido? '<div class="row2"><span>Prima por partido</span><b>'+fmtDinero(S.contrato.primaPartido)+'</b></div>':'')
+          +(function(){
+              var v=[]; var K=S.contrato;
+              if(K.casa) v.push("vivienda"); if(K.coche) v.push("coche"); if(K.familia) v.push("vuelos familia");
+              if(K.imagen) v.push("derechos de imagen"); if(K.salidaDescenso) v.push("salida si desciende");
+              return v.length? '<div class="row2"><span>Extras</span><b class="note" style="text-align:right;max-width:60%">'+esc(v.join(" · "))+'</b></div>':'';
+            })()
+          +'<div class="row2"><span>Ganado esta temporada</span><b>'+fmtDinero(Math.round(S.dinero||0))+'</b></div>'
+          +((S.dineroCarrera||0)>0? '<div class="row2"><span>Ganado en la carrera</span><b>'+fmtDinero(Math.round((S.dineroCarrera||0)+(S.dinero||0)))+'</b></div>':''):'')
+      +(S.acuerdo? '<div class="row2"><span>Lo que firmaste</span><b style="color:var(--gold)">'
+          +esc({negociado:"Contrato negociado por ti", salario:"Mejora de salario", minutos:"Minutos garantizados", clausula:"Cláusula rebajada", corto:"Contrato corto", ficha:"Ficha de primer equipo", nada:"Sin exigencias"}[S.acuerdo]||"—")
+          +(S.garantia>0? ' ('+S.garantia+' jornadas)':'')+'</b></div>':'')
+      +'<div class="row2"><span>'+esc(mister().n)+'</span><b style="color:'+_fm.col+'">'+esc(mrel)+'</b></div>'
+      +(sinJugar? '<div class="row2"><span>Sin jugar</span><b style="color:var(--bad)">'+sinJugar+' jornada(s) seguidas</b></div>':'')
+      +(function(){
+          var riv=compis().filter(function(c){return c.pos===S.pos && !c.lesion && !c.sancion;});
+          if(!riv.length) return "";
+          riv.sort(function(a,b){return b.media-a.media;});
+          var top=riv[0];
+          return top.media>miMedia()? '<div class="row2"><span>Por delante de ti</span><b>'+esc(top.n)+' ('+top.media+')</b></div>' : "";
+        })()
+      +'<div class="row2"><span>Vestuario</span><b>'+Math.round(afinMedia())+'/100</b></div>'
+      +'<div class="row2"><span>Confianza</span><b>'+Math.round(S.conf)+'</b></div>';
+    if(S.lesion>0) H+='<div class="row2"><span>Lesión</span><b style="color:var(--bad)">'+S.lesion+' jornada(s)</b></div>';
+    if(S.sancion>0) H+='<div class="row2"><span>Sanción</span><b style="color:var(--bad)">'+S.sancion+' jornada ('+esc(S.motivoBaja||"")+')</b></div>';
+    H+='</div>';
+  }
+  else if(k==="caracter"){ H+=caracterHTML(); }
+  else if(k==="fama"){ H+=secRedes(); }
+  else if(k==="fisico"){ H+=secMedica()+secNivel()+secAtributos()+secTalentos(); }
+  else if(k==="animo"){ H+=secPersonal()+secEstado(); }
+  else if(k==="stats"){
+    /* --- forma reciente: los últimos partidos con su nota --- */
+    var conNota=(S.hist||[]).filter(function(h){ return h.yo; }).slice(-8);
+    if(conNota.length){
+      H+='<div class="card"><div class="eyebrow">Valoración · últimos partidos</div><div class="ratrow">';
+      conNota.forEach(function(h){
+        H+='<div class="rat">'+crestSVG(h.rival,22)
+          +'<span class="rc" style="background:'+notaColor(h.yo.nota)+'">'+h.yo.nota.toFixed(1)+'</span>'
+          +'<div class="rj">J'+h.jor+(h.casa?"":" · fuera")+'</div></div>';
+      });
+      H+='</div></div>';
+    }
+    /* --- la temporada, por partido --- */
+    var pjN=Math.max(1,Y.pj), conv=Y.tiros? Math.round(Y.g/Y.tiros*100):0;
+    H+='<div class="card"><div class="eyebrow">Temporada '+S.temporada+' · '+esc(ligaNombre())+'</div><div class="statgrid2">'
+      +celda(Y.pj,"Partidos")+celda(Y.pj?Math.round(Y.min/pjN):0,"Min/partido")
+      +celda(S.pos==="POR"?Y.paradas:Y.g, S.pos==="POR"?"Paradas":"Goles")+celda(Y.a,"Asistencias")+'</div>'
+      +'<div class="row2"><span>Media Sofá</span><b style="color:'+(Y.notaN?notaColor(media):"var(--muted)")+'">'+(Y.notaN?media.toFixed(2):"—")+'</b></div>'
+      +'<div class="row2"><span>Tiros · por partido</span><b>'+(Y.tiros||0)+' · '+(Y.pj?((Y.tiros||0)/pjN).toFixed(1):"0,0")+'</b></div>'
+      +'<div class="row2"><span>Conversión</span><b>'+(Y.tiros? conv+"%":"—")+'</b></div>'
+      +'<div class="row2"><span>Ocasiones claras falladas</span><b>'+(Y.claras||0)+'</b></div>'
+      +'<div class="row2"><span>Pases clave</span><b>'+(Y.clave||0)+' <span class="note">('+((Y.clave||0)/pjN).toFixed(1)+'/partido)</span></b></div>'
+      +'<div class="row2"><span>⭐ Mejor del partido</span><b>'+Y.mvp+'</b></div>'
+      +'<div class="row2"><span>Amarillas</span><b>'+Y.ta+' <span class="note">('+S.ciclo+'/5 del ciclo)</span></b></div>'
+      +'<div class="row2"><span>Rojas</span><b>'+Y.tr+'</b></div></div>';
+    /* --- vista general de atributos, con tus veranos para comparar --- */
+    var snaps=(S.carrera||[]).filter(function(r){ return r.at; });
+    H+='<div class="card"><div class="eyebrow">Vista general de atributos</div>'+radarSVG();
+    if(snaps.length){
+      H+='<div class="chips" style="margin-top:8px">'
+        +'<button class="chip'+(RADAR_SEL===null?" on":"")+'" onclick="radarSel(null)">ahora</button>';
+      snaps.slice(-3).forEach(function(r){
+        H+='<button class="chip'+(RADAR_SEL===r.temp?" on":"")+'" onclick="radarSel('+r.temp+')">t'+r.temp+' · '+esc(EQ[r.club]?EQ[r.club].c:r.club)+'</button>';
+      });
+      H+='</div>';
+      if(RADAR_SEL!==null) H+='<p class="note" style="margin:6px 2px 0">En gris, cómo cerraste la temporada '+RADAR_SEL+'. En verde, hoy.</p>';
+    } else H+='<p class="note" style="margin:6px 2px 0">Cuando cierres tu primera temporada podrás compararte con quien eras.</p>';
+    H+='</div>';
+    /* --- el campo: tu temporada pintada --- */
+    var MC=mapaCalorSVG();
+    H+='<div class="card"><div class="eyebrow">Mapa de calor de la temporada</div>'+MC.svg
+      +'<p class="note" style="margin:8px 2px 0">'+(MC.n? "Pintado con tus decisiones y tus minutos: "+MC.n+" pinceladas. Atacas hacia la derecha."
+        : "Aún no hay pinceladas: se pinta con tus decisiones y tus minutos.")+'</p></div>';
+  }
+  else {
+    H+=vitrinaHTML();
+    /* --- ficha de carrera, estilo base de datos --- */
+    var Y=S.yo, medAct=Y.notaN?(Y.notaSum/Y.notaN):0;
+    var hist=(S.carrera||[]).slice();
+    hist.push({temp:S.temporada, club:S.equipo, liga:ligaNombre(), edad:S.edad,
+               pj:Y.pj, g:Y.g, a:Y.a, ta:Y.ta, tr:Y.tr, med:medAct, actual:true});
+    var tot={pj:0,g:0,a:0,ta:0,tr:0};
+    hist.forEach(function(t){ tot.pj+=t.pj; tot.g+=t.g; tot.a+=t.a; tot.ta+=t.ta; tot.tr+=t.tr; });
+    H+='<div class="card"><div class="eyebrow">Trayectoria</div>'
+      +'<table class="tf"><tr><th>Temp.</th><th>Club</th><th>PJ</th><th>G</th><th>A</th><th>🟨</th><th>🟥</th><th>Med.</th></tr>';
+    hist.slice().reverse().forEach(function(t){
+      H+='<tr'+(t.actual?' class="act"':'')+'>'
+        +'<td class="mono">'+(2026+t.temp-1).toString().slice(2)+'/'+(2027+t.temp-1).toString().slice(2)+'</td>'
+        +'<td class="cl">'+crestSVG(t.club,16)+'<span>'+esc(EQ[t.club]?EQ[t.club].c:t.club)+'</span></td>'
+        +'<td class="mono">'+t.pj+'</td><td class="mono">'+t.g+'</td><td class="mono">'+t.a+'</td>'
+        +'<td class="mono">'+t.ta+'</td><td class="mono">'+t.tr+'</td>'
+        +'<td class="mono" style="color:'+(t.med?notaColor(t.med):"var(--dim)")+'">'+(t.med?t.med.toFixed(2):"—")+'</td></tr>';
+    });
+    H+='<tr class="tot"><td colspan="2">Total carrera</td><td class="mono">'+tot.pj+'</td><td class="mono">'+tot.g
+      +'</td><td class="mono">'+tot.a+'</td><td class="mono">'+tot.ta+'</td><td class="mono">'+tot.tr+'</td><td></td></tr>';
+    H+='</table></div>';
+    if(S.fichajes && S.fichajes.length){
+      H+='<div class="card"><div class="eyebrow">Historial de traspasos</div>';
+      S.fichajes.slice().reverse().forEach(function(f){
+        var eqA=EQ[f.a];
+        H+='<div class="row2" style="align-items:center"><span style="display:flex;gap:8px;align-items:center">'+crestSVG(f.a,20)
+          +'<span>'+esc(eqA?eqA.c:f.a)+'<br><span class="note">temporada '+f.temp+(f.de&&EQ[f.de]? ' · desde '+esc(EQ[f.de].c):'')+'</span></span></span>'
+          +'<b style="color:'+(f.tipo==="cantera"?"var(--muted)":"var(--ok)")+'">'+(f.tipo==="cantera"? "cantera" : f.tipo==="libre"? "libre" : fmtDinero(f.fee))+'</b></div>';
+      });
+      H+='</div>';
+    }
+    /* hitos */
+    var hitos=[];
+    if(Y.mvp) hitos.push(Y.mvp+" veces mejor del partido");
+    var mejor=null;
+    S.hist.forEach(function(h){ if(h.yo && (!mejor || h.yo.nota>mejor.yo.nota)) mejor=h; });
+    if(mejor) hitos.push("Mejor partido: "+mejor.yo.nota.toFixed(1)+" ante "+(EQ[mejor.rival]?EQ[mejor.rival].c:"") );
+    if(S.esperas) hitos.push("Empezó tras "+S.esperas+" tanda(s) de pruebas");
+    hitos.push("Debutó con "+(S.edad-(S.temporada-1))+" años");
+    H+='<div class="card"><div class="eyebrow">Datos</div>'
+      +'<div class="row2"><span>Puesto</span><b>'+esc(POS[S.pos].n)+' · '+esc(rolAct().n)+'</b></div>'
+      +'<div class="row2"><span>Pierna</span><b>'+esc((PIERNAS[S.pierna]||PIERNAS.D).n)+'</b></div>'
+      +'<div class="row2"><span>Edad</span><b>'+(S.edad||21)+'</b></div>'
+      +'<div class="row2"><span>Media actual</span><b style="color:var(--gold)">'+miMedia()+'</b></div>'
+      +hitos.map(function(x){ return '<p class="note" style="margin:6px 0 0">• '+esc(x)+'</p>'; }).join("")
+      +'</div>';
+    /* partido a partido de la temporada en curso */
+    var conNota=S.hist.filter(function(h){return h.yo;});
+    if(conNota.length){
+      H+='<div class="card"><div class="eyebrow">Temporada en curso</div><table class="tf">'
+        +'<tr><th>J</th><th>Rival</th><th>Res.</th><th></th><th>Nota</th></tr>';
+      conNota.slice().reverse().slice(0,18).forEach(function(h){
+        var ex=[]; if(h.yo.g) ex.push(h.yo.g+"G"); if(h.yo.a) ex.push(h.yo.a+"A"); if(h.yo.p) ex.push(h.yo.p+"P");
+        if(h.yo.ta) ex.push("🟨"); if(h.yo.tr) ex.push("🟥"); if(h.yo.mvp) ex.push("★");
+        var res2=h.sc[0]>h.sc[1]?"V":h.sc[0]<h.sc[1]?"D":"E";
+        H+='<tr><td class="mono">'+h.jor+'</td>'
+          +'<td class="cl">'+crestSVG(h.rival,15)+'<span>'+esc(EQ[h.rival].c)+(h.casa?"":" (F)")+'</span></td>'
+          +'<td class="mono"><span class="res r'+res2+'">'+h.sc[0]+'-'+h.sc[1]+'</span></td>'
+          +'<td class="mono" style="font-size:10px;color:var(--muted)">'+esc(ex.join(" "))+'</td>'
+          +'<td class="mono" style="color:'+notaColor(h.yo.nota)+';font-weight:700">'+h.yo.nota.toFixed(1)+'</td></tr>';
+      });
+      H+='</table></div>';
+    }
+    var sinTi=S.hist.filter(function(h){return h.sinTi;});
+    if(sinTi.length){
+      H+='<div class="card"><div class="eyebrow">Bajas</div>';
+      sinTi.slice(-6).reverse().forEach(function(h){
+        H+='<div class="row2"><span>J'+h.jor+' · '+esc(EQ[h.rival].c)+'</span><b class="note">'+esc(h.sinTi)+'</b></div>';
+      });
+      H+='</div>';
+    }
+  }
+  return H;
+}
+function nombreEj(id){ var e=ENTRENOS.filter(function(x){return x.id===id;})[0]; return e?e.n:id; }
+function celda(v,l){ return '<div class="cel"><div class="cv disp">'+v+'</div><div class="cl">'+esc(l)+'</div></div>'; }
+/* ---------- VIDA PERSONAL ---------- */
+/* ===== TU DINERO: lo que ganas, por fin, sirve para algo ===== */
+function costeFisio(c){ var s=(c||S.contrato||{}).salario||300000; return Math.max(60000, Math.round(s*0.04/1000)*1000); }
+function costeMentor(c){ var s=(c||S.contrato||{}).salario||300000; return Math.max(40000, Math.round(s*0.03/1000)*1000); }
+function vidaObj(){ if(!S.vida) S.vida={casa:0, coche:false, fisio:false, mentor:false, dona:0}; return S.vida; }
+var TIENDA={
+  fisio:{n:"Fisio personal (anual)", d:"Recuperas +2 entre jornadas y te lesionas un 22% menos. Se renueva cada verano."},
+  mentor:{n:"Preparador mental (anual)", d:"Los malos partidos golpean un 15% menos tu confianza. Se renueva cada verano."},
+  grada:{n:"Donación a la grada", precio:300000, d:"Pagas el desplazamiento de la peña. Afición +10, y la grada empuja la producción del equipo cuando juegas. Una vez por temporada."}
+};
+function aplicarCompra(k){
+  var v=vidaObj(), D=S.dinero||0;
+  if(k==="casa" || k==="coche"){
+    var C=CATALOGO[k], n=nivCat(k);
+    if(n>=C.precio.length-1) return k==="coche"? "No existe nada por encima de lo que ya conduces." : "No hay casa por encima de la tuya.";
+    var neto=precioNeto(k);
+    if(D<neto) return "No te llega: "+C.art[n+1]+" son "+fmtDinero(neto)+(n>0?" (entregando "+(k==="coche"?"el tuyo":"la tuya")+")":"")+".";
+    S.dinero=D-neto;
+    if(k==="casa"){ v.casa=n+1; v.casaJor=jorAbs(); } else { v.cocheNiv=n+1; v.cocheJor=jorAbs(); }
+    var niv=n+1;
+    /* el estreno llena — y te cambia: cada capricho cumplido engorda el ego */
+    S.animo=clamp((S.animo||65)+3+niv,20,100);
+    tocarEje("ego", (k==="coche"? 1.5:0.8)+niv*0.5);
+    if(k==="coche"){
+      S.fama=(S.fama||30)+1+niv;
+      S.publico.prensa=clamp((S.publico.prensa||50)-niv,0,100);
+      if(niv>=3){
+        S.prensa=(S.prensa||[]).concat([{jor:S.jornada+1, t:S.nombre+" aparca un "+C.art[niv].toLowerCase()+" en la ciudad deportiva. El vestuario silba; la grada divide opiniones."}]);
+        while(S.prensa.length>12) S.prensa.shift();
+        var envidioso=compis().filter(function(c){return c.rasgo==="ego";})[0];
+        var curr=compis().filter(function(c){return c.rasgo==="currante";})[0];
+        if(envidioso) tocarAfin(envidioso.n, 2);
+        if(curr) tocarAfin(curr.n, -2);
+      }
+    } else {
+      S.fama=(S.fama||30)+Math.max(0,niv-1);
+    }
+    if(v.capricho && v.capricho.cat===k && niv>=v.capricho.niv){
+      v.capricho=null;
+      (S.vidaLog=S.vidaLog||[]).push("Capricho cumplido: "+C.art[niv]+". Qué bien sienta lo que sienta bien.");
+    } else {
+      (S.vidaLog=S.vidaLog||[]).push("Estrenas: "+C.art[niv]+".");
+    }
+    v.cd=jorAbs()+10;                                    /* diez jornadas de paz material */
+    return null;
+  }
+  if(k==="fisio"){
+    if(v.fisio) return "El fisio ya trabaja contigo.";
+    var cF=costeFisio();
+    if(D<cF) return "No te llega: son "+fmtDinero(cF)+" al año.";
+    S.dinero=D-cF; v.fisio=true;
+    (S.vidaLog=S.vidaLog||[]).push("Contratas un fisio personal: "+fmtDinero(cF)+" al año.");
+    return null;
+  }
+  if(k==="mentor"){
+    if(v.mentor) return "El preparador mental ya está en nómina.";
+    var cM=costeMentor();
+    if(D<cM) return "No te llega: son "+fmtDinero(cM)+" al año.";
+    S.dinero=D-cM; v.mentor=true;
+    (S.vidaLog=S.vidaLog||[]).push("Contratas un preparador mental: "+fmtDinero(cM)+" al año.");
+    return null;
+  }
+  if(k==="grada"){
+    if(v.dona) return "Este año ya has puesto tu parte.";
+    if(D<TIENDA.grada.precio) return "No te llega: son "+fmtDinero(TIENDA.grada.precio)+".";
+    S.dinero=D-TIENDA.grada.precio; v.dona=1;
+    S.publico.afic=clamp((S.publico.afic||50)+10,0,100);
+    S.muro.unshift({jor:S.jornada+1, u:pick(["PeñaNorte","AbonadoDesde91","CurvaSur"]),
+      t:"Nos paga el autobús del próximo desplazamiento. "+S.nombre+" es de los nuestros.", bien:true});
+    if(S.muro.length>16) S.muro.pop();
+    (S.vidaLog=S.vidaLog||[]).push("Pagas el desplazamiento de la peña. La grada no lo olvida.");
+    return null;
+  }
+  return "Eso no está en venta.";
+}
+function comprarVida(k){
+  var err=aplicarCompra(k);
+  if(err){ modal({ico:"💶", t:"No puede ser", x:esc(err), okTxt:"Entendido", cancelTxt:"Cerrar"}); return; }
+  guardar(); irSub("cuentas","dinero");
+}
+function cancelarServicio(k){
+  var v=vidaObj();
+  if(k==="fisio" && v.fisio){ v.fisio=false; (S.vidaLog=S.vidaLog||[]).push("Prescindes del fisio personal."); }
+  if(k==="mentor" && v.mentor){ v.mentor=false; (S.vidaLog=S.vidaLog||[]).push("Prescindes del preparador mental."); }
+  guardar(); irSub("cuentas","dinero");
+}
+/* la vida te busca por donde flaqueas: menú semanal generado, efectos por fórmula sobre el estado real */
+var VIDA_FAM=[
+ {id:"recuperacion", pre:function(){ return true; },
+  gen:function(r){ var falta=100-(S.forma===undefined?70:S.forma);
+    return {n:"Descanso y fisio", d:"Recuperar el cuerpo.",
+      fx:{forma:Math.round(6+falta*0.14), conf:-1},
+      txt:pick2(["Camilla, piscina y sofá. Llegas al domingo como nuevo.","Doble de fisio y siestas largas. Las piernas lo agradecen."],r)}; }},
+ {id:"vestuario", pre:function(){ return true; },
+  gen:function(r){ return {n:"Comida con el vestuario", d:"Grupo antes que pizarra.",
+      fx:{animo:2, afin:3, eje:{k:"companerismo", v:1.5}},
+      txt:pick2(["Mesa larga, bromas y alguna verdad. Se nota el lunes.","Cena en casa del capitán. Vuelves conociendo mejor a todos."],r)}; }},
+ {id:"despacho", pre:function(){ return true; },
+  gen:function(r){ return {n:"Charla con el míster", d:"Lo que no se dijo en el campo.",
+      fx:{mister:3, conf:1},
+      txt:pick2(["Le pides diez minutos y te da media hora. Sales sabiendo qué espera de ti.","Te explica por qué te cambió el domingo. Lo entiendes mejor."],r)}; }},
+ {id:"prensa", pre:function(){ return true; },
+  gen:function(r){ return {n:"Rueda de prensa", d:"Hablar con los periodistas.",
+      fx:{fama:2, mister:-1},
+      txt:pick2(["Titulares que se leen bien. Al míster no le gusta que hables tanto.","Una frase tuya abre los programas de la noche."],r)}; }},
+ {id:"desconexion", pre:function(){ return (S.animo===undefined?65:S.animo)<80; },
+  gen:function(r){ var falta=80-(S.animo===undefined?65:S.animo);
+    return {n:"Tiempo con los tuyos", d:"Desconectar de verdad.",
+      fx:{animo:Math.round(6+falta*0.15), forma:3},
+      txt:pick2(["Dos días sin hablar de fútbol. Vuelves con la cabeza limpia.","Comida familiar, paseo y móvil apagado. Se nota."],r)}; }},
+ {id:"marca", pre:function(){ return (S.fama||0)>=25; },
+  gen:function(r){ return {n:"Contenido y redes", d:"Alimentar tu marca.",
+      fx:{fama:Math.round(3+Math.min(20,(S.fama||0))*0.18), animo:-3},
+      txt:pick2(["Sesión de fotos, dos vídeos y mil comentarios. Tu nombre suena más.","Un patrocinador, un reto viral y la bandeja de entrada ardiendo."],r)}; }},
+ {id:"caridad", pre:function(){ return (S.fama||0)>=40 && (S.dinero||0)>=120000; },
+  gen:function(r){ return {n:"Visita solidaria", d:"Devolver algo.",
+      fx:{fama:3, animo:5, mister:2, dinero:-50000},
+      txt:pick2(["Hospital infantil por la mañana, entrenamiento por la tarde. Hay días que ordenan las prioridades.","Donas material a tu club de barrio. La foto sale sola, sin buscarla."],r)}; }},
+ {id:"mentoria", pre:function(){ return compis().some(function(c){ return c.rasgo==="veterano"; }) && (S.edad||24)<=25; },
+  gen:function(r){ var v=compis().filter(function(c){return c.rasgo==="veterano";})[0];
+    return {n:"Café con "+((v&&v.n.split(" ")[0])||"el veterano"), d:"Escuchar a quien lo ha visto todo.",
+      fx:{conf:3, animo:3, afinVet:4},
+      txt:pick2(["Dos horas de historias y un consejo que te llevas a casa.","Te enseña vídeos suyos de hace quince años. Y de tus últimos partidos."],r)}; }}
+];
+function genVidaMenu(){
+  var r=lcgDe(hashStr("vida:"+S.temporada+":"+S.jornada+":"+S.nombre));
+  var ops=[];
+  VIDA_FAM.forEach(function(f){ if(f.pre()) ops.push(Object.assign({id:f.id}, f.gen(r))); });
+  return {jor:S.jornada, temporada:S.temporada, ops:ops.slice(0,6)};
+}
+function vidaMenu(){
+  if(!S.vidaMenu || S.vidaMenu.jor!==S.jornada || S.vidaMenu.temporada!==S.temporada) S.vidaMenu=genVidaMenu();
+  return S.vidaMenu;
+}
+function aplicarVidaFx(fx){
+  if(fx.conf) S.conf=clamp((S.conf||60)+fx.conf,25,95);
+  if(fx.forma) S.forma=clamp((S.forma===undefined?70:S.forma)+fx.forma,20,100);
+  if(fx.animo) S.animo=clamp((S.animo===undefined?65:S.animo)+fx.animo,20,100);
+  if(fx.fama) S.fama=(S.fama||30)+fx.fama;
+  if(fx.mister) S.mister=clamp((S.mister||60)+fx.mister,5,95);
+  if(fx.dinero) S.dinero=Math.max(0,(S.dinero||0)+fx.dinero);
+  if(fx.afin) mueveAfin(fx.afin);
+  if(fx.eje) tocarEje(fx.eje.k, fx.eje.v);
+  if(fx.afinVet) compis().forEach(function(c){ if(c.rasgo==="veterano") c.afin=clamp(c.afin+fx.afinVet,10,95); });
+}
+function ejeBarra(nombre, v, izq, der, mostrar){
+  var pct=clamp((v+100)/2,0,100);
+  var num=(mostrar!==undefined)? mostrar : ((v>0?"+":"")+Math.round(v));
+  return '<div class="ejerow"><div class="ejetop"><span>'+esc(izq)+'</span><b>'+esc(nombre)+' '+num+'</b><span>'+esc(der)+'</span></div>'
+    +'<div class="ejebar"><i style="left:'+pct+'%"></i></div></div>';
+}
+function consecuenciaCaracter(){
+  var t=[];
+  var dis=eje("disciplina"), ego=eje("ego"), tmp=eje("temperamento"),
+      cmp=eje("companerismo"), lid=eje("liderazgo"), res=eje("resiliencia");
+  if(dis<=-40) t.push("los despachos desconfían de ti");
+  else if(dis>=40) t.push("te perdonan los malos días");
+  if(ego>=45) t.push("la prensa te busca");
+  else if(ego<=-35) t.push("el vestuario te siente de los suyos");
+  if(tmp>=72) t.push("ves tarjetas un "+Math.round((mTemp()-1)*100)+"% más que otro en tu sitio");
+  else if(tmp<=30) t.push("casi nunca entras al trapo");
+  if(cmp>=70) t.push("tus compañeros te buscan: asistencias ×"+mComp().toFixed(2));
+  else if(cmp<=30) t.push("juegas más para ti que para ellos");
+  if(lid>=70) t.push("cuando aciertas, el equipo entero sube contigo");
+  if(res>=70) t.push("los errores no te hunden");
+  else if(res<=30) t.push("un mal partido te cuesta el doble de confianza");
+  if(!t.length) t.push("todavía puedes ser cualquier cosa");
+  return "Ahora mismo: "+t.join(" · ")+".";
+}
+function barraAttr(k){
+  var v=atr(k);
+  var col = v>=75? "var(--ok)" : v>=60? "var(--gold)" : v>=45? "var(--muted)" : "var(--bad)";
+  return '<div class="arow"><span class="an">'+ATTR[k].n+'</span>'
+    +'<span class="av mono" style="color:'+col+'">'+v.toFixed(1)+'</span>'
+    +'<span class="ab"><i style="width:'+Math.round(clamp(v,0,95)/95*100)+'%;background:'+col+'"></i></span></div>';
+}
+/* ---- la escalera de tentaciones: cada peldaño necesita un contexto ---- */
+function tentaciones(){
+  var T=[], q=quienTeOfrece(), f=faseVicio("noche");
+  var apuros = (S.conf<45) || (S.forma<50) || (S.animo<40) || (jornadasSinJugar()>=2) || (S.mister<40);
+  /* 1 · el primer peldaño: siempre inofensivo en apariencia */
+  T.push({id:"salir", n:"Salir con "+q, quien:q,
+    d:"«Una noche. Nadie se va a enterar.»",
+    gana:"ánimo +12 · confianza +4", riesgo:"un poco de forma",
+    fx:function(){
+      S.animo=clamp((S.animo||65)+12,20,100);
+      S.conf=clamp(S.conf+4,25,95);
+      S.forma=clamp((S.forma||70)-5,20,100);
+      subirVicio("noche", 7);
+      tocarEje("disciplina",-2);
+    },
+    txt:"Cena, copas y las tres de la mañana. Al día siguiente te ríes en el vestuario."});
+  /* 2 · aparece cuando estás en apuros: el atajo emocional */
+  if(apuros) T.push({id:"desfase", n:"Perderte una noche entera", quien:null,
+    d:"«Necesitas desconectar de esto como sea.»",
+    gana:"ánimo +22 · confianza +8", riesgo:"forma y puntualidad",
+    fx:function(){
+      S.animo=clamp((S.animo||65)+22,20,100);
+      S.conf=clamp(S.conf+8,25,95);
+      S.forma=clamp((S.forma||70)-13,20,100);
+      subirVicio("noche", 15);
+      tocarEje("disciplina",-5);
+    },
+    txt:"No sabes muy bien a qué hora volviste. Pero por unas horas nada de esto existía."});
+  /* 3 · cuando ya hay costumbre, el ofrecimiento sube de nivel */
+  if(f>=1) T.push({id:"semana", n:"Salir en semana de partido", quien:q,
+    d:"«Si el domingo juegas bien, ¿qué más da?»",
+    gana:"ánimo +16", riesgo:"que se sepa",
+    fx:function(){
+      S.animo=clamp((S.animo||65)+16,20,100);
+      S.forma=clamp((S.forma||70)-16,20,100);
+      subirVicio("noche", 18);
+      tocarEje("disciplina",-7);
+      if(rnd()<0.30){ S.escandalo=true; S.fama=(S.fama||30)+9; S.mister=clamp(S.mister-9,5,95); }
+    },
+    txt:"Jueves por la noche, reservado y móviles por todas partes. Ya se verá."});
+  /* la salida siempre disponible, y más visible si eres resiliente */
+  if(f>=1) T.push({id:"parar", n:"Frenar en seco", quien:null, salida:true,
+    d:"«Esto se te está yendo de las manos.»",
+    gana:"vuelves a ser tú", riesgo:"aburrimiento: ánimo −10",
+    fx:function(){
+      S.animo=clamp((S.animo||65)-10,20,100);
+      S.forma=clamp((S.forma||70)+8,20,100);
+      if(S.vicios) S.vicios.noche=Math.max(0,S.vicios.noche-22);
+      tocarEje("disciplina",4); tocarEje("resiliencia",3);
+    },
+    txt:"Dos semanas de casa, gimnasio y sofá. Cuesta, pero el cuerpo lo agradece."});
+  return T;
+}
+function quienTeOfrece(){
+  var L=compis().filter(function(c){ return c.afin>=48; });
+  if(!L.length) L=compis();
+  if(!L.length) return "los de siempre";
+  /* el que más te aprecia es el que más te arrastra */
+  L.sort(function(a,b){ return b.afin-a.afin; });
+  return L[Math.min(L.length-1, Math.floor(rnd()*2))].n;
+}
+function elegirTentacion(i){
+  if(!S || S.semanaHecha===S.jornada) return;
+  var T=tentaciones(), t=T[i];
+  if(!t) return;
+  t.fx();
+  S.semanaHecha=S.jornada;
+  S.vidaLog=(S.vidaLog||[]).concat(["J"+(S.jornada+1)+" · "+t.n+": "+t.txt]);
+  guardar();
+  SUB.jugador="animo"; irSec("jugador");
+}
+var TIENDA_CAT="recu";
+function verCatTienda(c){ TIENDA_CAT=c; irSub("cuentas","tienda"); }
+function bloqueVidaClasica(){
+  var v=vidaObj(), H="";
+    H+='<div class="card"><div class="eyebrow">Coche y casa</div>';
+    ["coche","casa"].forEach(function(cat){
+      var C=CATALOGO[cat], n=nivCat(cat), ico=(cat==="coche"?"🏎 ":"🏠 ");
+      if(n>0){
+        var nov=Math.round(novedadDe(cat));
+        var estado=nov>=70? "a estrenar" : nov>=35? "rodado" : (cat==="coche"? "ya no huele a nuevo" : "ya es rutina");
+        H+='<p class="note" style="margin:4px 2px">'+ico+esc(C.art[n])+' · <b>'+estado+'</b> · te asienta +'+aporteDe(cat).toFixed(1)
+          +(cat==="casa"? ' · recuperación +'+n : '')+'</p>';
+      }
+      var neto=precioNeto(cat);
+      if(neto!==null){
+        H+='<button class="opt" onclick="comprarVida(\''+cat+'\')">'+esc(C.art[n+1])+' · <b>'+fmtDinero(neto)+'</b>'
+          +(n>0? ' <small style="opacity:.85">entregando '+(cat==="coche"?"el tuyo":"la tuya")+'</small>':'')
+          +'<small>'+esc(C.d[n+1])+' Te asienta +'+C.pico[n+1]+' de estreno'+(cat==="casa"? ', recuperación +'+(n+1):'')+'.</small></button>';
+      } else {
+        H+='<p class="note" style="margin:4px 2px">'+(cat==="coche"? "🏁 No existe nada por encima de lo que conduces." : "🏔 No hay casa por encima de la tuya.")+'</p>';
+      }
+    });
+    H+='<p class="note" style="margin:8px 2px 0">Equilibrio de ánimo: <b>'+animoBase().toFixed(1)+'</b> — 62 de base, más lo que te llena, menos lo que se te antoja. Lo nuevo deja de ser nuevo: el coche pierde brillo en temporada y media; la casa, en cuatro.</p>';
+    H+='</div>';
+    if(v.capricho){
+      var CC=CATALOGO[v.capricho.cat];
+      H+='<div class="card" style="border-color:rgba(255,194,75,.45)"><div class="eyebrow" style="color:var(--gold)">Se te ha metido en la cabeza</div>'
+        +'<p style="margin:0;font-size:14px"><b>'+esc(CC.art[v.capricho.niv])+'</b> · '+fmtDinero(CC.precio[v.capricho.niv])
+        +'. Hasta que caiga, tu equilibrio pierde <b>'+caprichoDrena().toFixed(1)+'</b>. Con tu ego y tu fama, así funcionas.</p></div>';
+    }
+    H+='<div class="card"><div class="eyebrow">Tu equipo de trabajo</div>';
+    if(!v.fisio) H+='<button class="opt" onclick="comprarVida(\'fisio\')">'+esc(TIENDA.fisio.n)+' · <b>'+fmtDinero(costeFisio())+'/año</b><small>'+esc(TIENDA.fisio.d)+'</small></button>';
+    else H+='<p class="note" style="margin:4px 2px">🩹 Fisio personal activo ('+fmtDinero(costeFisio())+'/año). <a href="javascript:cancelarServicio(\'fisio\')" style="color:var(--bad)">Prescindir</a></p>';
+    if(!v.mentor) H+='<button class="opt" onclick="comprarVida(\'mentor\')">'+esc(TIENDA.mentor.n)+' · <b>'+fmtDinero(costeMentor())+'/año</b><small>'+esc(TIENDA.mentor.d)+'</small></button>';
+    else H+='<p class="note" style="margin:4px 2px">🧠 Preparador mental activo ('+fmtDinero(costeMentor())+'/año). <a href="javascript:cancelarServicio(\'mentor\')" style="color:var(--bad)">Prescindir</a></p>';
+    H+='</div>';
+  return H;
+}
+function planRehab(p){ S.rehabPlan=p; guardar(); irSub("jugador","fisico"); }
+function secMedica(){
+  var B=bonusTienda(), H="";
+  var riesgoTxt=(B.modLes<=0.75? "bajo — tu equipo de recuperación trabaja" : B.modLes<=0.92? "medio" : "alto — el cuerpo va solo");
+  H+='<div class="card"><div class="eyebrow">Estado</div>';
+  if(S.lesion>0){
+    H+='<div style="font-size:13.5px"><b>De baja</b> · '+(S.motivoBaja||"lesión")+' · '+S.lesion+' semana'+(S.lesion>1?"s":"")+' restante'+(S.lesion>1?"s":"")+'</div>';
+    H+='<p class="note" style="margin:8px 2px 6px">El plan de esta semana es tuyo:</p>';
+    [["conservador","Conservador","Paso a paso. Sin sorpresas."],
+     ["agresivo","Agresivo","Doblar sesiones: puede recortar una semana… o costarte otra."],
+     ["reforzar","Reforzar","Volver más tarde no: volver mejor. El trabajo invisible."]].forEach(function(o){
+      H+='<button class="opt'+(S.rehabPlan===o[0]?" opt-sk":"")+'" onclick="planRehab(\''+o[0]+'\')"><b>'+o[1]+'</b><small>'+o[2]+'</small></button>';
+    });
+  } else {
+    H+='<div style="font-size:13.5px"><b>Sano</b> · riesgo '+riesgoTxt+'</div>';
+    if(S.modLesTemp && S.modLesTemp.hasta>=jorAbs()) H+='<p class="note" style="margin:6px 2px 0">🛡 Reforzado: el cuerpo responde mejor durante '+(S.modLesTemp.hasta-jorAbs())+' jornada'+((S.modLesTemp.hasta-jorAbs())>1?"s":"")+' más.</p>';
+  }
+  H+='</div>';
+  var hl=(S.histLes||[]).slice(-8).reverse();
+  H+='<div class="card"><div class="eyebrow">Historial</div>';
+  if(hl.length) hl.forEach(function(x){ H+='<div class="row2" style="font-size:12px"><span>T'+x.t+' · J'+x.j+' · '+esc(x.motivo)+'</span><b>'+x.sem+' sem</b></div>'; });
+  else H+='<p class="note" style="margin:4px 2px">Ni una lesión en el expediente. Que dure.</p>';
+  H+='</div>';
+  return H;
+}
+function secTienda(){
+  tiendaInit();
+  var H="";
+  if(TIENDA_CAT==="coche" || TIENDA_CAT==="casa2"){ /* nada: catálogo real abajo */ }
+  H+=bloqueVidaClasica();
+  if(S.capricho2){
+    H+='<div class="card"><div class="eyebrow">Se te ha metido en la cabeza</div>'
+      +'<div style="font-size:13px;line-height:1.55">'+esc(S.capricho2.n)+'. Lo ves al cerrar los ojos.</div></div>';
+  }
+  var servAct=Object.keys(S.tienda.serv);
+  if(servAct.length){
+    H+='<div class="card"><div class="eyebrow">Tu equipo personal</div>';
+    servAct.forEach(function(id){
+      var it=itemDe(id); if(!it) return;
+      H+='<div class="row2" style="font-size:12.5px"><span>'+it.ic+' '+esc(it.n)+' · '+fmtDinero(Math.round(it.precio*0.9))+'/sem</span>'
+        +'<button class="chip" onclick="cancelarServicio(\''+id+'\')">despedir</button></div>';
+    });
+    H+='</div>';
+  }
+  H+='<div class="chips" style="grid-template-columns:repeat(4,1fr)">'
+    + TIENDA_CATS.map(function(c){ return '<button class="chip'+(TIENDA_CAT===c.id?' on':'')+'" onclick="verCatTienda(\''+c.id+'\')">'+c.ic+'</button>'; }).join("")
+    +'</div>';
+  var c=catDe(TIENDA_CAT), items=tiendaItems().filter(function(x){return x.cat===TIENDA_CAT;});
+  var tope=tierTope(TIENDA_CAT, c.tipo);
+  H+='<div class="card"><div class="eyebrow">'+c.ic+' '+esc(c.n)+(c.tipo==="serv"? " · mensualidad":"")+'</div>';
+  items.forEach(function(it){
+    var tengo=(it.tipo==="serv"? S.tienda.serv[it.id] : S.tienda.own[it.id]);
+    var puedo=(S.dinero||0)>=it.precio;
+    var cerrado=(it.tipo!=="cons") && it.tier>tope+1;   /* la progresión: peldaño a peldaño */
+    var derecha;
+    if(tengo) derecha='<b style="color:var(--ok)">'+(it.tipo==="serv"?"en nómina":"tuyo")+'</b>';
+    else if(cerrado) derecha='<span style="opacity:.45;font-size:11px">🔒 nivel '+(it.tier)+'</span>';
+    else if(!puedo) derecha='<span style="opacity:.45;font-size:11px">'+fmtDinero(it.precio)+'</span>';
+    else derecha='<button class="chip" onclick="comprarBazar(\''+it.id+'\')">'+fmtDinero(it.precio)+(it.tipo==="serv"?"/sem":"")+(it.tipo==="cons"?" ·usar":"")+'</button>';
+    var etiqueta = it.tipo==="serv"? '<span style="opacity:.55;font-size:10px"> · mensualidad, se cancela cuando quieras</span>'
+                 : it.tipo==="bien"? '<span style="opacity:.55;font-size:10px"> · tuyo para siempre</span>'
+                 : '<span style="opacity:.55;font-size:10px"> · un solo uso, efecto inmediato</span>';
+    H+='<div class="row2" style="font-size:12px;padding:7px 0;border-bottom:1px solid var(--linea)'+((cerrado&&!tengo)?';opacity:.55':'')+'">'
+      +'<span style="max-width:62%">'+esc(it.n)+fxChips(c, it.tier)+etiqueta+'</span>'+derecha+'</div>';
+  });
+  H+='</div>';
+  return H;
+}
+var TEXTOS_POST={
+  entreno:["Otro día más en la ciudad deportiva 💪⚽","Sudando la camiseta. Así se llega.","Trabajo silencioso, resultados ruidosos."],
+  lujo:["La vida que soñabas de chaval 💎","Hoy toca disfrutar de lo ganado.","Sin foto no vale 😏🚗"],
+  reivindicativo:["Tenía que decirlo. #NoCallo","Esto no puede seguir así.","Lo pienso y lo digo, sin filtros."]
+};
+function publicarRed(tipo){
+  if(S.redesSem===S.jornada) return;
+  S.redesSem=S.jornada;
+  var P=pub();
+  var likes=Math.round(pub().seg*(0.02+rnd()*0.025));
+  var comDestacado=null, texto=pick(TEXTOS_POST[tipo]||TEXTOS_POST.entreno);
+  if(tipo==="entreno"){ P.seg=Math.round(P.seg+40); S.mister=clamp(S.mister+1,5,95); }
+  else if(tipo==="lujo"){
+    P.seg=Math.round(P.seg+120); S.car && (S.car.ego=clamp((S.car.ego||0)+1,-100,100)); misterHit(2);
+    if(rnd()<0.15){ prensaPush("El último post de "+S.nombre+" huele a ostentación. La grada, dividida."); comDestacado="«Con lo que cobras y esas cosas...»"; likes=Math.round(likes*1.3); }
+  }
+  else if(tipo==="reivindicativo"){
+    P.seg=Math.round(P.seg+80);
+    if(rnd()<0.20){ misterHit(5); prensaPush("Las declaraciones de "+S.nombre+" en redes incendian la semana."); comDestacado="«Eso es jugar con fuego, capitán.»"; likes=Math.round(likes*1.6); }
+    else { P.prensa=clamp((P.prensa||50)+3,0,100); comDestacado="«Así se habla, sin miedo.»"; }
+  }
+  S.misPosts=S.misPosts||[];
+  S.misPosts.unshift({jor:S.jornada+1, tipo:tipo, texto:texto, likes:likes, com:comDestacado});
+  if(S.misPosts.length>8) S.misPosts.pop();
+  regSemana("redes", tipo); guardar(); irSub("jugador","fama");
+}
+function responderHaters(){
+  if(S.hatersSem===S.jornada) return;
+  S.hatersSem=S.jornada;
+  var tmp=eje("temperamento");
+  if(tmp>=60){ S.conf=clamp(S.conf+3,5,95); S.avisoMercado="Respondes con una sonrisa. Los haters se quedan sin gasolina."; }
+  else if(tmp<35){ misterHit(4); prensaPush(S.nombre+" entra al barro con un seguidor. Captura va, captura viene."); }
+  else { S.avisoMercado="Escribes tres respuestas. Borras las tres. Mejor así."; }
+  regSemana("redes","haters"); guardar(); irSub("jugador","fama");
+}
+function secEstado(){
+  var H="";
+
+    H+='<div class="card"><div class="statgrid2">'
+      +celda(Math.round(S.forma),"Forma")+celda(Math.round(S.animo),"Ánimo")
+      +celda(Math.round(S.fama),"Fama")+celda(Math.round(S.conf),"Confianza")+'</div>';
+    H+='<p class="note" style="margin:10px 2px 0">Con el ánimo en '+Math.round(S.animo)+', tus opciones de gol, asistencia y parada rinden <b>×'+mAnimo().toFixed(2)+'</b>, y marca lo que recuperas entre jornadas. Tu vida lo asienta en '+animoBase().toFixed(1)+'.</p>';
+    if(S.lesion>0) H+='<p class="note" style="margin:10px 0 0;color:var(--bad)">🚑 Lesionado: '+S.lesion+' jornada(s). Sin entrenamiento hasta el alta.</p>';
+    if(S.sancion>0) H+='<p class="note" style="margin:6px 0 0;color:var(--bad)">🟥 Sancionado: '+S.sancion+' jornada por '+esc(S.motivoBaja||"expulsión")+'.</p>';
+    H+='</div>';
+    H+='<div class="card"><div class="eyebrow">Atributos</div>';
+    ATTR_ORDEN.forEach(function(a){ H+=barraAttr(a); });
+    if(S.pos==="POR") H+=barraAttr("POR");
+    H+='</div>';
+  
+  return H;
+}
+function secPersonal(){
+  var H="";
+
+    H+='<div class="card"><div class="eyebrow">Fuera del campo</div>';
+    if(S.semanaHecha===S.jornada){
+      H+='<p class="note" style="margin:0">Esta semana ya la has decidido. La próxima, tras el partido.</p>';
+    } else {
+      vidaMenu().ops.forEach(function(o,i){
+        H+='<button class="opt" onclick="elegirVida('+i+')">'+esc(o.n)+'<small>'+esc(o.d)+'</small>'+dbgVida(o)+'</button>';
+      });
+      var T=tentaciones();
+      H+='</div><div class="card" style="border-color:rgba(255,84,112,.3)"><div class="eyebrow">La otra vida</div>';
+      T.forEach(function(t,i){
+        H+='<button class="opt'+(t.salida?' salida':' tenta')+'" onclick="elegirTentacion('+i+')">'
+          +(t.quien? '<span class="quien">'+esc(t.quien)+' te escribe</span>':'')
+          +esc(t.n)+'<small>'+esc(t.d)+'</small>'
+          +'<span class="tentafx"><b>'+esc(t.gana)+'</b> · <i>'+esc(t.riesgo)+'</i></span>'
+          +(dbgOn()? '<div class="dbg"><span class="dneu">medidor de vicio: oculto</span><span class="dneu">vulnerabilidad '+vulnerabilidad()+'</span></div>':'')
+          +'</button>';
+      });
+    }
+    H+='</div>';
+    if(S.escandalo) H+='<div class="card" style="border-color:var(--bad)"><div class="eyebrow" style="color:var(--bad)">Prensa</div><p style="margin:0">Han salido fotos tuyas de madrugada. El club pide explicaciones.</p></div>';
+    if(S.vidaLog && S.vidaLog.length){
+      H+='<div class="card"><div class="eyebrow">Últimas semanas</div>';
+      S.vidaLog.slice(-5).reverse().forEach(function(l){ H+='<p class="note" style="margin:5px 0">• '+esc(l)+'</p>'; });
+      H+='</div>';
+    }
+  
+  return H;
+}
+function secDinero(){
+  var H="";
+
+    var v=vidaObj();
+    H+='<div class="card"><div class="statgrid2">'
+      +celda(fmtDinero(S.dinero||0),"En el banco")
+      +celda(fmtDinero(S.dineroCarrera||0),"Carrera")
+      +celda(fmtDinero(S.contrato?Math.round(S.contrato.salario/38):0),"Nómina/jornada")
+      +celda(fmtDinero(S.contrato?S.contrato.salario:0),"Ficha anual")+'</div></div>';
+    H+='<p class="note" style="margin:6px 2px 0">Coche, casa y tu equipo personal viven ahora en la <b>Tienda</b>.</p>';
+    H+='<div class="card"><div class="eyebrow">La grada</div>';
+    if(!v.dona) H+='<button class="opt" onclick="comprarVida(\'grada\')">'+esc(TIENDA.grada.n)+' · <b>'+fmtDinero(TIENDA.grada.precio)+'</b><small>'+esc(TIENDA.grada.d)+'</small></button>';
+    else H+='<p class="note" style="margin:4px 2px">🎫 Este año la peña viaja gracias a ti.</p>';
+    H+='</div>';
+    if(dbgOn()) H+='<div class="card"><div class="dbg"><span class="dneu">recupera +'+((v.casa||0)+(v.fisio?2:0))+'</span><span class="dneu">lesión ×'+(v.fisio?"0,78":"1")+'</span><span class="dneu">golpe de confianza ×'+(v.mentor?"0,85":"1")+'</span><span class="dneu">equilibrio '+animoBase().toFixed(1)+'</span><span class="dneu">novedad coche '+Math.round(novedadDe("coche"))+' · casa '+Math.round(novedadDe("casa"))+'</span><span class="dneu">capricho −'+caprichoDrena().toFixed(1)+'</span><span class="dneu">grada×vestuario ×'+(apoyoAficion()*mVestuario()).toFixed(2)+'</span></div></div>';
+  
+  return H;
+}
+function secRedes(){
+  var H="";
+
+    var P=pub();
+    if(S.redesSem!==S.jornada){
+      H+='<div class="card"><div class="eyebrow">Publicar esta semana</div>';
+      [["entreno","📸 Sudor y césped","El post de entreno de manual."],
+       ["lujo","💎 Enseñar lo tuyo","El reloj, el coche, la vida buena."],
+       ["reivindicativo","🔥 Decir lo que piensas","Un tema del vestuario, del fútbol, del mundo."]].forEach(function(o){
+        H+='<button class="opt" onclick="publicarRed(\''+o[0]+'\')"><b>'+o[1]+'</b><small>'+o[2]+'</small></button>';
+      });
+      H+='</div>';
+    } else {
+      H+='<div class="card"><p class="note" style="margin:2px">Ya publicaste esta semana. La escasez también es marca.</p></div>';
+    }
+    if(S.hatersSem!==S.jornada){
+      H+='<div class="card"><button class="opt" onclick="responderHaters()"><b>💬 Responder a los haters</b><small>Tu temperamento decidirá cómo sale.</small></button></div>';
+    }
+    var barraPub=function(lb,v,izq,der){
+      var col=v>=70?"var(--ok)":v>=45?"var(--gold)":"var(--bad)";
+      return '<div class="ejerow"><div class="ejetop"><span>'+esc(izq)+'</span><b>'+esc(lb)+' '+Math.round(v)+'</b><span>'+esc(der)+'</span></div>'
+        +'<div class="pubbar"><i style="width:'+Math.round(clamp(v,0,100))+'%;background:'+col+'"></i></div></div>';
+    };
+    H+='<div class="card"><div class="eyebrow">Lo que piensan de ti</div>'
+      +'<div class="statgrid2" style="grid-template-columns:1fr 1fr 1fr">'
+      +celda(nivelSeg(),"Seguidores")+celda(Math.round(P.afic),"Afición")+celda(Math.round(P.prensa),"Prensa")+'</div>'
+      +barraPub("La afición", P.afic, "te silba", "te corea")
+      +barraPub("La prensa", P.prensa, "te destroza", "te ensalza")
+      +'<p class="note" style="margin:8px 0 0">'
+      +(P.afic>=70? "Con la grada así, el equipo produce un "+Math.round((apoyoAficion()-1)*100)+"% más cuando juegas."
+        : P.afic<=30? "La grada está en tu contra y eso se nota en las piernas de todos."
+        : "La grada te da la oportunidad de convencerla.")
+      +(P.prensa<=35? " Y la prensa te espera con el cuchillo: cada mal partido te cuesta más confianza." : "")
+      +'</p></div>';
+    if(S.prensa && S.prensa.length){
+      H+='<div class="card"><div class="eyebrow">Titulares</div>';
+      S.prensa.slice(-5).reverse().forEach(function(t){
+        H+='<div class="titular"><span class="tjor">J'+t.jor+'</span><b>'+esc(t.t)+'</b></div>';
+      });
+      H+='</div>';
+    }
+    if(S.misPosts && S.misPosts.length){
+      H+='<div class="card"><div class="eyebrow">Tus publicaciones</div>';
+      S.misPosts.forEach(function(p){
+        H+='<div class="post bien" style="border-left:3px solid var(--gold)">'
+          +'<div class="pu"><b style="color:var(--gold)">'+esc(S.nombre)+'</b> <span>· J'+p.jor+'</span></div>'
+          +'<div class="pt">'+esc(p.texto)+'</div>'
+          +'<div class="note" style="margin-top:4px">❤️ '+p.likes.toLocaleString("es-ES")+(p.com?' · 💬 '+esc(p.com):'')+'</div>'
+          +'</div>';
+      });
+      H+='</div>';
+    }
+    H+='<div class="card"><div class="eyebrow">El muro</div>';
+    if(!S.muro || !S.muro.length) H+='<p class="note" style="margin:0">Todavía nadie habla de ti. Ya llegará.</p>';
+    (S.muro||[]).slice(0,10).forEach(function(m){
+      H+='<div class="post '+(m.bien?"bien":"mal")+'"><div class="pu">'+esc(m.u)+' <span>· J'+m.jor+'</span></div>'
+        +'<div class="pt">'+esc(m.t)+'</div></div>';
+    });
+    H+='</div>';
+  
+  return H;
+}
+function clicTalento(rama,id){ if(invertirTalento(rama,id)){ SUB.jugador="fisico"; irSec("jugador"); } }
+/* Talentos: una pestaña por rama; cada talento se pinta con pips (un tramo por rango), como en talentos.html.
+   Los puntos libres salen del presupuesto real (nivel − 7 − invertidos), no del contador de subidas de nivel. */
+var TAL_RAMA=null;
+function talRama(rama){ TAL_RAMA=rama; SUB.jugador="fisico"; irSec("jugador"); }
+function secTalentos(){
+  S.talentos=S.talentos||{};
+  var gastadoTotal=puntosTalentoGastados(), presu=talentoPresupuesto(), libres=Math.max(0, presu-gastadoTotal);
+  if(!TAL_RAMA || TALENTO_ORDEN.indexOf(TAL_RAMA)<0) TAL_RAMA=TALENTO_ORDEN[0];
+  var H='<div class="card" style="border-color:var(--gold)"><div class="eyebrow">Talentos</div>'
+    +'<p class="note" style="margin:0">'+gastadoTotal+' / '+presu+' puntos invertidos'
+    +(libres>0? ' · <b style="color:var(--gold)">'+libres+' por asignar ahora mismo</b>' : ' · no te quedan puntos libres')+'</p></div>';
+  H+='<div class="chips full" style="grid-template-columns:repeat(3,1fr)">'+TALENTO_ORDEN.map(function(rama){
+    var g=0; TALENTOS[rama].nodes.forEach(function(n){ g+=talentoRango(rama,n.id); });
+    return '<button class="chip'+(rama===TAL_RAMA?' on':'')+'" onclick="talRama(\''+rama+'\')">'+esc(TALENTOS[rama].name)+' · '+g+'</button>';
+  }).join("")+'</div>';
+  var rama=TAL_RAMA, tree=TALENTOS[rama];
+  H+='<div class="card"><div class="eyebrow">'+esc(tree.name)+'</div>';
+  tree.nodes.forEach(function(node){
+    var r=talentoRango(rama,node.id);
+    if(node.off && r<=0) return;
+    var ok=talentoDesbloqueado(rama,node);
+    var puedeSubir = ok && r<node.rank && libres>0;
+    var faltaTxt="";
+    if(!ok){
+      var falt=[];
+      if((S.nivel||1)<node.lvl) falt.push("nivel "+node.lvl);
+      if(node.req){
+        var ids=Array.isArray(node.req)?node.req:[node.req];
+        var faltNombres=ids.filter(function(id){return talentoRango(rama,id)<=0;}).map(function(id){return talentoNodo(rama,id).n;});
+        if(faltNombres.length) falt.push(faltNombres.join(" y "));
+      }
+      faltaTxt='<div class="note" style="font-size:10.5px;color:var(--bad)">Falta: '+falt.join(" · ")+'</div>';
+    }
+    var pips="";
+    for(var k=0;k<node.rank;k++) pips+='<span style="display:inline-block;width:13px;height:4px;border-radius:2px;background:'+(k<r?'var(--gold)':'rgba(255,255,255,.12)')+'"></span>';
+    H+='<div class="row2" style="align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--linea)">'
+      +'<div style="flex:1;padding-right:8px"><b'+(r>0?' style="color:var(--gold)"':'')+'>'+esc(node.n)+(node.cap?' ★':'')+'</b>'
+      +'<div class="note" style="font-size:11px">'+esc(node.d)+'</div>'+faltaTxt+'</div>'
+      +'<div style="text-align:right;flex:none">'
+      +'<div style="display:flex;gap:3px;justify-content:flex-end;margin-top:4px">'+pips+'</div>'
+      +'<div class="note" style="font-size:10px">'+r+'/'+node.rank+'</div>'
+      +(puedeSubir? '<button class="chip" onclick="clicTalento(\''+rama+'\',\''+node.id+'\')">+1</button>':'')
+      +'</div></div>';
+  });
+  H+='</div>';
+  return H;
+}
+function secSkills(){
+  var H="";
+
+    var mias=skillsDisp().filter(function(x){return tieneSkill(x.id);});
+    var otras=skillsDisp().filter(function(x){return !tieneSkill(x.id);});
+    var todas=skillsDisp().slice().sort(function(a,b){ return sklNivel(b.id)-sklNivel(a.id); });
+    var listas=todas.filter(function(x){ return sklPuedeSubir(x); });
+    if(listas.length) H+='<div class="recbox">⬆ Tienes puntos para mejorar <b>'+listas.length+'</b> habilidad(es). Súbelas una a una desde aquí.</div>';
+
+    H+='<div class="card"><div class="eyebrow">Habilidades</div>';
+    todas.forEach(function(x){
+      var d=sklData(x.id), tope=sklTope(x), coste=sklCoste(d.niv), puede=sklPuedeSubir(x);
+      var col = d.niv>=70?"var(--bloom)": d.niv>=40?"var(--ok)": d.niv>0?"var(--gold)":"var(--dim)";
+      H+='<div class="sklv'+(puede?' listo':'')+'">'
+        +'<div class="sklv-top"><b>'+(d.niv?'★ ':'')+esc(x.n)+'</b>'
+          +'<span class="mono" style="color:'+col+'">'+d.niv+'<i>/'+tope+'</i></span></div>'
+        +'<div class="skbar"><i style="width:'+Math.round(d.niv/99*100)+'%;background:'+col+'"></i>'
+          +'<u style="left:'+Math.round(tope/99*100)+'%"></u></div>'
+        +'<div class="sklv-inf">'+esc(x.d)
+          +(d.niv>0? (function(){
+              var V=sklVentana(x), idle=jorAbs()-(d.u||0);
+              if(idle<=V) return ' <span class="note" style="color:var(--ok)">· en forma</span>';
+              if(idle<=2*V) return ' <span class="note" style="color:var(--gold)">· '+idle+' j sin ejercitarla (aguanta '+(2*V)+')</span>';
+              return ' <span class="note" style="color:var(--bad)">· ▼ oxidándose: −'+sklTasaOxido(x).toFixed(1)+'/jornada</span>';
+            })():'')
+          +'</div>'
+        +'<div class="sklv-pie"><span class="mono">'+d.pts+' pts · sube por '+coste+'</span>'
+        +(puede? '<span><button class="skbtn" onclick="subirSkill(\''+x.id+'\')">+1</button>'
+                 +'<button class="skbtn alt" onclick="subirSkillMax(\''+x.id+'\')">máx</button></span>'
+               : '<span class="note" style="font-size:10px">'+(
+                   (d.niv===0 && !sklDesbloqueada(x))
+                     ? "🔒 "+Math.min((S.reps&&S.reps[x.req.ej])||0, x.req.n)+"/"+x.req.n+" sesiones de «"+esc(nombreEj(x.req.ej))+"»"
+                       +((atr(x.req.attr)<x.req.v)? " · "+x.req.attr+" "+Math.round(atr(x.req.attr))+"/"+x.req.v : "")
+                     : d.niv>=tope? "sube "+ATTR[x.req.attr].n+" para ampliar el tope"
+                     : "entrena «"+esc(nombreEj(x.req.ej))+"»")+'</span>')
+        +'</div></div>';
+    });
+    H+='</div>';
+  
+  return H;
+}
+function secEntreno(){
+  var H="";
+  if(S.lesion>0){
+    H+='<div class="card" style="border-color:var(--bad)"><div class="eyebrow" style="color:var(--bad)">Lesionado</div>'
+      +'<p style="margin:0 0 6px">Estás de baja '+S.lesion+' jornada(s). No hay entrenamiento: solo camilla, gimnasio de rehabilitación y paciencia.</p>'
+      +'<p class="note" style="margin:0">Los atributos no suben mientras te recuperas, pero la forma sí va volviendo poco a poco.</p></div>';
+    return H;
+  }
+  if(!S.contrato) return H+'<div class="card"><p class="note" style="margin:0">Sin club no hay ciudad deportiva. Cuando firmes, aquí tendrás tu día de entreno.</p></div>';
+  if(S.dia && S.dia.jor===S.jornada) return H+entMisterHTML();
+  return H+citaMisterHTML();
+}
+function secNivel(){
+  var H="";
+  S.nivel=S.nivel||1; S.xp=S.xp||0;
+  var falta=xpParaNivel(S.nivel), pct=Math.round(clamp((S.xp/falta)*100,0,100));
+  H+='<div class="card" style="border-color:var(--gold)"><div class="eyebrow">Nivel '+S.nivel+(S.nivel>=99?" · TOPE":"")+'</div>'
+    +'<div class="pubbar"><i style="width:'+pct+'%"></i></div>'
+    +'<p class="note" style="margin:4px 2px 0">'+(S.nivel>=99? "Has llegado arriba del todo. Una carrera para la historia." : S.xp+" / "+falta+" XP para el nivel "+(S.nivel+1))+'</p></div>';
+  return H;
+}
+function chRefreshUI_(){ SUB.jugador="fisico"; irSec("jugador"); }
+var TECHO_OK=null;   /* feedback de la última asignación; se muestra una vez */
+function sumarTecho(k){
+  var antes=techoAtributoDe(k);
+  if(!asignarTecho(k)) return;
+  TECHO_OK={k:k, de:antes, a:techoAtributoDe(k)};
+  chRefreshUI_();
+}
+function filaAtributo(a,pend){
+  var t=techoAtributoDe(a);
+  var btn = pend>0 ? '<button class="opt" style="width:auto;min-width:44px;padding:6px 12px;margin:4px 0 0" onclick="sumarTecho(\''+a+'\')" aria-label="Sumar un punto de techo a '+esc(ATTR[a].n)+'">+ 1</button>' : '';
+  return '<div style="display:flex;gap:12px;align-items:center;margin:10px 0">'
+    +'<div style="flex:1;min-width:0">'+barraAttr(a)+'<div class="note" style="margin:2px 0 0">'+esc(ATTR[a].d)+'</div></div>'
+    +'<div style="text-align:right;flex:0 0 auto"><div class="note" style="font-size:12px;margin:0">Techo</div>'
+    +'<b class="mono" style="font-size:18px">'+t.toFixed(1)+'</b>'+(btn?'<div>'+btn+'</div>':'')+'</div></div>';
+}
+function secAtributos(){
+  var pend=S.techoPend||0, POSA=ATTR_ORDEN.concat(S.pos==="POR"?["POR"]:[]);
+  var H='<div class="card"'+(pend>0?' style="border-color:var(--gold)"':'')+'><div class="eyebrow">Atributos</div>';
+  if(TECHO_OK){
+    H+='<p class="note" style="margin:0 0 8px;color:var(--ok)"><b>✔ '+esc(ATTR[TECHO_OK.k].n)+'</b>: techo '+TECHO_OK.de.toFixed(1)+' → '+TECHO_OK.a.toFixed(1)+' (+'+(TECHO_OK.a-TECHO_OK.de).toFixed(2)+')</p>';
+    TECHO_OK=null;
+  }
+  if(pend>0) H+='<p class="note" style="margin:0 0 4px">Puntos de techo sin asignar: <b style="color:var(--gold)">'+pend+'</b>. Pulsa <b>+ 1</b> en el atributo que quieras; cada punto sube su techo '+TECHO_INC.toFixed(2)+'. Solo el entreno lo rellena de verdad.</p>';
+  POSA.forEach(function(a){ H+=filaAtributo(a,pend); });
+  H+='<p class="note" style="margin:10px 0 0">Se entrenan en Vida → Entrenamiento, tres sesiones por semana.</p></div>';
+  return H;
+}
+function secCuentas(){
+  var H='<div class="eyebrow">Tu patrimonio</div><h2 class="disp">Cuentas</h2>'+subTabs("cuentas");
+  if(SUB.cuentas==="tienda") return H+secTienda();
+  var k="dinero";
+  H+=secDinero();
+  return H;
+}
+function efectoEje(kk){
+  /* una lectura mecánica real por eje, con el multiplicador AHORA MISMO — mismo lenguaje ⚽/🧍 de Despachos */
+  if(kk==="disciplina") return [
+    {ic:"⚽", t:"interés de clubes ×"+interesClubes().toFixed(2)},
+    {ic:"🧍", t:"aguante del míster ×"+(1/clamp(tolMister(),0.4,2)).toFixed(2)+" más estricto cuanto más bajo"}
+  ];
+  if(kk==="ego") return [
+    {ic:"🧍", t:"aura de grada ×"+auraGrada().toFixed(2)},
+    {ic:"🧍", t:"seguidores nuevos ×"+(1+eje("ego")/160).toFixed(2)}
+  ];
+  if(kk==="temperamento") return [{ic:"⚽", t:"probabilidad de tarjeta ×"+mTemp().toFixed(2)}];
+  if(kk==="companerismo") return [{ic:"⚽", t:"asistencias ×"+mComp().toFixed(2)}];
+  if(kk==="liderazgo") return [{ic:"⚽", t:"empuje al equipo cuando aciertas ×"+mLider().toFixed(2)}];
+  if(kk==="resiliencia") return [{ic:"🧍", t:"castigo tras un mal partido ×"+mResil().toFixed(2)+" (más bajo es mejor)"}];
+  return [];
+}
+function caracterHTML(){
+  var H='<div class="card"><div class="eyebrow">Los seis ejes</div>';
+  RASGOS_ORDEN.forEach(function(kk){
+    var R=RASGOS_P[kk], v=eje(kk);
+    var pct=R.rango[0]===0? v : (v+100)/2;
+    H+='<div class="ejerow"><div class="ejetop"><span>'+esc(R.izq)+'</span><b>'+esc(R.n)+'</b><span>'+esc(R.der)+'</span></div>'
+      +'<div class="pubbar"><i style="width:'+Math.round(clamp(pct,0,100))+'%"></i></div>'
+      +'<div class="note" style="margin:3px 2px 0;font-size:11.5px">'+esc(R.d)+'</div>'
+      +efectoEje(kk).map(function(fx){ return '<div class="note" style="margin:2px 2px 0;font-size:11px">'+fx.ic+' '+esc(fx.t)+'</div>'; }).join("")
+      +'</div>';
+  });
+  H+='<p class="note" style="margin:8px 2px 0">Nada de esto es decorado: cada barra empuja un número real del motor, ahora mismo.</p></div>';
+  return H;
+}
+/* secVida() vivía aquí antes de la mudanza a 6 pestañas (4.46); secRedes ya solo se alcanza
+   desde Jugador→Fama. Se retira: era el segundo "sitio" de redes que Manu detectó en el playtest. */
+/* el preparador mira tus números y te dice por dónde empezar */
+function recomendacion(){
+  if(!S) return null;
+  /* 1) si estás a un paso de una habilidad, ese ejercicio manda */
+  var cerca=null, mejorFalta=1e9;
+  skillsDisp().forEach(function(k){
+    var d=sklData(k.id);
+    if(d.niv>=sklTope(k)) return;
+    if(d.niv<=0 && !sklDesbloqueada(k)) return;          /* bloqueada: los puntos no bastan, va aparte */
+    var falta=sklCoste(d.niv)-d.pts;
+    if(falta>0 && falta<mejorFalta){ mejorFalta=falta; cerca=k; }
+  });
+  if(cerca && mejorFalta<=26){ var nses=Math.max(1, Math.ceil(mejorFalta/5.5));
+    return {ej:cerca.req.ej, motivo:"con "+(nses===1?"una sesión":nses+" sesiones")+" más de «"+nombreEj(cerca.req.ej)+"» subes «"+cerca.n+"» un nivel"}; }
+  /* bloqueada solo por sesiones (el atributo ya llega): pocas sesiones la abren */
+  var abre=null, faltaS=1e9;
+  skillsDisp().forEach(function(k){
+    if(tieneSkill(k.id) || atr(k.req.attr)<k.req.v) return;
+    var r=((S.reps&&S.reps[k.req.ej])||0)+((S.repsM&&S.repsM[k.req.ej])||0), f=Math.ceil(k.req.n-r);
+    if(f>0 && f<faltaS){ faltaS=f; abre=k; }
+  });
+  if(abre && faltaS<=3) return {ej:abre.req.ej, motivo:"con "+(faltaS===1?"una sesión":faltaS+" sesiones")+" más de «"+nombreEj(abre.req.ej)+"» desbloqueas «"+abre.n+"»"};
+  var tocada=null;
+  skillsDisp().forEach(function(k){ if(!tocada && sklPuedeSubir(k)) tocada=k; });
+  if(tocada) return {ej:tocada.req.ej, motivo:"ya puedes subir «"+tocada.n+"»: hazlo en Jugador → Skills"};
+  /* 2) si no, tu punto flojo según lo que pide tu puesto */
+  var w=PESO_MEDIA[S.pos]||PESO_MEDIA.MC, peor=null, peorV=999;
+  ATTR_ORDEN.concat(S.pos==="POR"?["POR"]:[]).forEach(function(a){
+    if(!w[a] || w[a]<0.12) return;
+    var v=atr(a);
+    if(v<peorV){ peorV=v; peor=a; }
+  });
+  if(!peor) return null;
+  var cand=entrenosDisp().filter(function(e){ return e.sube[peor]; });
+  if(!cand.length) return null;
+  cand.sort(function(a,b){ return (b.sube[peor]||0)-(a.sube[peor]||0); });
+  return {ej:cand[0].id, motivo:ATTR[peor].n+" ("+Math.round(peorV)+") es tu punto flojo para jugar de "+POS[S.pos].n.toLowerCase()};
+}
+/* texto de la habilidad ligada a un ejercicio: si está bloqueada, qué falta; si no, nivel y progreso */
+function ejSkillTxt(meta){
+  var d=sklData(meta.id), pts=Math.round(d.pts);
+  if(!tieneSkill(meta.id) && !sklDesbloqueada(meta)){
+    var rep=((S.reps&&S.reps[meta.req.ej])||0)+((S.repsM&&S.repsM[meta.req.ej])||0);
+    var fal=[];
+    if(rep<meta.req.n) fal.push((meta.req.n-Math.floor(rep))+" sesiones de "+nombreEj(meta.req.ej));
+    if(atr(meta.req.attr)<meta.req.v) fal.push(meta.req.attr+" "+meta.req.v+" (ahora "+Math.round(atr(meta.req.attr))+")");
+    return "🎯 Desbloquea «"+meta.n+"»: "+fal.join(" y ").replace(" sesiones de "+nombreEj(meta.req.ej)," sesiones más de esto")+(rep>0? " · llevas "+Math.floor(rep):"");
+  }
+  return "★ "+meta.n+" · nivel "+sklNivel(meta.id)+" · "+pts+"/"+sklCoste(d.niv)+" pts para subir";
+}
+function dbgEntreno(e, extra){
+  if(!dbgOn()) return "";
+  var f=[];
+  Object.keys(e.sube).forEach(function(k){
+    var g=gananciaEntreno(e,k,extra);
+    var v=atr(k), techo=clamp((92-v)/45,0.12,1.15);
+    f.push('<span class="dgood">'+k+' +'+g.toFixed(2)+' (techo ×'+techo.toFixed(2)+')</span>');
+  });
+  var c=Math.round((e.forma||0)*(extra?1.4:1));
+  f.push('<span class="'+(c>=0?"dgood":"dbad")+'">forma '+(c>0?"+":"")+c+'</span>');
+  if(extra) f.push('<span class="dbad">sobrecarga 9%</span><span class="dgood">míster +1.5</span>');
+  return '<div class="dbg">'+f.join("")+'</div>';
+}
+function dbgVida(o){
+  if(!dbgOn() || !S) return "";
+  var d=[];
+  var mapa={conf:"conf",forma:"forma",animo:"animo",fama:"fama",mister:"mister",dinero:"dinero"};
+  for(var k2 in (o.fx||{})){ if(mapa[k2] && o.fx[k2]) d.push('<span class="'+(o.fx[k2]>0?"dgood":"dbad")+'">'+k2+' '+sgn(o.fx[k2])+'</span>'); }
+  return '<div class="dbg">'+(d.join("")||'<span class="dneu">sin efecto</span>')+'</div>';
+}
+function elegirVida(i){
+  if(!S || S.semanaHecha===S.jornada) return;
+  var o=vidaMenu().ops[i];
+  if(!o) return;
+  aplicarVidaFx(o.fx);
+  S.semanaHecha=S.jornada;
+  S.vidaLog=S.vidaLog||[];
+  S.vidaLog.push("J"+(S.jornada+1)+" · "+o.n+": "+o.txt);
+  guardar();
+  SUB.jugador="animo"; irSec("jugador");
+}
+/* ---------- EQUIPO ---------- */
+function secEquipo(){
+  var yo=EQ[S.equipo], k=SUB.equipo||"tabla";
+  var H='<div class="eyebrow">'+esc(ligaNombre()+" · temporada "+S.temporada)+'</div><h2 class="disp">'+esc(yo.c)+'</h2>'+subTabs("equipo");
+  if(k==="entreno"){ H+=secEntreno(); }
+  else if(k==="plantilla"){
+    var L=compis().slice().sort(function(a,b){return b.afin-a.afin;});
+    H+='<div class="card"><div class="eyebrow">Vestuario · afinidad media '+Math.round(afinMedia())+'</div>';
+    H+='<div class="row2"><span><b class="mono" style="color:var(--gold)">'+miMedia()+'</b> <span style="color:var(--gold);font-weight:700">'+esc(S.nombre)+' (tú)</span> <span class="note">'+esc(POS[S.pos].ab)+' · '+(S.edad||21)+'a · '+S.yo.g+'G '+S.yo.a+'A</span></span><b class="note">#'+S.dorsal+'</b></div>';
+    L.forEach(function(c){
+      var col=c.afin>=70?"var(--ok)":c.afin>=45?"var(--muted)":"var(--bad)";
+      var et=c.afin>=80?"uña y carne":c.afin>=65?"buena sintonía":c.afin>=45?"cordial":c.afin>=30?"fríos":"mal rollo";
+      var est=c.lesion>0? ' <span style="color:var(--bad)">🚑'+c.lesion+'</span>' : c.sancion>0? ' <span style="color:var(--bad)">🟥</span>':'';
+      var num=[]; if(c.g) num.push(c.g+"G"); if(c.a) num.push(c.a+"A"); if(c.ta) num.push("🟨"+c.ta); if(c.tr) num.push("🟥"+c.tr);
+      H+='<div class="row2"><span><b class="mono" style="color:var(--gold)">'+c.media+'</b> '+esc(c.n)
+        +' <span class="note">'+esc(c.pos)+' · '+c.edad+'a'+(num.length?' · '+esc(num.join(" ")):'')+'</span>'+est+'</span>'
+        +'<b style="color:'+col+'">'+esc(et)+'</b></div>';
+    });
+    H+='<p class="note" style="margin:10px 0 0">La sintonía del vestuario influye en que te busquen: a más afinidad, más asistencias caen de tu bota.</p></div>';
+  }
+  else if(k==="tabla"){
+    var cl=clasificacion();
+    H+='<div class="card"><div class="eyebrow">Clasificación</div><table class="tabla"><tr><th></th><th>Equipo</th><th>PJ</th><th>DG</th><th>Pts</th></tr>';
+    cl.forEach(function(row,i){
+      var z=i<4?"zch":i<7?"zeu":i>=17?"zde":"";
+      H+='<tr class="'+z+(row.id===S.equipo?' yo':'')+'"><td class="pos mono">'+(i+1)+'</td><td class="eq">'+esc(EQ[row.id].c)+'</td><td class="mono">'+row.t.pj+'</td><td class="mono">'+(row.t.gf-row.t.gc)+'</td><td class="pts mono">'+row.t.pts+'</td></tr>';
+    });
+    H+='</table></div>';
+  }
+  else if(k==="mister"){
+    H+=cardReto();
+    var m=mister(), E=estiloMister(), enc=encajeMister();
+    var col=enc>=0.8?"var(--ok)":enc>=-0.3?"var(--gold)":"var(--bad)";
+    var _pos=posLiga(), _obj=objetivoClub();
+    var _col=_pos<=_obj.pos?"var(--ok)":_pos<=_obj.pos+3?"var(--gold)":"var(--bad)";
+    H+='<div class="card"><div class="eyebrow">El encargo del club</div>'
+      +'<p style="margin:0 0 8px;font-size:15px">La directiva pide <b>'+esc(_obj.n)+'</b>.</p>'
+      +'<div class="row2"><span>Ahora mismo</span><b style="color:'+_col+'">'+_pos+'º'
+      +(_pos<=_obj.pos?" · cumpliendo":" · a "+(_pos-_obj.pos)+" puestos")+'</b></div>'
+      +'<p class="note" style="margin:6px 0 0">'+(_pos>_obj.pos+4?"Si esto sigue así, el míster se juega el puesto.":"El banquillo está tranquilo.")+'</p></div>';
+    H+='<div class="card"><div class="eyebrow">'+esc(E.n)+'</div>'
+      +'<h3 style="margin:0 0 2px">'+esc(m.n)+'</h3>'
+      +'<p class="note" style="margin:0 0 8px;font-style:italic">'+esc(E.lema)+'</p>'
+      +'<p style="margin:0 0 10px;font-size:14px">'+esc(E.d)+'</p>'
+      +'<div class="row2"><span>Horarios</span><b class="note" style="text-align:right;max-width:62%">'+esc(E.horario)+'</b></div>'
+      +'<div class="row2"><span>Su manía</span><b class="note" style="text-align:right;max-width:62%">'+esc(m.mania)+'</b></div>'
+      +'<div class="row2"><span>Su idea y tú</span><b style="color:'+col+'">'+
+        (enc>=0.8?"le encajas perfecto":enc>=0.3?"le vales":enc>=-0.3?"le das igual":enc>=-1?"no le convences":"no eres su tipo de futbolista")+'</b></div>'
+      +'<div class="row2"><span>La relación</span><b style="color:'+fraseMister().col+'">'+esc(fraseMister().txt)+'</b></div>'
+      +'</div>';
+    H+='<div class="card"><div class="eyebrow">Qué premia</div>'
+      +'<p class="note" style="margin:0 0 8px">Perfiles que le gustan: <b style="color:var(--gold)">'
+      +esc(E.roles.map(function(r){
+          for(var pp in ROLES){ for(var i=0;i<ROLES[pp].length;i++) if(ROLES[pp][i].id===r) return ROLES[pp][i].n; }
+          return r;
+        }).slice(0,5).join(", "))+'</b></p>'
+      +(E.odia.length? '<p class="note" style="margin:0 0 8px">No soporta: <b style="color:var(--bad)">'+esc(E.odia.map(function(a){return ARQUETIPOS[a]?ARQUETIPOS[a].n:a;}).join(", "))+'</b></p>':'')
+      +'<div class="row2"><span>Te aguanta</span><b>'+(E.tol>=1.3?"mucho":E.tol>=1.0?"lo normal":"poco")+'</b></div>'
+      +'<div class="row2"><span>Su equipo</span><b>'+(E.estilo.own>1.03?"produce más":"produce lo justo")+' · '+(E.estilo.opp<0.93?"encaja poco":"defensa normal")+'</b></div>'
+      +'</div>';
+    H+='<div class="card"><div class="eyebrow">Su método de entrenamiento</div>';
+    var ent=E.entreno||{};
+    Object.keys(ent).forEach(function(idEj){
+      var e=ENTRENOS.filter(function(x){return x.id===idEj;})[0];
+      if(!e) return;
+      var v=ent[idEj];
+      H+='<div class="row2"><span>'+esc(e.n)+'</span><b style="color:'+(v>1.05?"var(--ok)":v<0.95?"var(--bad)":"var(--muted)")+'">×'+v.toFixed(2)+'</b></div>';
+    });
+    H+='<p class="note" style="margin:8px 0 0">Entrenar lo que a él le interesa rinde más. Lo que no, cunde menos.</p></div>';
+  }
+  else {
+    /* Resultados: cada partido de la temporada se va acumulando, el más reciente arriba. Desde aquí se abre el detalle. */
+    var HH=S.hist||[]; PARTIDO_TEMP=null;
+    if(PARTIDO_SEL!==null && HH[PARTIDO_SEL]){ H+=secPartidos(); }
+    else if(!HH.length){ H+='<div class="card"><p class="note" style="margin:0">La liga aún no ha empezado.</p></div>'; }
+    else { for(var ri=HH.length-1; ri>=0; ri--){ H+=cardPartido(ri); } }
+  }
+  return H;
+}
+var LIGAS_N="Primera División · 2026-27";
+/* ---------- ventana de confirmación propia (nada de diálogos del navegador) ---------- */
+var MODAL_OK=null;
+function modal(cfg){
+  MODAL_OK=cfg.onOk||null;
+  MODAL_NO=cfg.onCancel||null;
+  var H='<div class="modal">'
+    +(cfg.ico?'<div class="mico">'+cfg.ico+'</div>':'')
+    +'<h3 class="disp">'+esc(cfg.t||"")+'</h3>'
+    +'<p>'+(cfg.x||"")+'</p>';
+  if(cfg.extraTxt) H+='<button class="ghost" style="margin:0 0 8px" onclick="'+cfg.extraFn+'">'+esc(cfg.extraTxt)+'</button>';
+  H+='<button class="'+(cfg.peligro?"peligro":"gold-btn")+'" onclick="modalConfirmar()">'+esc(cfg.okTxt||"Confirmar")+'</button>'
+    +'<button class="ghost" onclick="cerrarModal()">'+esc(cfg.cancelTxt||"Cancelar")+'</button>'
+    +'</div>';
+  $("ov-modal-inner").innerHTML=H;
+  $("ov-modal").classList.remove("hidden");
+}
+var MODAL_NO=null;
+function cerrarModal(){
+  var f=MODAL_NO; MODAL_OK=null; MODAL_NO=null;
+  $("ov-modal").classList.add("hidden");
+  if(f) f();
+}
+function modalConfirmar(){ var f=MODAL_OK; MODAL_OK=null; MODAL_NO=null; $("ov-modal").classList.add("hidden"); if(f) f(); }
+/* ===== EL BAZAR: catálogo procedural con impacto real en todo ===== */
+var TIENDA_ON=true;
+var TIENDA_CATS=[
+ {id:"botas",   n:"Botas",             tipo:"bien", base:180,    ic:"👟", fx:{mult:{TEC:0.02}},
+  modelos:[["Adidas Copa Pure","Puma King","Joma Aguila"],["Nike Tiempo Legend","Adidas Predator Club","Mizuno Morelia"],
+           ["Nike Mercurial Vapor","Adidas X Crazyfast","Puma Ultra Match"],["Nike Phantom GX Elite","Adidas Predator Elite","Mizuno Morelia Neo IV"],
+           ["Nike Mercurial Superfly Elite","Adidas F50 Elite","Puma Future Ultimate"],["Nike Mercurial a medida","Adidas F50 edición jugador","Mizuno Made in Japan"]]},
+ {id:"recu",    n:"Recuperación",      tipo:"bien", base:900,    ic:"🧊", fx:{regen:0.5, modLes:-0.06},
+  modelos:[["Foam roller Blackroll","Compex SP 4.0","Pistola Xiaomi Massage"],["Theragun Prime","Hypervolt 2","Compex SP 8.0"],
+           ["Normatec 3 Legs","Theragun PRO","Game Ready básico"],["Hyperice suite completa","Game Ready GRPro 2.1","Normatec 3 Full Body"],
+           ["Baño de hielo CET","Cámara crio portátil °CRYO","Recovery room BTL"],["Cámara hiperbárica OxyHealth","Crio-sauna Vacuactivus","Suite recovery Technogym"]]},
+ {id:"sueno",   n:"Descanso",          tipo:"bien", base:1200,   ic:"🛏", fx:{regen:0.4},
+  modelos:[["Colchón Emma One","Almohada Tempur Original","Antifaz Manta Sleep"],["Colchón Tempur Pro","Purificador Dyson TP07","Cortinas opacas a medida"],
+           ["Tempur Ergo ajustable","Eight Sleep Pod Cover","Domótica de sueño Philips Hue"],["Eight Sleep Pod 4","Hästens entrada","Cabina de siesta Restworks"],
+           ["Hästens 2000T","Habitación insonorizada","Eight Sleep Pod 4 Ultra"],["Hästens Grand Vividus","Suite de sueño hipóxica","Dormitorio biohacking a medida"]]},
+ {id:"nutri",   n:"Cocina y nutrición",tipo:"bien", base:700,    ic:"🥦", fx:{regen:0.3, conf:0.2},
+  modelos:[["Batidora Nutribullet","Pack HSN 3 meses","Báscula Withings"],["Thermomix TM6","MyProtein premium anual","Analítica InsideTracker"],
+           ["Robot Cecotec + menú diseñado","Suplementación Indya","Plan nutricional trimestral"],["Cocina Miele renovada","Chef batch-cooking semanal","Nutrigenética completa"],
+           ["Cámara de maduración + despensa pro","Nevera de vinos EuroCave","Menú de temporada con nutricionista"],["Cocina Bulthaup a medida","Huerto ecológico con hortelano","Programa Human Performance"]]},
+ {id:"gym",     n:"Gimnasio en casa",  tipo:"bien", base:2500,   ic:"🏋️", fx:{mult:{FIS:0.03}},
+  modelos:[["Banco + mancuernas Decathlon","Esterilla y gomas Domyos","Comba Velites"],["Rack Kingsbox","Bicicleta Peloton","Remo Concept2"],
+           ["Multiestación Technogym","Cinta NordicTrack 2450","Assault Bike + kettlebells Eleiko"],["Sala Technogym completa","Skillmill + Skillrow","Plataformas de fuerza básicas"],
+           ["Technogym Artis line","Plataformas Keiser + VBT","Sala con espejo Tonal doble"],["Gimnasio Technogym Personal de diseño","Laboratorio de fuerza 1080 Motion","Sala réplica ciudad deportiva"]]},
+ {id:"reloj",   n:"Relojes",           tipo:"bien", base:9000,   ic:"⌚", fx:{ego:1, seg:60,  robo:1},
+  modelos:[["Tissot PRX","Seiko Presage","Longines Conquest"],["TAG Heuer Carrera","Omega Aqua Terra","Tudor Black Bay"],
+           ["Rolex Oyster Perpetual","Omega Speedmaster","Cartier Santos"],["Rolex Submariner","Rolex GMT Master II","IWC Portugieser"],
+           ["Rolex Daytona","Patek Philippe Aquanaut","Audemars Piguet Royal Oak"],["Patek Philippe Nautilus","Richard Mille RM 011","AP Royal Oak esqueleto"]]},
+ {id:"joyas",   n:"Joyería",           tipo:"bien", base:15000,  ic:"💎", fx:{ego:2, seg:110, robo:2},
+  modelos:[["Pulsera Tous oro","Cadena italiana 18k","Pendiente diamante 0,3ct"],["Cartier Love bracelet","Tiffany T","Cadena cubana maciza"],
+           ["Cartier Juste un Clou","Bulgari B.zero1 pavé","Solitario 1ct GIA"],["Van Cleef Alhambra","Cadena con colgante de diamantes","Reloj-joya Chopard"],
+           ["Collar riviere de diamantes","Tiffany Victoria alta joyería","Cartier alta joyería"],["Pieza única De Beers","Grafo Graff a medida","Alta joyería Bulgari Serpenti"]]},
+ {id:"moda",    n:"Vestuario de gala", tipo:"bien", base:1500,   ic:"🕴", fx:{seg:70},
+  modelos:[["Traje Massimo Dutti","Zapatos Lottusse","Camisas a medida básicas"],["Traje Hugo Boss","Sneakers Common Projects","Abrigo COS cashmere"],
+           ["Traje Armani","Loewe puzzle weekend","Zapatos Santoni"],["Zegna a medida","Loro Piana casual","Berluti patinados"],
+           ["Tom Ford black tie","Hermès sport-chic","Brunello Cucinelli total look"],["Alta sastrería Savile Row","Vestidor cápsula Loro Piana","Kiton bespoke"]]},
+ {id:"tec",     n:"Tecnología y ocio", tipo:"bien", base:800,    ic:"🎮", fx:{conf:0.3, vicio:1},
+  modelos:[["Nintendo Switch OLED","Airpods Pro 2","Monitor LG 27\""],["PS5 Pro + mando Edge","Meta Quest 3","iPad Pro"],
+           ["PC ROG 4080","LG OLED 77\"","Sonos surround"],["Simulador Fanatec DD+","Mac Studio + Pro Display","Home cinema JVC 4K"],
+           ["Sala arcade retro","Simulador de vuelo full","Bang & Olufsen Beolab 90"],["Simulador F1 motion pro","Sala IMAX privada","Setup streaming broadcast"]]},
+ {id:"arte",    n:"Arte y diseño",     tipo:"bien", base:20000,  ic:"🖼", fx:{seg:50, conf:0.2, robo:1},
+  modelos:[["Lámina firmada Okuda","Fotografía Chema Madoz ed.","Cerámica Sargadelos autor"],["Obra joven ARCO","Escultura pequeña bronce","Litografía Barceló"],
+           ["Litografía Miró numerada","Print Banksy autenticado","Obra media Juan Genovés"],["Óleo Equipo Crónica","Escultura Plensa pequeña","Tàpies obra gráfica mayor"],
+           ["Obra menor Picasso (grabado)","Chillida gravitación","Basquiat print raro"],["Óleo firmado histórico","Escultura Chillida acero","Pieza de museo en préstamo inverso"]]},
+ {id:"mascota", n:"Compañía",          tipo:"bien", base:600,    ic:"🐕", fx:{conf:0.5},
+  modelos:[["Adopción + kit completo","Acuario plantado","Gato europeo"],["Border Collie de trabajo","Golden Retriever","Gato Maine Coon"],
+           ["Bulldog francés","Pastor australiano","Educador canino 3 meses"],["Perro con adiestramiento élite","Segunda mascota + cuidador","Gato Bengala"],
+           ["Caballo de paseo + pupilaje","Perrera climatizada de diseño","Acuario marino profesional"],["Cuadra pequeña propia","Santuario particular","Halcón con cetrero"]]},
+ {id:"segur",   n:"Seguridad del hogar",tipo:"bien",base:4000,   ic:"🔐", fx:{seguro:1},
+  modelos:[["Ring completo + sensores","Cerradura inteligente Nuki","Caja fuerte Arregui"],["Alarma Securitas Direct","Cámaras Ajax perimetrales","Caja fuerte empotrada grado IV"],
+           ["Prosegur Alarms premium","Vallado + domótica de accesos","Búnker de valores"],["Seguridad integral con acuda","Sala del pánico","CCTV con analítica IA"]]},
+ {id:"coche",   n:"Coches",            tipo:"bien", base:16000,  ic:"🏎", fx:{ego:1, seg:80, robo:1},
+  modelos:[["Seat León FR","VW Golf GTI","Mini Cooper S"],["Audi S3","BMW M240i","Cupra Formentor VZ"],
+           ["Porsche 718 Cayman","BMW M3","Mercedes-AMG C63"],["Porsche 911 Carrera","Audi RS6 Avant","Mercedes-AMG GT"],
+           ["Lamborghini Huracán","Ferrari Roma","McLaren Artura"],["Ferrari SF90","Lamborghini Revuelto","Bugatti heredado de subasta"]]},
+ {id:"casa2",   n:"Vivienda",          tipo:"bien", base:220000, ic:"🏠", fx:{regen:0.3, conf:0.3, seguro:0},
+  modelos:[["Piso reformado en el centro","Apartamento junto a la ciudad deportiva","Loft de obra nueva"],["Ático con terraza","Adosado con jardín","Piso alto con vistas"],
+           ["Chalet en urbanización","Ático dúplex premium","Casa de diseño a las afueras"],["Villa con piscina y gym","Chalet con seguridad privada","Casa de arquitecto"],
+           ["Villa de lujo llave en mano","Finca con cuadras","Ático emblemático del skyline"],["Mansión con personal","Isla de calma: finca vallada total","Villa de portada de revista"]]},
+ {id:"viaje",   n:"Escapadas",         tipo:"cons", base:2500,   ic:"✈️", fx:{confYa:8, formaYa:-2, segYa:40},
+  modelos:[["Fin de semana en Lisboa","Escapada rural con encanto","San Sebastián gastronómico"],["Ibiza en temporada baja","París express","Roma + palco"],
+           ["Maldivas 5 noches","Safari corto en Kenia","Nueva York VIP"],["Polinesia overwater","Japón a medida","Patagonia privada"],
+           ["Vuelta al mundo exprés","Antártida expedición","Mónaco GP full access"],["Jet privado + isla alquilada","Aurora boreal en lodge de cristal","Espacio suborbital (lista de espera)"]]},
+ {id:"detalle", n:"Detalles a los tuyos",tipo:"cons",base:1200,  ic:"🎁", fx:{confYa:5},
+  modelos:[["Cena familiar en el asador","Entradas y camiseta firmada","Fin de semana para tus padres"],["iPhone para tu madre","Viaje sorpresa a los tuyos","Reforma del salón familiar"],
+           ["Coche nuevo para tu padre","Bodas de plata pagadas","Beca completa a tu hermano"],["Entrada de piso a tu hermana","Negocio familiar saneado","Jubilación adelantada de tu madre"],
+           ["Casa del pueblo restaurada","Deuda familiar a cero","Fondo para los sobrinos"],["Casa nueva para tus padres","Patrimonio familiar ordenado","Futuro de tres generaciones"]]},
+ {id:"caridad", n:"Causas y fundación",tipo:"cons", base:20000,  ic:"🤝", fx:{segYa:150, misterYa:4, afinYa:2, egoYa:-2},
+  modelos:[["Donación al banco de alimentos","Equipaciones al fútbol base","Campus becado del barrio"],["Beca deportiva anual","Reforma del campo del barrio","Furgoneta para la cantera humilde"],
+           ["Programa de comedores escolares","Torneo benéfico con tu nombre","Unidad móvil sanitaria"],["Fundación propia: arranque","Ala hospitalaria infantil","Pozos de agua: proyecto anual"],
+           ["Fundación a pleno rendimiento","Residencia deportiva social","Cátedra de deporte inclusivo"],["Legado: escuela deportiva completa","Hospital de campaña financiado","Dotación permanente de la fundación"]]},
+ {id:"fisio",   n:"Fisio personal",    tipo:"serv", base:1500,   ic:"🩺", fx:{modLes:-0.10, regen:0.2},
+  modelos:[["Fisio a domicilio 2 días","Recuperador colegiado","Quiromasajista deportivo"],["Fisio deportivo senior","Osteópata + fisio semanal","Readaptador funcional"],
+           ["Fisio ex-cantera profesional","Equipo fisio + podólogo","Recovery coach certificado"],["Fisio de élite dedicado","Ex-fisio de selección","Equipo médico privado ligero"]]},
+ {id:"chef",    n:"Chef a domicilio",  tipo:"serv", base:1100,   ic:"👨‍🍳", fx:{regen:0.5},
+  modelos:[["Cocinera de diario","Batch cooking premium","Menús de rendimiento"],["Chef privado 4 días","Chef + nutricionista","Cocina de temporada diaria"],
+           ["Chef con estrella de baja","Equipo cocina + compra","Chef especializado en deporte"],["Chef de élite dedicado","Brigada privada","Chef ex-Bulli para diario"]]},
+ {id:"mente",   n:"Coach mental",      tipo:"serv", base:1300,   ic:"🧠", fx:{misterSem:0.6, conf:0.3},
+  modelos:[["Psicólogo deportivo quincenal","Mindfulness guiado","Coach de hábitos"],["Psicólogo semanal","Preparador mental de club","Terapia de rendimiento"],
+           ["Mental coach de élite","Psicólogo + neurofeedback","Programa de presión y foco"],["Equipo mental dedicado","Ex-psicólogo de selección","Mental room a medida"]]},
+ {id:"estilo",  n:"Estilista",         tipo:"serv", base:900,    ic:"💇", fx:{seg:90},
+  modelos:[["Peluquero de confianza semanal","Asesor de imagen puntual","Barbería premium"],["Estilista de sesión","Personal shopper trimestral","Grooming completo"],
+           ["Estilista dedicado","Equipo imagen para eventos","Colaborador de moda fijo"],["Imagen integral 24/7","Estilista de celebrities","Dirección creativa personal"]]},
+ {id:"jprensa", n:"Jefe de prensa",    tipo:"serv", base:2200,   ic:"🗞", fx:{amortMister:0.5},
+  modelos:[["Community manager pro","Agencia de comunicación básica","Asesor de medios puntual"],["Jefe de prensa junior","Agencia con guardia de crisis","Media training incluido"],
+           ["Jefe de prensa senior","Agencia de primer nivel","Portavoz + monitorización"],["Director de comunicación","Ex-dircom de club grande","Gabinete de crisis dedicado"]]},
+ {id:"escolta", n:"Seguridad personal",tipo:"serv", base:1800,   ic:"🕶", fx:{vicioMod:-1, seguro:1},
+  modelos:[["Conductor de confianza","Acompañante en salidas","Chequeo de entornos"],["Escolta en eventos","Conductor + seguridad","Control de accesos personal"],
+           ["Escolta dedicado","Equipo de dos","Avanzadas y rutas seguras"],["Jefe de seguridad propio","Equipo completo 24/7","Protección de perfil alto"]]}
+];
+var TIENDA_TIERN=["básico","sólido","premium","de autor","élite","irrepetible"];
+function tiendaItems(){
+  if(tiendaItems._c) return tiendaItems._c;
+  var out=[];
+  TIENDA_CATS.forEach(function(c){
+    (c.modelos||[]).forEach(function(fila, t){
+      fila.forEach(function(nombre, v){
+        var r=lcgDe("bazar-"+c.id+"-"+t+"-"+v);
+        var precio=Math.round(c.base*Math.pow(2.6,t)*(0.88+r()*0.24)/10)*10;
+        out.push({id:c.id+"-"+t+"-"+v, cat:c.id, tipo:c.tipo, tier:t, n:nombre, precio:precio, ic:c.ic});
+      });
+    });
+  });
+  tiendaItems._c=out;
+  return out;
+}
+/* los efectos, a la vista: los MISMOS coeficientes del motor, con nombre y apellido */
+function fxChips(c, tier){
+  var k=tier+1, fx=c.fx||{}, fut=[], per=[];
+  if(fx.regen) fut.push("forma +"+(fx.regen*k).toFixed(1)+"/sem");
+  if(fx.modLes) fut.push("lesión −"+Math.round(-fx.modLes*k*100)+"%");
+  if(fx.mult) Object.keys(fx.mult).forEach(function(a){ fut.push("entreno "+a+" +"+Math.round(fx.mult[a]*k*100)+"%"); });
+  if(fx.misterSem) fut.push("míster +"+fx.misterSem.toFixed(1)+"/sem");
+  if(fx.amortMister) fut.push("golpes de prensa ×"+fx.amortMister);
+  if(fx.formaYa) fut.push("forma "+(fx.formaYa>0?"+":"")+fx.formaYa+" ahora");
+  if(fx.misterYa) fut.push("míster +"+fx.misterYa+" ahora");
+  if(fx.ego) per.push("ego +"+Math.round(fx.ego*k/2));
+  if(fx.egoYa) per.push("ego "+(fx.egoYa>0?"+":"")+fx.egoYa);
+  if(fx.seg) per.push("fama +"+Math.round(fx.seg*k*0.5));
+  if(fx.segYa) per.push("fama +"+fx.segYa);
+  if(fx.conf) per.push("ánimo +"+(fx.conf*k).toFixed(1)+"/sem");
+  if(fx.confYa) per.push("ánimo +"+fx.confYa+" ahora");
+  if(fx.afinYa) per.push("vestuario +"+fx.afinYa);
+  if(fx.vicio) per.push("⚠ tienta tus vicios");
+  if(fx.vicioMod) per.push("frena tus vicios");
+  if(fx.robo) per.push("⚠ atrae miradas ajenas");
+  if(fx.seguro) per.push("🛡 protege lo tuyo");
+  var H="";
+  if(fut.length) H+='<div style="font-size:10.5px;color:var(--dim)">⚽ '+fut.join(" · ")+'</div>';
+  if(per.length) H+='<div style="font-size:10.5px;color:var(--dim)">🧍 '+per.join(" · ")+'</div>';
+  return H;
+}
+function tiendaInit(){ S.tienda=S.tienda||{own:{}, serv:{}}; }
+function itemDe(id){ return tiendaItems().filter(function(x){return x.id===id;})[0]; }
+function catDe(id){ return TIENDA_CATS.filter(function(c){return c.id===id;})[0]; }
+function tierTope(catId, tipo){
+  tiendaInit();
+  var top=-1;
+  var bolsa=(tipo==="serv")? S.tienda.serv : S.tienda.own;
+  Object.keys(bolsa).forEach(function(id){
+    var it=itemDe(id);
+    if(it && it.cat===catId && it.tier>top) top=it.tier;
+  });
+  return top;
+}
+function bonusTienda(){
+  tiendaInit();
+  var B={regen:0, modLes:1, mult:{}, seg:0, conf:0, misterSem:0, amortMister:1, robo:0, seguro:false, vicioMod:0, vicioTent:0, upkeep:0};
+  function aplica(catId, tier, esServ){
+    var c=catDe(catId); if(!c) return;
+    var k=tier+1, fx=c.fx||{};
+    if(fx.regen) B.regen+=fx.regen*k;
+    if(fx.modLes) B.modLes=Math.max(0.35, B.modLes+fx.modLes*k);
+    if(fx.mult) Object.keys(fx.mult).forEach(function(a){ B.mult[a]=(B.mult[a]||1)+fx.mult[a]*k; });
+    if(fx.seg) B.seg+=fx.seg*k;
+    if(fx.conf) B.conf+=fx.conf*k;
+    if(fx.misterSem) B.misterSem+=fx.misterSem;
+    if(fx.amortMister) B.amortMister=Math.min(B.amortMister, fx.amortMister);
+    if(fx.robo) B.robo+=fx.robo*k;
+    if(fx.seguro) B.seguro=true;
+    if(fx.vicioMod) B.vicioMod+=fx.vicioMod;
+    if(fx.vicio) B.vicioTent=(B.vicioTent||0)+fx.vicio*k;
+    if(esServ){ var top=tiendaItems().filter(function(x){return x.cat===catId && x.tier===tier;})[0]; if(top) B.upkeep+=Math.round(top.precio*0.9); }
+  }
+  TIENDA_CATS.forEach(function(c){
+    var t=tierTope(c.id, c.tipo);
+    if(t>=0) aplica(c.id, t, c.tipo==="serv");
+  });
+  return B;
+}
+function misterHit(d){ S.mister=clamp(S.mister - d*bonusTienda().amortMister, 5, 95); }
+/* ===== EL MÍSTER TAMBIÉN HABLA ENTRE SEMANA: no solo cifras, también un despacho ===== */
+/* por qué no juegas, en palabras del míster: el factor que más pesa en la convocatoria */
+function motivoBanquillo(){
+  var mia=Math.round(miMedia()), riv=compis().filter(function(x){ return x.pos===S.pos && !x.lesion && !x.sancion; })
+    .sort(function(a,b){ return b.media-a.media; })[0];
+  var forma=Math.round(S.forma===undefined?70:S.forma), nota=(S.entMister && S.entMister.jor===S.jornada)? S.entMister.nota : null;
+  var m=[];
+  if(riv && riv.media>mia) m.push({p:(riv.media-mia)*1.2, t:esc(riv.n)+" está por delante: tiene "+riv.media+" de media y tú "+mia+"."});
+  if(forma<62) m.push({p:(62-forma)/4, t:"Te veo justo de piernas. Llegas a los partidos con la forma en "+forma+"."});
+  if(nota!=null && nota<5.5) m.push({p:(5.5-nota)*2, t:"En los entrenos no me das razones: esta semana, un "+String(nota).replace(".",",")+"."});
+  if(S.mister<50) m.push({p:(50-S.mister)/5, t:"Todavía no me fío de ti cuando el partido aprieta."});
+  m.sort(function(a,b){ return b.p-a.p; });
+  return m.length? m[0].t : "No es nada tuyo: ahora mismo el equipo funciona así y no quiero tocarlo.";
+}
+function conversacionMister(){
+  var e=estiloMister(), sin=jornadasSinJugar(), notas=notasRecientes(3), mn=esc(mister().n);
+  var brillas = notas.length>=2 && (notas.reduce(function(a,b){return a+b;},0)/notas.length)>=7.3;
+  if(S.mister<40){
+    return {t:"Te llama a su despacho", x:mn+" te llama a su despacho y cierra la puerta. "+pick(["«No me está gustando tu actitud estas semanas.»","«Algo no va bien contigo y quiero saber qué es.»","«Vamos a hablar claro, sin rodeos.»"]),
+      ops:[
+        {l:"Escuchar y comprometerte", fx:function(){ S.mister=clamp(S.mister+6,5,95); tocarEje("disciplina",2); S.avisoMercado="Sales del despacho con los deberes claros."; regSemana("mister","comprometerte"); }},
+        {l:"Defender tu versión", fx:function(){ var ok=rnd()<(0.35+eje("disciplina")/300); if(ok){ S.mister=clamp(S.mister+3,5,95); S.avisoMercado="Se queda pensando. Puede que tengas razón."; } else { S.mister=clamp(S.mister-4,5,95); tocarEje("temperamento",2); S.avisoMercado="No es lo que quería oír."; } regSemana("mister","defenderte"); }}
+      ]};
+  }
+  if(sin>=2){
+    return {t:"Te explica por qué no cuentas", x:mn+" te para en el pasillo de la ciudad deportiva. Llevas "+sin+" partidos sin jugar. «Sé que te pesa, así que te lo digo a la cara. "+motivoBanquillo()+"»",
+      ops:[
+        {l:"Pedir minutos claros", fx:function(){ if(rnd()<0.5){ S.garantia=Math.max(S.garantia||0,3); S.avisoMercado="Te promete una ventana de minutos. Habrá que ganársela."; } else { S.avisoMercado="Te escucha, pero no promete nada."; } S.mister=clamp(S.mister+2,5,95); regSemana("mister","pedir-minutos"); }},
+        {l:"Aceptar y seguir trabajando", fx:function(){ S.conf=clamp(S.conf+3,5,95); S.mister=clamp(S.mister+4,5,95); S.avisoMercado="Se va con buena cara. Se nota que valora la paciencia."; regSemana("mister","aceptar"); }}
+      ]};
+  }
+  if(brillas && S.mister>=55){
+    return {t:"Quiere darte más peso", x:mn+" te busca al terminar el entreno. Tus últimos partidos salen a "+String(Math.round(notas.reduce(function(a,b){return a+b;},0)/notas.length*10)/10).replace(".",",")+" de media. «Estás para más. ¿Te ves llevando más peso en el vestuario?»",
+      ops:[
+        {l:"Aceptar el reto", fx:function(){ tocarEje("liderazgo",3); S.mister=clamp(S.mister+3,5,95); S.avisoMercado="Asientes. A partir de ahora, más se espera de ti."; regSemana("mister","aceptar-peso"); }},
+        {l:"Mantener el perfil bajo", fx:function(){ S.avisoMercado="Prefieres seguir a lo tuyo. Él lo respeta."; regSemana("mister","perfil-bajo"); }}
+      ]};
+  }
+  return {t:"Charla en el autobús", x:mn+" se sienta a tu lado en el autobús del equipo. "+pick(["Habla del rival del domingo, sin más.","«¿Cómo ves el vestuario estos días?»","Saca su manía de siempre: "+esc(mister().mania||pick(e.manias||[""])).toLowerCase()+"."]),
+    ops:[
+      {l:"Seguirle la conversación", fx:function(){ S.mister=clamp(S.mister+3,5,95); tocarEje("companerismo",0.8); S.avisoMercado="Se anima con tus preguntas. Lo anota a tu favor."; regSemana("mister","charla"); }},
+      {l:"Responder con monosílabos", fx:function(){ S.mister=clamp(S.mister-3,5,95); S.avisoMercado="Te despide con un gesto seco. Lo anota en contra."; regSemana("mister","distante"); }}
+    ]};
+}
+function tocaConversacionMister(){
+  return !OVSEM && !NEG && !(typeof M!=="undefined" && M && !M.cerrado) && S.contrato && rnd()<0.07;
+}
+function comprarBazar(id){
+  tiendaInit();
+  var it=itemDe(id); if(!it) return;
+  if(it.tipo!=="cons" && (it.tipo==="serv"? S.tienda.serv[id] : S.tienda.own[id])) return;
+  if(it.tipo!=="cons" && it.tier>tierTope(it.cat, it.tipo)+1) return;   /* peldaño a peldaño, también aquí */
+  if((S.dinero||0)<it.precio) return;
+  S.dinero-=it.precio;
+  /* subir de nivel SUSTITUYE al peldaño anterior de la misma categoría: nunca dos profesionales
+     o dos coches del mismo hueco a la vez, ni pagando doble mensualidad por el "mismo" puesto */
+  if(it.tipo!=="cons"){
+    var bolsaCat=it.tipo==="serv"? S.tienda.serv : S.tienda.own;
+    tiendaItems().filter(function(x){ return x.cat===it.cat && x.tipo===it.tipo && x.id!==id; }).forEach(function(x){
+      if(bolsaCat[x.id]!==undefined) delete bolsaCat[x.id];
+    });
+  }
+  var c=catDe(it.cat), fx=c.fx||{};
+  if(it.tipo==="serv"){ S.tienda.serv[id]=1+jorAbs(); }
+  else if(it.tipo==="bien"){
+    S.tienda.own[id]=1+jorAbs();
+    if(fx.ego) S.car && (S.car.ego=clamp((S.car.ego||0)+fx.ego*(it.tier+1)/2, -100, 100));
+    if(fx.seg) pub().seg=Math.round(pub().seg+fx.seg*(it.tier+1)*0.5);
+    if(it.tier>=4 && (it.cat==="reloj"||it.cat==="joyas"||it.cat==="arte"))
+      prensaPush(S.nombre+" presume de "+c.n.toLowerCase()+" de seis cifras. La grada divide opiniones.");
+  } else {   /* consumible: el efecto es AHORA */
+    if(fx.confYa) S.conf=clamp(S.conf+fx.confYa,5,95);
+    if(fx.formaYa) S.forma=clamp((S.forma||70)+fx.formaYa,20,100);
+    if(fx.segYa) pub().seg=Math.round(pub().seg+fx.segYa);
+    if(fx.misterYa) S.mister=clamp(S.mister+fx.misterYa,5,95);
+    if(fx.afinYa) mueveAfin(fx.afinYa);
+    if(fx.egoYa) S.car && (S.car.ego=clamp((S.car.ego||0)+fx.egoYa,-100,100));
+    if(it.cat==="caridad") prensaPush("La fundación de "+S.nombre+" dona "+fmtDinero(it.precio)+". Aplausos dentro y fuera.");
+  }
+  if(S.capricho2 && S.capricho2.cat===it.cat && it.tier>=S.capricho2.tier){
+    S.conf=clamp(S.conf+6,5,95); S.capricho2=null; S.caprichoCd=jorAbs()+5;
+  }
+  guardar();
+}
+function cancelarServicio(id){ tiendaInit(); delete S.tienda.serv[id]; guardar(); }
+function semanaTienda(){
+  if(!TIENDA_ON) return;
+  tiendaInit();
+  var B=bonusTienda();
+  /* upkeep: los servicios cobran o se van */
+  if(B.upkeep>0){
+    if((S.dinero||0)>=B.upkeep){ S.dinero-=B.upkeep; }
+    else { S.tienda.serv={}; S.avisoMercado="Sin fondos para tu equipo personal: los servicios se despiden."; }
+  }
+  if(B.regen) S.forma=clamp((S.forma||70)+B.regen,20,100);
+  if(B.conf) S.conf=clamp(S.conf+B.conf,5,95);
+  if(B.misterSem) S.mister=clamp(S.mister+B.misterSem,5,95);
+  if(B.seg) pub().seg=Math.round(pub().seg+B.seg*0.15);
+  /* lo caro brilla… y llama a lo ajeno */
+  if(B.robo>=3 && !B.seguro && rnd()<0.03+B.robo*0.008){
+    var perd=Math.round((S.dinero||0)*0.04+B.robo*3000);
+    S.dinero=Math.max(0,(S.dinero||0)-perd); S.conf=clamp(S.conf-3,5,95);
+    prensaPush("Roban en casa de "+S.nombre+" mientras concentraba. Botín de "+fmtDinero(perd)+".");
+  }
+  /* el deseo nace del carácter y drena hasta que compras */
+  if(!S.capricho2 && jorAbs()>=(S.caprichoCd||0) && eje("ego")>10 && rnd()<0.35){
+    var deseables=TIENDA_CATS.filter(function(c){ return c.tipo==="bien" && ["reloj","joyas","tec","arte","moda","gym"].indexOf(c.id)>=0; });
+    var c2=deseables[Math.floor(rnd()*deseables.length)];
+    var t2=clamp(tierTope(c2.id,"bien")+1, 1, 5);
+    var muestra=tiendaItems().filter(function(x){return x.cat===c2.id && x.tier===t2;})[0];
+    if(muestra && (S.dinero||0)>=muestra.precio*0.3){
+      S.capricho2={cat:c2.id, tier:t2, n:muestra.n, jor:jorAbs()};
+    }
+  }
+  if(S.capricho2){ S.conf=clamp(S.conf-1,5,95); }
+}
+/* ===== MERCADO VIVO (en temporada): rumores, traspasos del mundo, decisiones ===== */
+function mercadoInit(){
+  S.rumores=S.rumores||[];          /* {id,tipo:"yo"|"mundo",jugN,de,a,fuerza,vivo,verd,jor} */
+  S.traspasos=S.traspasos||[];      /* {jugN,de,a,precio,media,jor} */
+  S.rumorLog=S.rumorLog||[];        /* decisiones de semana, registradas */
+}
+function enVentana(){ return S.jornada>=18 && S.jornada<=22; }
+function clubsAjenos(){ return Object.keys(EQ).filter(function(id){ return id!==S.equipo; }); }
+function estrellaDe(id){
+  var pl=plantillaObj(id).slice().sort(function(a,b){ return b.media-a.media; });
+  return pl[Math.floor(rnd()*Math.min(3,pl.length))];
+}
+function precioTraspaso(media, edad){
+  var base=Math.pow(1.16, media-70)*2.4e6;
+  var fEdad = edad<=23? 1.35 : edad<=27? 1.15 : edad<=30? 0.85 : 0.5;
+  return Math.round(base*fEdad/1e5)*1e5;
+}
+function fuerzaTxt(f){ return f>=0.6? "suena con fuerza" : f>=0.3? "coge cuerpo" : "rumor tibio"; }
+function rumorNuevoMundo(){
+  var de=pick(clubsAjenos());
+  var j=estrellaDe(de); if(!j || j.media<80) return;
+  var candidatos=clubsAjenos().filter(function(c){ return c!==de && eloDe(c)>=eloDe(de)-40; });
+  if(!candidatos.length) return;
+  var a=pick(candidatos);
+  if(S.rumores.some(function(r){ return r.vivo && r.jugN===j.n; })) return;
+  S.rumores.push({id:"rm"+S.jornada+"-"+Math.floor(rnd()*999), tipo:"mundo", jugN:j.n, media:j.media, edad:j.edad,
+                  de:de, a:a, fuerza:0.3+rnd()*0.35, verd:rnd()<0.45, vivo:true, jor:S.jornada});
+}
+function traspasoMundo(r){
+  var precio=precioTraspaso(r.media, r.edad||26);
+  S.traspasos.push({jugN:r.jugN, de:r.de, a:r.a, precio:precio, media:r.media, jor:S.jornada});
+  var W=mundo(); W.d=W.d||{};
+  var d=clamp(Math.round((r.media-78)*0.9), 2, 14);
+  W.d[r.a]=(W.d[r.a]||0)+d; W.d[r.de]=(W.d[r.de]||0)-Math.round(d*0.7);
+  r.vivo=false; r.resuelto="fichó";
+}
+function notasRecientes(n){
+  var v=[]; for(var i=S.hist.length-1; i>=0 && v.length<n; i--){ if(S.hist[i].yo) v.push(S.hist[i].yo.nota); }
+  return v;
+}
+function rumorYo(){ return (S.rumores||[]).filter(function(r){ return r.vivo && r.tipo==="yo"; })[0]||null; }
+var MERCADO_ON=true;
+function mercadoSemanal(){
+  mercadoInit();
+  if(!MERCADO_ON) return;
+  /* 1 · el mundo habla */
+  if(rnd()<0.5) rumorNuevoMundo();
+  S.rumores.forEach(function(r){
+    if(!r.vivo) return;
+    r.fuerza=clamp(r.fuerza+(r.verd? 0.06:0.02)+(rnd()-0.5)*0.14, 0.05, 0.95);
+    if(r.tipo==="mundo" && !enVentana() && S.jornada-r.jor>7 && !r.verd){ r.vivo=false; r.resuelto="se cae"; }
+  });
+  /* 2 · el mundo firma (solo en ventana) */
+  if(enVentana()){
+    S.rumores.forEach(function(r){
+      if(r.vivo && r.tipo==="mundo" && r.verd && r.fuerza>=0.55 && rnd()<0.6) traspasoMundo(r);
+    });
+  }
+  /* 3 · tu nombre en las quinielas: las actuaciones lo alimentan */
+  var ry=rumorYo();
+  var notas=notasRecientes(3);
+  var brillas = notas.length>=2 && (notas.reduce(function(a,b){return a+b;},0)/notas.length)>=7.2;
+  if(!ry && (brillas || valorJugador()>=9e6) && rnd()<0.4){
+    var pret=clubsAjenos().filter(function(c){ return eloDe(c)>=eloDe(S.equipo)-25; });
+    if(pret.length){
+      S.rumores.push({id:"yo"+S.jornada, tipo:"yo", jugN:S.nombre, de:S.equipo, a:pick(pret),
+                      fuerza:0.35, verd:true, vivo:true, jor:S.jornada});
+    }
+  } else if(ry){
+    ry.fuerza=clamp(ry.fuerza+(brillas? 0.15 : -0.07)+(S.azuzado? 0.06:0), 0.08, 0.95);
+    if(ry.fuerza>=0.5 && !ry.hablado && !S.ofertaInv) sitRumorYo(ry);
+  }
+  /* 4 · la oferta de verdad llega en ventana */
+  if(tocaConversacionMister()){
+    ovSemana(conversacionMister());
+  }
+  if(S.agente && !OVSEM && !NEG && !(typeof M!=="undefined" && M && !M.cerrado) && rnd()<0.06){
+    var agN=S.agente.n.split(" ")[0];
+    if(!S.patroOferta && rnd()<0.5 && typeof genOfertaPatro==="function"){
+      ovSemana({t:"📞 "+agN+" al teléfono", x:"«Me ha llamado una marca preguntando por ti. ¿Te muevo la reunión o lo dejo pasar?»",
+        ops:[{l:"Muévela", fx:function(){ genOfertaPatro(); regSemana("agente","patro"); }},
+             {l:"Ahora no", fx:function(){ regSemana("agente","nada"); }}]});
+    } else if(!S.azuzado && !S.portazo){
+      ovSemana({t:"📞 "+agN+" al teléfono", x:"«Un director deportivo ha preguntado por ti. Puedo calentar tu nombre en los mentideros… o guardarlo en el cajón.»",
+        ops:[{l:"Caliéntalo", fx:function(){ S.azuzado=true; regSemana("agente","azuzar"); }},
+             {l:"Guárdalo", fx:function(){ regSemana("agente","cajon"); }}]});
+    }
+  }
+  if(enVentana() && !S.ofertaInv && !S.movClub){
+    var f=(ry? ry.fuerza:0);
+    if(!S.portazo && (S.transferPed || S.azuzado || f>=0.65)){
+      var club=(ry && ry.a) || pick(clubsAjenos());
+      var sal=Math.round(S.contrato.salario*(1.12+rnd()*0.28+(S.azuzado?0.12:0))*(S.agenteBoost?1.08:1)*(1+bonusAgente())/1000)*1000;
+      S.ofertaInv={club:club, salario:sal, prima:Math.round(sal*0.3), anos:3+(rnd()<0.4?1:0)};
+      alMenu(sitOferta);
+    }
+  }
+  /* 5 · tu club también mueve ficha (una vez por ventana) */
+  if(enVentana() && !S.movClub && rnd()<0.45){
+    S.movClub=true;
+    if(rnd()<0.4) fichajeEnTuPuesto(); else ventaCompi();
+  }
+  if(S.jornada===23) S.movClub=false;
+  if(S.jornada<=1) S.portazo=false;
+  comisionSemanal();
+  renovacionProactiva();
+  patroSemanal();
+  S.rumores=S.rumores.slice(-10); S.traspasos=S.traspasos.slice(-24); S.rumorLog=S.rumorLog.slice(-16);
+}
+/* ---------- movimientos de TU club ---------- */
+function fichajeEnTuPuesto(){
+  var nueva={n:genPersona(rnd)};
+  var media=clamp(Math.round((S.attr? (atr("TEC")+atr("TAC"))/2 : 74)+1+rnd()*4), 68, 92);
+  var fich={n:nueva.n, pos:S.pos, edad:20+Math.floor(rnd()*9), media:media,
+            rasgo:RASGOS[Math.floor(rnd()*RASGOS.length)].id, afin:30, pj:0,g:0,a:0,ta:0,tr:0,lesion:0,sancion:0,ciclo:0};
+  var idxPeor=-1, peor=1e9;
+  S.compis.forEach(function(c,i){ if(c.pos===S.pos && c.media<peor){ peor=c.media; idxPeor=i; } });
+  if(idxPeor>=0) S.compis.splice(idxPeor,1);
+  S.compis.push(fich);
+  S.contrato.exige=clamp((S.contrato.exige||60)+4, 40, 92);
+  S.traspasos.push({jugN:fich.n, de:"—", a:S.equipo, precio:precioTraspaso(media, fich.edad), media:media, jor:S.jornada});
+  ovSemana({ t:"El club ficha en tu puesto",
+    x:"<b>"+esc(fich.n)+"</b> ("+media+") llega para pelear tu sitio. El vestuario te mira: ¿cómo te lo tomas?",
+    ops:[
+      {l:"Competir y callar: que hable el campo", fx:function(){ S.forma=clamp((S.forma||70)+5,20,100); S.mister=clamp(S.mister+4,5,95); regSemana("fichaje-puesto","competir"); }},
+      {l:"Ir al despacho a quejarte", fx:function(){ S.mister=clamp(S.mister-7,5,95); S.conf=clamp(S.conf+3,5,95); regSemana("fichaje-puesto","quejarte"); }},
+      {l:"Pedir salir en enero", fx:function(){ S.transferPed=true; var r=rumorYo(); if(r) r.fuerza=0.8; regSemana("fichaje-puesto","pedir-salir"); }}
+    ]});
+}
+function ventaCompi(){
+  var cand=S.compis.filter(function(c){ return c.media>=76 && c.pos!==S.pos; });
+  if(!cand.length) return;
+  var v=cand[Math.floor(rnd()*cand.length)];
+  var i=S.compis.indexOf(v);
+  var dest=pick(clubsAjenos());
+  S.traspasos.push({jugN:v.n, de:S.equipo, a:dest, precio:precioTraspaso(v.media, v.edad), media:v.media, jor:S.jornada});
+  var dolor=v.afin>=65;
+  S.compis.splice(i,1);
+  var nueva={n:genPersona(rnd)};
+  S.compis.push({n:nueva.n, pos:v.pos, edad:21+Math.floor(rnd()*7), media:clamp(v.media-3,64,88),
+                 rasgo:RASGOS[Math.floor(rnd()*RASGOS.length)].id, afin:34, pj:0,g:0,a:0,ta:0,tr:0,lesion:0,sancion:0,ciclo:0});
+  if(dolor) S.conf=clamp(S.conf-3,5,95);
+  S.avisoMercado="El club vende a "+v.n+" al "+(EQ[dest]?EQ[dest].c:dest)+"."+(dolor? " El vestuario lo siente.":"");
+}
+/* ---------- decisiones de semana: overlay propio, efectos reales, todo registrado ---------- */
+var OVSEM=null;
+var OVSEM_COLA=[];
+/* Lo que pide atención fuera del partido (avisos de semana, ofertas, mesas de negociación)
+   se espera a que haya menú: nunca aparece encima de un partido ni durante la semana que lo prepara. */
+var SEMANA_CORRE=false;
+function bloqueado(){
+  return !!((typeof M!=="undefined" && M && !M.cerrado) || SEMANA_CORRE || (typeof NEG!=="undefined" && NEG));
+}
+function alMenu(fn){ if(bloqueado() || OVSEM) OVSEM_COLA.push({run:fn}); else fn(); }   /* tampoco encima de un aviso abierto */
+function drenarOvsem(){
+  while(!OVSEM && !bloqueado() && OVSEM_COLA.length){
+    var it=OVSEM_COLA.shift();
+    if(it.run) it.run(); else ovSemana(it);
+  }
+}
+function ovSemana(cfg){
+  if(bloqueado() || OVSEM){ OVSEM_COLA.push(cfg); return; }
+  OVSEM=cfg;
+  var H='<div class="dbgov-t">'+esc(cfg.t)+'</div><p style="margin:0 0 12px;font-size:13px;line-height:1.5">'+cfg.x+'</p>';
+  cfg.ops.forEach(function(o,i){ H+='<button class="opt" onclick="elegirSemana('+i+')">'+esc(o.l)+'</button>'; });
+  if(typeof document!=="undefined" && document.createElement){
+    var v=document.getElementById("ovsem");
+    if(!v){ v=document.createElement("div"); v.id="ovsem"; if(document.body.appendChild) document.body.appendChild(v); }
+    v.innerHTML='<div id="ovsem-card">'+H+'</div>';
+    if(v.classList && v.classList.remove) v.classList.remove("hidden");
+  }
+  OVSEM_HTML=H;
+}
+var OVSEM_HTML=null;
+function elegirSemana(i){
+  if(!OVSEM) return;
+  var op=OVSEM.ops[i]; OVSEM=null; OVSEM_HTML=null;
+  if(typeof document!=="undefined" && document.getElementById){
+    var v=document.getElementById("ovsem");
+    if(v){ v.innerHTML=""; if(v.classList && v.classList.add) v.classList.add("hidden"); }
+  }
+  if(op && op.fx) op.fx();
+  guardar();
+  drenarOvsem();
+  if(typeof renderHub==="function") renderHub();
+}
+function regSemana(sit, op){ (S.rumorLog=S.rumorLog||[]).push({jor:S.jornada, sit:sit, op:op}); }
+/* ---------- el rumor sobre ti pide respuesta ---------- */
+function sitRumorYo(r){
+  r.hablado=true;
+  var club=EQ[r.a]? EQ[r.a].c : r.a;
+  ovSemana({ t:"Tu nombre, en todas las radios",
+    x:"El <b>"+esc(club)+"</b> pregunta por ti y el rumor "+fuerzaTxt(r.fuerza)+". En la ciudad deportiva ya te lo comentan.",
+    ops:[
+      {l:"Cortarlo en seco: «Estoy centrado aquí»", fx:function(){ r.fuerza=0.12; S.mister=clamp(S.mister+6,5,95); mueveAfin(3); S.fidelidad=(S.fidelidad||0)+1; regSemana("rumor-yo","cortar"); }},
+      {l:"Dejarlo correr, sin alimentar nada", fx:function(){ r.fuerza=clamp(r.fuerza+0.05,0,0.95); regSemana("rumor-yo","dejar"); }},
+      {l:"Que tu entorno lo caliente", fx:function(){ S.azuzado=true; r.fuerza=clamp(r.fuerza+0.28,0,0.95); S.mister=clamp(S.mister-8,5,95); regSemana("rumor-yo","azuzar"); }},
+      {l:"Pedir hablar con el club", fx:function(){
+        if(S.mister>=60){ S.contrato.salario=Math.round(S.contrato.salario*1.18/1000)*1000; S.contrato.anos=Math.max(S.contrato.anos,3); r.fuerza=0.15;
+          S.avisoMercado="El club mueve ficha: mejora y ampliación de contrato sobre la mesa, firmada."; regSemana("rumor-yo","renovar"); }
+        else { S.transferPed=true; r.fuerza=0.8; S.avisoMercado="La reunión acaba mal: pides salir en enero."; regSemana("rumor-yo","pedir-salir"); }
+      }}
+    ]});
+}
+function mueveAfin(d){ S.compis.forEach(function(c){ c.afin=clamp(c.afin+d,5,99); }); }
+/* ---------- la oferta real: aceptar es cambiar de vida ---------- */
+var NEG=null;
+function limitesNeg(){
+  var b=NEG.base;
+  return { salMin:b.salario, salMax:Math.round(b.salario*(NEG.modo==="oferta"?2.5:1.9)),
+           anosMin:1, anosMax:6,
+           clMin:Math.round(b.clausula*0.25), clMax:Math.round(b.clausula*1.6) };
+}
+function exigenciaNeg(){
+  var b=NEG.base, e=0;
+  e += (NEG.salario-b.salario)/b.salario*6.5;
+  e += Math.abs(NEG.anos-b.anos)*0.7;
+  e += (b.clausula-NEG.clausula)/b.clausula*3.6;
+  EXTRAS.forEach(function(x){ if(NEG.extras[x.id]) e+=x.coste; });
+  return Math.max(0,e);
+}
+function probNeg(){
+  var pac=(NEG && NEG.pac!==undefined)? NEG.pac : 100;
+  var skill=clamp((miMedia()-((S.contrato&&S.contrato.exige)||60))*0.008, -0.08, 0.12);
+  var favor=(NEG.modo==="oferta")? 0.08 : clamp(((S.mister||50)-50)*0.0025, -0.08, 0.08);
+  var base=0.90+favor+skill-exigenciaNeg()*0.075-(100-pac)*0.004;
+  return clamp(base, 0.03, 0.96);
+}
+function sliderHTML2(lb,k,v,min,max,step){
+  var pct=Math.round((v-min)/(max-min)*100);
+  return '<div class="srow"><label class="slb">'+esc(lb)+'</label>'
+    +'<input id="sl2-'+k+'" class="sl" type="range" min="'+min+'" max="'+max+'" step="'+step+'" value="'+v+'" '
+    +'oninput="setSliderNeg(\''+k+'\',this.value)" onchange="setSliderNeg(\''+k+'\',this.value)" style="--p:'+pct+'%">'
+    +'<span class="sval" id="sv2-'+k+'"></span></div>';
+}
+function setSliderNeg(k,v){
+  if(!NEG) return;
+  var L=limitesNeg();
+  if(k==="salario") NEG.salario=Math.round(clamp(+v, L.salMin, L.salMax));
+  if(k==="anos") NEG.anos=Math.round(clamp(+v, L.anosMin, L.anosMax));
+  if(k==="clausula") NEG.clausula=Math.round(clamp(+v, L.clMin, L.clMax));
+  var n=$("sl2-"+k);
+  if(n && n.style && n.style.setProperty){
+    var mm={salario:[L.salMin,L.salMax],anos:[L.anosMin,L.anosMax],clausula:[L.clMin,L.clMax]}[k];
+    n.style.setProperty("--p", Math.round((+v-mm[0])/(mm[1]-mm[0])*100)+"%");
+  }
+  refrescarNeg2();
+}
+function toggleExtraNeg(id){
+  if(!NEG || !NEG.extras) return;
+  NEG.extras[id]=!NEG.extras[id];
+  var n=$("ex2-"+id); if(n && n.classList){ if(NEG.extras[id]) n.classList.add("on"); else n.classList.remove("on"); }
+  refrescarNeg2();
+}
+function refrescarNeg2(){
+  if(!NEG) return;
+  var t;
+  if((t=$("sv2-salario"))) t.innerHTML=fmtDinero(NEG.salario)+' <i>(base '+fmtDinero(NEG.base.salario)+')</i>';
+  if((t=$("sv2-anos"))) t.innerHTML=NEG.anos+(NEG.anos===1?" temporada":" temporadas")+' <i>(base '+NEG.base.anos+')</i>';
+  if((t=$("sv2-clausula"))) t.innerHTML=fmtDinero(NEG.clausula)+' <i>(base '+fmtDinero(NEG.base.clausula)+')</i>';
+  var pr=probNeg(), col=pr>=0.7?"var(--ok)":pr>=0.4?"var(--gold)":"var(--bad)";
+  if((t=$("neg2-prob"))){
+    t.innerHTML='<div class="disp" style="font-size:38px;color:'+col+'">'+Math.round(pr*100)+'%</div>'
+      +'<div class="note" style="flex:1">'+(pr>=0.75?"Firman sin pestañear."
+      :pr>=0.5?"Lo van a pensar, pero hay margen."
+      :pr>=0.25?"Estás apretando de más. Puede salir mal."
+      :"Con esto te arriesgas a que se levanten.")+'</div>'
+      +'<div class="note" style="margin-top:5px;width:100%">Paciencia: '+barraPac(NEG.pac!==undefined?NEG.pac:100)+'</div>';
+    t.parentNode && (t.parentNode.style.borderColor=col);
+  }
+}
+function pintarMesaNeg(){
+  if(!NEG) return;
+  var eq=EQ[NEG.club], L=limitesNeg();
+  var esOferta=NEG.modo==="oferta";
+  var H='<div class="eyebrow">'+esc(esOferta? ("Despacho del "+eq.c) : ("Renovar con el "+eq.c))+'</div>'
+    +'<h2 class="disp" style="margin:2px 0 8px">'+(esOferta?"Negociar el fichaje":"Negociar la renovación")+'</h2>'
+    +'<p class="note" style="margin:0 0 10px">'+(esOferta? "Quieren ficharte. Pon tú las cifras que aceptarías.":"Quieres seguir. Pon las cifras que firmarías.")+'</p>';
+  H+='<div class="card"><div style="display:flex;gap:12px;align-items:center">'+crestSVG(eq.id,40)
+    +'<div style="flex:1"><b>'+esc(eq.n)+'</b><div class="note">Punto de partida: '+fmtDinero(NEG.base.salario)+'/año · '+NEG.base.anos+' temp · cláusula '+fmtDinero(NEG.base.clausula)+'</div></div></div></div>';
+  H+='<div class="card"><div class="eyebrow">Las cifras</div>'
+    +sliderHTML2("Salario anual","salario",NEG.salario,L.salMin,L.salMax,Math.max(1000,Math.round(NEG.base.salario*0.02)))
+    +sliderHTML2("Duración","anos",NEG.anos,L.anosMin,L.anosMax,1)
+    +sliderHTML2("Cláusula de rescisión","clausula",NEG.clausula,L.clMin,L.clMax,Math.max(100000,Math.round(NEG.base.clausula*0.02)))
+    +'<p class="note" style="margin:4px 0 0;font-size:11px">Una cláusula baja te deja salir si aparece algo mejor, pero '+(esOferta?"al club no le gusta.":"al tuyo tampoco.")+'</p></div>';
+  H+='<div class="card"><div class="eyebrow">Extras</div><div class="exgrid">';
+  EXTRAS.forEach(function(x){
+    var v=x.val? x.val({salario:NEG.salario}):null;
+    H+='<div id="ex2-'+x.id+'" class="ex'+(NEG.extras[x.id]?" on":"")+'" onclick="toggleExtraNeg(\''+x.id+'\')">'
+      +'<div class="extop"><b>'+esc(x.n)+'</b><span class="exchk"></span></div>'
+      +'<span class="exd">'+esc(x.d)+(v? ' · <b>'+fmtDinero(v)+'</b>':'')+'</span></div>';
+  });
+  H+='</div></div>';
+  H+='<div class="card" style="border-color:var(--gold)"><div class="eyebrow">Lo que dirán</div><div id="neg2-prob" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px"></div></div>';
+  H+='<button class="gold-btn" onclick="presentarNeg()">Presentar</button>';
+  H+='<button class="ghost" onclick="firmarBaseNeg()">Firmar el punto de partida tal cual</button>';
+  H+='<button class="ghost" onclick="salirMesaNeg()">'+(esOferta?"Rechazar esta oferta":"Dejarlo por ahora")+'</button>';
+  if(esOferta) H+='<button class="ghost" onclick="portazoDesdeMesa()">🚪 No escucho ofertas esta temporada</button>';
+  if(typeof document!=="undefined" && document.createElement){
+    var v=document.getElementById?document.getElementById("ovsem"):null;
+    if(!v){ v=document.createElement("div"); v.id="ovsem"; if(document.body && document.body.appendChild) document.body.appendChild(v); }
+    v.innerHTML='<div id="ovsem-card">'+H+'</div>';
+    if(v.classList && v.classList.remove) v.classList.remove("hidden");
+  }
+  refrescarNeg2();
+}
+function presentarNeg(){
+  if(!NEG) return;
+  var eq=EQ[NEG.club];
+  var pr=probNeg();
+  var acepta=rnd()<pr;
+  if(!acepta){ NEG.pac=Math.max(0, (NEG.pac!==undefined?NEG.pac:100) - (16+Math.round(exigenciaNeg()*2.2))); }
+  var portazo = !acepta && NEG.pac<=0;
+  if(acepta){
+    var copia={modo:NEG.modo, club:NEG.club, salario:NEG.salario, anos:NEG.anos, clausula:NEG.clausula, extras:JSON.parse(JSON.stringify(NEG.extras))};
+    modal({ico:"🤝", t:"Trato hecho",
+      x:"El "+esc(eq.c)+" acepta: <b>"+fmtDinero(NEG.salario)+"</b> al año, "+NEG.anos+" temporadas y cláusula de "+fmtDinero(NEG.clausula)+".",
+      okTxt:"Firmar", cancelTxt:"Seguir negociando",
+      onOk:function(){ cerrarNegConAcuerdo(copia); }});
+  } else if(portazo){
+    modal({ico:"🚪", t:"Se levantan de la mesa", peligro:true,
+      x:(NEG.modo==="oferta"? "«Llevamos toda la tarde dando vueltas.» El "+esc(eq.c)+" retira la oferta y no va a volver a llamar esta ventana."
+                             : "«Llevamos toda la tarde dando vueltas.» El club cierra la carpeta: la renovación queda aparcada hasta el verano."),
+      okTxt:"Entendido",
+      onOk:function(){ salirMesaNegForzado(); }});
+  } else {
+    modal({ico:"📄", t:"No aceptan",
+      x:"«Eso se sale de lo que manejamos hoy.» Mantienen su postura.",
+      okTxt:"Seguir ajustando", cancelTxt:"Firmar el punto de partida",
+      onOk:function(){ pintarMesaNeg(); },
+      onCancel:function(){ firmarBaseNeg(); }});
+  }
+}
+function cerrarNegConAcuerdo(neg){
+  if(neg.modo==="oferta"){
+    var o=S.ofertaInv;
+    if(o){ o.salario=neg.salario; o.anos=neg.anos; o.prima=Math.round(neg.salario*0.3); }
+    aceptarOferta();
+    S.contrato.clausula=neg.clausula;
+    aplicarExtrasContrato(S.contrato, neg);
+  } else {
+    S.contrato.salario=neg.salario; S.contrato.anos=neg.anos; S.contrato.clausula=neg.clausula; S.contrato.firmadoT=S.temporada;
+    S.contrato.obj=objetivoPorPos(S.pos, neg.salario);
+    aplicarExtrasContrato(S.contrato, neg);
+    S.mister=clamp(S.mister+4,5,95);
+    S.avisoMercado="Renovado hasta "+(2026+S.temporada+(neg.anos-1))+". La grada respira.";
+    regSemana("renovacion","firmar");
+  }
+  NEG=null;
+  cerrarOvsemDom();
+}
+function firmarBaseNeg(){
+  if(!NEG) return;
+  var b=NEG.base;
+  cerrarNegConAcuerdo({modo:NEG.modo, club:NEG.club, salario:b.salario, anos:b.anos, clausula:b.clausula, extras:{}});
+}
+function salirMesaNeg(){
+  if(!NEG) return;
+  if(NEG.modo==="oferta"){
+    S.ofertaInv=null; S.mister=clamp(S.mister+4,5,95); var r=rumorYo(); if(r){ r.fuerza=0.18; } S.azuzado=false; regSemana("oferta","rechazar");
+  } else {
+    S.renovProc="no"; S.avisoMercado="Sales del despacho sin firmar. Ya habrá otro momento."; regSemana("renovacion","rechazar");
+  }
+  NEG=null; cerrarOvsemDom();
+}
+function salirMesaNegForzado(){
+  if(NEG && NEG.modo==="oferta"){
+    S.ofertaInv=null; S.avisoMercado="La negociación se rompe. Sigues en el "+(EQ[S.equipo]?EQ[S.equipo].c:S.equipo)+"."; regSemana("oferta","se-cae");
+  } else if(NEG){
+    S.renovProc="frio"; S.avisoMercado="El club se enfría: «Ya hablaremos en verano»."; regSemana("renovacion","frio");
+  }
+  NEG=null; cerrarOvsemDom();
+}
+function portazoDesdeMesa(){
+  S.portazo=true; S.ofertaInv=null; S.azuzado=false; S.transferPed=false; S.fidelidad=(S.fidelidad||0)+1; S.mister=clamp(S.mister+6,5,95);
+  var r2=rumorYo(); if(r2){ r2.vivo=false; r2.resuelto="portazo"; }
+  S.avisoMercado="Tu agente lo comunica a toda la liga: este año no hay mesa. La grada lo corea, el vestuario lo aplaude.";
+  regSemana("oferta","portazo");
+  NEG=null; cerrarOvsemDom();
+}
+function cerrarOvsemDom(){
+  if(typeof document!=="undefined" && document.getElementById){
+    var v=document.getElementById("ovsem");
+    if(v){ v.innerHTML=""; if(v.classList && v.classList.add) v.classList.add("hidden"); }
+  }
+  guardar();
+  renderHub();
+}
+function abrirMesaOferta(){
+  var o=S.ofertaInv; if(!o || NEG) return;
+  NEG={modo:"oferta", club:o.club, base:{salario:o.salario, anos:o.anos, clausula:Math.round(o.salario*22/1e5)*1e5}, extras:{}, pac:100};
+  NEG.salario=NEG.base.salario; NEG.anos=NEG.base.anos; NEG.clausula=NEG.base.clausula;
+  pintarMesaNeg();
+}
+function baseSalarioRenov(){
+  var fid=Math.min(3, S.fidelidad||0);
+  var subida=1.05 + 0.025*fid + (S.agente? (S.agente.estilo==="tiburon"?0.04:0.02) : 0);
+  return Math.round(S.contrato.salario*subida/1000)*1000;
+}
+function abrirMesaRenov(salBase){
+  if(!S.contrato || NEG) return;
+  var salB = salBase!==undefined? salBase : baseSalarioRenov();
+  S.renovProc="mesa";
+  NEG={modo:"renov", club:S.equipo, base:{salario:salB, anos:3, clausula:Math.round(salB*22/1e5)*1e5}, extras:{}, pac:100};
+  NEG.salario=NEG.base.salario; NEG.anos=NEG.base.anos; NEG.clausula=NEG.base.clausula;
+  pintarMesaNeg();
+}
+function pedirRenovacion(){
+  if(!S.contrato || NEG) return;
+  if(jorAbs()<(S.renovCd||0)){ S.avisoMercado="Ya hablasteis hace poco. Dales tiempo a que se lo piensen."; return; }
+  S.renovCd=jorAbs()+6;
+  if((S.mister||50)<40){ S.avisoMercado="«Ahora no es el momento, con cómo estás rindiendo.» El despacho te cierra la puerta esta vez."; return; }
+  abrirMesaRenov();
+}
+function sitOferta(){
+  abrirMesaOferta();
+}
+
+function objetivoPorPos(pos, salario){
+  if(pos==="DC")  return {k:"g", n:10, t:"goles", pago:Math.round(salario*0.25/1000)*1000};
+  if(pos==="EXT"||pos==="MCO") return {k:"a", n:8, t:"asistencias", pago:Math.round(salario*0.22/1000)*1000};
+  if(pos==="MC"||pos==="MCD")  return {k:"a", n:5, t:"asistencias", pago:Math.round(salario*0.18/1000)*1000};
+  if(pos==="POR") return {k:"p", n:80, t:"paradas", pago:Math.round(salario*0.22/1000)*1000};
+  return {k:"pj", n:28, t:"partidos jugados", pago:Math.round(salario*0.15/1000)*1000};
+}
+function pagarObjetivo(){
+  var o=S.contrato && S.contrato.obj; if(!o) return null;
+  var v=(S.yo && S.yo[o.k])||0;
+  if(v>=o.n){
+    S.dinero+=o.pago; S.dineroCarrera=(S.dineroCarrera||0)+o.pago;
+    S.prensa=(S.prensa||[]).concat([{jor:1, t:"Objetivo cumplido ("+v+" "+o.t+"): el club abona tu prima de "+fmtDinero(o.pago)+"."}]);
+    if(S.prensa.length>12) S.prensa.shift();
+    S.avisoMercado="Prima por objetivos cobrada: "+fmtDinero(o.pago)+" ("+v+" "+o.t+").";
+    return {ok:true, v:v};
+  }
+  return {ok:false, v:v};
+}
+function aceptarOferta(){
+  S.movClub=true;
+  var o=S.ofertaInv; if(!o) return;
+  var de=S.equipo, precio=Math.round(valorJugador()*1.05/1e5)*1e5;
+  S.traspasos.push({jugN:S.nombre, de:de, a:o.club, precio:precio, media:Math.round(valorJugador()/3e5+60), jor:S.jornada});
+  var W=mundo(); W.d=W.d||{};
+  W.d[o.club]=(W.d[o.club]||0)+6; W.d[de]=(W.d[de]||0)-4;
+  var dEloF=eloDe(o.club)-eloDe(de);
+  var dFama=clamp(Math.round(dEloF/45), -5, 12);
+  if(dFama) S.fama=clamp(S.fama+dFama,1,99);
+  S.seguidores=Math.max(0, Math.round((S.seguidores||0)*(1+clamp(dEloF,-350,700)/1000)));
+  S.prensa=(S.prensa||[]).concat([{jor:S.jornada+1, t:(dEloF>60? "Locura en la tienda del "+(EQ[o.club]?EQ[o.club].c:o.club)+": tu camiseta vuela el primer día."
+    : dEloF<-60? "Paso atrás para coger carrerilla: la prensa discute tu fichaje." : "Mercado tranquilo con tu nombre: fichaje de sentido común.")}]);
+  if(S.prensa.length>12) S.prensa.shift();
+  S.equipo=o.club;
+  S.contrato={salario:o.salario, anos:o.anos, clausula:Math.round(o.salario*22/1e5)*1e5, prima:o.prima,
+              franja:S.contrato.franja, exige:clamp((S.contrato.exige||60)+3,40,92), firmadoT:S.temporada,
+              obj:objetivoPorPos(S.pos, o.salario)};
+  S.compis=crearCompis(o.club, S.nombre);
+  S.entrenador=crearEntrenador(o.club);
+  S.mister=52; S.conf=clamp(S.conf+4,5,95);
+  S.fidelidad=0; S.azuzado=false; S.transferPed=false; S.ofertaInv=null;
+  S.rumores.forEach(function(r){ if(r.tipo==="yo") { r.vivo=false; r.resuelto="fichó"; } });
+  S.avisoMercado="Traspaso cerrado: fichas por el "+(EQ[o.club]?EQ[o.club].c:o.club)+" por "+fmtDinero(precio)+".";
+  regSemana("oferta","aceptar");
+}
+/* ---------- maniobras: tú alimentas el fuego (coste, riesgo y prensa) ---------- */
+var CIUDAD_EQ={BAR:"Barcelona",RMA:"Madrid",ATM:"Madrid",VIL:"Vila-real",BET:"Sevilla",VAL:"Valencia",CEL:"Vigo",RAY:"Madrid",
+  RSO:"San Sebastián",ATH:"Bilbao",OSA:"Pamplona",GET:"Getafe",ALA:"Vitoria",LEV:"Valencia",ESP:"Barcelona",SEV:"Sevilla",
+  ELC:"Elche",RAC:"Santander",MLG:"Málaga",DEP:"A Coruña",ZAR:"Zaragoza",SPG:"Gijón",LPA:"Las Palmas",VLL:"Valladolid",
+  OVI:"Oviedo",CAD:"Cádiz",GIR:"Girona",EIB:"Éibar",LEG:"Leganés",TEN:"Tenerife",ALM:"Almería",HUE:"Huesca",BUR:"Burgos",
+  COR:"Córdoba",ALB:"Albacete",MIR:"Miranda",CAS:"Castellón",FER:"Ferrol",CTG:"Cartagena",AND:"Andorra"};
+function ciudadDe(id){ return CIUDAD_EQ[id]||((EQ[id]&&EQ[id].c)||id); }
+function rumorOAlta(fz, club){
+  var r=rumorYo();
+  if(r){ r.fuerza=clamp(r.fuerza+fz, 0.05, 0.95); if(club) r.a=club; return r; }
+  var pret=club||pick(clubsAjenos().filter(function(c){ return eloDe(c)>=eloDe(S.equipo)-25; }));
+  r={id:"yo"+S.jornada+"m", tipo:"yo", jugN:S.nombre, de:S.equipo, a:pret, fuerza:clamp(0.2+fz,0.1,0.95), verd:true, vivo:true, jor:S.jornada};
+  S.rumores.push(r); return r;
+}
+function prensaPush(t){ S.prensa=(S.prensa||[]).concat([{jor:S.jornada+1, t:t}]).slice(-14); }
+var MANIOBRAS=[
+ {id:"periodista", l:"Pagar a un periodista de confianza",
+  coste:function(){ return 18000+Math.round(valorJugador()/800/1000)*1000; }, cd:4,
+  fx:function(){
+    if(rnd()<0.25){
+      misterHit(10); S.conf=clamp(S.conf-3,5,95);
+      prensaPush("Una exclusiva señala que "+S.nombre+" paga titulares. El club, en llamas.");
+      S.avisoMercado="El periodista se va de la lengua. Lo pagas caro.";
+    } else {
+      var r=rumorOAlta(0.3); S.azuzado=true;
+      prensaPush("EXCLUSIVA: el "+(EQ[r.a]?EQ[r.a].c:r.a)+" sigue de cerca a "+S.nombre+".");
+      S.avisoMercado="La exclusiva sale limpia y tu nombre coge vuelo.";
+    }
+  }},
+ {id:"redes", l:"Post enigmático en redes", coste:function(){return 0;}, cd:3,
+  fx:function(){
+    var r=rumorOAlta(0.15);
+    misterHit(3); S.conf=clamp(S.conf+2,5,95);
+    prensaPush("Una maleta, un atardecer y tres puntos suspensivos: el post de "+S.nombre+" incendia las redes.");
+    S.avisoMercado="El post enigmático hace su trabajo.";
+  }},
+ {id:"ciudad", l:function(){ var r=rumorYo(); return "Dejarte ver por "+ciudadDe(r? r.a:""); },
+  coste:function(){return 6000;}, cd:4, req:function(){ return !!rumorYo(); },
+  fx:function(){
+    var r=rumorYo(); if(!r) return;
+    S.azuzado=true;
+    if(rnd()<0.35){
+      r.fuerza=clamp(r.fuerza+0.38,0,0.95); misterHit(8);
+      prensaPush("Fotos de "+S.nombre+" paseando por "+ciudadDe(r.a)+". El vestuario, en silencio.");
+      S.avisoMercado="La foto se hace viral. Ya no hay vuelta atrás.";
+    } else {
+      r.fuerza=clamp(r.fuerza+0.22,0,0.95); misterHit(4);
+      prensaPush("Testigos sitúan a "+S.nombre+" en "+ciudadDe(r.a)+" en su día libre.");
+      S.avisoMercado="Te dejas ver. Alguien toma nota.";
+    }
+  }},
+ {id:"agente", l:"Cena filtrada con un superagente",
+  coste:function(){return 30000;}, cd:6,
+  fx:function(){
+    S.agenteBoost=true; rumorOAlta(0.15); misterHit(4);
+    prensaPush("Cena de tres horas entre "+S.nombre+" y un conocido superagente. Alguien filtró la foto del reservado.");
+    S.avisoMercado="La cena corre por todos los despachos.";
+  }},
+ {id:"mixta", l:"«En el fútbol nunca se sabe…» en zona mixta",
+  coste:function(){return 0;}, cd:3, req:function(){ var h=S.hist[S.hist.length-1]; return !!(h && h.yo); },
+  fx:function(){
+    rumorOAlta(0.15); misterHit(5);
+    prensaPush("«En el fútbol nunca se sabe», suelta "+S.nombre+" en zona mixta. Y se va sonriendo.");
+    S.avisoMercado="Tu frase abre los programas de la noche.";
+  }}
+];
+function maniobrasDisponibles(){
+  S.maniobraCd=S.maniobraCd||{};
+  if(S.maniobraSem===S.jornada) return [];
+  return MANIOBRAS.filter(function(m){
+    if(S.maniobraCd[m.id]!==undefined && S.jornada-S.maniobraCd[m.id]<m.cd) return false;
+    if(m.req && !m.req()) return false;
+    if((S.dinero||0)<m.coste()) return false;
+    return true;
+  });
+}
+function abrirManiobras(){
+  mercadoInit();
+  var disp=maniobrasDisponibles();
+  var ops=disp.map(function(m){
+    var l=(typeof m.l==="function"? m.l():m.l), c=m.coste();
+    return { l: l+(c? " · "+fmtDinero(c):""),
+      fx:function(){
+        S.dinero=(S.dinero||0)-c;
+        S.maniobraSem=S.jornada; S.maniobraCd[m.id]=S.jornada;
+        m.fx(); regSemana("maniobra", m.id); guardar();
+      }};
+  });
+  ops.push({l:"Mejor no mover nada esta semana", fx:function(){}});
+  ovSemana({ t:"Mover los hilos",
+    x:(S.maniobraSem===S.jornada? "Esta semana ya has movido ficha. El mercado también descansa."
+      : "Hay maneras de que tu nombre suene más alto. Ninguna sale gratis del todo."),
+    ops:ops });
+}
+
+/* ---------- EL AGENTE: lee tu cartel, infla tus ofertas, negocia tu vida ---------- */
+var ESTILOS_AG=[
+ {id:"tiburon",  n:"tiburón",  d:"Huele sangre en cada ventana. Sus ofertas llegan gordas; su teléfono no descansa.", pct:0.07, bonus:0.12},
+ {id:"cercano",  n:"cercano",  d:"Te cuida como a un hijo. Negocia bien y el vestuario ni se entera.",                pct:0.05, bonus:0.07},
+ {id:"discreto", n:"discreto", d:"Ni una filtración en veinte años. Cobra poco, promete poco, cumple.",               pct:0.03, bonus:0.05}
+];
+function candidatosAgente(){
+  var out=[];
+  for(var i=0;i<3;i++){
+    var r=lcgDe("agente-"+S.temporada+"-"+i);
+    out.push({n:genPersona(r), estilo:ESTILOS_AG[i].id});
+  }
+  return out;
+}
+function ficharAgente(i){
+  var c=candidatosAgente()[i]; if(!c) return;
+  var e=ESTILOS_AG.filter(function(x){return x.id===c.estilo;})[0];
+  S.agente={n:c.n, estilo:c.estilo, pct:e.pct, desde:jorAbs()};
+  S.avisoMercado=c.n+" lleva tu carrera desde hoy ("+Math.round(e.pct*100)+"% de tu ficha).";
+  guardar(); if(SEC==="mercado") irSec("mercado");
+}
+function despedirAgente(){
+  if(!S.agente) return;
+  S.avisoMercado=S.agente.n+" recoge sus cosas sin mirarte.";
+  S.agente=null; guardar(); if(SEC==="mercado") irSec("mercado");
+}
+function bonusAgente(){
+  if(!S.agente) return 0;
+  var e=ESTILOS_AG.filter(function(x){return x.id===S.agente.estilo;})[0];
+  return e? e.bonus:0;
+}
+function comisionSemanal(){
+  if(!S.agente || !S.contrato) return;
+  var cuota=Math.round(S.contrato.salario*S.agente.pct/38);
+  if((S.dinero||0)>=cuota){ S.dinero-=cuota; }
+  else { S.avisoMercado=S.agente.n+" no cobra dos veces: se va dando un portazo."; S.agente=null; S.mister=clamp(S.mister-2,5,95); }
+}
+/* la renovación proactiva: el año final no te pilla dormido — y la fidelidad, POR FIN, paga */
+function renovacionProactiva(){
+  if(!S.contrato || S.contrato.anos!==1) return;
+  if(S.jornada<24 || S.jornada>30 || S.renovProc) return;
+  if(S.mister<45) return;
+  var fid=Math.min(3, S.fidelidad||0);
+  var subida=1.10 + 0.04*fid + (S.agente? (S.agente.estilo==="tiburon"?0.05:0.03) : 0);
+  var salN=Math.round(S.contrato.salario*subida/1000)*1000;
+  alMenu(function(){ abrirMesaRenov(salN); });
+}
+function secAgente(){
+  var H="";
+  if(S.agente){
+    var e=ESTILOS_AG.filter(function(x){return x.id===S.agente.estilo;})[0];
+    H+='<div class="card"><div class="eyebrow">Tu agente</div>'
+      +'<div style="font-size:13.5px"><b>'+esc(S.agente.n)+'</b> · '+e.n+'</div>'
+      +'<p class="note" style="margin:6px 2px">'+esc(e.d)+'</p>'
+      +'<div class="row2" style="font-size:12px"><span>Comisión: '+Math.round(S.agente.pct*100)+'% de tu ficha ('+fmtDinero(Math.round(S.contrato.salario*S.agente.pct/38))+'/sem)</span>'
+      +'<button class="chip" onclick="despedirAgente()">despedir</button></div></div>';
+    if(S.jornada>=16 && S.jornada<18) H+='<div class="card"><p class="note" style="margin:2px">📞 «'+esc(S.agente.n.split(" ")[0])+' al aparato: la ventana abre en '+(18-S.jornada)+' semana'+(18-S.jornada>1?"s":"")+'. Dime cómo quieres llegar.»</p></div>';
+    if(S.contrato && S.contrato.anos===1) H+='<div class="card"><p class="note" style="margin:2px">⚠ Último año de contrato. '+(S.renovProc? "La renovación ya se habló.":"El club moverá ficha antes de primavera.")+'</p></div>';
+  } else {
+    H+='<div class="card"><div class="eyebrow">Sin agente</div><p class="note" style="margin:4px 2px">Tu cartel se gestiona solo… o lo gestiona alguien que vive de esto.</p></div>';
+    candidatosAgente().forEach(function(c,i){
+      var e=ESTILOS_AG.filter(function(x){return x.id===c.estilo;})[0];
+      H+='<div class="card"><div style="font-size:13px"><b>'+esc(c.n)+'</b> · '+e.n+'</div>'
+        +'<p class="note" style="margin:6px 2px">'+esc(e.d)+'</p>'
+        +'<button class="opt" onclick="ficharAgente('+i+')">Ficharlo · '+Math.round(e.pct*100)+'% de tu ficha</button></div>';
+    });
+  }
+  return H;
+}
+/* ===== PATROCINIOS: las marcas te quieren (y tú les atas las botas delante de la prensa) ===== */
+var PATRO_LIB={
+botas:{n:"Botas",base:900,inc:{gol:600},pct:0.02,bias:["largo","vitalicio"],m:["Charly","Concave","Pantofola d'Oro","Kelme","Munich","Joma","Umbro","Lotto","Mizuno","Diadora","New Balance","Skechers Fb","Under Armour","Puma","Adidas","Nike"]},
+sport:{n:"Ropa deportiva",base:700,inc:{tit:400},pct:0.015,bias:["largo"],m:["Astore","Luanvi","Kappa","Hummel","Le Coq Sportif","Fila","Reebok","Ellesse","Champion","On Running","Columbia","The North Face","Salomon","Asics","Puma","Adidas"]},
+moda:{n:"Moda",base:800,inc:{tit:400},pct:0.01,bias:["corto","largo"],m:["Springfield","Jack&Jones","Pull&Bear","Bershka","Zara","Mango","Levi's","Guess","Desigual","Scalpers","El Ganso","Massimo Dutti","Diesel","Carhartt","Lacoste","Tommy Hilfiger","Calvin Klein","Ralph Lauren","Hugo Boss","Stone Island","Moncler","Armani","Prada","Gucci","Balenciaga","Off-White","Dolce&Gabbana","Balmain","Dior","Louis Vuitton"]},
+reloj:{n:"Relojería",base:1300,inc:{tit:600},bias:["largo","vitalicio"],m:["Casio","Swatch","Festina","Fossil","Citizen","Seiko","Tissot","Hamilton","Longines","TAG Heuer","Bell&Ross","Breitling","Panerai","Omega","IWC","Hublot","Cartier","Rolex","Audemars Piguet","Richard Mille"]},
+coches:{n:"Automóvil",base:1400,inc:{tit:700},perk:{cada:30,t:"coche"},bias:["largo"],m:["Dacia","Fiat","Opel","Seat","Renault","Peugeot","Citroën","Ford","Toyota","Hyundai","Kia","Volkswagen","Cupra","Mini","Volvo","Tesla","BMW","Audi","Mercedes","Lexus","Jaguar","Land Rover","Maserati","Porsche","Lamborghini","Ferrari"]},
+motos:{n:"Motos",base:800,inc:{gol:400},perk:{cada:34,t:"moto"},bias:["corto","largo"],m:["Rieju","Kymco","KTM","Yamaha","Honda Motos","Kawasaki","Triumph","BMW Motorrad","Harley-Davidson","Ducati"]},
+bebida:{n:"Bebidas",base:600,inc:{tit:400},bias:["corto","largo"],m:["Font Vella","Vichy Catalán","Trina","Solán de Cabras","Aquarius","Powerade","Gatorade","Isostar","Lipton","Nestea","Fanta","Sprite","Schweppes","Coca-Cola","Pepsi","Red Bull"]},
+energ:{n:"Energéticas",base:750,inc:{gol:500},bias:["corto"],m:["Upgrade","Burn","Rockstar","Prime","Monster","Red Bull Racing"]},
+cerveza:{n:"Cerveza",base:900,inc:{tit:500},bias:["corto","largo"],m:["Ambar","Voll-Damm","1906","Estrella Galicia","Mahou","San Miguel","Cruzcampo","Damm","Alhambra","Paulaner","Amstel","Heineken","Corona","Guinness","Budweiser"]},
+banca:{n:"Banca",base:1100,inc:{gol:500},bias:["puntual","corto"],m:["Kutxabank","Ibercaja","Unicaja","Abanca","Cajamar","Bankinter","Sabadell","CaixaBank","ING","Openbank","Revolut","N26","BBVA","Santander","Deutsche Bank","JP Morgan"]},
+seguros:{n:"Seguros",base:900,inc:{tit:500},bias:["puntual","corto"],m:["Ocaso","Pelayo","Santalucía","Línea Directa","Adeslas","DKV","Mutua Madrileña","Mapfre","Generali","AXA","Zurich","Allianz"]},
+telec:{n:"Telefonía",base:800,inc:{tit:500},bias:["corto","largo"],m:["Simyo","Lowi","Pepephone","Finetwork","Yoigo","Jazztel","Digi","MásMóvil","Orange","Vodafone","O2","Movistar"]},
+aero:{n:"Aerolíneas",base:1000,inc:{tit:600},bias:["corto","largo"],m:["Volotea","Vueling","Ryanair","easyJet","Iberia Express","Air Europa","TAP","Iberia","Lufthansa","Turkish Airlines","Emirates","Qatar Airways"]},
+tech:{n:"Tecnología",base:1000,inc:{gol:500},bias:["corto","largo"],m:["Cecotec","Xiaomi","Realme","OPPO","Lenovo","HP","Acer","Asus","MSI","LG","Philips","JBL","GoPro","Garmin","DJI","Huawei","Sony","Samsung","Bose","Bang&Olufsen","Apple"]},
+gaming:{n:"Videojuegos",base:800,inc:{gol:450},bias:["corto","largo"],m:["Nacon","HyperX","SteelSeries","Razer","Logitech","Twitch","Nintendo","Intel","Nvidia","Xbox","PlayStation","Epic Games","Riot Games","EA Sports"]},
+comida:{n:"Alimentación",base:600,inc:{tit:350},bias:["puntual","corto"],m:["Gullón","Grefusa","Risi","Gallo","Pascual","Central Lechera","ColaCao","Nocilla","Bimbo","Campofrío","ElPozo","Casa Tarradellas","Heinz","Danone","Kellogg's","Oreo","Nutella","Ferrero"]},
+fast:{n:"Restauración",base:700,inc:{gol:400},bias:["puntual","corto"],m:["Pans&Company","100 Montaditos","Telepizza","Domino's","Foster's Hollywood","Taco Bell","Popeyes","KFC","Goiko","Five Guys","Burger King","McDonald's"]},
+super:{n:"Supermercados",base:800,inc:{tit:450},bias:["puntual","corto"],m:["Dia","Consum","Eroski","Aldi","Lidl","Alcampo","Makro","Costco","Carrefour","Mercadona","El Corte Inglés","Amazon Fresh"]},
+fintech:{n:"Fintech",base:1200,inc:{gol:600},bias:["corto"],m:["Bizum","Verse","Vivid","Klarna","Trade Republic","eToro","Nexo","Coinbase","PayPal","Binance","Visa","Mastercard"]},
+apuestas:{n:"Apuestas",base:1600,inc:{gol:800},bias:["corto","largo"],m:["Retabet","Kirolbet","Luckia","Sportium","Codere","888","Betway","Unibet","William Hill","Betfair","Bwin","bet365"]},
+perfume:{n:"Perfumes",base:900,inc:{tit:500},bias:["corto","largo"],m:["Adolfo Domínguez","Loewe Perfumes","Carolina Herrera","Paco Rabanne","Jean Paul Gaultier","YSL","Versace","Armani Parfums","Hermès Parfums","Chanel","Dior Sauvage","Tom Ford Beauty"]},
+gafas:{n:"Gafas",base:700,inc:{gol:350},bias:["corto"],m:["Northweek","Hawkers","Polaroid","Carrera","Police","Arnette","Oakley","Persol","Ray-Ban","Gucci Eyewear"]},
+joya:{n:"Joyería",base:1300,inc:{tit:600},bias:["largo","vitalicio"],m:["Tous","Pandora","Swarovski","Messika","Bulgari","Tiffany","Boucheron","Chopard","Cartier Joyas","Van Cleef"]},
+hotel:{n:"Hoteles",base:900,inc:{tit:500},bias:["corto","largo"],m:["Ibis","B&B Hotels","NH","Barceló","Riu","Meliá","Iberostar","Palladium","Hilton","Marriott","Ritz-Carlton","Four Seasons"]},
+stream:{n:"Streaming",base:1000,inc:{gol:500},bias:["corto","largo"],m:["Filmin","Atresplayer","Movistar+","DAZN","Spotify","YouTube Premium","HBO Max","Disney+","Prime Video","Netflix"]},
+fitness:{n:"Fitness",base:600,inc:{gol:350},pct:0.015,bias:["corto","largo"],m:["Domyos","Basic-Fit","VivaGym","McFIT","Metropolitan","HSN","Prozis","Optimum","Myprotein","Gymshark"]},
+electro:{n:"Hogar",base:700,inc:{tit:400},perk:{cada:20,t:"producto"},bias:["puntual","corto"],m:["Taurus","Balay","Teka","Bosch","Miele","Smeg","Dyson","Roborock"]},
+delivery:{n:"Delivery",base:800,inc:{gol:400},bias:["corto"],m:["Wetaca","Too Good To Go","HelloFresh","Just Eat","Glovo","Uber Eats"]},
+viajes:{n:"Viajes",base:900,inc:{tit:500},bias:["puntual","corto"],m:["eDreams","Kayak","Trivago","Expedia","Airbnb","Booking"]},
+cuidado:{n:"Cuidado personal",base:650,inc:{tit:350},bias:["puntual","corto"],m:["Rexona","Old Spice","Axe","Colgate","ISDIN","Nivea","L'Oréal Men","Gillette"]}
+};
+/* la firma RPG de cada sector: cómo te cambia llevar SU logo */
+var PATRO_RPG={
+botas:{mult:{TEC:0.02}},sport:{mult:{FIS:0.02}},fitness:{regen:0.3},bebida:{regen:0.2},
+energ:{regen:0.3,vicioTent:0.5},cerveza:{conf:0.2,vicioTent:1,misterSem:-0.1,firma:{ego:1}},
+apuestas:{seg:40,vicioTent:2,misterSem:-0.2,firma:{ego:2,disciplina:-2}},
+banca:{conf:0.1,firma:{disciplina:1}},seguros:{conf:0.15},fintech:{firma:{ego:1}},
+coches:{seg:30,firma:{ego:1}},motos:{seg:20,firma:{ego:1}},reloj:{seg:30,firma:{ego:1}},
+joya:{seg:40,firma:{ego:2}},moda:{seg:35},perfume:{seg:30},gafas:{seg:20},
+tech:{conf:0.1},gaming:{conf:0.1,vicioTent:0.5},stream:{seg:25},telec:{seg:20},
+aero:{regen:0.15},hotel:{regen:0.15},viajes:{regen:0.1},electro:{regen:0.1},
+comida:{conf:0.1},super:{conf:0.1},fast:{conf:0.1,vicioTent:0.5},delivery:{conf:0.1},cuidado:{conf:0.1}
+};
+function escalonDe(p){ var L=PATRO_LIB[p.cat]; if(!L||p.localEsc) return 0.4; var ix=L.m.indexOf(p.marca); return ix<0?0.5:0.5+(ix+1)/L.m.length; }
+function bonusPatros(){
+  patroInit();
+  var B={mult:{},regen:0,conf:0,seg:0,misterSem:0,vicioTent:0};
+  S.patros.forEach(function(p){
+    if(p.hasta<jorAbs()||p.tipo==="puntual") return;
+    var R=PATRO_RPG[p.cat]||{}, e=escalonDe(p);
+    if(R.mult) Object.keys(R.mult).forEach(function(a){ B.mult[a]=(B.mult[a]||1)+R.mult[a]*e*2; });
+    if(R.regen) B.regen+=R.regen*e; if(R.conf) B.conf+=R.conf*e;
+    if(R.seg) B.seg+=R.seg*e; if(R.misterSem) B.misterSem+=R.misterSem;
+    if(R.vicioTent) B.vicioTent+=R.vicioTent;
+  });
+  return B;
+}
+function chipsPatro(cat,marca){
+  var R=PATRO_RPG[cat]||{}, fut=[], per=[];
+  if(R.mult) Object.keys(R.mult).forEach(function(a){ fut.push("entreno "+a+" +"); });
+  if(R.regen) fut.push("forma +/sem"); if(R.misterSem) fut.push("míster "+(R.misterSem>0?"+":"−")+"/sem");
+  if(R.conf) per.push("ánimo +/sem"); if(R.seg) per.push("fama +/sem");
+  if(R.vicioTent) per.push("⚠ tienta tus vicios");
+  if(R.firma){ if(R.firma.ego) per.push("ego "+(R.firma.ego>0?"+":"")+R.firma.ego+" al firmar");
+               if(R.firma.disciplina) per.push("disciplina "+(R.firma.disciplina>0?"+":"")+R.firma.disciplina); }
+  var H="";
+  if(fut.length) H+='<div style="font-size:10px;color:var(--dim)">⚽ '+fut.join(" · ")+'</div>';
+  if(per.length) H+='<div style="font-size:10px;color:var(--dim)">🧍 '+per.join(" · ")+'</div>';
+  return H;
+}
+var PATRO_CATS=Object.keys(PATRO_LIB).map(function(k){ var c=PATRO_LIB[k]; return {id:k,n:c.n,base:c.base,inc:c.inc,marcas:c.m}; });
+function marcasReales(){ var t=0; PATRO_CATS.forEach(function(c){t+=c.marcas.length;}); return t; }
+function genMarcaLocal(cat,seed){
+  var r=lcgDe("patrolocal-"+cat+"-"+seed);
+  var TIPO={botas:"Deportes",sport:"Deportes",coches:"Talleres",motos:"Motos",banca:"Caja Rural de",comida:"Conservas",fast:"Asador",super:"Ultramarinos",cerveza:"Cervezas",bebida:"Aguas de",hotel:"Hostal",fitness:"Gimnasio",electro:"Electrodomésticos",delivery:"Repartos",viajes:"Viajes"}[cat]||"Comercial";
+  var ciudades=Object.keys(CIUDAD_EQ).map(function(k){return CIUDAD_EQ[k];});
+  return (r()<0.5? TIPO+" "+genApellido(r) : TIPO+" "+ciudades[Math.floor(r()*ciudades.length)])+(r()<0.3?" e Hijos":"");
+}
+function mediaJug(){ var s=0,n=0; ATTR_ORDEN.forEach(function(a){s+=atr(a);n++;}); return s/n; }
+var PATRO_TIPOS=[{id:"puntual",n:"campaña puntual",dur:1},{id:"corto",n:"corto plazo",dur:8},
+                 {id:"largo",n:"larga duración",dur:34},{id:"vitalicio",n:"vitalicio",dur:9999}];
+function patroInit(){ S.patros=S.patros||[]; }
+function patroCap(){ return Math.min(20, 2+Math.floor((S.fama||30)/12)+Math.floor(nivelSegNum()/2)); }
+function nivelSegNum(){ var s=pub().seg; return s>=200000?6:s>=80000?5:s>=30000?4:s>=12000?3:s>=5000?2:s>=2000?1:0; }
+function tienePatroCat(cat){ patroInit(); return S.patros.some(function(p){return p.cat===cat && p.hasta>=jorAbs();}); }
+function genOfertaPatro(force,forzarCounter){
+  patroInit();
+  if(S.patroOferta) return;
+  var med=mediaJug(), fam=(S.fama||30);
+  if(S.patros.filter(function(p){return p.hasta>=jorAbs();}).length>=patroCap()) return;
+  var p=(med<56? 0.015:0.06)+fam/500+nivelSegNum()*0.02+(S.agente?(S.agente.estilo==="tiburon"?0.07:0.04):0);
+  if(!force && rnd()>=p) return;
+  /* contraoferta: la competencia quiere robarte a una marca */
+  var ocupadas=S.patros.filter(function(x){return x.hasta>=jorAbs() && x.tipo!=="puntual";});
+  if((forzarCounter || (!force && fam>=55 && rnd()<0.22)) && ocupadas.length){
+    var viejo=ocupadas[Math.floor(rnd()*ocupadas.length)];
+    var L=PATRO_LIB[viejo.cat];
+    if(L){
+      var idxV=L.m.indexOf(viejo.marca);
+      var rivales=L.m.filter(function(m,ix){return m!==viejo.marca && Math.abs(ix-idxV)<=4;});
+      if(rivales.length){
+        var mR=rivales[Math.floor(rnd()*rivales.length)];
+        S.patroOferta={cat:viejo.cat, catN:L.n, marca:mR, tipo:viejo.tipo, tipoN:"contraoferta", dur:30,
+          fijo:Math.round(viejo.fijo*(1.2+rnd()*0.2)/50)*50, inc:L.inc, pct:L.pct||0, perk:L.perk||null,
+          counter:{marca:viejo.marca, fijo:viejo.fijo}};
+        S.avisoMercado=mR+" quiere robarte a "+viejo.marca+". Huele a subasta.";
+        return;
+      }
+    }
+  }
+  var libres=PATRO_CATS.filter(function(c){return !tienePatroCat(c.id);});
+  if(!libres.length) return;
+  var c=libres[Math.floor(rnd()*libres.length)], L=PATRO_LIB[c.id];
+  if(med<58 && fam<40){   /* a los don nadies solo les llama el comercio del barrio */
+    S.patroOferta={cat:c.id, catN:L.n, marca:genMarcaLocal(c.id, jorAbs()), tipo:"corto", tipoN:"corto plazo (local)",
+      dur:6, fijo:Math.round((80+rnd()*220)/10)*10, inc:{}, pct:0, perk:null, local:true};
+  } else {
+    var techo=clamp(Math.floor((med-56)/38*L.m.length + fam/30), 0, L.m.length-1);
+    var idx=clamp(techo-Math.floor(rnd()*3), 0, L.m.length-1);
+    var tp=(L.bias||["corto"])[Math.floor(rnd()*L.bias.length)];
+    if(tp==="vitalicio" && fam<75) tp="largo";
+    var T={puntual:{n:"campaña puntual",d:1},corto:{n:"corto plazo",d:8},largo:{n:"larga duración",d:34},vitalicio:{n:"vitalicio",d:9999}}[tp];
+    var fijo=Math.round(L.base*Math.pow(1.22, idx)*(0.9+rnd()*0.3)*(1+(S.agente?bonusAgente()*0.6:0))/50)*50;
+    S.patroOferta={cat:c.id, catN:L.n, marca:L.m[idx], tipo:tp, tipoN:T.n, dur:T.d, fijo:fijo,
+      inc:L.inc, pct:(L.pct? L.pct*(0.6+idx/L.m.length):0), perk:L.perk||null};
+  }
+  S.avisoMercado=(S.agente? S.agente.n.split(" ")[0]+" al teléfono: ":"Llaman a tu puerta: ")+S.patroOferta.marca+" quiere hablar contigo.";
+}
+var NEGP=null;
+function limitesPatro(){
+  var b=NEGP.base, fijoTope=b.fijo*1.7;
+  var durMax = (NEGP.tipoFijo)? b.dur : Math.round(b.dur*2.2);
+  var durMin = (NEGP.tipoFijo)? b.dur : Math.max(1,Math.round(b.dur*0.5));
+  return {fijoMin:Math.round(b.fijo*0.8), fijoMax:Math.round(fijoTope), durMin:durMin, durMax:durMax};
+}
+function exigenciaPatro(){
+  var b=NEGP.base, e=0;
+  e += (NEGP.fijo-b.fijo)/b.fijo*7;
+  if(!NEGP.tipoFijo) e += Math.abs(NEGP.dur-b.dur)/Math.max(1,b.dur)*2.2;
+  return Math.max(0,e);
+}
+function probPatro(){
+  var pac=(NEGP && NEGP.pac!==undefined)? NEGP.pac : 100;
+  var fama=clamp(((S.fama||30)-40)*0.005, -0.06, 0.10);
+  var base=0.88+fama-exigenciaPatro()*0.08-(100-pac)*0.0045;
+  return clamp(base,0.03,0.96);
+}
+function sliderHTML3(lb,k,v,min,max,step){
+  var pct=Math.round((v-min)/(max-min)*100);
+  return '<div class="srow"><label class="slb">'+esc(lb)+'</label>'
+    +'<input id="sl3-'+k+'" class="sl" type="range" min="'+min+'" max="'+max+'" step="'+step+'" value="'+v+'" '
+    +'oninput="setSliderPatro(\''+k+'\',this.value)" onchange="setSliderPatro(\''+k+'\',this.value)" style="--p:'+pct+'%">'
+    +'<span class="sval" id="sv3-'+k+'"></span></div>';
+}
+function setSliderPatro(k,v){
+  if(!NEGP) return;
+  var L=limitesPatro();
+  if(k==="fijo") NEGP.fijo=Math.round(clamp(+v, L.fijoMin, L.fijoMax)/10)*10;
+  if(k==="dur") NEGP.dur=Math.round(clamp(+v, L.durMin, L.durMax));
+  var n=$("sl3-"+k);
+  if(n && n.style && n.style.setProperty){
+    var mm={fijo:[L.fijoMin,L.fijoMax],dur:[L.durMin,L.durMax]}[k];
+    n.style.setProperty("--p", Math.round((+v-mm[0])/(mm[1]-mm[0])*100)+"%");
+  }
+  refrescarPatro();
+}
+function refrescarPatro(){
+  if(!NEGP) return;
+  var t;
+  if((t=$("sv3-fijo"))) t.innerHTML=fmtDinero(NEGP.fijo)+'/sem <i>(base '+fmtDinero(NEGP.base.fijo)+')</i>';
+  if((t=$("sv3-dur"))) t.innerHTML=(NEGP.tipoFijo? NEGP.tipoN : NEGP.dur+" semanas")+' <i>(base '+(NEGP.tipoFijo?NEGP.tipoN:NEGP.base.dur+" sem")+')</i>';
+  var pr=probPatro(), col=pr>=0.7?"var(--ok)":pr>=0.4?"var(--gold)":"var(--bad)";
+  if((t=$("negp-prob"))){
+    t.innerHTML='<div class="disp" style="font-size:38px;color:'+col+'">'+Math.round(pr*100)+'%</div>'
+      +'<div class="note" style="flex:1">'+(pr>=0.75?"Firman sin pestañear."
+      :pr>=0.5?"Se lo piensan, pero hay margen."
+      :pr>=0.25?"Estás apretando de más."
+      :"Con esto se pueden levantar.")+'</div>'
+      +'<div class="note" style="margin-top:5px;width:100%">Paciencia: '+barraPac(NEGP.pac!==undefined?NEGP.pac:100)+'</div>';
+    t.parentNode && (t.parentNode.style.borderColor=col);
+  }
+}
+function pintarMesaPatro(){
+  if(!NEGP) return;
+  var L=limitesPatro();
+  var H='<div class="eyebrow">Despacho de '+esc(NEGP.marca)+'</div><h2 class="disp" style="margin:2px 0 8px">Negociar el patrocinio</h2>'
+    +'<p class="note" style="margin:0 0 10px">'+esc(NEGP.catN)+' · '+esc(NEGP.tipoN)+'. Pon tú las cifras que firmarías.</p>';
+  H+='<div class="card"><div class="eyebrow">Las cifras</div>'
+    +sliderHTML3("Pago semanal","fijo",NEGP.fijo,L.fijoMin,L.fijoMax,10);
+  if(!NEGP.tipoFijo) H+=sliderHTML3("Duración","dur",NEGP.dur,L.durMin,L.durMax,1);
+  else H+='<div class="row2"><span>Duración</span><b>'+esc(NEGP.tipoN)+'</b></div>';
+  H+='</div>';
+  H+='<div class="card"><div class="eyebrow">Lo que trae el contrato</div><div style="font-size:12px">'+chipsPatro(NEGP.cat,NEGP.marca)+'</div></div>';
+  H+='<div class="card" style="border-color:var(--gold)"><div class="eyebrow">Lo que dirán</div><div id="negp-prob" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px"></div></div>';
+  H+='<button class="gold-btn" onclick="presentarPatro()">Presentar</button>';
+  H+='<button class="ghost" onclick="firmarBasePatro()">Firmar el punto de partida tal cual</button>';
+  H+='<button class="ghost" onclick="salirMesaPatro()">'+(NEGP.counter? "Renegociar con "+esc(NEGP.counter.marca):"Rechazar")+'</button>';
+  if(typeof document!=="undefined" && document.createElement){
+    var v=document.getElementById?document.getElementById("ovsem"):null;
+    if(!v){ v=document.createElement("div"); v.id="ovsem"; if(document.body && document.body.appendChild) document.body.appendChild(v); }
+    v.innerHTML='<div id="ovsem-card">'+H+'</div>';
+    if(v.classList && v.classList.remove) v.classList.remove("hidden");
+  }
+  refrescarPatro();
+}
+function presentarPatro(){
+  if(!NEGP) return;
+  var pr=probPatro();
+  var acepta=rnd()<pr;
+  if(!acepta){ NEGP.pac=Math.max(0,(NEGP.pac!==undefined?NEGP.pac:100)-(18+Math.round(exigenciaPatro()*2.5))); }
+  var portazo = !acepta && NEGP.pac<=0;
+  if(acepta){
+    var copia={cat:NEGP.cat, catN:NEGP.catN, marca:NEGP.marca, tipo:NEGP.tipo, tipoN:NEGP.tipoN, fijo:NEGP.fijo, dur:NEGP.dur,
+               inc:NEGP.inc, pct:NEGP.pct, perk:NEGP.perk, counter:NEGP.counter};
+    modal({ico:"🤝", t:"Trato hecho",
+      x:"El "+esc(NEGP.marca)+" acepta: <b>"+fmtDinero(NEGP.fijo)+"/sem</b>, "+(NEGP.tipoFijo?NEGP.tipoN:NEGP.dur+" semanas")+".",
+      okTxt:"Firmar", cancelTxt:"Seguir negociando",
+      onOk:function(){ cerrarPatroConAcuerdo(copia); }});
+  } else if(portazo){
+    var marcaPortazo=NEGP.marca;
+    modal({ico:"🚪", t:"Se levantan de la mesa", peligro:true,
+      x:"«Llevamos toda la tarde dando vueltas.» "+esc(marcaPortazo)+" retira la propuesta.",
+      okTxt:"Entendido", onOk:function(){ NEGP=null; S.patroOferta=null; S.avisoMercado=marcaPortazo+" se levanta de la mesa."; cerrarOvsemDom(); }});
+  } else {
+    modal({ico:"📄", t:"No aceptan",
+      x:"«Eso se sale de lo que manejamos hoy.» Mantienen su postura.",
+      okTxt:"Seguir ajustando", cancelTxt:"Firmar el punto de partida",
+      onOk:function(){ pintarMesaPatro(); },
+      onCancel:function(){ firmarBasePatro(); }});
+  }
+}
+function cerrarPatroConAcuerdo(neg){
+  var o=S.patroOferta;
+  if(neg.counter){
+    var vi=S.patros.filter(function(x){return x.cat===neg.cat && x.hasta>=jorAbs();})[0];
+    if(vi){ vi.hasta=jorAbs()-1; S.dinero=Math.max(0,(S.dinero||0)-vi.fijo*4); prensaPush(S.nombre+" deja "+vi.marca+" por "+neg.marca+". La rescisión, de su bolsillo."); }
+  }
+  S.patros.push({cat:neg.cat, catN:neg.catN, marca:neg.marca, tipo:neg.tipo, fijo:neg.fijo, inc:neg.inc, pct:neg.pct||0, perk:neg.perk||null,
+                 desde:jorAbs(), hasta:(neg.tipo==="vitalicio"? 999999: jorAbs()+Math.round(neg.dur))});
+  if(neg.tipo==="puntual"){ S.dinero=(S.dinero||0)+neg.fijo*6; S.patros[S.patros.length-1].hasta=jorAbs(); }
+  S.fama=(S.fama||30)+2;
+  var Rf=(PATRO_RPG[neg.cat]||{}).firma;
+  if(Rf){ S.car=S.car||{};
+    if(Rf.ego) S.car.ego=clamp((S.car.ego||0)+Rf.ego,-100,100);
+    if(Rf.disciplina) S.car.disciplina=clamp((S.car.disciplina||0)+Rf.disciplina,-100,100); }
+  prensaPush(S.nombre+" firma con "+neg.marca+" ("+neg.tipoN+").");
+  S.avisoMercado="Firmado con "+neg.marca+".";
+  S.patroOferta=null; NEGP=null;
+  cerrarOvsemDom();
+}
+function firmarBasePatro(){
+  if(!NEGP) return;
+  var b=NEGP.base;
+  cerrarPatroConAcuerdo({cat:NEGP.cat, catN:NEGP.catN, marca:NEGP.marca, tipo:NEGP.tipo, tipoN:NEGP.tipoN, fijo:b.fijo, dur:b.dur,
+    inc:NEGP.inc, pct:NEGP.pct, perk:NEGP.perk, counter:NEGP.counter});
+}
+function salirMesaPatro(){
+  if(!NEGP) return;
+  var o=S.patroOferta;
+  if(NEGP.counter){
+    var vi=S.patros.filter(function(x){return x.cat===NEGP.cat && x.hasta>=jorAbs();})[0];
+    if(vi){ vi.fijo=Math.round(vi.fijo*1.10/50)*50; }
+    S.avisoMercado="Usas la subasta: "+NEGP.counter.marca+" mejora tu contrato. La competencia, con un palmo de narices.";
+  } else {
+    S.avisoMercado=NEGP.marca+": que llamen a otro.";
+  }
+  S.patroOferta=null; NEGP=null;
+  cerrarOvsemDom();
+}
+function abrirNegPatro(){
+  var o=S.patroOferta; if(!o || NEGP) return;
+  NEGP={cat:o.cat, catN:o.catN, marca:o.marca, tipo:o.tipo, tipoN:o.tipoN,
+        tipoFijo:(o.tipo==="puntual"||o.tipo==="vitalicio"),
+        base:{fijo:o.fijo, dur:o.dur}, inc:o.inc, pct:o.pct, perk:o.perk, counter:o.counter, pac:100};
+  NEGP.fijo=o.fijo; NEGP.dur=o.dur;
+  pintarMesaPatro();
+}
+function ventasDe(p){ return Math.round((((S.fama||30)*30)+pub().seg/40)*p.pct); }
+function patroSemanal(){
+  patroInit();
+  var ing=0, h=S.hist[S.hist.length-1], jug=h&&h.yo, goles=(jug&&h.yo.g)||0;
+  S.patros.forEach(function(p){
+    if(p.hasta<jorAbs()) return;
+    if(p.tipo!=="puntual"){
+      var extra=(p._act===jorAbs())? 1.5:1;
+      ing+=Math.round(p.fijo*extra);
+      if(jug && p.inc.tit) ing+=p.inc.tit;
+      if(goles && p.inc.gol) ing+=goles*p.inc.gol*(p._act===jorAbs()?1.5:1);
+      if(p.pct) ing+=ventasDe(p);
+      if(p.perk && (jorAbs()-p.desde)>0 && (jorAbs()-p.desde)%p.perk.cada===0){
+        S.conf=clamp(S.conf+3,5,95); S.fama=(S.fama||30)+1;
+        prensaPush(p.marca+" le entrega a "+S.nombre+" el último "+(p.perk.t==="coche"?"modelo, llaves en mano":"lanzamiento")+". Cortesía de la casa.");
+      }
+    }
+  });
+  if(ing>0){ S.dinero=(S.dinero||0)+ing; }
+  var BP=bonusPatros();
+  if(BP.regen) S.forma=clamp((S.forma||70)+BP.regen,20,100);
+  if(BP.conf) S.conf=clamp(S.conf+BP.conf,5,95);
+  if(BP.seg) pub().seg=Math.round(pub().seg+BP.seg);
+  if(BP.misterSem) S.mister=clamp(S.mister+BP.misterSem,5,95);
+  var antes=S.patros.length;
+  S.patros=S.patros.filter(function(p){ return p.tipo==="puntual" || p.hasta>=jorAbs()-1; });
+  if(S.patros.length<antes) S.avisoMercado="Un patrocinio llega a su fin. Las marcas pasan; tu nombre queda.";
+  genOfertaPatro(false);
+}
+function activarPatro(id){
+  patroInit();
+  if(S.patroSem===jorAbs()) return;
+  var p=S.patros[id]; if(!p || p.hasta<jorAbs()) return;
+  S.patroSem=jorAbs(); p._act=jorAbs()+1;   /* la próxima liquidación paga ×1,5 */
+  pub().seg=Math.round(pub().seg+60+p.fijo/20);
+  if(p.cat==="botas"){ prensaPush(S.nombre+" se ata las "+p.marca+" mirando a las cámaras. La marca, encantada."); if(rnd()<0.2) misterHit(1); }
+  else prensaPush("El último post de "+S.nombre+" con "+p.marca+" arrasa."); 
+  S.avisoMercado="Activación hecha: esta semana, "+p.marca+" paga con gusto.";
+  guardar(); irSub("mercado","patros");
+}
+function secPatros(){
+  patroInit();
+  var vivos=S.patros.filter(function(p){return p.hasta>=jorAbs();});
+  var H='<div class="card"><div class="eyebrow">Cartera</div><div style="font-size:12.5px;line-height:1.6">'
+    +'<div>'+vivos.length+' de '+patroCap()+' huecos ocupados. La fama abre puertas.</div></div></div>';
+  if(S.patroOferta){
+    var o=S.patroOferta;
+    H+='<div class="card"><div class="eyebrow">Quieren hablar contigo</div>'
+      +'<div style="font-size:13px"><b>'+esc(o.marca)+'</b> · '+esc(o.catN)+' · '+esc(o.tipoN)+'</div>'
+      +'<button class="opt" style="margin-top:10px" onclick="abrirNegPatro()">Sentarse a negociar</button></div>';
+  }
+  if(vivos.length){
+    H+='<div class="card"><div class="eyebrow">Tus marcas</div>';
+    S.patros.forEach(function(p,i){
+      if(p.hasta<jorAbs()) return;
+      var resta=(p.tipo==="vitalicio")? "de por vida":(p.hasta-jorAbs())+" j";
+      H+='<div class="row2" style="font-size:12px;padding:6px 0;border-bottom:1px solid var(--linea)">'
+        +'<span><b>'+esc(p.marca)+'</b> · '+esc(p.catN)+'<br><span style="color:var(--dim);font-size:10.5px">'
+        +fmtDinero(p.fijo)+'/sem'+(p.inc.gol?' · +'+fmtDinero(p.inc.gol)+'/gol':'')+(p.inc.tit?' · +'+fmtDinero(p.inc.tit)+'/titular':'')+' · '+resta+'</span>'+chipsPatro(p.cat,p.marca)+'</span>'
+        +(S.patroSem===jorAbs()? '<span style="opacity:.5;font-size:10.5px">activado</span>'
+          :'<button class="chip" onclick="activarPatro('+i+')">'+(p.cat==="botas"?"atarte las botas":"post con producto")+'</button>')
+        +'</div>';
+    });
+    H+='<p class="note" style="margin:8px 2px 0">Una activación por semana: la marca paga ×1,5 esa liquidación.</p></div>';
+  } else if(!S.patroOferta){
+    H+='<div class="card"><p class="note" style="margin:4px 2px">Nadie llama aún. Marca goles, sal en portadas'+(S.agente?"":", fíchate un agente")+'… y sonará el teléfono.</p></div>';
+  }
+  return H;
+}
+/* ---------- LA SECCIÓN MERCADO: tu ruido, el del mundo y su eco ---------- */
+var MANIOBRA_TXT={ periodista:"pagaste una exclusiva", redes:"post enigmático en redes", ciudad:"te dejaste ver donde no debías",
+  agente:"cena filtrada con un superagente", mixta:"frase ambigua en zona mixta" };
+var DECISION_TXT={ cortar:"cortaste el rumor en seco", dejar:"dejaste correr el rumor", azuzar:"tu entorno calentó el rumor",
+  renovar:"renovaste con mejora", "pedir-salir":"pediste salir", aceptar:"aceptaste la oferta", rechazar:"rechazaste la oferta",
+  apretar:"apretaste en la negociación", "se-cae":"la oferta se cayó de la mesa", competir:"respondiste compitiendo",
+  quejarte:"fuiste al despacho a quejarte" };
+function fraseSituacion(){
+  var f=[];
+  var r=rumorYo();
+  if(r) f.push("Tu nombre y el "+(EQ[r.a]?EQ[r.a].c:r.a)+": "+fuerzaTxt(r.fuerza)+".");
+  else f.push("Nadie pregunta por ti esta semana. Eso también se puede cambiar.");
+  if(S.transferPed) f.push("Has pedido salir: el club lo sabe y la ventana lo sabe.");
+  if(S.azuzado) f.push("Tu entorno está calentando la cosa por detrás.");
+  if(S.agenteBoost) f.push("La cena con el superagente sigue corriendo por los despachos.");
+  if((S.fidelidad||0)>=2) f.push("En el club te tienen por uno de los suyos.");
+  return f;
+}
+function secMercado(){
+  mercadoInit();
+  var H='<div class="eyebrow">Ventana y ruido</div><h2 class="disp">Despachos</h2>'+subTabs("mercado");
+  var t=SUB.mercado;
+  if(t==="agente") return H+secAgente();
+  if(t==="patros") return H+secPatros();
+  if(t==="hilos"){
+    H+='<div class="card"><div class="eyebrow">Tu situación</div><div style="font-size:12.5px;line-height:1.65">'
+      + fraseSituacion().map(function(x){ return '<div>'+x+'</div>'; }).join("") + '</div></div>';
+    if(S.ofertaInv){
+      var o=S.ofertaInv, cl=EQ[o.club]? EQ[o.club].c:o.club;
+      H+='<div class="card"><div class="eyebrow">Oferta sobre la mesa</div>'
+        +'<div style="font-size:13px;line-height:1.6"><b>'+esc(cl)+'</b> · '+fmtDinero(o.salario)+'/año · prima '+fmtDinero(o.prima)+' · '+o.anos+' años</div>'
+        +'<button class="opt" style="margin-top:10px" onclick="sitOferta()">Volver a la mesa</button></div>';
+    }
+    if(S.contrato && !S.ofertaInv){
+      var puedeRenov = jorAbs()>=(S.renovCd||0);
+      H+='<div class="card"><div class="eyebrow">Tu contrato</div>'
+        +'<div style="font-size:13px;line-height:1.6">'+fmtDinero(S.contrato.salario)+'/año · '+S.contrato.anos+' '+(S.contrato.anos===1?"temporada restante":"temporadas restantes")+' · cláusula '+fmtDinero(S.contrato.clausula)+'</div>'
+        +(puedeRenov
+          ? '<button class="opt" style="margin-top:10px" onclick="pedirRenovacion()">Pedir hablar de tu renovación</button>'
+          : '<p class="note" style="margin:8px 2px 0">Ya hablasteis hace poco. Vuelve a intentarlo dentro de unas semanas.</p>')
+        +'</div>';
+    }
+    H+='<div class="card"><div class="eyebrow">Mover los hilos</div>'
+      +'<p class="note" style="margin:2px 2px 10px">Una jugada por semana. Ninguna sale gratis del todo.</p>'
+      +'<button class="opt" onclick="abrirManiobras()">'+(S.maniobraSem===S.jornada? "Esta semana ya moviste ficha":"Abrir el menú")+'</button></div>';
+    var log=(S.rumorLog||[]).slice(-8).reverse();
+    if(log.length){
+      H+='<div class="card"><div class="eyebrow">Tus movimientos</div><div style="font-size:12.5px;line-height:1.65">'
+        + log.map(function(l){ var tx=(l.sit==="maniobra"? MANIOBRA_TXT[l.op] : DECISION_TXT[l.op])||l.op;
+            return '<div><b class="mono">J'+l.jor+'</b> · '+esc(tx)+'</div>'; }).join("") + '</div></div>';
+    }
+  }
+  else if(t==="rumores"){
+    var vivos=S.rumores.filter(function(r){return r.vivo;});
+    var muertos=S.rumores.filter(function(r){return !r.vivo && r.resuelto;}).slice(-4);
+    H+='<div class="card"><div class="eyebrow">En el aire</div><div style="font-size:12.5px;line-height:1.7">'
+      + (vivos.length? vivos.map(function(r){
+          var a=EQ[r.a]?EQ[r.a].c:r.a;
+          return '<div>'+(r.tipo==="yo"? "<b>Tú</b> y el "+a : esc(r.jugN)+" al "+a)+': '+fuerzaTxt(r.fuerza)+'.</div>';
+        }).join("") : '<div>Semana tranquila. Demasiado, quizá.</div>')
+      +'</div></div>';
+    if(muertos.length){
+      H+='<div class="card"><div class="eyebrow">Se enfriaron</div><div style="font-size:12.5px;line-height:1.7">'
+        + muertos.map(function(r){ var a=EQ[r.a]?EQ[r.a].c:r.a;
+            return '<div>'+esc(r.jugN)+' y el '+a+': '+(r.resuelto==="fichó"?"acabó en firma":"se cayó")+'.</div>'; }).join("")
+        +'</div></div>';
+    }
+  }
+  else if(t==="fichajes"){
+    var ts=S.traspasos.slice().reverse();
+    H+='<div class="card"><div class="eyebrow">Firmas de la temporada</div><div style="font-size:12.5px;line-height:1.7">'
+      + (ts.length? ts.map(function(x){
+          var a=EQ[x.a]?EQ[x.a].c:x.a, de=EQ[x.de]?EQ[x.de].c:x.de;
+          var mio=(x.jugN===S.nombre)? ' <b>(tú)</b>' : (x.a===S.equipo||x.de===S.equipo)? ' <b>(tu club)</b>':'';
+          return '<div><b class="mono">J'+x.jor+'</b> ✍ '+esc(x.jugN)+mio+' · '+de+' → '+a+' · '+fmtDinero(x.precio)+'</div>';
+        }).join("") : '<div>El mercado aún no ha firmado nada.</div>')
+      +'</div></div>';
+  }
+  else if(t==="prensa"){
+    var pr=(S.prensa||[]).slice(-10).reverse();
+    H+='<div class="card"><div class="eyebrow">Portadas y redes</div><div style="font-size:12.5px;line-height:1.7">'
+      + (pr.length? pr.map(function(p){ return '<div><b class="mono">J'+p.jor+'</b> · '+esc(p.t)+'</div>'; }).join("")
+                  : '<div>Ni una línea sobre ti. De momento.</div>')
+      +'</div></div>';
+  }
+  return H;
+}
+
+/* ---------- la card del hub: el mercado se cuenta, no se numera ---------- */
+function cardMercado(){
+  mercadoInit();
+  var lineas=[];
+  S.rumores.slice(-4).forEach(function(r){
+    if(!r.vivo) return;
+    var a=EQ[r.a]?EQ[r.a].c:r.a;
+    lineas.push((r.tipo==="yo"? "Tu nombre y el "+a : esc(r.jugN)+" al "+a)+": "+fuerzaTxt(r.fuerza)+".");
+  });
+  S.traspasos.slice(-3).reverse().forEach(function(t){
+    var a=EQ[t.a]?EQ[t.a].c:t.a, de=EQ[t.de]?EQ[t.de].c:t.de;
+    lineas.push("✍ "+esc(t.jugN)+" ("+de+" → "+a+") por "+fmtDinero(t.precio)+".");
+  });
+  if(!lineas.length) lineas.push("El mercado, en calma. De momento.");
+  return '<div class="card"><div class="eyebrow">Mercado</div><div style="font-size:12.5px;line-height:1.6">'
+    + lineas.slice(0,3).map(function(l){ return '<div>'+l+'</div>'; }).join("")
+    + '</div><button class="opt" style="margin-top:10px" onclick="irSec(\'mercado\')">Abrir los Despachos</button></div>';
+}
+
+/* ===== MERCADO DE FICHAJES (entre temporadas) ===== */
+/* valor de mercado: la media manda (exponencial), la edad y la fama matizan */
+function valorJugador(mia, edad, fama){
+  if(mia===undefined) mia=miMedia();
+  if(edad===undefined) edad=(S&&S.edad)||24;
+  if(fama===undefined) fama=(S&&S.fama)||30;
+  var base=2000000*Math.exp((mia-65)*0.1665);          /* 65→2M · 75→10,6M · 85→56M · 90→129M */
+  var fe = edad<=21?1.15 : edad<=27?1 : edad<=29?0.85 : edad<=31?0.65 : edad<=33?0.45 : 0.3;
+  var ff = 1 + clamp(fama,0,140)/400;
+  return Math.max(100000, Math.round(base*fe*ff/100000)*100000);
+}
+/* cuánto le interesa a tu club venderte: si le quedas grande, escuchan ofertas */
+function ganasDeVender(){
+  var exige=franjaDe(rankDe(S.equipo)).exige;
+  return clamp((miMedia()-exige)/14, 0, 1);
+}
+function presupuestoDe(eq){
+  var f=franjaDe(rankDe(eq.id)).n;
+  return {"élite":90000000, alta:40000000, media:16000000, baja:7000000, modesta:2500000}[f]||2500000;
+}
+/* la operación entre clubes: cláusula, acuerdo, bloqueo… o libre. Se calcula UNA vez por oferta. */
+function operacionDe(o){
+  if(S.libre) return {tipo:"libre", fee:0, piden:0, ponen:0};
+  var cl=(S.contrato&&S.contrato.clausula)||valorJugador()*2;
+  var piden=Math.min(cl, Math.round(valorJugador()*(1.35-0.55*ganasDeVender())/100000)*100000);
+  piden=Math.max(100000, piden);
+  var want=1+clamp(o.dif,-10,10)*0.02;
+  var ponen=Math.round(presupuestoDe(EQ[o.id])*(0.75+rnd()*0.6)*want/100000)*100000;
+  if(ponen>=piden) return {tipo: piden>=cl?"clausula":"acuerdo", fee:piden, piden:piden, ponen:ponen};
+  return {tipo:"bloqueado", fee:ponen, piden:piden, ponen:ponen};
+}
+function probForzar(o){
+  if(!o||!o.op) return 0;
+  return clamp(0.35 + ganasDeVender()*0.4 + clamp(o.op.ponen/Math.max(1,o.op.piden),0,1)*0.2, 0.15, 0.9);
+}
+function opTexto(op){
+  if(op.tipo==="libre")    return {t:"Llegas libre: no hay traspaso que pagar", col:"var(--ok)"};
+  if(op.tipo==="clausula") return {t:"Pagan tu cláusula: "+fmtDinero(op.fee), col:"var(--ok)"};
+  if(op.tipo==="acuerdo")  return {t:"Acuerdo entre clubes por "+fmtDinero(op.fee), col:"var(--gold)"};
+  return {t:"Ponen "+fmtDinero(op.ponen)+" y tu club pide "+fmtDinero(op.piden), col:"var(--bad)"};
+}
+function abrirMercado(){
+  PICK={eq:null, pos:S.pos, rol:S.rol, pierna:S.pierna, esperas:0, attrBonus:0,
+        edad:S.edad, nombre:S.nombre, dorsal:S.dorsal, tanda:null, notaPrueba:undefined,
+        traspaso:true, clubActual:S.equipo};
+  var mia=miMedia();
+  mediaAspiranteReal=mediaAspirante;
+  mediaAspirante=function(){ return mia; };
+  PICK.tanda=generarTanda().filter(function(o){ return o.id!==S.equipo; });
+  mediaAspirante=mediaAspiranteReal;
+  if(!PICK.tanda.length){ S.ofertasVerano=null; renderHub(); return; }
+  /* tu última temporada habla por ti en la mesa (tras generar la tanda: no infla la franja) */
+  var ult=(S.carrera&&S.carrera.length)? S.carrera[S.carrera.length-1] : null;
+  PICK.notaPrueba = (ult&&ult.med)? Math.round(ult.med*10)/10 : undefined;
+  PICK.tanda.forEach(function(o){ o.op=operacionDe(o); });
+  document.body.classList.remove("conmenu");
+  $("menu").classList.add("hidden");
+  $("scr-hub").classList.add("hidden");
+  $("scr-sec").classList.add("hidden");
+  renderMercado();
+}
+function renderMercado(){
+  cerrarOverlays();
+  var cont=$("scr-pick");
+  var H='<div class="eyebrow">Mercado de verano · '+S.edad+' años'+(S.libre?' · agente libre':'')+'</div>'
+    +'<h2 class="disp">Quién te quiere</h2>'
+    +'<p class="note" style="margin:0 0 14px">'
+    +(S.libre? 'El descenso activó tu cláusula de salida: <b>eres libre</b> y nadie tiene que pagar por ti.'
+             : 'Tu media es <b>'+miMedia()+'</b> y tu cláusula, '+fmtDinero((S.contrato&&S.contrato.clausula)||0)+'. Quien no llegue a ella tendrá que convencer a tu club.')
+    +'</p><div id="ofertas"></div>';
+  PICK.tanda.forEach(function(o,i){
+    var eq=EQ[o.id], tg=tagDe(rankDe(eq.id)), st=opTexto(o.op);
+    H+='<div class="card oferta">'
+      +'<div style="display:flex;gap:12px;align-items:center">'
+      +crestSVG(eq.id,46)
+      +'<div style="flex:1;min-width:0">'
+        +'<div class="disp" style="font-size:17px;line-height:1.1">'+esc(eq.n)+'</div>'
+        +'<div class="note" style="margin-top:3px">'+esc(tg.t)+' · Elo '+eloDe(eq.id)+'</div>'
+      +'</div>'
+      +'<div class="mono" style="text-align:right"><div style="font-size:11px;color:var(--dim)">TU MEDIA</div>'
+        +'<div class="disp" style="font-size:22px;color:var(--gold)">'+o.mia+'</div></div>'
+      +'</div>'
+      +'<p class="note" style="margin:10px 0 8px;font-style:italic">'+esc(o.frase)+'</p>'
+      +'<div class="row2"><span>La operación</span><b style="color:'+st.col+'">'+esc(st.t)+'</b></div>'
+      +'<div class="row2"><span>Lo que te espera</span><b style="color:'+o.col+'">'+esc(o.rol)+'</b></div>'
+      +'<div class="row2"><span>Salario</span><b>'+fmtDinero(o.contrato.salario)+' al año</b></div>'
+      +'<div class="row2"><span>Contrato</span><b>'+o.contrato.anos+' temporadas</b></div>'
+      +'<div class="row2"><span>Competencia en tu puesto</span><b>'+(o.directo? o.mejor+" de media ("+o.competencia+")" : "nivel del vestuario: "+o.mejor)+'</b></div>'
+      +(dbgOn()?'<div class="dbg"><span class="dneu">dif '+o.dif+'</span><span class="dneu">piden '+fmtDinero(o.op.piden)+'</span><span class="dneu">ponen '+fmtDinero(o.op.ponen)+'</span></div>':'')
+      +'<button class="gold-btn" style="margin-top:12px" onclick="renderNegociacion('+i+')">'+(o.op.tipo==="bloqueado"?"✊ Sentarte igualmente":"✍ Sentarte a negociar")+'</button>'
+      +'</div>';
+  });
+  H+='<button class="ghost" onclick="quedarmeMercado()">'+(S.libre? 'Renovar con el '+esc(EQ[S.equipo].c)+' (ficha −45%)' : 'Quedarme en el '+esc(EQ[S.equipo].c))+'</button>'
+    +'<p class="note" style="margin:8px 2px 0">'+(S.libre? 'Si no firmas por nadie antes de que arranque la liga, renovarás con la ficha recortada.' : 'El mercado se cierra cuando arranque la liga. Rechazar una oferta la retira de la mesa.')+'</p>';
+  cont.innerHTML=H;
+  $("scr-pick").classList.remove("hidden");
+  scrollSiCambia("mercado");
+}
+function quedarmeMercado(){
+  if(S.libre){
+    modal({ico:"🖊", peligro:true, t:"Renovar en Segunda",
+      x:"Renovar con el "+esc(EQ[S.equipo].c)+" tras el descenso implica aceptar la ficha recortada un 45%: de "+fmtDinero(S.contrato?S.contrato.salario:0)+" a <b>"+fmtDinero(Math.round((S.contrato?S.contrato.salario:0)*0.55))+"</b> al año.",
+      okTxt:"Renovar y quedarme", cancelTxt:"Volver al mercado",
+      onOk:function(){ cerrarMercado(true, null); }});
+    return;
+  }
+  cerrarMercado(true, null);
+}
+function cerrarMercado(voluntario, aviso){
+  S.ofertasVerano=null;
+  if(S.libre){
+    if(S.contrato) S.contrato.salario=Math.round(S.contrato.salario*0.55);
+    S.libre=null;
+    S.avisoMercado=aviso || "Renuevas con el "+EQ[S.equipo].c+" en Segunda con la ficha recortada un 45%. La afición te lo agradece.";
+    S.publico.afic=clamp(S.publico.afic+8,0,100);
+  } else {
+    S.avisoMercado=aviso || (voluntario? "Te quedas en el "+EQ[S.equipo].c+". El mercado queda cerrado." : null);
+  }
+  if(PICK){ PICK.traspaso=false; PICK.contraOK=null; }
+  CONTRA=null;
+  guardar(); renderHub();
+}
+function forzarSalida(){
+  if(!PICK||!PICK.tanda||!PICK.tanda[PICK.negIdx]) return;
+  var o=PICK.tanda[PICK.negIdx], eq=EQ[o.id], p=probForzar(o);
+  modal({ico:"🔥", peligro:true, t:"Plantarte ante el club",
+    x:"Le dices al "+esc(EQ[S.equipo].c)+" que quieres irte al "+esc(eq.c)+", sí o sí, por los "+fmtDinero(o.op.ponen)+" que ofrecen. La prensa lo sabrá esta noche. Probabilidad de que cedan: <b>"+Math.round(p*100)+"%</b>.",
+    okTxt:"Plantarme", cancelTxt:"Mejor no",
+    onOk:function(){
+      tocarEje("disciplina",-8); tocarEje("ego",4);
+      S.publico.prensa=clamp(S.publico.prensa-10,0,100);
+      S.publico.afic=clamp(S.publico.afic-12,0,100);
+      S.muro.unshift({jor:S.jornada+1, u:pick(["GradaNorte","AbonadoDesde91","CurvaSur"]),
+        t:pick([S.nombre+" quiere irse. Con lo que le hemos querido aquí.",
+                "Que se vaya ya si no quiere estar. La camiseta pesa más que él.",
+                "Forzar la salida así no se hace. Se lo dices a la cara a la grada."]), bien:false});
+      if(S.muro.length>16) S.muro.pop();
+      if(rnd()<p){
+        o.op={tipo:"acuerdo", fee:o.op.ponen, piden:o.op.ponen, ponen:o.op.ponen, forzado:true};
+        modal({ico:"🤝", t:"Tu club cede",
+          x:"El "+esc(EQ[S.equipo].c)+" acepta los "+fmtDinero(o.op.fee)+" del "+esc(eq.c)+". Ahora, tu contrato: siéntate y aprieta.",
+          okTxt:"Negociar mi contrato", cancelTxt:"Cerrar", onOk:function(){ pintarNegociacion(); }});
+      } else {
+        PICK.tanda.splice(PICK.negIdx,1);
+        S.mister=clamp(S.mister-8,5,95); S.moral=clamp(S.moral-5,30,78);
+        var quedan=PICK.tanda.length;
+        var volver=function(){ if(quedan) renderMercado(); else cerrarMercado(true,"El mercado se te cierra de un portazo: sigues en el "+EQ[S.equipo].c+", y no precisamente por la puerta grande."); };
+        modal({ico:"🚪", peligro:true, t:"Tu club se planta",
+          x:"«Aquí no se va nadie por la puerta de atrás.» El "+esc(EQ[S.equipo].c)+" rompe la negociación con el "+esc(eq.c)+" y quedas señalado en el vestuario.",
+          okTxt: quedan? "Volver al mercado":"Asumirlo", cancelTxt:"Cerrar",
+          onOk:volver, onCancel:volver});
+      }
+      guardar();
+    }});
+}
+var mediaAspiranteReal=null;
+function pedirNuevaPartida(){
+  var det = S? ("Vas por la jornada <b>"+(S.jornada+1)+"</b> con <b>"+esc(S.nombre)+"</b> en el "+esc(EQ[S.equipo].c)
+    +", media "+miMedia()+" y "+((S.skills||[]).length)+" habilidad(es) desbloqueada(s).<br><br>") : "";
+  modal({
+    ico:"⚠️", peligro:true,
+    t:"Empezar de cero",
+    x:det+"Se borrará <b>todo</b>: temporada, atributos, habilidades, vestuario y contenido propio. No hay vuelta atrás.",
+    okTxt:"Sí, borrar y empezar de cero",
+    cancelTxt:"Seguir con mi partida",
+    extraTxt: S? "Exportar la partida antes de borrar":null,
+    extraFn: "exportar()",
+    onOk: nuevaPartida
+  });
+}
+async function nuevaPartida(){
+  cancelarAuto();
+  try{ await sDel("save"); }catch(e){}
+  S=null; M=null; M_ficha=null; OVSEM_COLA=[];   /* lo que esperaba menú era de la carrera que se cierra */
+  PICK={eq:null, pos:null, rol:null, pierna:"D", esperas:0, attrBonus:0, edad:18, nombre:null, dorsal:9, tanda:null};
+  ["ov-match","ov-fin","ov-contrato","ov-modal","scr-hub","scr-sec","scr-pick","scr-pos","menu"].forEach(function(id){
+    var n=$(id); if(n) n.classList.add("hidden");
+  });
+  document.body.classList.remove("conmenu");
+  var bc=$("btn-continuar"); if(bc) bc.classList.add("hidden");
+  $("scr-title").classList.remove("hidden");
+  SCR_KEY=null; window.scrollTo(0,0);
+}
+/* ---------- AJUSTES + ÁRBOL DE DECISIONES ---------- */
+var ARBOL_FILTRO="todas";
+function todasSits(){ return SITS.concat((S&&S.custom)||[]); }
+/* ===== AJUSTES DEL DISPOSITIVO (viven fuera de la partida: existen aunque no haya carrera) ===== */
+/* El taller de pruebas NACE APAGADO. Se enciende solo con un código (efecto «taller», Ajustes › Código) y se recuerda en este dispositivo;
+   no viaja en el JSON de la partida ni se borra al empezar de cero. */
+var CHEATS_ON=false;
+function aplicarCheats(){ var b=$("btn-chsaltar"); if(b) b.classList.toggle("hidden", !CHEATS_ON); }
+async function guardarAjustes(){ try{ await sSet("cfg",{v:1, cheats:!!CHEATS_ON}); }catch(e){} }
+async function cargarAjustes(){
+  try{ var c=await sGet("cfg"); CHEATS_ON=!!(c && c.cheats===true); }catch(e){ CHEATS_ON=false; }
+  aplicarCheats();
+}
+function toggleCheats(){ CHEATS_ON=!CHEATS_ON; aplicarCheats(); guardarAjustes(); irSub("ajustes","codigo"); }
+/* ===== CHEATS: el taller de pruebas (todo pasa por el motor real) ===== */
+function chAviso(t){ if(S) S.avisoMercado=t; }
+var CH_MUDO=false;   /* true mientras un código aplica sus efectos: nada se re-pinta hasta el final */
+function chRefresca(){ if(S) guardar(); if(!CH_MUDO) irSub("ajustes","codigo"); }
+function chAttrs(d){ if(!CHEATS_ON||!S) return; ATTR_ORDEN.concat(S.pos==="POR"?["POR"]:[]).forEach(function(a){ S.attr[a]=clamp(atr(a)+d,10,99); }); chAviso("Atributos +"+d+"."); chRefresca(); }
+function chAttrs90(){ if(!CHEATS_ON||!S) return; ATTR_ORDEN.concat(S.pos==="POR"?["POR"]:[]).forEach(function(a){ S.techos=S.techos||{}; S.techos[a]=70; S.attr[a]=Math.max(atr(a),90); }); S.nivel=Math.max(S.nivel||1,80); chAviso("Atributos a 90, techo alto en todos, nivel 80."); chRefresca(); }
+function chEjes(d){ if(!CHEATS_ON||!S) return; S.car=S.car||{}; RASGOS_ORDEN.forEach(function(k){ var R=RASGOS_P[k]; S.car[k]=clamp((eje(k))+d, R.rango[0], R.rango[1]); }); chAviso("Los seis ejes +"+d+"."); chRefresca(); }
+function chVital(){ if(!CHEATS_ON||!S) return; S.forma=100; S.conf=90; S.mister=90; S.animo=90; chAviso("Forma 100 · Confianza 90 · Míster 90 · Ánimo 90."); chRefresca(); }
+function chVestuario(){ if(!CHEATS_ON||!S) return; mueveAfin(20); chAviso("El vestuario te quiere +20."); chRefresca(); }
+function chFama(){ if(!CHEATS_ON||!S) return; pub().seg+=5000; S.fama=(S.fama||30)+20; pub().afic=clamp(pub().afic+15,0,100); chAviso("Fama +20, seguidores +5.000, grada +15."); chRefresca(); }
+function chDinero(d){ if(!CHEATS_ON||!S) return; S.dinero=(S.dinero||0)+d; chAviso(fmtDinero(d)+" a la cuenta."); chRefresca(); }
+function chCurar(){ if(!CHEATS_ON||!S) return; S.lesion=0; S.sancion=0; S.rehabPlan=null; chAviso("Sano y disponible."); chRefresca(); }
+function chLesion(){ if(!CHEATS_ON||!S) return; S.lesion=2; S.motivoBaja="cheat: golpe en el taller"; (S.histLes=S.histLes||[]).push({t:S.temporada,j:S.jornada,motivo:"taller",sem:2}); chAviso("Dos semanas de baja, para probar la Médica."); chRefresca(); }
+function chVicios(d){ if(!CHEATS_ON||!S) return; vicio(); Object.keys(S.vicios).forEach(function(k){ S.vicios[k]=clamp((S.vicios[k]||0)+d,0,100); }); chAviso(d>0? "Vicios +"+d+".":"Vicios limpios."); chRefresca(); }
+function chCapricho(){ if(!CHEATS_ON||!S) return; var IT=tiendaItems().filter(function(x){return x.cat==="reloj"&&x.tier===2;})[0]; S.capricho2={cat:"reloj",tier:2,n:IT?IT.n:"Rolex",jor:jorAbs()}; chAviso("Se te ha metido algo en la cabeza."); chRefresca(); }
+function chSaciar(){ if(!CHEATS_ON||!S) return; S.capricho2=null; if(S.vida) S.vida.capricho=null; S.conf=clamp(S.conf+6,5,95); chAviso("Antojos saciados."); chRefresca(); }
+function chRumor(){ if(!CHEATS_ON||!S) return; mercadoInit(); rumorOAlta(0.8); chAviso("Tu nombre suena con fuerza."); chRefresca(); }
+function chOferta(){ if(!CHEATS_ON||!S) return; mercadoInit(); var r=rumorOAlta(0.8); S.jornada=Math.max(S.jornada,18); S.ofertaInv=null; S.transferPed=true; mercadoSemanal(); S.transferPed=false; chAviso(S.ofertaInv? "Oferta sobre la mesa: mírala en Despachos.":"El mercado no mordió; prueba otra vez."); chRefresca(); }
+function chRenovar(){ if(!CHEATS_ON||!S||!S.contrato) return; S.contrato.anos=1; S.jornada=clamp(S.jornada,24,30); S.renovProc=null; S.mister=Math.max(S.mister,50); renovacionProactiva(); chRefresca(); }
+function chCooldowns(){ if(!CHEATS_ON||!S) return; S.maniobraCd={}; S.maniobraSem=undefined; S.redesSem=undefined; S.hatersSem=undefined; S.rehabSem=undefined; S.caprichoCd=0; chAviso("Cooldowns y slots a cero."); chRefresca(); }
+function chOfertaPatro(){ if(!CHEATS_ON||!S) return; genOfertaPatro(true); chRefresca(); }
+function chContraoferta(){ if(!CHEATS_ON||!S) return; genOfertaPatro(true,true); chRefresca(); }
+function chSimular(n, conmigo){
+  if(!CHEATS_ON||!S) return;
+  var hechas=0;
+  while(hechas<n && S.jornada<38){
+    mercadoSemanal(); semanaTienda();
+    var sl=S.lesion, ss=S.sancion; S.lesion=0; S.sancion=0;
+    jornadaSinTi();
+    S.lesion=sl; S.sancion=ss;
+    if(conmigo){
+      var h=S.hist[S.hist.length-1];
+      if(h){ delete h.sinTi; h.yo={g:0,a:0,ta:0,tr:0,p:0,nota:6.8,min:90,mvp:false};
+        S.yo.pj++; S.yo.notaSum+=6.8; S.yo.notaN++; }
+    }
+    hechas++;
+  }
+  chAviso(hechas+" jornada(s) simulada(s)"+(conmigo? " contigo en el once (nota 6,8).":" sin ti (el equipo jugó solo)."));
+  chRefresca();
+}
+function chVerano(){ if(!CHEATS_ON||!S) return; if(S.jornada<38){ chAviso("La liga no ha acabado: simula hasta la 38 primero."); chRefresca(); return; } nuevaTemporada(); chAviso("Verano cruzado: temporada "+S.temporada+"."); chRefresca(); }
+function finPruebaCheat(){
+  if(!CHEATS_ON) return;
+  var n=PICK.notaPrueba;
+  PICK.bonusPrueba=clamp(Math.round((n-6.3)*(n>=8?12:8)), -16, 26);
+  S=null; M=null; M_ficha=null; OVSEM_COLA=[];   /* lo que esperaba menú era de la carrera que se cierra */
+  cerrarOverlays();
+  PICK.tanda=generarTanda();
+  ["scr-hub","scr-sec","scr-pos","scr-title"].forEach(function(id){ $(id).classList.add("hidden"); });
+  $("menu").classList.add("hidden"); document.body.classList.remove("conmenu");
+  $("scr-pick").classList.remove("hidden");
+  renderOfertas();
+  SCR_KEY=null; window.scrollTo(0,0);
+}
+function chSaltarPrueba(){
+  if(!CHEATS_ON) return;
+  if(typeof PICK==="undefined" || !PICK || !PICK.pos || PICK.notaPrueba!==undefined) return;
+  PICK.perfil=PICK.perfil||"clasico"; PICK.nombre=PICK.nombre||"Manu"; PICK.dorsal=PICK.dorsal||9;
+  PICK.pierna=PICK.pierna||"D"; PICK.edad=PICK.edad||18;
+  PICK.notaPrueba=8.2; PICK.golesPrueba=2; PICK.asisPrueba=1; PICK.paradasPrueba=(PICK.pos==="POR"?6:0);
+  finPruebaCheat();
+}
+
+/* ===== CÓDIGOS: efectos que un código puede dar =====
+   El servidor (PocketBase de Goatmaker) guarda cada código con su lista de efectos [{k,v}] y sus límites (usos, caducidad, una vez por jugador).
+   Aquí vive el REGISTRO de lo que el juego sabe aplicar. Todo pasa por el motor real (las mismas funciones del taller).
+   Añadir un efecto = una línea en EFECTOS + una línea en el catálogo del panel admin. El juego manda sus claves (caps) al canjear y el
+   servidor rechaza, sin gastar el código, uno cuyo efecto esta versión no conoce. */
+var EFECTOS={
+  dinero:   {n:"Dinero",              u:"€",      min:1, max:1000000000, ap:function(v){ chDinero(v); },                 txt:function(v){ return "+"+fmtDinero(v)+" a tu cuenta"; }},
+  xp:       {n:"Experiencia",         u:"XP",     min:1, max:1000000,    ap:function(v){ ganarXP(v); },                   txt:function(v){ return "+"+v+" XP"; }},
+  niveles:  {n:"Subir de nivel",      u:"niveles",min:1, max:20,         ap:function(v){ for(var i=0;i<v && (S.nivel||1)<99;i++) ganarXP(Math.max(1,xpParaNivel(S.nivel||1)-(S.xp||0))); }, txt:function(v){ return "+"+v+" nivel(es): ahora nivel "+(S.nivel||1); }},
+  atributos:{n:"Atributos",           u:"puntos", min:1, max:15,         ap:function(v){ chAttrs(v); },                  txt:function(v){ return "Todos tus atributos +"+v; }},
+  ejes:     {n:"Los seis ejes",       u:"puntos", min:1, max:20,         ap:function(v){ chEjes(v); },                   txt:function(v){ return "Los seis ejes de carácter +"+v; }},
+  fama:     {n:"Fama (+20, +5k seguidores, grada +15)",                                  ap:function(){ chFama(); },          txt:function(){ return "Fama +20, +5.000 seguidores, grada +15"; }},
+  vital:    {n:"Forma 100 · Conf 90 · Míster 90 · Ánimo 90",                             ap:function(){ chVital(); },         txt:function(){ return "Forma, confianza, míster y ánimo al máximo"; }},
+  vestuario:{n:"Vestuario",           u:"puntos", min:1, max:30,         ap:function(v){ mueveAfin(v); },                 txt:function(v){ return "El vestuario te quiere +"+v; }},
+  curar:    {n:"Curar lesión y sanción",                                                 ap:function(){ chCurar(); },         txt:function(){ return "Sano y disponible"; }},
+  taller:   {n:"Abrir el taller de pruebas en este dispositivo",                          ap:function(){}, sinCarrera:true,    txt:function(){ return "Taller de pruebas abierto (Ajustes › Código)"; }}
+};
+function aplicarEfectos(lista){
+  var hechos=[], prev=CHEATS_ON, abre=false;
+  CHEATS_ON=true; CH_MUDO=true;
+  try{
+    (lista||[]).forEach(function(x){
+      var E=EFECTOS[x&&x.k]; if(!E) throw new Error("efecto desconocido: "+(x&&x.k));
+      var v=Number(x.v); if(E.u){ v=Math.round(clamp(isFinite(v)? v : E.min, E.min, E.max)); }
+      E.ap(v); hechos.push(E.txt(v)); if(x.k==="taller") abre=true;
+    });
+  } finally { CH_MUDO=false; CHEATS_ON = abre? true : prev; }
+  if(abre){ aplicarCheats(); guardarAjustes(); }
+  return hechos;
+}
+var COD_BUSY=false, COD_MSG=null;
+function codMsg(tipo,t){ var el=$("cod-res"); COD_MSG={tipo:tipo,t:t}; if(el) el.innerHTML=codMsgHTML(); }
+function codMsgHTML(){ if(!COD_MSG) return ""; var c=COD_MSG.tipo==="ok"? "var(--ok,#4ade80)" : COD_MSG.tipo==="mal"? "var(--bad)" : "var(--muted)";
+  return '<div class="note" style="margin-top:10px;color:'+c+'">'+COD_MSG.t+'</div>'; }
+var COD_ERR={no_existe:"Ese código no existe.", inactivo:"Ese código está desactivado.", aun_no:"Ese código todavía no se puede usar.", caducado:"Ese código ha caducado.",
+  agotado:"Ese código ya se ha usado el máximo de veces.", ya_usado:"Ya has canjeado ese código.", version:"Este código necesita una versión más nueva del juego: recarga la página (Ctrl+F5).",
+  demasiados:"Demasiados intentos seguidos. Espera unos minutos."};
+function canjearCodigo(){
+  if(COD_BUSY) return;
+  var el=$("cod-in"), v=el? el.value : "";
+  if(v.replace(/[^A-Za-z0-9]/g,"").length<4){ codMsg("mal","Escribe el código completo."); return; }
+  if(!S){ codMsg("mal","Necesitas una carrera en marcha para canjear un código."); return; }
+  COD_BUSY=true; codMsg("","Comprobando…");
+  TELE.post({op:"canje", code:v, caps:Object.keys(EFECTOS)}).then(function(r){
+    COD_BUSY=false;
+    if(r.ok && r.j && r.j.ok){
+      var hechos;
+      try{ hechos=aplicarEfectos(r.j.efectos); }
+      catch(e){ TELE.ev("canje_error",{msg:String(e&&e.message||e).slice(0,200)}); codMsg("mal","El código era válido pero algo falló al aplicarlo: "+esc(String(e&&e.message||e))+". Cuéntaselo a quien te lo dio."); return; }
+      try{ guardar(); }catch(e){}
+      COD_MSG={tipo:"ok", t:"<b>Código canjeado.</b><br>"+hechos.map(esc).join("<br>")};
+      irSub("ajustes","codigo");
+    } else if(r.sinRed){ codMsg("mal","No hay conexión con el servidor de Goatmaker. Inténtalo en un rato."); }
+    else { var e=(r.j && r.j.err)||""; codMsg("mal", esc(COD_ERR[e] || (r.status===403? "El servidor no acepta esta versión del juego (recarga con Ctrl+F5)." : "No se pudo canjear ("+(r.status||"sin respuesta")+")."))); }
+  });
+}
+function secCodigo(){
+  var H='<div class="card"><div class="eyebrow">Código</div>'
+    +'<p class="note" style="margin:4px 2px 10px">¿Te han pasado un código? Escríbelo aquí y se aplica a tu carrera actual. Cada código tiene sus propios límites: puede caducar, agotarse o valer una sola vez por jugador.</p>'
+    +'<input id="cod-in" class="inp" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="GM-XXXX-XXXX-XXXX" style="width:100%;text-transform:uppercase;letter-spacing:.08em" onkeydown="if(event.key===\'Enter\') canjearCodigo()">'
+    +'<button class="gold-btn" style="margin-top:10px" onclick="canjearCodigo()">Canjear</button><div id="cod-res">'+codMsgHTML()+'</div>'
+    +(S? '' : '<p class="note" style="margin:10px 2px 0">Primero tiene que haber una carrera en marcha.</p>')+'</div>';
+  COD_MSG=null;
+  if(CHEATS_ON) H+=secCheats();
+  return H;
+}
+/* ===== REPORTES: bugs, ideas y lo que el jugador quiera contar (van al panel admin) ===== */
+var REP={tipo:"bug", texto:"", save:true, busy:false, msg:null};
+function repTipo(t){ REP.tipo=t; irSub("ajustes","reportar"); }
+function repEnviar(){
+  if(REP.busy) return;
+  var tx=($("rep-tx")&&$("rep-tx").value||"").trim(); REP.texto=$("rep-tx")? $("rep-tx").value : REP.texto;
+  var m=$("rep-msg"), say=function(c,t){ REP.msg={c:c,t:t}; if(m) m.innerHTML='<div class="note" style="margin-top:10px;color:'+(c==="ok"?"var(--ok,#4ade80)":c==="mal"?"var(--bad)":"var(--muted)")+'">'+t+'</div>'; };
+  if(tx.length<3){ say("mal","Cuéntanos algo más: escribe al menos unas palabras."); return; }
+  REP.busy=true; say("","Enviando…");
+  var res=null, ctx={ ver:VERSION, ua:String(navigator.userAgent||"").slice(0,200), vp:innerWidth+"x"+innerHeight, lang:navigator.language||"" };
+  try{ res=TELE.resumen(); if(res){ ctx.estado=res; } }catch(e){}
+  var b={op:"reporte", tipo:REP.tipo, texto:tx, ctx:ctx};
+  if(S && REP.save){ var pesa=0; try{ pesa=JSON.stringify(S).length; }catch(e){ pesa=1e9; } if(pesa<=4800000) b.save=S; }
+  TELE.post(b, 120000).then(function(r){
+    REP.busy=false;
+    if(r.ok && r.j && r.j.ok){ REP.texto=""; REP.msg={c:"ok", t:"<b>Enviado, gracias.</b> Lo leeré."}; irSub("ajustes","reportar"); }
+    else if(r.aborto){ say("mal","La subida tardó demasiado y se cortó. Tu texto sigue aquí: prueba otra vez, o desmarca «Adjuntar mi partida»."); }
+    else if(r.sinRed){ say("mal","No hay conexión con el servidor de Goatmaker; tu texto sigue aquí. Inténtalo en un rato. <span style=\"opacity:.7;font-size:11px\">(detalle: "+esc(r.motivo||"sin detalle")+")</span>"); }
+    else if(r.status===429){ say("mal","Has enviado varios reportes seguidos. Prueba de nuevo en una hora."); }
+    else if(r.status===413){ say("mal","El reporte es demasiado grande: desmarca «Adjuntar mi partida» e inténtalo otra vez."); }
+    else say("mal","No se pudo enviar ("+(r.status||"sin respuesta")+"). Tu texto sigue aquí.");
+  });
+}
+function secReportar(){
+  var TT=[["bug","🐞 Fallo"],["idea","💡 Idea"],["otro","💬 Otro"]];
+  var msg=REP.msg; REP.msg=null;
+  return '<div class="card"><div class="eyebrow">Reportar</div>'
+    +'<p class="note" style="margin:4px 2px 10px">Cuenta un fallo, propón una idea o dime lo que quieras. Va directo a quien hace el juego.</p>'
+    +'<div class="chips" style="grid-template-columns:repeat(3,1fr)">'+TT.map(function(t){ return '<button class="chip'+(REP.tipo===t[0]?' on':'')+'" onclick="repTipo(\''+t[0]+'\')">'+t[1]+'</button>'; }).join("")+'</div>'
+    +'<textarea id="rep-tx" maxlength="4000" rows="6" style="width:100%" placeholder="'+(REP.tipo==="bug"? "¿Qué ha pasado y qué esperabas? Si sabes cómo repetirlo, mejor." : REP.tipo==="idea"? "¿Qué añadirías o cambiarías?" : "Lo que quieras contar…")+'" oninput="REP.texto=this.value">'+esc(REP.texto)+'</textarea>'
+    +(S? '<label class="note" style="display:flex;gap:8px;align-items:flex-start;margin:10px 2px 0"><input type="checkbox" '+(REP.save?'checked':'')+' onchange="REP.save=this.checked" style="margin-top:3px"><span>Adjuntar mi partida (así se puede reproducir el fallo)</span></label>' : '')
+    +'<p class="note" style="margin:8px 2px 0;font-size:11px">Con el texto se envían: versión del juego, tu club, temporada y jornada, y tu navegador.</p>'
+    +'<button class="gold-btn" style="margin-top:10px" onclick="repEnviar()">Enviar</button><div id="rep-msg">'
+    +(msg? '<div class="note" style="margin-top:10px;color:'+(msg.c==="ok"?"var(--ok,#4ade80)":"var(--bad)")+'">'+msg.t+'</div>' : '')+'</div></div>';
+}
+var CHEAT_CAT="rpg";
+function verCatCheat(c){ CHEAT_CAT=c; irSub("ajustes","codigo"); }
+function secCheats(){
+  var preClub=(typeof PICK!=="undefined" && PICK && PICK.pos && PICK.notaPrueba===undefined);
+  var tabs=(preClub?[["prueba","Prueba"]]:[]).concat(S?[["rpg","RPG"],["dinero","Dinero"],["tiempo","Tiempo"],["despachos","Despachos"],["cuerpo","Cuerpo"]]:[]);
+  var H='<div class="card"><div class="eyebrow">⚗️ Taller de pruebas</div>'
+    +'<p class="note" style="margin:4px 2px 10px">Trucos y atajos para probar sistemas: atributos, dinero, saltar semanas, ofertas al instante. Todo pasa por el motor real; nada queda maquillado. Se abre con un código y nace apagado: así la carrera es la de verdad.</p>'
+    +'<button class="opt'+(CHEATS_ON?' salida':'')+'" style="margin:0" onclick="toggleCheats()"><b>Taller: '+(CHEATS_ON?'ENCENDIDO':'APAGADO')+'</b>'
+    +'<small>Toca para apagarlo y volver a la carrera de verdad (se vuelve a abrir con un código). Se recuerda en este dispositivo.</small></button></div>';
+  if(!CHEATS_ON) return H;
+  if(!tabs.length) return H+'<div class="card"><p class="note" style="margin:4px 2px">Necesita una partida en marcha (o una prueba a medio elegir).</p></div>';
+  if(!tabs.some(function(t){return t[0]===CHEAT_CAT;})) CHEAT_CAT=tabs[0][0];
+  H+='<div class="chips" style="grid-template-columns:repeat('+tabs.length+',1fr);margin-bottom:10px">'
+    +tabs.map(function(t){ return '<button class="chip'+(CHEAT_CAT===t[0]?' on':'')+'" onclick="verCatCheat(\''+t[0]+'\')">'+t[1]+'</button>'; }).join("")+'</div>';
+  function b(fn,l,s){ return '<button class="opt" style="margin:0" onclick="'+fn+'"><b>'+l+'</b>'+(s?'<small>'+s+'</small>':'')+'</button>'; }
+  function G(t,inner){ return '<div class="card"><div class="eyebrow">'+t+'</div><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:6px">'+inner+'</div></div>'; }
+  var k=CHEAT_CAT;
+  if(k==="prueba"){
+    H+=G("Prueba de ojeadores", b("chSaltarPrueba()","Saltar la prueba","Nota 8,2 con doblete: directo a las ofertas."));
+  }
+  else if(k==="rpg"){
+    H+=G("RPG", b("chAttrs(5)","Atributos +5")+b("chAttrs90()","Atributos a 90 · techo 95")
+      +b("chEjes(10)","Los seis ejes +10")+b("chVital()","Forma 100 · Conf 90 · Míster 90")
+      +b("chVestuario()","Vestuario +20")+b("chFama()","Fama +20 · +5k seg · grada +15"));
+  }
+  else if(k==="dinero"){
+    H+=G("Dinero", b("chDinero(100000)","+100.000 €")+b("chDinero(1000000)","+1 M€")+b("chDinero(10000000)","+10 M€"));
+  }
+  else if(k==="tiempo"){
+    H+=G("Tiempo", b("chSimular(1,true)","Simular 1 (contigo)")+b("chSimular(4,true)","Simular 4 (contigo)")
+      +b("chSimular(19,true)","Media temporada")+b("chSimular(38,true)","Hasta la J38")
+      +b("chSimular(4,false)","Simular 4 sin ti","El equipo juega; tú miras.")
+      +b("chVerano()","Cruzar el verano","Con la liga acabada."));
+  }
+  else if(k==="despachos"){
+    H+=G("Despachos", b("chRumor()","Rumor fuerte (0,8)")+b("chOferta()","Oferta de invierno YA")
+      +b("chRenovar()","Renovación YA")+b("chCooldowns()","Cooldowns a cero")+b("chOfertaPatro()","Oferta de patrocinio YA")+b("chContraoferta()","Contraoferta YA"));
+  }
+  else if(k==="cuerpo"){
+    H+=G("Cuerpo y cabeza", b("chCurar()","Curar todo")+b("chLesion()","Lesión 2 semanas","Para la Médica.")
+      +b("chVicios(30)","Vicios +30")+b("chVicios(-100)","Vicios limpios")
+      +b("chCapricho()","Capricho YA")+b("chSaciar()","Saciar antojos"));
+  }
+  return H;
+}
+function secAjustes(){
+  var k=SUB.ajustes, hay=!!S;   /* sin carrera (arranque limpio, tras «Empezar de cero», prueba a medias) S es null: ninguna pestaña puede darlo por hecho */
+  var H='<div class="eyebrow">Ajustes</div><h2 class="disp">Configuración</h2>'+subTabs("ajustes");
+  if(k==="codigo"){ H+=secCodigo(); }
+  else if(k==="reportar"){ H+=secReportar(); }
+  else if(k==="partida"){
+    H+='<div class="card"><div class="eyebrow">Tu partida</div>'
+      +(hay? '<button class="ghost" onclick="exportar()">Exportar partida (JSON)</button>' : '')
+      +'<button class="ghost" onclick="importar()">Importar partida</button>'
+      +(hay? '' : '<p class="note" style="margin:10px 0 0">No hay ninguna carrera en marcha: desde aquí solo puedes importar una partida guardada.</p>')
+      +'</div>';
+    if(hay) H+='<div class="card" style="border-color:rgba(255,84,112,.35)"><div class="eyebrow" style="color:var(--bad)">Zona de riesgo</div>'
+      +'<p class="note" style="margin:0 0 10px">Empezar una carrera nueva borra la actual por completo. Útil para probar otro puesto, otra edad u otro club.</p>'
+      +'<button class="peligro" onclick="pedirNuevaPartida()">Empezar una partida nueva</button></div>';
+  }
+  else if(k==="contenido"){
+    H+='<div class="card"><div class="eyebrow">Diseño de contenido</div>'
+      +(hay? '<p class="note" style="margin:0 0 8px">Todas las situaciones con sus opciones, probabilidades reales y los tres desenlaces posibles.</p>'
+            +'<button class="ghost" onclick="irArbol()">Explorar el árbol de decisiones</button>'
+            +'<button class="ghost" onclick="irEditor()">Crear una situación nueva</button>'
+            +((S.custom&&S.custom.length)?'<button class="ghost" onclick="exportarContenido()">Exportar mis situaciones ('+S.custom.length+')</button>':'')
+          : '<p class="note" style="margin:0">El árbol de decisiones y el editor leen a tu jugador: su puesto, sus atributos y su carácter. Necesitan una carrera en marcha.</p>')
+      +'</div>';
+  }
+  else {
+    H+='<div class="card"><div class="eyebrow">El juego</div>'
+      +'<div class="row2"><span>Versión</span><b style="color:var(--gold)">v'+VERSION+'</b></div>'
+      +'<div class="row2"><span>Situaciones</span><b>'+todasSits().length+'</b></div>'
+      +'<div class="row2"><span>Perfiles de jugador</span><b>'+Object.keys(ROLES).reduce(function(a,x){return a+ROLES[x].length;},0)+'</b></div>'
+      +'<div class="row2"><span>Equipos</span><b>20</b></div>'
+      +(hay? '<div class="row2"><span>Temporada</span><b>'+S.temporada+'</b></div>' : '')
+      +'<p class="note" style="margin:10px 0 0">Fuerza de los equipos según Elo real (elofootball.com, agosto 2026). Ventaja de campo: 74 puntos.</p></div>';
+  }
+  return H;
+}
+function irArbol(){
+  if(!S){ irSec("ajustes"); return; }
+  $("scr-sec").classList.remove("hidden");
+  $("sec-body").innerHTML=vistaArbol();
+  scrollSiCambia("arbol");
+}
+function filtroArbol(k){ ARBOL_FILTRO=k; irArbol(); }
+function vistaArbol(){
+  var H='<div class="eyebrow">Diseño</div><h2 class="disp">Árbol de decisiones</h2>';
+  var puestos=["todas"].concat(POS_ORDEN);
+  H+='<div class="chips">'+puestos.map(function(k){
+    return '<button class="chip'+(ARBOL_FILTRO===k?' on':'')+'" onclick="filtroArbol(\''+k+'\')">'+(k==="todas"?"Todas":k)+'</button>';
+  }).join("")+'</div>';
+  var lista=todasSits().filter(function(x){
+    if(ARBOL_FILTRO==="todas") return true;
+    return !x.pos || x.pos.indexOf(ARBOL_FILTRO)>=0;
+  });
+  H+='<p class="note" style="margin:4px 2px 10px">'+lista.length+' situaciones'+(ARBOL_FILTRO==="todas"?"":" disponibles para "+POS[ARBOL_FILTRO].n.toLowerCase())+'.</p>';
+  var Mtmp=M;
+  M=M||{sc:[0,0],min:60,miTA:0,casa:true,rival:"SEV",dElo:0,modOwn:1,modOpp:1,lam:[1.3,1.1],tramo:3,nota:6.2,miGol:0,miAsis:0,paradas:0,miTR:0,enCampo:true};
+  lista.forEach(function(sit){
+    H+='<div class="card nodo"><div class="eyebrow">'+esc(sit.id)+(sit.pos?' · '+sit.pos.join("/"):' · todas')+(sit.arq?' · solo '+sit.arq.join("/"):'')+(sit.unico?' · única':'')+(sit.custom?' · <span style="color:var(--gold)">tuya</span>':'')+'</div>';
+    H+='<h3 style="margin:0 0 4px">'+esc(typeof sit.t==="function"?sit.t(M):sit.t)+'</h3>';
+    var xt=typeof sit.x==="function"? sit.x(M):sit.x;
+    H+='<p class="note" style="margin:0 0 10px">'+esc(xt)+'</p>';
+    sit.o.forEach(function(o,i){
+      var E=probsEfectivas(o), tags=[];
+      if(E.gol>0) tags.push('<span class="dgood">gol '+pc(E.golCuenta)+'</span>');
+      if(E.asis>0) tags.push('<span class="dgood">asist '+pc(E.asisCuenta)+'</span>');
+      if(E.parada>0) tags.push('<span class="dgood">parada '+pc(E.parada)+'</span>');
+      if(E.golR>0) tags.push('<span class="dbad">gol contra '+pc(E.golRCuenta)+'</span>');
+      if(E.ta>0) tags.push('<span class="dbad">🟨 '+pc(E.ta)+'</span>');
+      if(E.roja>0) tags.push('<span class="dbad">🟥 '+pc(E.roja)+'</span>');
+      if(E.lesion>0) tags.push('<span class="dbad">lesión '+pc(E.lesion)+'</span>');
+      var f=o.fx||{};
+      if(f.own&&f.own!==1) tags.push('<span class="dneu">equipo ×'+f.own+'</span>');
+      if(f.opp&&f.opp!==1) tags.push('<span class="dneu">rival ×'+f.opp+'</span>');
+      if(f.nota) tags.push('<span class="dneu">nota '+sgn(f.nota)+'</span>');
+      if(f.mis) tags.push('<span class="dneu">míster '+sgn(f.mis)+'</span>');
+      var D=probDesenlaces(o);
+      var esp=D.ok*deltaNota(o,"ok")+D.mid*deltaNota(o,"mid")+D.ko*deltaNota(o,"ko");
+      var skReq=o.skill? SKILLS.filter(function(x){return x.id===o.skill;})[0] : null;
+      H+='<div class="rama'+(o.skill?' skcard':'')+'"><div class="ramaT">'+(o.skill?'★ ':'')+esc(typeof o.l==="function"?o.l():o.l)
+        +(skReq?' <span class="note" style="color:var(--bloom)">requiere: '+esc(skReq.n)+'</span>':'')+'</div>'
+        +'<div class="dbg" style="border:0;padding-top:4px">'+tags.join("")+'</div>'
+        +'<div class="dsals">'
+        +'<div class="dsal"><span class="dgood">✔ '+pc(D.ok)+'</span><span class="dpts dgood">+'+deltaNota(o,"ok").toFixed(2)+' pts</span><span class="dtx">'+esc(o.ok||"—")+'</span></div>'
+        +'<div class="dsal"><span class="dneu">– '+pc(D.mid)+'</span><span class="dpts dneu">'+(deltaNota(o,"mid")>=0?"+":"")+deltaNota(o,"mid").toFixed(2)+' pts</span><span class="dtx">'+esc(o.mid||"—")+'</span></div>'
+        +'<div class="dsal"><span class="dbad">✘ '+pc(D.ko)+'</span><span class="dpts dbad">'+deltaNota(o,"ko").toFixed(2)+' pts</span><span class="dtx">'+esc(o.ko||"—")+'</span></div>'
+        +'</div><div class="desp">valor esperado <b class="'+(esp>0?"dgood":"dbad")+'">'+(esp>=0?"+":"")+esp.toFixed(2)+'</b></div></div>';
+    });
+    H+='</div>';
+  });
+  M=Mtmp;
+  H+='<button class="ghost" onclick="irSec(\'ajustes\')">Volver a ajustes</button>';
+  return H;
+}
+/* ---------- EDITOR ---------- */
+function irEditor(){
+  if(!S){ irSec("ajustes"); return; }
+  $("scr-sec").classList.remove("hidden");
+  var H='<div class="eyebrow">Diseño</div><h2 class="disp">Nueva situación</h2>';
+  H+='<div class="card"><label class="note">Identificador<input id="e-id" placeholder="mi-situacion"></label>';
+  H+='<label class="note">Posiciones (vacío = todas)<input id="e-pos" placeholder="DC,EXT"></label>';
+  H+='<label class="note">Título<input id="e-t" placeholder="Solo ante el portero"></label>';
+  H+='<label class="note">Texto de la situación<textarea id="e-x" rows="3" placeholder="Qué está pasando..."></textarea></label></div>';
+  for(var k=1;k<=3;k++){
+    H+='<div class="card"><div class="eyebrow">Opción '+k+'</div>'
+      +'<label class="note">Texto del botón<input id="e-o'+k+'-l" placeholder="Disparar cruzado"></label>'
+      +'<div class="grid3">'
+      +'<label class="note">gol %<input id="e-o'+k+'-gol" type="number" min="0" max="100" value="0"></label>'
+      +'<label class="note">asist %<input id="e-o'+k+'-asis" type="number" min="0" max="100" value="0"></label>'
+      +'<label class="note">gol contra %<input id="e-o'+k+'-golR" type="number" min="0" max="100" value="0"></label>'
+      +'<label class="note">parada %<input id="e-o'+k+'-par" type="number" min="0" max="100" value="0"></label>'
+      +'<label class="note">🟨 %<input id="e-o'+k+'-ta" type="number" min="0" max="100" value="0"></label>'
+      +'<label class="note">nota<input id="e-o'+k+'-nota" type="number" min="-3" max="3" value="0"></label>'
+      +'</div>'
+      +'<label class="note">✔ Si sale bien<textarea id="e-o'+k+'-ok" rows="2"></textarea></label>'
+      +'<label class="note">– Si no pasa nada<textarea id="e-o'+k+'-mid" rows="2"></textarea></label>'
+      +'<label class="note">✘ Si sale mal<textarea id="e-o'+k+'-ko" rows="2"></textarea></label></div>';
+  }
+  H+='<button class="gold-btn" onclick="guardarSituacion()">Guardar y añadir al juego</button>';
+  H+='<button class="ghost" onclick="irSec(\'ajustes\')">Cancelar</button>';
+  $("sec-body").innerHTML=H;
+  scrollSiCambia("editor");
+}
+function val(id){ var n=$(id); return n? n.value.trim():""; }
+function num(id){ var v=parseFloat(val(id)); return isNaN(v)?0:v/100; }
+function guardarSituacion(){
+  if(!S) return;
+  var id=val("e-id")||("custom-"+Date.now());
+  var pos=val("e-pos")? val("e-pos").toUpperCase().split(/[,\s]+/).filter(Boolean):null;
+  var o=[];
+  for(var k=1;k<=3;k++){
+    var l=val("e-o"+k+"-l");
+    if(!l) continue;
+    var fx={inst:{}};
+    var g=num("e-o"+k+"-gol"), a=num("e-o"+k+"-asis"), gr=num("e-o"+k+"-golR"), pa=num("e-o"+k+"-par");
+    if(g) fx.inst.gol=g;
+    if(a) fx.inst.asis=a;
+    if(gr) fx.inst.golR=gr;
+    if(pa) fx.inst.parada=pa;
+    var ta=num("e-o"+k+"-ta"); if(ta) fx.ta=ta;
+    var nt=parseFloat(val("e-o"+k+"-nota")); if(nt) fx.nota=nt;
+    o.push({l:l, fx:fx, ok:val("e-o"+k+"-ok"), mid:val("e-o"+k+"-mid"), ko:val("e-o"+k+"-ko")});
+  }
+  if(!o.length){ modal({ico:"✍️", t:"Falta contenido", x:"Añade al menos una opción con su texto de botón.", okTxt:"Entendido", cancelTxt:"Cerrar"}); return; }
+  var sit={id:id, pos:pos, custom:true, t:val("e-t")||id, x:val("e-x")||"", o:o, cond:function(){return true;}};
+  S.custom=S.custom||[];
+  S.custom.push(sit);
+  guardar();
+  irArbol();
+}
+function exportarContenido(){
+  if(!S) return;
+  var limpio=(S.custom||[]).map(function(c){
+    return {id:c.id,pos:c.pos,t:c.t,x:c.x,o:c.o.map(function(o){return {l:o.l,fx:o.fx,ok:o.ok,mid:o.mid,ko:o.ko};})};
+  });
+  var blob=new Blob([JSON.stringify(limpio,null,2)],{type:"application/json"});
+  var a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="goatmaker-situaciones.json";
+  a.click();
+}
+/* decide tu papel en la próxima jornada y lo deja fijado */
+function jornadasSinJugar(){
+  var n=0;
+  for(var i=S.hist.length-1;i>=0;i--){
+    if(S.hist[i].yo) break;
+    n++;
+  }
+  return n;
+}
+function convocatoria(){
+  if(S.conv && S.conv.jor===S.jornada && !(S.conv.prov && entMisterHecho())) return S.conv;
+  var c;
+  if(S.lesion>0) c={rol:"lesion", txt:"Lesionado", det:"Te quedan "+S.lesion+" jornada(s) de baja."};
+  else if(S.sancion>0) c={rol:"sancion", txt:"Sancionado", det:"Cumples sanción por "+(S.motivoBaja||"expulsión")+"."};
+  else {
+    var mia=miMedia();
+    /* cubrir más puestos te abre más minutos: se compara con el MEJOR rival de CUALQUIERA
+       de tus posiciones (principal + secundarias), no solo la tuya de siempre */
+    var posibles=[S.pos].concat((S.posSec||[]).map(function(x){return x.pos;}));
+    var dif=-999;
+    posibles.forEach(function(p){
+      var rivP=compis().filter(function(x){ return x.pos===p && !x.lesion && !x.sancion; });
+      var mejorP=rivP.length? Math.max.apply(null, rivP.map(function(x){return x.media;})) : 0;
+      var dP=mejorP? mia-mejorP : 6;
+      if(dP>dif) dif=dP;
+    });
+    var ajuste=(S.mister-55)/12+(S.conf-55)/25+((S.forma||70)-70)/22
+      +((S.entMister && S.entMister.jor===S.jornada)? (S.entMister.nota-6)*0.6 : 0);   /* lo que el míster vio en el entreno */
+    var puntos=dif+ajuste+encajeMister()*3.2;
+    var pTit=clamp(0.5+puntos*(S.pos==="POR"?0.12:0.085), 0.02, 0.97);
+    if(S.garantia>0){ pTit=clamp(pTit+0.35,0,0.97); S.garantia--; }
+    if(S.castigo>0) pTit=0.03;
+    var u=(S.convU && S.convU.jor===S.jornada)? S.convU.u : (S.convU={jor:S.jornada, u:rnd()}).u;   /* una tirada por semana: el entreno mueve la balanza, no la repite */
+    if(u<pTit) c={rol:"titular", txt:"Titular", det:"El míster te da el once. Noventa minutos para demostrarlo."};
+    else if(S.castigo>0 && rnd()<0.7) c={rol:"fuera", txt:"Fuera de la convocatoria", det:"El míster te ha borrado. Ni siquiera viajas."};
+    else if(puntos<-20 && rnd()<0.35) c={rol:"fuera", txt:"Fuera de la convocatoria", det:"Todavía te queda mucho para entrar en la lista."};
+    else c={rol:"suplente", txt:"En el banquillo", det:"Empiezas fuera. Si el partido te llama, tendrás que estar listo."};
+  }
+  c.jor=S.jornada;
+  if((c.rol==="titular"||c.rol==="suplente"||c.rol==="fuera") && S.contrato && !entMisterHecho()){ c.prov=true; c.txt+=" · provisional"; c.det="Se confirma tras el entreno del míster. "+c.det; }
+  S.conv=c;
+  return c;
+}
+/* barra superior del menú: nombre, puesto, nivel y acceso a ajustes */
+function renderTopbar(){
+  var tb=$("topbar"); if(!tb || !S) return;
+  var nv=S.nivel||1, pct=nv>=99? 1 : clamp((S.xp||0)/xpParaNivel(nv),0,1);
+  var club=EQ[S.equipo]? EQ[S.equipo].c : "";
+  tb.innerHTML='<div class="tb">'
+    +'<div class="tbring"><svg viewBox="0 0 44 44" aria-hidden="true">'
+      +'<circle cx="22" cy="22" r="19" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="3"/>'
+      +'<circle cx="22" cy="22" r="19" fill="none" stroke="var(--gold)" stroke-width="3" stroke-linecap="round" stroke-dasharray="'+(pct*119.38).toFixed(2)+' 119.38" transform="rotate(-90 22 22)"/>'
+    +'</svg><b>'+nv+'</b></div>'
+    +'<div class="tbtxt"><div class="tbn">'+esc(S.nombre||"")+'</div>'
+      +'<div class="tbs">'+esc(POS[S.pos]? POS[S.pos].n : "")+(club? ' · '+esc(club):'')+'</div></div>'
+    +'<button class="tbbtn" disabled aria-label="Notificaciones (próximamente)" title="Notificaciones (próximamente)">🔔</button>'
+    +'<button class="tbbtn" aria-label="Pantalla completa" title="Pantalla completa" onclick="pantallaCompleta()"'+(FS_OK?'':' disabled')+'>⛶</button>'
+    +'<button class="tbbtn" aria-label="Ajustes" onclick="irSec(\'ajustes\')">⚙️</button>'
+  +'</div>';
+}
+function renderHub(){
+  PARTIDA_ABIERTA=true;
+  setTimeout(drenarOvsem,0);   /* lo que quedó esperando a que hubiera menú */
+  $("scr-title").classList.add("hidden");
+  $("scr-pick").classList.add("hidden");
+  $("scr-pos").classList.add("hidden");
+  $("scr-sec").classList.add("hidden");
+  $("scr-hub").classList.remove("hidden");
+  $("menu").classList.remove("hidden");
+  document.body.classList.add("conmenu");
+  renderTopbar();
+  var bs=$("menu").getElementsByTagName("button");
+  for(var i=0;i<bs.length;i++){ bs[i].className = bs[i].getAttribute("data-s")==="inicio"? "on":""; }
+  /* liga terminada (la jornada ya pasó de la 38) y aún sin ver el resumen: se ofrece en vez de un partido */
+  if(S && S.jornada>=38){
+    $("hub-left").innerHTML='<div class="card"><div class="eyebrow">Fin de temporada</div>'
+      +'<p class="note" style="margin:0 0 10px">La liga ha terminado. Mira cómo ha ido.</p>'
+      +'<button class="gold-btn" onclick="finTemporada()">Ver el resumen</button></div>';
+    $("hub-right").innerHTML="";
+    return;
+  }
+  var yo=EQ[S.equipo], p=partidoDe(S.jornada), casa=p&&p.h===S.equipo, rival=p?(casa?p.a:p.h):null;
+  var pos=miPosicion(), L="";
+  var c=convocatoria();
+  var ROLCOL={titular:"var(--ok)", suplente:"var(--gold)", fuera:"var(--bad)", lesion:"var(--bad)", sancion:"var(--bad)"};
+  var BOTON={titular:"⚽ Saltar al campo", suplente:"Continuar", fuera:"Continuar",
+             lesion:"Continuar", sancion:"Continuar"};
+  /* tu estado en una línea */
+  var Y=S.yo, med=Y.notaN?(Y.notaSum/Y.notaN):0;
+  L+='<div class="card"><div class="eyebrow">'+esc(yo.c)+' · '+pos+'º · '+esc(mister().n)+'</div>'
+    +'<div class="statgrid2">'
+    +celda(miMedia(),"Media")
+    +celda(Y.notaN?med.toFixed(1):"—","Nota")
+    +celda(S.pos==="POR"?Y.paradas:Y.g, S.pos==="POR"?"Paradas":"Goles")
+    +celda(Math.round(S.forma===undefined?70:S.forma),"Forma")
+    +'</div>';
+  L+='<div class="forma">'+(function(){
+    var ult=S.racha.slice(-5); while(ult.length<5) ult.unshift(null);
+    return ult.map(function(v){ return '<div class="fdot '+(v?("f"+v):"f-")+'">'+(v||"·")+'</div>'; }).join("");
+  })()+'</div></div>';
+  if(p){
+    L+='<div class="nextcard">'
+      +'<div class="tagline">Jornada '+(S.jornada+1)+' de 38 · '+esc(casa?yo.est:EQ[rival].est)+'</div>'
+      +'<div class="vsrow">'
+      +'<div class="vsteam">'+crestSVG(casa?yo.id:rival,44)+'<div class="tn">'+esc(casa?yo.c:EQ[rival].c)+'</div></div>'
+      +'<div class="vsmid">VS</div>'
+      +'<div class="vsteam">'+crestSVG(casa?rival:yo.id,44)+'<div class="tn">'+esc(casa?EQ[rival].c:yo.c)+'</div></div>'
+      +'</div>'
+      +'<div class="convrow" style="border-color:'+ROLCOL[c.rol]+'">'
+        +'<b style="color:'+ROLCOL[c.rol]+'">'+esc(c.txt)+'</b>'
+        +'<span>'+esc(c.det)+'</span></div>'
+      +'<button class="gold-btn" onclick="iniciarJornada()">'+BOTON[c.rol]+'</button>'
+      +'</div>';
+  }
+  L+=vocesHTML();
+  /* aviso si tienes cosas pendientes esta semana */
+  var pend=[], sinEntreno=(S.lesion<=0 && S.contrato && !entMisterHecho());
+  if(sinEntreno) pend.push("el entreno del míster sin hacer");
+  if(S.semanaHecha!==S.jornada) pend.push("la semana personal sin decidir");
+  if(pend.length){
+    var irPend = sinEntreno
+      ? {txt:"🏋️ Ir a entrenar", fn:"pendIrEntreno()"}
+      : {txt:"📝 Decidir la semana", fn:"pendIrSemana()"};
+    L+='<div class="card" style="border-color:rgba(255,194,75,.35)"><div class="eyebrow" style="color:var(--gold)">Pendiente</div><p class="note" style="margin:0 0 10px">Te queda '+esc(pend.join(" y "))+'.</p>'
+      +'<button class="btn" style="width:100%" onclick="'+irPend.fn+'">'+esc(irPend.txt)+'</button></div>';
+  }
+  var mensajes=diaADia();
+  mensajes.forEach(function(m){
+    L+='<div class="msgcard" style="border-left-color:'+m.col+'">'
+      +'<div class="msgde" style="color:'+m.col+'">'+esc({mister:"El míster","míster":"El míster",club:"El club",vestuario:"El vestuario"}[m.de]||m.de)+' · '+esc(m.n)+'</div>'
+      +'<p class="msgt">'+m.t+'</p></div>';
+  });
+  if(S.evaluacion){
+    var _e=S.evaluacion;
+    var _c=_e.cump>=3?"var(--ok)":_e.cump===0?"var(--bad)":"var(--gold)";
+    L+='<div class="msgcard" style="border-left-color:'+_c+'"><div class="msgde" style="color:'+_c+'">El club · balance de la temporada</div>'
+      +'<p class="msgt">'+esc(_e.pj+" partidos, "+_e.g+" goles, nota "+_e.nota.toFixed(2)+". ")
+      +(_e.cump>=3? "«Has superado todo lo que te pedimos.»" : _e.cump===0? "«No es lo que esperábamos de ti.»" : "«Un año correcto, sin más.»")+'</p>'
+      +(S.subidaSueldo? '<p class="msgt" style="color:var(--ok)">Te suben la ficha un 18%.</p>':'')
+      +(S.bajadaSueldo? '<p class="msgt" style="color:var(--bad)">Te ajustan la ficha un 10% a la baja.</p>':'')
+      +'</div>';
+    S.evaluacion=null; S.subidaSueldo=null; S.bajadaSueldo=null;
+  }
+  if(S.descendido){
+    L+='<div class="card" style="border-color:var(--bad)"><div class="eyebrow" style="color:var(--bad)">Descenso</div>'
+      +'<p style="margin:0;font-size:14px">'+esc(EQ[S.equipo].c)+' bajó a Segunda. '
+      +(S.libre? 'Tu <b>cláusula de salida</b> se activa: eres libre. Decide abajo, en el mercado.' : 'Tu salario se recorta un 45% y la próxima campaña se juega en <b>Segunda División</b>: 20 rivales nuevos y un solo objetivo, volver.')+'</p></div>';
+    S.descendido=null;
+  }
+  if(S.ascendido){
+    L+='<div class="card" style="border-color:var(--ok)"><div class="eyebrow" style="color:var(--ok)">ASCENSO</div>'
+      +'<p style="margin:0;font-size:14px">El '+esc(EQ[S.equipo].c)+' vuelve a <b>Primera División</b>. Tu ficha sube un 30% y te llevas una prima de <b>'+fmtDinero(S.ascendido.prima||0)+'</b>.</p></div>';
+    S.ascendido=null;
+  }
+  if(S.avisoVida){
+    L+='<div class="card"><div class="eyebrow">Tu gente</div>'
+      +'<p style="margin:0;font-size:14px">'+esc(S.avisoVida)+'</p></div>';
+    S.avisoVida=null;
+  }
+  if(S.avisoCapricho){
+    L+='<div class="card" style="border-color:rgba(255,194,75,.45)"><div class="eyebrow" style="color:var(--gold)">Se te ha metido en la cabeza</div>'
+      +'<p style="margin:0;font-size:14px">'+esc(S.avisoCapricho)+' <span class="note">Lo ves en Vida → Dinero.</span></p></div>';
+    S.avisoCapricho=null;
+  }
+  if(S.trasp){
+    var _tr=S.trasp;
+    L+='<div class="card" style="border-color:var(--gold)"><div class="eyebrow" style="color:var(--gold)">Traspaso</div>'
+      +'<p style="margin:0;font-size:14px">Llegas al <b>'+esc(EQ[S.equipo].c)+'</b> procedente del '+esc(_tr.de)
+      +(_tr.tipo==="libre"? ' como <b>agente libre</b>.' : ' por <b>'+fmtDinero(_tr.fee)+'</b>'+(_tr.tipo==="clausula"? ' (pagaron tu cláusula).' : '.'))
+      +(_tr.forzado? ' Saliste por la puerta de atrás y la prensa no lo olvida.' : '')
+      +' Vestuario nuevo, mote nuevo: todo se gana otra vez.</p></div>';
+    S.trasp=null;
+  }
+  if(S.ofertasVerano){
+    if(S.libre){
+      L+='<div class="card" style="border-color:var(--gold)"><div class="eyebrow" style="color:var(--gold)">Mercado · agente libre</div>'
+        +'<p style="margin:0 0 8px;font-size:14px">Sin traspaso de por medio, cualquier club puede firmarte. Si te quedas, renuevas con el '+esc(EQ[S.equipo].c)+' en Segunda con la ficha recortada un 45%.</p>'
+        +'<button class="gold-btn" onclick="abrirMercado()">Escuchar ofertas</button>'
+        +'<button class="ghost" onclick="quedarmeMercado()">Renovar con el '+esc(EQ[S.equipo].c)+' (ficha −45%)</button></div>';
+    } else {
+      L+='<div class="card" style="border-color:var(--gold)"><div class="eyebrow" style="color:var(--gold)">Mercado</div>'
+        +'<p style="margin:0 0 8px;font-size:14px">Tu media ('+miMedia()+') se ha quedado grande para el '+esc(EQ[S.equipo].c)
+        +'. Hay clubes preguntando por ti. El mercado se cierra cuando arranque la liga.</p>'
+        +'<button class="gold-btn" onclick="abrirMercado()">Escuchar ofertas</button>'
+        +'<button class="ghost" onclick="quedarmeMercado()">Quedarme donde estoy</button></div>';
+    }
+  }
+  if(S.avisoMercado){
+    L+='<div class="card" style="border-color:rgba(255,194,75,.35)"><div class="eyebrow" style="color:var(--gold)">Mercado</div>'
+      +'<p style="margin:0;font-size:14px">'+esc(S.avisoMercado)+'</p></div>';
+    S.avisoMercado=null;
+  }
+  if(S.avisoEntreno){
+    L+='<div class="card" style="border-color:rgba(255,194,75,.35)"><div class="eyebrow" style="color:var(--gold)">Entreno</div>'
+      +'<p style="margin:0;font-size:14px">'+esc(S.avisoEntreno)+'</p></div>';
+    S.avisoEntreno=null;
+  }
+  if(S.renovado){
+    L+='<div class="card" style="border-color:var(--ok)"><div class="eyebrow" style="color:var(--ok)">Renovación</div>'
+      +'<p style="margin:0;font-size:14px">Se te acababa el contrato y el club te ha renovado dos temporadas más por <b>'
+      +fmtDinero(S.contrato.salario)+'</b> al año.</p></div>';
+    S.renovado=null;
+  }
+  if(S.avisoMister){
+    L+='<div class="card" style="border-color:rgba(255,84,112,.4)"><div class="eyebrow" style="color:var(--bad)">Del vestuario</div>'
+      +'<p style="margin:0;font-size:14px">'+esc(S.avisoMister)+'</p></div>';
+    S.avisoMister=null;
+  }
+  if(S.misterNuevo){
+    var _E=estiloMister();
+    L+='<div class="card" style="border-color:var(--bloom)"><div class="eyebrow" style="color:var(--bloom)">Nuevo entrenador</div>'
+      +'<p style="margin:0 0 4px;font-size:15px"><b>'+esc(mister().n)+'</b> · '+esc(_E.n)+'</p>'
+      +'<p class="note" style="margin:0">'+esc(_E.lema)+' '+esc(_E.d)+'</p>'
+      +'<p class="note" style="margin:6px 0 0">Contigo, de entrada: <b style="color:'+fraseMister().col+'">'
+      +(encajeMister()>=0.5?"le encajas":encajeMister()<=-0.5?"no eres su perfil":"está por ver")+'</b>. Todo vuelve a empezar.</p></div>';
+    S.misterNuevo=null;
+  }
+  $("hub-left").innerHTML=L;
+  $("hub-right").innerHTML="";
+  scrollSiCambia("hub");
+}
+/* ================= FIN DE TEMPORADA ================= */
+function finTemporada(){
+  /* la prima se cobra una vez por temporada, aunque se abra el resumen varias veces */
+  if(S.objPagadoT!==S.temporada){ pagarObjetivo(); S.objPagadoT=S.temporada; }
+  var cl=clasificacion(), pos=miPosicion(), yo=EQ[S.equipo], obj=objetivoDe(rankDe(yo.id));
+  var cumplido=pos<=obj.pos, seg=(S.division==="2");
+  var titulo = seg? (pos<=3? "¡ASCENSO A PRIMERA!"
+      : pos<=6? "Cerca del ascenso"
+      : "Un año más en Segunda")
+    : pos===1? "¡CAMPEONES DE LIGA!"
+    : pos<=4? "Clasificados para la Champions"
+    : pos<=6? "Europa League: billete europeo"
+    : pos===7? "Conference League: Europa por la puerta pequeña"
+    : pos>=18? "Descenso a Segunda División"
+    : "Temporada en tierra de nadie";
+  var frase = seg? (pos<=3? "El campo se llena de gente que no se conoce abrazándose. Volvéis a Primera."
+      : cumplido? "Objetivo cumplido: "+obj.t+"." : "El barro de Segunda no se va en una temporada. Habrá que insistir.")
+    : pos===1? "La ciudad no duerme esta noche. Ni falta que hace."
+    : pos>=18? "El vestuario en silencio y una categoría entera esperando abajo. El fútbol también es esto."
+    : cumplido? "Objetivo cumplido: "+obj.t+". La directiva sonríe en el palco."
+    : "El objetivo era "+obj.t+" y se quedó a "+(pos-obj.pos)+" puesto(s). Habrá preguntas.";
+  var H='<div class="matchcard" style="text-align:center">'
+    +'<div class="mtag">Temporada '+S.temporada+' · Jornada 38 de 38</div>'
+    +crestSVG(yo.id,64)
+    +'<div class="finpos disp mono">'+pos+'º</div>'
+    +'<h2 class="disp" style="letter-spacing:2px;margin-top:6px">'+esc(titulo)+'</h2>'
+    +'<p style="font-size:14px">'+esc(frase)+'</p>'
+    +'<div class="mline"><span>'+(seg?"Suben a Primera":"Champions")+'</span></div>';
+  /* una fila de la clasificación; si es tu equipo, se destaca en dorado */
+  function filaClasi(r,n){
+    var yo=r.id===S.equipo;
+    return '<p class="mono" style="margin:2px 0;font-size:'+(yo?'15px':'13px')+';'
+      +(yo?'color:var(--gold);font-weight:700;background:rgba(255,194,75,.12);border-radius:8px;padding:3px 0':'color:var(--muted,#8a93a6)')+'">'
+      +n+'º '+esc(EQ[r.id].c)+' · '+r.t.pts+' pts'+'</p>';
+  }
+  cl.slice(0,seg?3:4).forEach(function(r,i){ H+=filaClasi(r,i+1); });
+  if(!seg){
+    H+='<div class="mline"><span>Descienden</span></div>';
+    cl.slice(17).forEach(function(r,i){ H+=filaClasi(r,18+i); });
+  }
+  var Y=S.yo, med=Y.notaN?(Y.notaSum/Y.notaN):0;
+  H+='<div class="mline"><span>Tu temporada</span></div>';
+  H+='<p class="mono" style="font-size:15px;margin:4px 0">'+S.dorsal+' · '+esc(S.nombre)+' — '+esc(POS[S.pos].n)+'</p>';
+  H+='<p class="note mono" style="margin:2px 0">'+Y.pj+' partidos · media '+(Y.notaN?med.toFixed(2):"—")+(Y.mvp?" · ⭐ "+Y.mvp+" veces mejor del partido":"")+'</p>';
+  H+='<p class="note mono" style="margin:2px 0">'+(S.pos==="POR"? Y.paradas+" paradas decisivas" : Y.g+" goles · "+Y.a+" asistencias")+' · 🟨'+Y.ta+' 🟥'+Y.tr+'</p>';
+  H+='<button class="gold-btn" style="margin-top:14px" onclick="nuevaTemporada()">Continuar</button>';
+  H+='</div>';
+  $("ov-fin-inner").innerHTML=H;
+  $("ov-fin").classList.remove("hidden");
+}
+function nuevaTemporada(){
+  var Y=S.yo;
+  var divPrev=S.division||"1";
+  var finalPrev=Object.keys(S.tabla).map(function(k){ return {id:k,t:S.tabla[k]}; })
+    .sort(function(x,y){ return (y.t.pts-x.t.pts)||((y.t.gf-y.t.gc)-(x.t.gf-x.t.gc))||(y.t.gf-x.t.gf); })
+    .map(function(r){ return r.id; });
+  vitrinaCierreTemporada(S.yo.g||0);
+  /* al cerrar la temporada se borran los partidos (S.hist se reinicia); las estadísticas quedan en S.carrera */
+  S.reto=null;
+  var carrera=(S.carrera||[]).concat([{temp:S.temporada, club:S.equipo, liga:(divPrev==="2"?"Segunda División":"Primera División"),
+    edad:S.edad, pj:Y.pj, g:Y.g, a:Y.a, ta:Y.ta, tr:Y.tr, med:Y.notaN?(Y.notaSum/Y.notaN):0,
+    at:(function(){ var o={}; ATTR_ORDEN.concat(S.pos==="POR"?["POR"]:[]).forEach(function(k){ o[k]=Math.round(atr(k)); }); return o; })(),
+    tir:Y.tiros||0, cla:Y.claras||0, cve:Y.clave||0}]);
+  var eq=S.equipo, t=S.temporada+1, po=S.pos, no=S.nombre, dr=S.dorsal, pi=S.pierna, ro=S.rol;
+  var edPrev=(S.edad||21)+1;
+  /* el club te evalúa con los números de la temporada que ACABA */
+  var evalPrev={cump:cumpleObjetivo(), pj:S.yo.pj, g:S.yo.g, nota:S.yo.notaN?(S.yo.notaSum/S.yo.notaN):0};
+  var posFinalPrev=posLiga(eq);
+  /* TODO lo que es del jugador viaja con él; solo se reinicia la temporada */
+  var LLEVAR=["attr","reps","skills","skl","car","vicios","publico","muro","prensa","entrenador",
+              "contrato","acuerdo","dinero","dineroCarrera","custom","vidaLog","fama","esperas",
+              "conf","moral","debug","compis","mote","bienvenida","vida","mundo","division","altura","fichajes","archivo","lado",
+              "tienda","histLes","vitrina","agente","fidelidad","modLesTemp",
+              "potencial","mister","repsM","patros","misPosts","peso","posSec","tensiones","nemesis","nivel","xp","techos","techoPend","talentoPend","talentos","ultimaJugada"];   /* los contratos de patrocinio son de CARRERA */   /* tu techo es tu destino, y la relación con el míster (y lo sudado con él) no se borra en verano */   /* lo que es de CARRERA viaja: tu bazar, tu expediente, tu agente, tus años de «me quedo» y el escudo médico */
+  var guarda={};
+  LLEVAR.forEach(function(k){ guarda[k]=S[k]; });
+  S=nuevoEstado(eq,po,no,dr,pi,ro,edPrev); S.temporada=t;
+  LLEVAR.forEach(function(k){ if(guarda[k]!==undefined) S[k]=guarda[k]; });
+  S.carrera=carrera;
+  /* --- el mundo se mueve: rendimiento, ruido, ascensos y descensos de los 40 --- */
+  S.division=divPrev;
+  if(!S.vida) S.vida={casa:0, coche:false, fisio:false, mentor:false, dona:0};
+  S.vida.dona=0;
+  evolucionarMundo(finalPrev, divPrev);
+  if(divPrev==="2" && posFinalPrev<=3){
+    S.division="1";
+    S.ascendido={prima: guarda.contrato? Math.round(guarda.contrato.salario*0.25/1000)*1000 : 60000};
+    if(guarda.contrato) guarda.contrato.salario=Math.round(guarda.contrato.salario*1.30);
+    S.fama=(S.fama||30)+6;
+    S.publico.afic=clamp((S.publico.afic||50)+12,0,100);
+    S.prensa=(S.prensa||[]).concat([{jor:1, t:S.nombre+" devuelve al "+EQ[eq].c+" a Primera. La ciudad entera lo firma."}]);
+    while(S.prensa.length>12) S.prensa.shift();
+  } else if(divPrev==="1" && posFinalPrev>=18){
+    S.division="2";
+  }
+  montarLiga();
+  /* --- tus servicios anuales se cobran del cierre de caja --- */
+  var avisosVida=[];
+  if(S.vida.fisio){
+    var cF=costeFisio(guarda.contrato);
+    if((guarda.dinero||0)>=cF){ guarda.dinero-=cF; avisosVida.push("Fisio personal renovado ("+fmtDinero(cF)+"/año)."); }
+    else { S.vida.fisio=false; avisosVida.push("No llegabas al fisio personal ("+fmtDinero(cF)+"): servicio cancelado."); }
+  }
+  if(S.vida.mentor){
+    var cM=costeMentor(guarda.contrato);
+    if((guarda.dinero||0)>=cM){ guarda.dinero-=cM; avisosVida.push("Preparador mental renovado ("+fmtDinero(cM)+"/año)."); }
+    else { S.vida.mentor=false; avisosVida.push("No llegabas al preparador mental ("+fmtDinero(cM)+"): servicio cancelado."); }
+  }
+  if(avisosVida.length) S.avisoVida=avisosVida.join(" ");
+  /* el dinero de la temporada se archiva y el contador vuelve a cero */
+  /* el cuerpo pasa factura: a partir de los 30 se pierde por arriba */
+  var ed=S.edad||22;
+  if(ed>=30){
+    var caida = ed>=34? 2.6 : ed>=32? 1.7 : 0.9;
+    S.attr.FIS=clamp(atr("FIS")-caida*1.6, 10, 95);
+    S.attr.TEC=clamp(atr("TEC")-caida*0.4, 10, 95);
+    S.attr.DEF=clamp(atr("DEF")-caida*0.5, 10, 95);
+    if(S.pos==="POR") S.attr.POR=clamp(atr("POR")-caida*0.5, 10, 95);
+    S.attr.TAC=clamp(atr("TAC")+0.6, 10, 95);      /* la cabeza sí mejora */
+    S.attr.MEN=clamp(atr("MEN")+0.5, 10, 95);
+  }
+  S.dineroCarrera=(guarda.dineroCarrera||0)+(guarda.dinero||0);
+  S.dinero=0;
+  if(S.ascendido && S.ascendido.prima) S.dinero+=S.ascendido.prima;
+  S.garantia=0; S.castigo=0; S.ciclo=0; S.sancion=0; S.lesion=0; S.desafios=0;
+  /* el club evalúa tu temporada (con los números reales de la que acaba) */
+  S.evaluacion=evalPrev;
+  if(guarda.contrato){
+    if(evalPrev.cump===3){ guarda.contrato.salario=Math.round(guarda.contrato.salario*1.18); S.subidaSueldo=true; }
+    else if(evalPrev.cump===0){ guarda.contrato.salario=Math.round(guarda.contrato.salario*0.9); S.bajadaSueldo=true; }
+  }
+  S.objPers=null;
+  /* si el equipo desciende, el mundo cambia */
+  var posFinal=posFinalPrev;
+  if(divPrev==="1" && posFinal>=18){
+    S.descendido=true;
+    if(guarda.contrato && guarda.contrato.salidaDescenso){ S.libre=true; }
+    else if(guarda.contrato){ guarda.contrato.salario=Math.round(guarda.contrato.salario*0.55); }
+  }
+  /* el contrato corre: una temporada menos */
+  if(S.contrato){
+    S.contrato.anos=Math.max(0,(S.contrato.anos||1)-1);
+    if(S.contrato.anos===0){
+      S.contrato.anos=2;
+      S.contrato.salario=Math.round(S.contrato.salario*(1+clamp((miMedia()-65)/100,-0.1,0.35)));
+      S.renovado=true;
+    }
+  }
+  /* la plantilla cambia en verano, y los que siguen cumplen años */
+  S.compis=crearCompis(eq, no);
+  S.compis.forEach(function(c){ c.edad=(c.edad||24)+(t-1); });
+  /* ¿te quieren fuera? si has superado a tu club, llaman de arriba */
+  var miaAhora=miMedia(), exigeClub=franjaDe(rankDe(eq)).exige;
+  if(S.libre){
+    S.ofertasVerano=true;   /* el descenso con cláusula de salida desemboca en el mercado */
+  } else if(miaAhora>=exigeClub+6 && S.temporada>=2 && rnd()<clamp((miaAhora-exigeClub)/22,0.15,0.85)){
+    S.ofertasVerano=true;
+  }
+  var entPrev=S.entrenador;
+  /* ¿sigue el mismo entrenador? */
+  if(entPrev && rnd()<0.72){
+    entPrev.temporadas=(entPrev.temporadas||1)+1; S.entrenador=entPrev;
+    S.mister=clamp(S.mister+(S.mister<45?6:2), 5, 95);   /* el verano cura un poco */
+  } else {
+    S.entrenador=crearEntrenador(eq); S.misterNuevo=true;
+    /* técnico nuevo, hoja en blanco: la relación vuelve cerca del punto neutro */
+    S.mister=clamp(50+(S.mister-50)*0.25, 25, 75);
+  }
+  guardar();
+  $("ov-fin").classList.add("hidden");
+  renderHub();
+}
+async function reiniciarTodo(){
+  await sDel("save"); S=null;
+  $("ov-fin").classList.add("hidden");
+  $("scr-hub").classList.add("hidden");
+  $("scr-pos").classList.add("hidden");
+  irElegir();
+}
+/* ================= PANTALLAS ================= */
+var PICK={eq:null, pos:null, rol:null, pierna:"D", esperas:0, attrBonus:0, edad:18, nombre:null, dorsal:9, tanda:null, altura:180, peso:75, sec:[]};
+function renderPos2(){
+  PICK.sec=PICK.sec||[];
+  if(!PICK.pos){ $("pos2-list").innerHTML='<p class="note" style="margin:0">Elige tu posición principal primero.</p>'; return; }
+  var H='<div class="chips full" style="grid-template-columns:repeat(4,1fr)">';
+  POS_ORDEN.forEach(function(k){
+    if(k===PICK.pos) return;
+    var on=PICK.sec.some(function(x){return x.pos===k;});
+    H+='<button class="chip'+(on?' on':'')+'" onclick="togglePos2(\''+k+'\')">'+esc(POS[k].ab)+'</button>';
+  });
+  H+='</div>';
+  PICK.sec.forEach(function(x){
+    if(!CON_LADO(x.pos)) return;
+    H+='<div class="note" style="margin-top:8px">Lado en '+esc(POS[x.pos].ab)+': '
+      +["I","D"].map(function(l){ return '<button class="chip'+(x.lado===l?' on':'')+'" style="margin-right:4px" onclick="setLadoPos2(\''+x.pos+'\',\''+l+'\')">'+(l==="I"?"Izquierda":"Derecha")+'</button>'; }).join("")
+      +'</div>';
+  });
+  if(PICK.sec.length>=2) H+='<p class="note" style="margin-top:8px">Ya tienes tus dos posiciones secundarias. Toca una activa para quitarla.</p>';
+  $("pos2-list").innerHTML=H;
+}
+function togglePos2(k){
+  PICK.sec=PICK.sec||[];
+  var i=PICK.sec.map(function(x){return x.pos;}).indexOf(k);
+  if(i>=0){ PICK.sec.splice(i,1); }
+  else { if(PICK.sec.length>=2) return; PICK.sec.push({pos:k, lado:CON_LADO(k)?"I":null}); }
+  renderPos2();
+}
+function setLadoPos2(pos,lado){
+  PICK.sec=PICK.sec||[];
+  var x=PICK.sec.filter(function(y){return y.pos===pos;})[0];
+  if(x){ x.lado=lado; renderPos2(); }
+}
+function irElegir(){
+  $("menu").classList.add("hidden");
+  document.body.classList.remove("conmenu");
+  $("scr-sec").classList.add("hidden");
+  $("scr-hub").classList.add("hidden");
+  $("scr-title").classList.add("hidden");
+  $("scr-pick").classList.add("hidden");
+  $("scr-pos").classList.remove("hidden");
+  PICK={eq:null, pos:null, rol:null, pierna:"D", esperas:0, attrBonus:0, altura:180, peso:75, sec:[]};
+  renderPitch();
+  renderPierna();
+  renderRoles();
+  renderPos2();
+  scrollSiCambia("elegir");
+}
+function renderPitch(){
+  var H='<div class="mark pmid"></div><div class="mark pcirc"></div>'
+    +'<div class="mark parea pareaT"></div><div class="mark parea pareaB"></div>';
+  POS_ORDEN.forEach(function(k){
+    var pp=POS[k], lado=CON_LADO(k)? "I":null;
+    var sel=(PICK.pos===k && (!lado || PICK.lado===lado))? ' sel':'';
+    H+='<div class="spot'+sel+'" style="left:'+pp.x+'%;top:'+pp.y+'%" onclick="elegirPos(\''+k+'\''+(lado? ',\''+lado+'\'':'')+')">'+pp.ab+'</div>';
+  });
+  POS_EXTRA.forEach(function(e){
+    var lado=CON_LADO(e.p)? "D":null;
+    var sel=(PICK.pos===e.p && (!lado || PICK.lado===lado))? ' sel':'';
+    H+='<div class="spot ghost'+sel+'" style="left:'+e.x+'%;top:'+e.y+'%" onclick="elegirPos(\''+e.p+'\''+(lado? ',\''+lado+'\'':'')+')">'+POS[e.p].ab+'</div>';
+  });
+  $("pitch").innerHTML=H;
+}
+function renderPierna(){
+  $("pierna-row").innerHTML=["D","I","A"].map(function(k){
+    return '<div class="pchip'+(PICK.pierna===k?' on':'')+'" onclick="setPierna(\''+k+'\')">'+PIERNAS[k].n+'</div>';
+  }).join("");
+}
+function setPierna(k){ PICK.pierna=k; renderPierna(); }
+function setRol(id){ PICK.rol=id; renderRoles(); }
+function renderRoles(){
+  if(!PICK.pos){ $("rol-card").classList.add("hidden"); return; }
+  $("rol-card").classList.remove("hidden");
+  $("rol-list").innerHTML=ROLES[PICK.pos].map(function(r){
+    return '<button class="rolopt'+(PICK.rol===r.id?' on':'')+'" onclick="setRol(\''+r.id+'\')">'+esc(r.n)+'<small>'+esc(r.d)+'</small></button>';
+  }).join("");
+}
+var DORSAL_SUG={POR:1, DFC:4, LAT:2, MCD:5, MC:8, MCO:10, EXT:7, DC:9};
+function elegirPos(k, lado){
+  PICK.pos=k;
+  PICK.rol=ROLES[k][0].id;
+  PICK.lado=CON_LADO(k)? (lado||"I"):null;
+  PICK.sec=(PICK.sec||[]).filter(function(x){return x.pos!==k;});   /* la principal no puede duplicarse como secundaria */
+  renderPitch();
+  renderRoles();
+  renderPos2();
+  var pp=POS[k];
+  var cuantas=todasSits().filter(function(x){ return !x.pos || x.pos.indexOf(k)>=0; }).length;
+  $("pos-info").innerHTML='<div class="eyebrow">'+esc(pp.ab)+'</div><h3 class="disp" style="letter-spacing:1px;margin-bottom:4px">'+esc(pp.n)+'</h3>'
+    +'<p style="margin:0 0 6px;font-size:14px">'+esc(pp.d)+'</p>'
+    +'';
+  $("in-dorsal").value=DORSAL_SUG[k]||9;
+
+  var b=$("btn-firmar"); b.disabled=false; b.textContent="Jugar el partidillo de prueba";
+}
+/* núcleo reutilizable: aplica cifras+extras negociados a un contrato c, con sus efectos en S */
+function aplicarExtrasContrato(c, neg){
+  c.salario=neg.salario; c.anos=neg.anos; c.clausula=neg.clausula;
+  var ex=neg.extras||{};
+  c.extras=ex;
+  if(ex.minutos){ S.garantia=10; S.mister=clamp(S.mister+8,5,95); }
+  if(ex.prima){ c.primaFichaje=Math.round(c.salario*0.45/1000)*1000; S.dinero=(S.dinero||0)+c.primaFichaje; }
+  if(ex.gol) c.primaGol=Math.round(c.salario*0.03/1000)*1000;
+  if(ex.partidos) c.primaPartido=Math.round(c.salario*0.02/1000)*1000;
+  if(ex.casa){ S.animo=clamp((S.animo||65)+6,20,100); c.casa=true; }
+  if(ex.coche){ S.fama=(S.fama||30)+4; c.coche=true; }
+  if(ex.familia){ S.animo=clamp((S.animo||65)+5,20,100); c.familia=true; }
+  if(ex.salida) c.salidaDescenso=true;
+  if(ex.imagen){ S.fama=(S.fama||30)+8; c.imagen=true; }
+  S.acuerdo="negociado";
+}
+/* aplica la contraoferta firmada en la creación de personaje (cifras + extras) al contrato c */
+function aplicarFirma(c, of){
+  if(!(PICK.contraOK && of && PICK.contraOK.club===of.id)) return;
+  aplicarExtrasContrato(c, PICK.contraOK);
+}
+function empezarCarrera(){
+  if(!PICK.pos || !PICK.eq) return;
+  cerrarOverlays();
+  if(PICK.traspaso && S){
+    /* traspaso: cambias de club sin perder tu carrera (todo lo de LLEVAR ya viaja contigo) */
+    var of2=(PICK.tanda&&PICK.tanda[PICK.negIdx])||null;
+    var op=(of2&&of2.op)||{tipo:(S.libre?"libre":"acuerdo"), fee:0, forzado:false};
+    var deNombre=EQ[S.equipo].c, deId=S.equipo;
+    S.equipo=PICK.eq;
+    S.division="1"; S.descendido=null; S.ascendido=null;
+    montarLiga();
+    (S.fichajes=S.fichajes||[]).push({temp:S.temporada, de:deId, a:PICK.eq, fee:(of2&&of2.op?of2.op.fee:0), tipo:(of2&&of2.op?of2.op.tipo:(S.libre?"libre":"acuerdo"))});
+    if(S.fichajes.length>12) S.fichajes.shift();
+    S.compis=crearCompis(PICK.eq, S.nombre);          /* vestuario nuevo: afinidad de recién llegado */
+    S.entrenador=crearEntrenador(PICK.eq);
+    S.misterNuevo=true;
+    S.mister=52;
+    S.bienvenida=null; S.mote=null;                    /* mote y bienvenida se ganan otra vez */
+    S.objetivo=null; S.objPers=null;                   /* el encargo pasa a ser el del club nuevo */
+    S.acuerdo=null; S.garantia=0;
+    var cc=of2? JSON.parse(JSON.stringify(of2.contrato)) : S.contrato;
+    aplicarFirma(cc, of2);
+    S.contrato=cc; if(S.contrato) S.contrato.firmadoT=S.temporada;
+    /* la afición nueva te espera; cuanto más cara la operación, más se espera de ti */
+    S.publico.afic=clamp(50+(S.publico.afic-50)*0.4 + (op.fee>=12000000?5:0) - (op.forzado?6:0), 20, 85);
+    S.publico.seg=Math.round((S.publico.seg||1200)*1.08)+40;
+    var dFama = op.tipo==="libre"?2 : op.fee>=40000000?12 : op.fee>=12000000?8 : op.fee>=3000000?5 : 3;
+    S.fama=(S.fama||30)+dFama;
+    S.trasp={de:deNombre, fee:op.fee, tipo:op.tipo, forzado:!!op.forzado};
+    S.prensa=(S.prensa||[]).concat([{jor:S.jornada+1, t:(op.tipo==="libre"
+      ? S.nombre+" firma libre por el "+EQ[PICK.eq].c+" tras el descenso: la cláusula de salida mejor pagada del año."
+      : S.nombre+" ya es del "+EQ[PICK.eq].c+": "+fmtDinero(op.fee)+(op.forzado?" y un portazo que se oyó en toda la ciudad.":" y muchas expectativas."))}]);
+    if(S.prensa.length>12) S.prensa.shift();
+    S.muro.unshift({jor:S.jornada+1, u:pick(["PeñaNueva","AbonadoNuevo","GolNorte"]),
+      t:pick(["Bienvenido, "+S.nombre+". Aquí se viene a sudar la camiseta.",
+              S.nombre+", demuéstranos que valías ese dinero.",
+              "Ojo con el fichaje. Dicen que "+S.nombre+" viene con hambre."]), bien:true});
+    if(S.muro.length>16) S.muro.pop();
+    (S.vidaLog=S.vidaLog||[]).push("Verano: fichas por el "+EQ[PICK.eq].c+(op.tipo==="libre"?" como agente libre":" por "+fmtDinero(op.fee)));
+    S.libre=null; S.ofertasVerano=null;
+    PICK.contraOK=null; CONTRA=null; PICK.traspaso=false;
+    guardar(); renderHub(); return;
+  }
+  S=nuevoEstado(PICK.eq, PICK.pos, PICK.nombre||"Tú", PICK.dorsal||9, PICK.pierna, PICK.rol, PICK.edad||21);
+  S.altura=PICK.altura||180; S.peso=PICK.peso||75;
+  S.posSec=(PICK.sec||[]).map(function(x){return {pos:x.pos, lado:x.lado};});
+  S.nivel=nivelInicial(PICK.edad||21, PICK.notaPrueba);
+  S.xp=0; S.techos={}; S.techoPend=0; S.talentoPend=0;
+  if(esSegunda(PICK.eq)){ S.division="2"; montarLiga(); }
+  S.lado=PICK.lado||(CON_LADO(S.pos)? ladoDerivado(S.pierna, S.rol):null);
+  S.fichajes=[{temp:1, de:null, a:PICK.eq, fee:0, tipo:"cantera"}];
+  S.reto=genReto();
+  if(PICK.attrBonus){
+    for(var k in S.attr){ S.attr[k]=Math.round(clamp(S.attr[k]+PICK.attrBonus,15,92)); }
+  }
+  S.esperas=PICK.esperas||0;
+  var of=(PICK.tanda&&PICK.tanda[PICK.negIdx])||null;
+  var c=of? JSON.parse(JSON.stringify(of.contrato)) : {salario:200000,anos:3,clausula:4000000,prima:12000,franja:"modesta",exige:52};
+  S.dinero=0;   /* la caja empieza a cero ANTES de cobrar la prima de fichaje */
+  aplicarFirma(c, of);
+  PICK.contraOK=null; CONTRA=null;
+  S.acuerdo=S.acuerdo||PICK.acuerdo||null;
+  if(S.acuerdo==="salario") c.salario=Math.round(c.salario*1.3);
+  else if(S.acuerdo==="minutos"){ S.garantia=10; S.mister=clamp(S.mister+8,5,95); }
+  else if(S.acuerdo==="clausula") c.clausula=Math.round(c.clausula/2);
+  else if(S.acuerdo==="corto") c.anos=Math.max(1,c.anos-1);
+  else if(S.acuerdo==="ficha"){ S.conf=clamp(S.conf+10,25,95); S.mister=clamp(S.mister+4,5,95); }
+  else if(S.acuerdo==="nada") S.mister=clamp(S.mister+6,5,95);
+  S.contrato=c; if(S.contrato) S.contrato.firmadoT=S.temporada;
+  guardar();
+  $("scr-pick").classList.add("hidden");
+  $("scr-pos").classList.add("hidden");
+  renderHub();
+}
+/* --- media estimada del aspirante, antes de tener partida --- */
+function edadPick(){
+  if(PICK.edad) return clamp(PICK.edad,16,38);
+  var n=$("in-edad");
+  return clamp(parseInt(n&&n.value,10)||21,16,38);
+}
+function mediaAspirante(){
+  var pos=PICK.pos||"DC", e=edadPick();
+  var b=JSON.parse(JSON.stringify(ATTR_BASE[pos]));
+  var d = e<20? -(20-e)*3.2 : e<=30? (e-20)*0.9 : (10*0.9)-(e-30)*1.4;
+  var w=PESO_MEDIA[pos]||PESO_MEDIA.MC, base=0;
+  for(var k in w){ base+=clamp(b[k]+d+(PICK.attrBonus||0),15,92)*w[k]; }
+  base+=(PICK.bonusPrueba||0);
+  var curva = e<20? -4+(e-16)*1.1 : e<=30? (e-20)*0.55 : -(e-30)*1.1;
+  return Math.round(clamp(base*0.92+curva+14, 40, 95));
+}
+/* --- generar tres canteras interesadas --- */
+function generarTanda(){
+  var mia=mediaAspirante();
+  var nivel=franjaPorMedia(mia);
+  var n=PICK.notaPrueba;
+  /* la nota del partidillo empuja o hunde la franja a la que aspiras */
+  if(n!==undefined){
+    if(n>=8.6) nivel+=2;
+    else if(n>=7.6) nivel+=1;
+    else if(n<5.0) nivel-=1;
+  }
+  nivel-=Math.floor((PICK.esperas||0)/2);
+  nivel=clamp(nivel,0,5);
+  /* cinco mesas entre las dos divisiones: una por encima, dos a tu nivel, dos por debajo */
+  var objetivos=[Math.min(5,nivel+1), nivel, nivel, Math.max(0,nivel-1), Math.max(0,nivel-2)];
+  var usados=[], out=[];
+  objetivos.forEach(function(fx,i){
+    var pool=clubsDeFranja(FRANJAS[fx]).filter(function(e){ return usados.indexOf(e.id)<0; });
+    /* si esa franja se agota, se busca en la de al lado */
+    var d=1;
+    while(!pool.length && d<7){
+      var alt=[FRANJAS[clamp(fx+d,0,5)], FRANJAS[clamp(fx-d,0,5)]];
+      alt.forEach(function(fa){
+        if(pool.length) return;
+        pool=clubsDeFranja(fa).filter(function(e){ return usados.indexOf(e.id)<0; });
+      });
+      d++;
+    }
+    if(!pool.length) return;
+    var eq=pick(pool);
+    usados.push(eq.id);
+    out.push(ofertaDe(eq, mia, i));
+  });
+  /* los ojeadores que te vieron entran si encajan con tu nivel */
+  if(PICK.ojeadores && PICK.ojeadores.length && out.length>=4 && rnd()<0.6){
+    var oj=PICK.ojeadores.filter(function(id){
+      return usados.indexOf(id)<0 && Math.abs(franjaPorMedia(mia)-FRANJAS.indexOf(franjaDe(rankDe(id)).n))<=1;
+    });
+    if(oj.length){
+      var idx=1+Math.floor(rnd()*2);   /* ocupa una mesa central: sigue habiendo cinco */
+      out[idx]=ofertaDe(EQ[pick(oj)], mia, idx);
+    }
+  }
+  return out;
+}
+function ofertaDe(eq, mia, tipo){
+  var _int=(typeof S!=="undefined" && S)? interesClubes():1;
+  var plant=plantillaObj(eq.id);
+  var rivales=plant.filter(function(j){ return j.pos===(PICK.pos||"DC"); });
+  var mejor, directo=rivales.length>0;
+  if(directo){ mejor=Math.max.apply(null, rivales.map(function(j){return j.media;})); }
+  else {
+    /* sin rival de tu puesto en la lista: te mides con el nivel del vestuario */
+    var suma=0; plant.forEach(function(j){ suma+=j.media; });
+    mejor=Math.round(suma/plant.length)-3;
+  }
+  var dif = mia-mejor;
+  var rol, col;
+  if(dif>=2){ rol="Titular desde el primer día"; col="var(--ok)"; }
+  else if(dif>=-5){ rol="Pelearás el puesto"; col="var(--gold)"; }
+  else if(dif>=-12){ rol="Rotaciones y minutos sueltos"; col="var(--muted)"; }
+  else { rol="Banquillo y mucha paciencia"; col="var(--bad)"; }
+  var frases=[
+    "«Aquí no fichamos promesas: las hacemos jugar.»",
+    "«Tenemos un plan para ti y empieza el lunes.»",
+    "«Nos gusta cómo te mueves sin balón. Eso no se entrena.»",
+    "«Queremos gente de la casa, y tú puedes serlo.»",
+    "«Nuestro filial es una autopista al primer equipo.»",
+    "«Sabemos lo que tienes. Y sabemos lo que te falta.»"
+  ];
+  var c=contratoDe(eq, mia, PICK.edad||20, dif);
+  c.salario=Math.round(c.salario*_int/1000)*1000;
+  return {id:eq.id, rol:rol, col:col, dif:Math.round(dif), mejor:mejor, mia:mia, directo:directo,
+          frase:pick(frases), tipo:tipo, competencia:rivales.length, contrato:c};
+}
+function cambioEdad(){
+  var n=$("in-edad"); if(!n) return;
+  PICK.edad=clamp(parseInt(n.value,10)||18,16,38);
+  var nota=$("edad-nota");
+  if(nota && PICK.pos) nota.textContent="Con "+PICK.edad+" años en ese puesto, tu media de salida rondará "+mediaAspirante()+". De ella depende quién te quiera.";
+  else if(nota) nota.textContent="Cuanto más joven empieces, más margen de mejora tendrás — y menos te querrán al principio.";
+}
+function cerrarOverlays(){
+  ["ov-match","ov-fin","ov-contrato","ov-modal"].forEach(function(id){
+    var n=$(id); if(n){ n.classList.add("hidden"); n.onclick=null; }
+  });
+  cancelarAuto();
+}
+function renderOfertas(){
+  cerrarOverlays();
+  var esperas=PICK.esperas||0;
+  $("of-eyebrow").textContent = esperas? "Tanda "+(esperas+1)+" · "+PICK.edad+" años" : "Mercado de canteras · "+PICK.edad+" años";
+  var n=PICK.notaPrueba;
+  if(n!==undefined){
+    var juicio = n>=8.3? "Han visto a un futbolista distinto." : n>=7.2? "Se van con buena impresión." :
+                 n>=6.2? "Ni fu ni fa: cumpliste." : n>=5? "No les has convencido." : "Mejor no preguntar qué han escrito.";
+    var det=[];
+    if(PICK.golesPrueba) det.push(PICK.golesPrueba+" gol"+(PICK.golesPrueba>1?"es":""));
+    if(PICK.asisPrueba) det.push(PICK.asisPrueba+" asistencia"+(PICK.asisPrueba>1?"s":""));
+    if(PICK.paradasPrueba) det.push(PICK.paradasPrueba+" parada"+(PICK.paradasPrueba>1?"s":""));
+    if(PICK.rojaPrueba) det.push("expulsado 🟥");
+    $("of-intro").innerHTML='<span style="display:block;margin-bottom:8px">'
+      +'<b class="disp" style="font-size:26px;color:'+notaColor(n)+'">'+n.toFixed(1)+'</b>'
+      +' <span style="color:var(--muted)">en el partidillo'+(det.length?" · "+esc(det.join(" · ")):"")+'</span></span>'
+      +esc(juicio)+(esperas? " Segunda oportunidad, seis meses después." : " Tres clubes mueven ficha.");
+  } else {
+    $("of-intro").innerHTML = esperas
+      ? "Seis meses más de barro y gimnasio. Estas son las puertas que se abren ahora."
+      : "Tres clubes se han fijado en ti.";
+  }
+  var H="";
+  PICK.tanda.forEach(function(o,i){
+    var eq=EQ[o.id], tg=tagDe(rankDe(eq.id));
+    H+='<div class="card oferta">'
+      +'<div style="display:flex;gap:12px;align-items:center">'
+      +crestSVG(eq.id,46)
+      +'<div style="flex:1;min-width:0">'
+        +'<div class="disp" style="font-size:17px;line-height:1.1">'+esc(eq.n)+'</div>'
+        +'<div class="note" style="margin-top:3px">'+esc(tg.t)+' · Elo '+eloDe(eq.id)+'</div>'
+      +'</div>'
+      +'<div class="mono" style="text-align:right"><div style="font-size:11px;color:var(--dim)">TU MEDIA</div>'
+        +'<div class="disp" style="font-size:22px;color:var(--gold)">'+o.mia+'</div></div>'
+      +'</div>'
+      +'<p class="note" style="margin:10px 0 8px;font-style:italic">'+esc(o.frase)+'</p>'
+      +'<div class="row2"><span>Lo que te espera</span><b style="color:'+o.col+'">'+esc(o.rol)+'</b></div>'
+      +'<div class="row2"><span>Salario</span><b>'+fmtDinero(o.contrato.salario)+' al año</b></div>'
+      +'<div class="row2"><span>Contrato</span><b>'+o.contrato.anos+' temporadas</b></div>'
+      +'<div class="row2"><span>Competencia en tu puesto</span><b>'+(o.directo? o.mejor+" de media ("+o.competencia+")" : "nivel del vestuario: "+o.mejor)+'</b></div>'
+      +(dbgOn()?'<div class="dbg"><span class="dneu">dif '+o.dif+'</span><span class="dneu">rivales '+o.competencia+'</span></div>':'')
+      +'<button class="gold-btn" style="margin-top:12px" onclick="renderNegociacion('+i+')">✍ Sentarte a negociar</button>'
+      +'</div>';
+  });
+  $("ofertas").innerHTML=H;
+  var av = esperas>=3
+    ? "Llevas año y medio esperando. Cada tanda que dejas pasar, los clubes miran a otro lado."
+    : "Si esperas: seguirás entrenando por tu cuenta (subirás algo), pero cumplirás medio año más y algunos clubes perderán el interés.";
+  $("of-aviso").textContent=av;
+  $("btn-esperar").textContent = "Esperar seis meses y volver a probarte";
+}
+function esperarTanda(){
+  PICK.esperas=(PICK.esperas||0)+1;
+  /* medio año por tu cuenta: algo mejoras, pero el reloj corre */
+  PICK.attrBonus=(PICK.attrBonus||0) + (rnd()<0.75? 1.6+rnd()*1.8 : -0.6);
+  if(PICK.esperas%2===0) PICK.edad=clamp(PICK.edad+1,16,38);
+  PICK.bonusPrueba=0;
+  $("scr-pick").classList.add("hidden");
+  iniciarPrueba();
+}
+var PIDES=[
+ {id:"salario", n:"Mejorar el salario", d:"Un 30% mas de ficha.", dificil:5,
+  mejora:function(c){ return "+"+fmtDinero(Math.round(c.salario*0.3)); },
+  ok:"Regateas como un agente veterano y el club cede.",
+  ko:"«Ese es el tope de la escala salarial. Lo tomas o lo dejas.»"},
+ {id:"minutos", n:"Minutos garantizados", d:"Sitio asegurado los primeros meses.", dificil:6,
+  mejora:function(){ return "10 jornadas de prioridad"; },
+  ok:"«Contamos contigo desde el primer día.» Lo firman.",
+  ko:"«Los minutos se ganan en el campo, no en el despacho.»"},
+ {id:"clausula", n:"Bajar la cláusula", d:"Para poder salir si aparece algo mejor.", dificil:4,
+  mejora:function(c){ return "cláusula a la mitad"; },
+  ok:"Aceptan rebajarla: si triunfas, no te retendrán a la fuerza.",
+  ko:"«La cláusula está para protegernos a nosotros, no a ti.»"},
+ {id:"corto", n:"Contrato más corto", d:"Menos años atado, antes para renegociar.", dificil:3,
+  mejora:function(c){ return c.anos+" → "+Math.max(1,c.anos-1)+" temporadas"; },
+  ok:"Firman por menos tiempo. Si explotas, renegocias antes.",
+  ko:"«Si te queremos, te queremos años. Es lo que hay.»"},
+ {id:"ficha", n:"Ficha de primer equipo", d:"Nada de filial: uno más del vestuario.", dificil:8,
+  mejora:function(){ return "estatus de plantilla"; },
+  ok:"Entras con ficha del primer equipo. El vestuario te trata de tú a tú.",
+  ko:"«Empezarás abajo, como todos.»"},
+ {id:"nada", n:"Firmar tal cual", d:"Ni una pega. Eso también dice cosas de ti.", dificil:-99,
+  ok:"Firmas sin regatear. Al director deportivo le encanta.", ko:""}
+];
+function probAceptar(o, pide){
+  if(pide.dificil<-50) return 1;
+  var base=0.5 + ((PICK.notaPrueba||6)-6.5)*0.14 + (o.dif||0)*0.02 - pide.dificil*0.045;
+  return clamp(base, 0.05, 0.95);
+}
+var CONTRA=null;
+/* extras que hoy se firman de verdad en un contrato */
+var EXTRAS=[
+ {id:"prima",   n:"Prima de fichaje",        d:"Un pago único al estampar la firma.", coste:2.2,
+  val:function(c){ return Math.round(c.salario*0.45/1000)*1000; }},
+ {id:"minutos", n:"Minutos garantizados",    d:"Prioridad en el once durante 10 jornadas.", coste:3.0},
+ {id:"casa",    n:"Vivienda pagada",         d:"El club te cubre el alojamiento.", coste:1.1},
+ {id:"coche",   n:"Coche oficial",           d:"Vehículo del patrocinador del club.", coste:0.6},
+ {id:"gol",     n:"Prima por gol",           d:"Un extra por cada gol que marques.", coste:1.4,
+  val:function(c){ return Math.round(c.salario*0.03/1000)*1000; }},
+ {id:"partidos",n:"Prima por partido jugado",d:"Cobras por minutos, no por estar.", coste:1.3,
+  val:function(c){ return Math.round(c.salario*0.02/1000)*1000; }},
+ {id:"familia", n:"Vuelos para la familia",  d:"Billetes para los tuyos cada mes.", coste:0.5},
+ {id:"salida",  n:"Cláusula de salida si desciende", d:"Si el equipo baja, te vas gratis.", coste:1.8},
+ {id:"imagen",  n:"Derechos de imagen propios", d:"Tus patrocinios son tuyos.", coste:2.4}
+];
+function renderNegociacion(i){
+  var o=PICK.tanda[i];
+  PICK.negIdx=i;
+  if(!CONTRA || CONTRA.club!==o.id){
+    CONTRA={club:o.id, salario:o.contrato.salario, anos:o.contrato.anos, clausula:o.contrato.clausula, extras:{}, pac:100};
+  }
+  $("scr-pick").innerHTML='<div id="neg-wrap"></div>';
+  pintarNegociacion();
+}
+function limitesContra(c){
+  return {
+    salMin:c.salario, salMax:Math.round(c.salario*2.4),
+    anosMin:1, anosMax:6,
+    clMin:Math.round(c.clausula*0.25), clMax:Math.round(c.clausula*1.6)
+  };
+}
+function exigencia(c){
+  var e=0;
+  e += (CONTRA.salario-c.salario)/c.salario*6.5;
+  e += Math.abs(CONTRA.anos-c.anos)*0.7;
+  e += (c.clausula-CONTRA.clausula)/c.clausula*3.6;
+  EXTRAS.forEach(function(x){ if(CONTRA.extras[x.id]) e+=x.coste; });
+  return Math.max(0,e);
+}
+function probContra(o){
+  var pac=(CONTRA && CONTRA.pac!==undefined)? CONTRA.pac : 100;
+  var base=0.94 - exigencia(o.contrato)*0.075 + ((PICK.notaPrueba||6.3)-6.3)*0.10 + (o.dif||0)*0.012 - (100-pac)*0.004;
+  return clamp(base, 0.02, 0.97);
+}
+function barraPac(p){
+  var b=Math.round(clamp(p,0,100)/10), col=p>60?"var(--ok)":p>30?"var(--gold)":"var(--bad)";
+  var h='<span style="letter-spacing:1px;color:'+col+'">';
+  for(var i=0;i<10;i++) h+=(i<b?"█":"░");
+  return h+'</span>';
+}
+/* actualiza SOLO los textos: nunca se reconstruye el slider mientras lo arrastras */
+function refrescarNeg(){
+  var o=PICK.tanda[PICK.negIdx], c=o.contrato;
+  var t;
+  if((t=$("sv-salario"))) t.innerHTML=fmtDinero(CONTRA.salario)+' <i>(ofrecen '+fmtDinero(c.salario)+')</i>';
+  if((t=$("sv-anos"))) t.innerHTML=CONTRA.anos+(CONTRA.anos===1?" temporada":" temporadas")+' <i>(ofrecen '+c.anos+')</i>';
+  if((t=$("sv-clausula"))) t.innerHTML=fmtDinero(CONTRA.clausula)+' <i>(ofrecen '+fmtDinero(c.clausula)+')</i>';
+  var pr=probContra(o), col=pr>=0.7?"var(--ok)":pr>=0.4?"var(--gold)":"var(--bad)";
+  if((t=$("neg-prob"))){
+    t.innerHTML='<div class="disp" style="font-size:38px;color:'+col+'">'+Math.round(pr*100)+'%</div>'
+      +'<div class="note" style="flex:1">'+(pr>=0.75?"Firman sin pestañear."
+      :pr>=0.5?"Lo van a pensar, pero hay opciones."
+      :pr>=0.25?"Estás apretando de más. Puede salir mal."
+      :"Con esto te vas a la calle.")+'</div>';
+    t.parentNode && (t.parentNode.style.borderColor=col);
+    t.innerHTML+='<div class="note" style="margin-top:5px">Paciencia del club: '+barraPac(CONTRA.pac!==undefined?CONTRA.pac:100)+'</div>';
+  }
+}
+function setSlider(k,v){
+  if(!PICK || !PICK.tanda || !PICK.tanda[PICK.negIdx] || !CONTRA) return;
+  var o=PICK.tanda[PICK.negIdx], L=limitesContra(o.contrato);
+  if(k==="salario") CONTRA.salario=Math.round(clamp(+v, L.salMin, L.salMax));
+  if(k==="anos") CONTRA.anos=Math.round(clamp(+v, L.anosMin, L.anosMax));
+  if(k==="clausula") CONTRA.clausula=Math.round(clamp(+v, L.clMin, L.clMax));
+  var n=$("sl-"+k); if(n && n.style) n.style.setProperty("--p", Math.round((+v-({salario:L.salMin,anos:L.anosMin,clausula:L.clMin}[k]))/(({salario:L.salMax,anos:L.anosMax,clausula:L.clMax}[k])-({salario:L.salMin,anos:L.anosMin,clausula:L.clMin}[k]))*100)+"%");
+  refrescarNeg();
+}
+function toggleExtra(id){
+  if(!CONTRA || !CONTRA.extras) return;
+  CONTRA.extras[id]=!CONTRA.extras[id];
+  var n=$("ex-"+id); if(n && n.classList){ if(CONTRA.extras[id]) n.classList.add("on"); else n.classList.remove("on"); }
+  refrescarNeg();
+}
+function pintarNegociacion(){
+  var o=PICK.tanda[PICK.negIdx], eq=EQ[o.id], c=o.contrato, L=limitesContra(c);
+  if(!CONTRA || CONTRA.club!==o.id){ CONTRA={club:o.id, salario:c.salario, anos:c.anos, clausula:c.clausula, extras:{}, pac:100}; }
+  var H='<div class="eyebrow">Despacho del '+esc(eq.c)+'</div><h2 class="disp">Tu contraoferta</h2>';
+  H+='<div class="card"><div style="display:flex;gap:12px;align-items:center">'+crestSVG(eq.id,40)
+    +'<div style="flex:1"><b>'+esc(eq.n)+'</b><div class="note">Franja '+esc(c.franja)+' · piden media '+c.exige+' · tú tienes '+o.mia+'</div>'
+    +'<div class="note" style="margin-top:3px">Ofrecen '+fmtDinero(c.salario)+'/año · '+c.anos+' temp · cláusula '+fmtDinero(c.clausula)+'</div></div></div></div>';
+  if(PICK.traspaso && o.op){
+    var st=opTexto(o.op);
+    H+='<div class="card" style="border-color:'+st.col+'"><div class="eyebrow">La operación entre clubes</div>'
+      +'<div class="row2"><span>Estado</span><b style="color:'+st.col+'">'+esc(st.t)+'</b></div>'
+      +(o.op.tipo==="bloqueado"
+        ? '<p class="note" style="margin:8px 0 0">El '+esc(EQ[S.equipo].c)+' pide '+fmtDinero(o.op.piden)+' y el '+esc(eq.c)+' no llega. Sin acuerdo entre clubes no hay contrato que firmar… salvo que te plantes.</p>'
+        : '<p class="note" style="margin:8px 0 0">Los clubes tienen la operación cerrada'+(o.op.forzado?" — a tu manera":"")+'. Lo que queda es tu contrato.</p>')
+      +'</div>';
+    if(o.op.tipo==="bloqueado"){
+      H+='<button class="peligro" onclick="forzarSalida()">🔥 Plantarte para forzar la salida ('+Math.round(probForzar(o)*100)+'%)</button>';
+      H+='<button class="ghost" onclick="rechazarOferta()">Rechazar esta oferta</button>';
+      H+='<button class="ghost" onclick="renderMercado()">← Volver al mercado</button>';
+      $("neg-wrap").innerHTML=H;
+      scrollSiCambia("neg");
+      return;
+    }
+  }
+  if(CONTRA.ultima && CONTRA.ultima.resp==="no"){
+    H+='<div class="card" style="border-color:var(--bad)"><div class="eyebrow">Tu última contraoferta</div>'
+      +'<p class="note" style="margin:6px 0 0">Presentaste '+txtPropuesta(CONTRA.ultima)+'. No la aceptaron.</p>'
+      +'<p class="note" style="margin:6px 0 0">Siguen con su oferta: '+txtPropuesta(c)+'. Paciencia del club: '+barraPac(CONTRA.pac!==undefined?CONTRA.pac:100)+'</p></div>';
+  }
+  H+='<div class="card"><div class="eyebrow">Las cifras</div>'
+    +sliderHTML("Salario anual","salario",CONTRA.salario,L.salMin,L.salMax,Math.max(1000,Math.round(c.salario*0.02)))
+    +sliderHTML("Duración","anos",CONTRA.anos,L.anosMin,L.anosMax,1)
+    +sliderHTML("Cláusula de rescisión","clausula",CONTRA.clausula,L.clMin,L.clMax,Math.max(100000,Math.round(c.clausula*0.02)))
+    +'<p class="note" style="margin:4px 0 0;font-size:11px">Una cláusula baja te deja salir si aparece algo mejor, pero al club no le gusta.</p></div>';
+  H+='<div class="card"><div class="eyebrow">Extras</div><div class="exgrid">';
+  EXTRAS.forEach(function(x){
+    var v=x.val? x.val(c):null;
+    H+='<div id="ex-'+x.id+'" class="ex'+(CONTRA.extras[x.id]?" on":"")+'" onclick="toggleExtra(\''+x.id+'\')">'
+      +'<div class="extop"><b>'+esc(x.n)+'</b><span class="exchk"></span></div>'
+      +'<span class="exd">'+esc(x.d)+(v? ' · <b>'+fmtDinero(v)+'</b>':'')+'</span></div>';
+  });
+  H+='</div></div>';
+  H+='<div class="card" style="border-color:var(--gold)"><div class="eyebrow">Lo que dirán</div>'
+    +'<div id="neg-prob" style="display:flex;align-items:center;gap:12px"></div></div>';
+  H+='<button class="gold-btn" onclick="presentarContra()">Presentar la contraoferta</button>';
+  H+='<button class="ghost" onclick="firmarPor(PICK.negIdx)">Aceptar lo que ofrecen tal cual</button>';
+  H+='<button class="ghost" onclick="rechazarOferta()">Rechazar esta oferta</button>';
+  if(PICK.traspaso) H+='<button class="ghost" onclick="renderMercado()">← Volver al mercado</button>';
+  $("neg-wrap").innerHTML=H;
+  refrescarNeg();
+  scrollSiCambia("neg");
+}
+function sliderHTML(lb,k,v,min,max,step){
+  var pct=Math.round((v-min)/(max-min)*100);
+  return '<div class="srow"><label class="slb">'+esc(lb)+'</label>'
+    +'<input id="sl-'+k+'" class="sl" type="range" min="'+min+'" max="'+max+'" step="'+step+'" value="'+v+'" '
+    +'oninput="setSlider(\''+k+'\',this.value)" onchange="setSlider(\''+k+'\',this.value)" style="--p:'+pct+'%">'
+    +'<span class="sval" id="sv-'+k+'"></span></div>';
+}
+/* una propuesta en una línea: «1,5 M€/año · 4 temp · cláusula 4,0 M€» */
+function txtPropuesta(x){ return fmtDinero(x.salario)+"/año · "+x.anos+(x.anos===1?" temp":" temp")+" · cláusula "+fmtDinero(x.clausula); }
+function presentarContra(){
+  if(!PICK || !PICK.tanda || !PICK.tanda[PICK.negIdx] || !CONTRA) return;
+  var o=PICK.tanda[PICK.negIdx], eq=EQ[o.id];
+  var pr=probContra(o);
+  var acepta=rnd()<pr;
+  if(!acepta){ CONTRA.pac=Math.max(0, (CONTRA.pac!==undefined?CONTRA.pac:100) - (16+Math.round(exigencia(o.contrato)*2.2)) ); }
+  var ofende=!acepta && (CONTRA.pac<=0 || (pr<0.16 && rnd()<0.4) || (CONTRA.pac<25 && rnd()<0.5));
+  CONTRA.ultima={salario:CONTRA.salario, anos:CONTRA.anos, clausula:CONTRA.clausula, resp: acepta?"si":(ofende?"retira":"no")};
+  if(acepta){
+    PICK.contraOK=JSON.parse(JSON.stringify(CONTRA));
+    var ex=EXTRAS.filter(function(x){ return CONTRA.extras[x.id]; }).map(function(x){ return x.n.toLowerCase(); });
+    modal({ico:"🤝", t:"Trato hecho",
+      x:"El "+esc(eq.c)+" acepta: <b>"+fmtDinero(CONTRA.salario)+"</b> al año, "+CONTRA.anos+" temporadas y cláusula de "+fmtDinero(CONTRA.clausula)
+        +(ex.length? ".<br><br>Además: "+esc(ex.join(", "))+"." : "."),
+      okTxt:"Firmar", cancelTxt:"Seguir negociando", onOk:function(){ firmarPor(PICK.negIdx); }});
+  } else if(ofende){
+    modal({ico:"🚪", t:"Oferta retirada", peligro:true,
+      x:(CONTRA.pac<=0? "«Basta. Llevamos toda la mañana dando vueltas a lo mismo.» Al "+esc(eq.c)+" se le agota la paciencia y retira la oferta."
+                        : "«Si esto es lo que pides antes de debutar, mejor lo dejamos.» El "+esc(eq.c)+" se levanta de la mesa.")
+                      +" Tu última propuesta era "+txtPropuesta(CONTRA)+".",
+      okTxt:"Volver a las ofertas", cancelTxt:"Cerrar",
+      onOk:function(){ PICK.tanda.splice(PICK.negIdx,1); CONTRA=null;
+        if(!PICK.tanda.length){
+          if(PICK.traspaso){ cerrarMercado(true,"La negociación salta por los aires y el mercado se te cierra: sigues en el "+EQ[S.equipo].c+"."); return; }
+          esperarTanda(); return;
+        }
+        restaurarOfertas(); }});
+  } else {
+    modal({ico:"📄", t:"No aceptan",
+      x:"«Eso se sale de nuestra escala.» Tu propuesta ("+txtPropuesta(CONTRA)+") no les convence. Siguen con la suya: <b>"+txtPropuesta(o.contrato)+"</b>. Puedes bajar tus pretensiones o firmar la suya.",
+      okTxt:"Bajar mis pretensiones", cancelTxt:"Firmar lo que ofrecen",
+      onOk:function(){ pintarNegociacion(); },
+      onCancel:function(){ PICK.contraOK=null; firmarPor(PICK.negIdx); }});
+  }
+}
+function rechazarOferta(){
+  if(!PICK || !PICK.tanda || !PICK.tanda[PICK.negIdx]) return;
+  var o=PICK.tanda[PICK.negIdx], eq=EQ[o.id];
+  modal({
+    ico:"X", peligro:true,
+    t:"Rechazar al "+eq.c,
+    x:"Si te levantas de esta mesa, el "+esc(eq.c)+" retira su oferta y <b>no volverá</b> en esta tanda.",
+    okTxt:"Rechazar y volver a las ofertas",
+    cancelTxt:"Seguir negociando",
+    onOk:function(){
+      PICK.tanda.splice(PICK.negIdx,1);
+      if(!PICK.tanda.length){
+        if(PICK.traspaso){ cerrarMercado(true,"Has rechazado todas las ofertas: sigues en el "+EQ[S.equipo].c+"."); return; }
+        modal({ico:"?", t:"Sin ofertas", x:"Has rechazado todo. Toca esperar seis meses y volver a probarte.",
+               okTxt:"Esperar seis meses", cancelTxt:"Cerrar", onOk:esperarTanda});
+        return;
+      }
+      restaurarOfertas();
+    }
+  });
+}
+function negociar(k){
+  var pd=PIDES[k], o=PICK.tanda[PICK.negIdx], eq=EQ[o.id];
+  var pr=probAceptar(o,pd);
+  var acepta=rnd()<pr;
+  /* pedir mucho estando muy por debajo puede costarte la oferta */
+  var ofende = !acepta && pd.dificil>=8 && (o.dif||0)<-14 && rnd()<0.15;
+  PICK.acuerdo = acepta? pd.id : null;
+  var ico = acepta? "🤝" : ofende? "🚪" : "📄";
+  var t = acepta? "Trato hecho" : ofende? "Oferta retirada" : "Sin acuerdo, pero hay contrato";
+  var x = acepta? esc(pd.ok)
+        : ofende? "«Si esto es lo que pides antes de debutar, mejor lo dejamos.» El "+esc(eq.c)+" se levanta de la mesa."
+        : esc(pd.ko)+" Aun así, el contrato sigue encima de la mesa.";
+  modal({
+    ico:ico, t:t, x:x,
+    okTxt: ofende? "Volver a las ofertas" : "Firmar por el "+eq.c,
+    cancelTxt: ofende? "Cerrar" : "Pensarlo otra vez",
+    onOk: function(){
+      if(ofende){ PICK.tanda.splice(PICK.negIdx,1); restaurarOfertas(); return; }
+      firmarPor(PICK.negIdx);
+    }
+  });
+}
+function restaurarOfertas(){
+  if(PICK && PICK.traspaso){ renderMercado(); return; }
+  var cont=$("scr-pick");
+  cont.innerHTML='<div class="eyebrow" id="of-eyebrow">Mercado de canteras</div>'
+    +'<h2 class="disp">Quién te quiere</h2>'
+    +'<p class="note" id="of-intro" style="margin:0 0 14px"></p>'
+    +'<div id="ofertas"></div>'
+    +'<button class="ghost" id="btn-esperar" onclick="esperarTanda()">Esperar seis meses y volver a probarte</button>'
+    +'<p class="note" id="of-aviso" style="margin:8px 2px 0"></p>';
+  if(!PICK.tanda || !PICK.tanda.length){ PICK.tanda=generarTanda(); }
+  renderOfertas();
+}
+function firmarPor(i){
+  if(!PICK || !PICK.tanda || !PICK.tanda[i]) return;
+  try{
+    var o=PICK.tanda && PICK.tanda[i];
+    if(!o){ modal({ico:"⚠️", t:"Oferta no disponible", x:"Vuelve atrás y prueba otra vez.", okTxt:"Entendido", cancelTxt:"Cerrar", onOk:restaurarOfertas}); return; }
+    PICK.eq=o.id;
+    empezarCarrera();
+  }catch(e){
+    modal({ico:"🐞", t:"No se ha podido firmar", x:"Error: <b>"+esc(e.message)+"</b>", okTxt:"Entendido", cancelTxt:"Cerrar"});
+  }
+}
+function continuar(){ renderHub(); }
+/* ================= GUARDADO ================= */
+async function guardar(){ await sSet("save", S); }
+/* Una partida —cargada del almacén o importada de un JSON— entra SIEMPRE por esta puerta: rellena lo que las versiones
+   viejas no traían y devuelve a la vida las situaciones propias (el JSON pierde las funciones: sin su cond, el motor se rompía). */
+function rehidratarCustom(){
+  if(!S) return;
+  if(!Array.isArray(S.custom)) S.custom=[];
+  S.custom=S.custom.filter(function(c){ return c && c.id && Array.isArray(c.o) && c.o.length; });
+  S.custom.forEach(function(c){
+    c.custom=true;
+    if(typeof c.cond!=="function") c.cond=function(){ return true; };
+    /* cada opción con la forma que el motor espera (la misma que deja el editor): texto de botón, efectos y los tres desenlaces */
+    c.o=c.o.filter(function(o){ return o && typeof o==="object" && o.l; });
+    c.o.forEach(function(o){
+      if(!o.fx || typeof o.fx!=="object") o.fx={};
+      if(!o.fx.inst || typeof o.fx.inst!=="object") o.fx.inst={};
+      if(typeof o.ok!=="string") o.ok=""; if(typeof o.mid!=="string") o.mid=""; if(typeof o.ko!=="string") o.ko="";
+    });
+  });
+  S.custom=S.custom.filter(function(c){ return c.o.length; });
+}
+function normalizarPartida(){
+    /* partidas de antes de la 4.69.6: los fichajes del club llegaban sin nombre */
+    (S.compis||[]).forEach(function(c){ if(c && !c.n) c.n=genPersona(rnd); });
+    (S.traspasos||[]).forEach(function(t){ if(t && !t.jugN) t.jugN="Fichaje del club"; });
+    if(S.mister===undefined){ S.mister=58; S.desafios=0; S.castigo=0; }
+    if(S.ciclo===undefined) S.ciclo=0;
+    if(S.forma===undefined) S.forma=70;
+    if(S.animo===undefined) S.animo=65;
+    if(S.fama===undefined) S.fama=30;
+    if(!S.custom) S.custom=[];
+    if(!S.vidaLog) S.vidaLog=[];
+    if(!S.attr) S.attr=JSON.parse(JSON.stringify(ATTR_BASE[S.pos]||ATTR_BASE.DC));
+    if(!S.compis) S.compis=crearCompis(S.equipo,S.nombre);
+    if(!S.reps) S.reps={};
+    if(!S.pierna) S.pierna="D";
+    if(!S.rol && ROLES[S.pos]) S.rol=ROLES[S.pos][0].id;
+    if(S.dineroCarrera===undefined) S.dineroCarrera=0;
+    if(!S.potencial) S.potencial=Math.round(68+rnd()*20);
+    if(!S.edad) S.edad=22;
+    if(!S.carrera) S.carrera=[];
+    if(S.garantia===undefined) S.garantia=0;
+    if(S.dinero===undefined) S.dinero=0;
+    if(!S.vicios) S.vicios={noche:0};
+    if(!S.division) S.division="1";
+    if(!S.vida) S.vida={casa:0, casaJor:0, cocheNiv:0, cocheJor:0, fisio:false, mentor:false, dona:0, capricho:null, cd:0};
+    if(S.vida.cocheNiv===undefined){ S.vida.cocheNiv=S.vida.coche?2:0; S.vida.cocheJor=-999; delete S.vida.coche; }
+    if(S.vida.casaJor===undefined) S.vida.casaJor=S.vida.casa? -999 : 0;   /* lo viejo ya no huele a nuevo */
+    if(S.vida.capricho===undefined) S.vida.capricho=null;
+    if(S.vida.cd===undefined) S.vida.cd=0;
+    if(S.yo && S.yo.tiros===undefined){ S.yo.tiros=0; S.yo.claras=0; S.yo.clave=0; }
+    if(!S.zonas) S.zonas={};
+    if(!S.altura){ var _ra=({POR:[186,197],DFC:[184,195],LAT:[168,182],MCD:[176,190],MC:[172,186],MCO:[170,184],EXT:[168,182],DC:[176,193]})[S.pos]||[172,190]; S.altura=Math.round(_ra[0]+rnd()*(_ra[1]-_ra[0])); }
+    if(!S.fichajes) S.fichajes=[{temp:1, de:null, a:S.equipo, fee:0, tipo:"cantera"}];
+    if(!S.archivo) S.archivo={};
+    if(!S.repsM) S.repsM={};
+    if(S.contrato && !S.contrato.firmadoT) S.contrato.firmadoT=S.temporada;
+    if(S.lado===undefined) S.lado=CON_LADO(S.pos)? ladoDerivado(S.pierna, S.rol):null;   /* nadie se mueve de su banda */
+    if(S.skl){ var _jA0=((S.temporada||1)-1)*38+(S.jornada||0); for(var _sk in S.skl){ if(S.skl[_sk].u===undefined) S.skl[_sk].u=_jA0; } }
+    /* habilidades bloqueadas con reserva de puntos inflada (antes se acumulaban sin tope): se deja lo justo para el nivel 1 */
+    if(S.skl) SKILLS.forEach(function(k){ var d=S.skl[k.id]; if(d && (d.niv||0)<=0 && !sklDesbloqueada(k) && d.pts>sklCoste(0)) d.pts=sklCoste(0); });
+    if(!S.mundo || !S.mundo.p1) S.mundo={d:{}, p1:P1_CANON.slice(), p2:P2_CANON.slice()};
+    if(!S.entrenador) S.entrenador=crearEntrenador(S.equipo);
+    if(!S.publico) S.publico={afic:50, prensa:50, seg:1200};
+    if(!S.objetivo) S.objetivo=null;
+    if(!S.objPers) S.objPers=null;
+    if(!S.muro) S.muro=[];
+    if(!S.car) S.car={disciplina:0, ego:0};
+    ["temperamento","companerismo","resiliencia"].forEach(function(k){ if(S.car[k]===undefined) S.car[k]=50; });
+    if(S.car.liderazgo===undefined) S.car.liderazgo=45;
+    if(!S.skl){
+      S.skl={};
+      (S.skills||[]).forEach(function(id){ S.skl[id]={niv:25, pts:0}; });
+    }
+    if(!S.skills) S.skills=[];
+    if(!S.pierna) S.pierna="D";
+    if(!S.rol && ROLES[S.pos]) S.rol=ROLES[S.pos][0].id;
+    rehidratarCustom();
+}
+async function cargar(){
+  var d=await sGet("save");
+  if(d && d.v){ S=d; normalizarPartida(); $("btn-continuar").classList.remove("hidden"); }
+}
+function adoptarPartida(d){
+  if(!(d && d.v && d.tabla)) return false;
+  var previa=S;
+  S=d;
+  try{ normalizarPartida(); }catch(e){ S=previa; throw e; }   /* un JSON a medias no se lleva por delante la carrera que tienes abierta */
+  guardar(); renderHub();
+  return true;
+}
+function exportar(){
+  if(!S) return;
+  var data=JSON.stringify(S);
+  var blob=new Blob([data],{type:"application/json"});
+  var a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="goatmaker-v"+VERSION+"-t"+S.temporada+"-j"+(S.jornada+1)+".json";
+  a.click();
+}
+function importar(){
+  var inp=document.createElement("input"); inp.type="file"; inp.accept=".json";
+  inp.onchange=function(){
+    var f=inp.files[0]; if(!f) return;
+    var r=new FileReader();
+    r.onload=function(){
+      try{
+        var d=JSON.parse(r.result);
+        if(adoptarPartida(d)) return;
+        modal({ico:"📄", t:"Archivo no válido", x:"Ese JSON no parece una partida de Goatmaker.", okTxt:"Entendido", cancelTxt:"Cerrar"});
+      }catch(e){ modal({ico:"📄", t:"No se pudo leer", x:"El archivo está dañado o no es JSON.", okTxt:"Entendido", cancelTxt:"Cerrar"}); }
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+}
+/* ================= INIT ================= */
+function errShow(msg){
+  try{ var b=document.getElementById("errbanner"); b.style.display="block"; b.textContent="⚠ "+msg; }catch(e){}
+}
+window.onerror=function(msg,src,line){ errShow(msg+" @"+line); return false; };
+window.addEventListener("unhandledrejection",function(ev){ errShow("promesa: "+(ev.reason&&ev.reason.message||ev.reason)); });
+/* ================= TELEMETRÍA (4.67.0) =================
+   Envía el progreso de quien juega a TU servidor (PocketBase, POST /tele). Nada de esto toca la lógica del juego:
+   envuelve funciones existentes (guardar, irSec, modal, elegirOpcion, finTemporada, empezarCarrera) y, si algo falla, calla.
+   · TELE_URL vacío (o localStorage «lap1-tele-off»=1) → desactivada: no se hace NINGUNA petición de red y no se guarda cola.
+   · Identidad: un id aleatorio por navegador (lap1-tele-id). Sin email, sin IP guardada, sin cookies.
+   · Cola persistente en localStorage (se reintenta si no hay red); un 4xx tira el lote, un 5xx/red lo conserva con espera creciente.
+   · Qué manda: contexto (versión, navegador, pantalla, idioma, zona horaria), resumen de carrera, eventos (carrera, partido, decisión,
+     pantalla, modal, traspaso, ascenso/descenso, lesión, nivel, fin de temporada, errores) y la partida completa (cada ≥3 min si cambió). */
+var TELE_URL="https://server-pc.tail3b4002.ts.net";   /* telemetría ACTIVA: PocketBase propio de Goatmaker (solo /tele es público) */
+var TELE_KEY="qE2GcC4VMSQq1RvBTO2tam8AZEzlPXuHwttFGqZsJY-3LVRZuHEnkmyjsK3ydswp";   /* la misma que pb_hooks/tele.key; va en el HTML público: solo frena a curiosos */
+var TELE=(function(){
+  var KQ=NS+"tele-q", KID=NS+"tele-id", T0=Date.now(), LOAD=Math.round(performance.now()), q=[], act=0, lastAct=Date.now(), snapAt=0, snapDirty=false,
+      busy=false, dead=false, fails=0, nextTry=0, lastSend=0, errN=0, seenErr={}, prevRef=null, prev=null, nSent=0;
+  function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+  function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+  function url(){ if(lsGet(NS+"tele-off")==="1") return ""; return String(lsGet(NS+"tele-url")||TELE_URL||"").replace(/\/+$/,""); }
+  function llave(){ return lsGet(NS+"tele-key")||TELE_KEY; }
+  function rid(n){ var a="abcdefghijklmnopqrstuvwxyz0123456789", s="", u, i; try{ u=new Uint8Array(n); crypto.getRandomValues(u); for(i=0;i<n;i++) s+=a[u[i]%36]; }catch(e){ for(i=0;i<n;i++) s+=a[Math.floor(Math.random()*36)]; } return s; }
+  var install=lsGet(KID); if(!install){ install="i"+rid(15); lsSet(KID,install); }
+  var sid="s"+rid(11);
+  try{ var g=JSON.parse(lsGet(KQ)||"[]"); if(Array.isArray(g)) q=g.slice(-400); }catch(e){}
+  function guardaCola(){ if(!url()) return; lsSet(KQ, JSON.stringify(q.slice(-400))); }
+  function num(v,d){ v=Number(v); return isFinite(v)? Math.round(v*(d||1))/(d||1) : null; }
+  function resumen(){
+    if(typeof S==="undefined" || !S) return null;
+    var y=S.yo||{}, r={};
+    try{ r={ nombre:S.nombre, pos:S.pos, rol:S.rol, edad:S.edad, club:S.equipo, club_n:(EQ[S.equipo]&&EQ[S.equipo].c)||null, division:S.division, temporada:S.temporada, jornada:S.jornada,
+      nivel:S.nivel, xp:S.xp, fama:S.fama, dinero:S.dinero, potencial:S.potencial, mister:S.mister, moral:S.moral, lesion:S.lesion, sancion:S.sancion,
+      pj:y.pj, min:y.min, g:y.g, a:y.a, ta:y.ta, tr:y.tr, nota:(y.notaN? num(y.notaSum/y.notaN,100):null), car:S.car }; }catch(e){}
+    return r;
+  }
+  function ctx(){
+    var c={ ver:VERSION, start_t:T0, active_s:act, ua:String(navigator.userAgent||"").slice(0,200), scr:(screen.width+"x"+screen.height+"@"+(window.devicePixelRatio||1)),
+      vp:innerWidth+"x"+innerHeight, lang:navigator.language||"", backend:ST_BACKEND, online:navigator.onLine, load_ms:LOAD };
+    try{ c.tz=Intl.DateTimeFormat().resolvedOptions().timeZone||""; }catch(e){}
+    try{ if(performance.memory) c.mem=Math.round(performance.memory.usedJSHeapSize/1048576); }catch(e){}
+    try{ if(S) c.saveKB=Math.round(JSON.stringify(S).length/1024); c.estado=resumen(); }catch(e){}
+    return c;
+  }
+  function ev(tipo,d){
+    if(!url()) return;
+    try{ q.push({t:Date.now(), tipo:String(tipo).slice(0,40), d:d||{}}); if(q.length>400) q.splice(0,q.length-400); guardaCola(); }catch(e){}
+  }
+  function flush(fin){
+    var u=url(); if(!u || dead || busy) return;
+    var ahora=Date.now(); if(ahora<nextTry) return;
+    if(!q.length && !fin && ahora-lastSend<55000) return;
+    var n=Math.min(q.length,150), tocaSnap = snapDirty && S && (fin || ahora-snapAt>180000);
+    var body, b={ k:llave(), install:install, sid:sid, ctx:ctx(), events:q.slice(0,n) };
+    if(tocaSnap){ b.snap=S; }
+    try{ body=JSON.stringify(b); }catch(e){ return; }
+    if(tocaSnap && body.length>4800000){ delete b.snap; tocaSnap=false; body=JSON.stringify(b); }
+    busy=true; lastSend=ahora;
+    var fin2=function(ok,status){
+      busy=false;
+      if(ok){ fails=0; q.splice(0,n); nSent+=n; if(tocaSnap){ snapDirty=false; snapAt=Date.now(); } guardaCola(); return; }
+      if(status>=400 && status<500){ if(status===403) dead=true; q.splice(0,n); guardaCola(); return; }   /* clave mala o petición inválida: reintentar no arregla nada */
+      fails++; nextTry=Date.now()+Math.min(300000, 15000*Math.pow(2,Math.min(fails,5)));
+    };
+    try{
+      fetch(u+"/tele",{method:"POST", headers:{"Content-Type":"application/json"}, body:body, keepalive: body.length<60000})
+        .then(function(r){ return r.json().catch(function(){ return null; }).then(function(j){ fin2(r.ok, r.status); if(j&&j.baja){ dead=true; reiniciaPorBaja(); } }); }, function(){ fin2(false,0); });
+    }catch(e){ fin2(false,0); }
+  }
+  function err(msg,src,line,col,e){
+    var k=String(msg).slice(0,80)+"@"+line; if(seenErr[k] || errN>=25) return; seenErr[k]=1; errN++;
+    ev("error",{ msg:String(msg).slice(0,300), src:String(src||"").split("/").pop().slice(0,60), line:line, col:col, stack:String((e&&e.stack)||"").slice(0,700) });
+    flush(true);
+  }
+  /* —— cambios del estado, vistos en cada guardado (sin tocar ninguna función del juego) —— */
+  function proj(){
+    var y=S.yo||{};
+    return { temporada:S.temporada, jornada:S.jornada, equipo:S.equipo, division:S.division, nivel:S.nivel||0, lesion:S.lesion||0, sancion:S.sancion||0, edad:S.edad,
+      pj:y.pj||0, min:y.min||0, g:y.g||0, a:y.a||0, ta:y.ta||0, tr:y.tr||0, ns:y.notaSum||0, nn:y.notaN||0, hist:(S.hist||[]).length, cont:CONT.n };
+  }
+  function alGuardar(){
+    if(!url() || typeof S==="undefined" || !S) return;
+    snapDirty=true;
+    var c=proj();
+    if(S!==prevRef){ ev("carrera",{motivo: prevRef? "cambio":"sesion", r:resumen()}); prevRef=S; prev=c; return; }
+    var p=prev; prev=c; if(!p) return;
+    if(c.temporada!==p.temporada){ ev("temporada_nueva",{de:p.temporada, a:c.temporada, pj:p.pj, g:p.g, asist:p.a, nota:(p.nn? num(p.ns/p.nn,100):null), div:c.division}); }
+    else if(c.jornada>p.jornada){
+      var h=(S.hist||[])[S.hist.length-1]||{}, dn=c.nn-p.nn;
+      ev("partido",{ t:c.temporada, j:c.jornada, rival:h.rival, casa:h.casa, sc:h.sc, sin:h.sinTi||null, div:c.division,
+        min:c.min-p.min, g:c.g-p.g, a:c.a-p.a, ta:c.ta-p.ta, tr:c.tr-p.tr, nota:(dn>0? num((c.ns-p.ns)/dn,100):null) });
+    }
+    if(c.equipo!==p.equipo) ev("club",{de:p.equipo, a:c.equipo, div:c.division, t:c.temporada});
+    if(c.division!==p.division) ev("division",{de:p.division, a:c.division, t:c.temporada});
+    if(c.lesion>0 && p.lesion===0) ev("lesion",{jornadas:c.lesion, t:c.temporada, j:c.jornada});
+    if(c.sancion>0 && p.sancion===0) ev("sancion",{jornadas:c.sancion, t:c.temporada, j:c.jornada});
+    if(c.nivel>p.nivel) ev("nivel",{de:p.nivel, a:c.nivel, edad:c.edad, t:c.temporada});
+  }
+  /* —— actividad y latido: solo cuenta tiempo con la pestaña visible y alguien tocando —— */
+  ["pointerdown","keydown","touchstart","wheel"].forEach(function(n){ try{ window.addEventListener(n,function(){ lastAct=Date.now(); },{passive:true}); }catch(e){} });
+  setInterval(function(){ try{ if(document.visibilityState==="visible" && Date.now()-lastAct<60000) act+=15; flush(false); }catch(e){} },15000);
+  document.addEventListener("visibilitychange",function(){ try{ if(document.visibilityState==="hidden") flush(true); }catch(e){} });
+  window.addEventListener("pagehide",function(){ try{ flush(true); }catch(e){} });
+  ev("sesion",{ref:(function(){ try{ return document.referrer? new URL(document.referrer).host : ""; }catch(e){ return ""; } })()});
+  setTimeout(function(){ try{ flush(false); }catch(e){} },2500);
+  /* canje y reportes: peticiones sueltas a la misma puerta /tele (op:"canje" / op:"reporte"). Ignoran el interruptor de apagado de la telemetría. */
+  function post(obj, tiempo){
+    var base=String(lsGet(NS+"tele-url")||TELE_URL||"").replace(/\/+$/,"");
+    if(!base) return Promise.resolve({ok:false,status:0,j:null,sinRed:true});
+    obj.k=llave(); obj.install=install; obj.ver=VERSION;
+    var ac=(typeof AbortController!=="undefined")? new AbortController() : null, to=ac? setTimeout(function(){ try{ ac.abort(); }catch(e){} },(tiempo||20000)) : 0;
+    return fetch(base+"/tele",{method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(obj), signal:ac? ac.signal : undefined})
+      .then(function(r){ clearTimeout(to); return r.json().then(function(j){ return {ok:r.ok,status:r.status,j:j}; },function(){ return {ok:r.ok,status:r.status,j:null}; }); },
+            function(e){ clearTimeout(to); return {ok:false,status:0,j:null,sinRed:true,aborto:!!(e&&e.name==="AbortError"),motivo:String((e&&(e.name+": "+e.message))||"sin detalle").slice(0,160)}; });
+  }
+  return { post:post, ev:ev, flush:flush, alGuardar:alGuardar, err:err, resumen:resumen, install:install, sid:sid, cola:function(){ return q.length; }, enviados:function(){ return nSent; }, vivo:function(){ return !dead && !!url(); } };
+})();
+(function enganchar(){
+  function envolver(nombre,antes,despues){
+    var f=window[nombre]; if(typeof f!=="function") return;
+    window[nombre]=function(){ var a=arguments, ctx; try{ ctx=antes&&antes.apply(this,a); }catch(e){}
+      var r=f.apply(this,a); try{ if(despues) despues.call(this,ctx,a,r); }catch(e){} return r; };
+  }
+  envolver("guardar",null,function(){ TELE.alGuardar(); });
+  envolver("irSec",function(a){ return null; },function(c,a){ TELE.ev("pantalla",{k:a[0], sub:(SUB[a[0]]||"")}); });
+  envolver("modal",null,function(c,a){ var o=a[0]||{}; TELE.ev("modal",{t:String(o.t||"").slice(0,60)}); });
+  envolver("elegirOpcion",function(i){ if(!M||!M.sitAct||!M.sitAct.o||!M.sitAct.o[i]) return null; var s=M.sitAct, o=s.o[i];
+      return {s:s.id||null, i:i, l:String(o.l||"").slice(0,60), m:M.min, f:M.faseAct||null, sc:[M.sc[0],M.sc[1]]}; },
+    function(c){ if(c) TELE.ev("decision",c); });
+  envolver("finTemporada",function(){ var cl=clasificacion(); return {pos:miPosicion(), div:S.division, t:S.temporada, club:S.equipo, pts:(cl&&cl[0]&&cl[0].pts)||null}; },
+    function(c){ if(c) TELE.ev("fin_temporada",c); });
+  envolver("empezarCarrera",function(){ if(!PICK||!PICK.pos||!PICK.eq) return null; return {traspaso:!!PICK.traspaso, pos:PICK.pos, eq:PICK.eq}; },
+    function(c){ if(c) TELE.ev(c.traspaso? "traspaso_ui":"carrera_inicio",{pos:c.pos, eq:c.eq, r:TELE.resumen()}); });
+  var oe=window.onerror;
+  window.onerror=function(msg,src,line,col,e){ try{ TELE.err(msg,src,line,col,e); }catch(x){} return oe? oe.apply(this,arguments):false; };
+  window.addEventListener("unhandledrejection",function(ev){ try{ var r=ev.reason; TELE.err("promesa: "+((r&&r.message)||r),"",0,0,r); }catch(x){} });
+})();
+setTimeout(function(){
+  try{
+    var t=document.getElementById("scr-title");
+    /* el aviso es solo para un visor que no pinta NADA: si ya hay una pantalla a la vista (la persona fue rápida y entró en Opciones o en su partida), no tapa nada */
+    var vis=["scr-title","scr-hub","scr-sec","scr-pick","scr-pos"].some(function(id){ var n=document.getElementById(id); return n && n.offsetHeight>40; });
+    if(!vis){
+      document.body.style.background="#070810";
+      var d=document.createElement("div");
+      d.style.cssText="position:fixed;inset:0;background:#070810;color:#EDF0F8;padding:24px;font:15px system-ui;z-index:999";
+      d.innerHTML="<h2 style='color:#FFC24B'>Goatmaker</h2><p>La pantalla no se ha pintado bien en este visor.</p>"
+        +"<p style='color:#8891AA;font-size:13px'>alto pantalla: "+(t?t.offsetHeight:"sin nodo")+"px · ancho: "+window.innerWidth+"px</p>"
+        +"<button onclick=\"document.body.removeChild(this.parentNode);irElegir()\" style='background:#FFC24B;border:0;border-radius:12px;padding:14px 18px;font-weight:800'>Entrar igualmente</button>";
+      document.body.appendChild(d);
+    }
+  }catch(e){}
+}, 2000);
+(function(){ var v=$("ver-portada"); if(v) v.textContent="v"+VERSION; })();
+/* ===== CONTENIDO EDITABLE: el paquete que publica el panel admin =====
+   El panel guarda un PAQUETE (JSON) en el servidor; el juego lo baja al abrirse (con 1,8 s de margen; si no hay red usa la copia guardada en el dispositivo)
+   y lo aplica SOBRE el contenido de fábrica, que se conserva intacto (CONT_ORIG) para poder deshacer, revertir una versión o cambiar de paquete.
+   Todo lo que entra se valida contra el propio motor: solo claves que el motor ya entiende y dentro de rangos con sentido (CONT_R, que el panel lee tal cual).
+   Lo que no pasa se descarta y se anota en CONT.rech; el resto se aplica. Un paquete NUNCA puede romper el juego: en el peor caso no cambia nada.
+   Formato del paquete (v:1):  { v:1, reloj:{base,letra,min,max,fuera,factor,porSit:{idSit:seg}},
+     entrenos:{id:{off,n,d,pos,sube:{attr:n|null},forma}} (id nuevo = entreno nuevo),
+     talentos:{rama:{id:{off,n,d,row,rank,lvl,req,cap,fx:{},fxForma:{},fxEntreno:{}}}} (id nuevo = talento nuevo),
+     tienda:{fijos:{id:{n,d,precio}}, cats:{id:{n,base,ic,fx:{},modelos:[[nombres por nivel]]}}},
+     sits:{id:{off,t,x,pos,o:{"0":{l,fx:{},ok,mid,ko}}}}, nuevas:[{id:"ct-…",pos,t,x,banquillo,o:[{l,fx,ok,mid,ko}]}] } */
+var RELOJ={base:3800, letra:38, min:5000, max:13000, fuera:1.35, factor:1, porSit:{}};
+/* partido: cuántas situaciones de decisión (min–max) y la probabilidad de previa y de resumen tras el partido (%). De fábrica = lo de siempre */
+var PARTIDO_FAB={min:2, max:6, previa:40, post:35};
+var PARTIDO=contClon(PARTIDO_FAB);
+function msReloj(sit,texto){
+  var fijo=RELOJ.porSit && sit && RELOJ.porSit[sit.id];
+  var ms=Math.round(fijo? fijo*1000 : clamp(RELOJ.base+texto.length*RELOJ.letra, RELOJ.min, RELOJ.max));
+  if(M.faseAct!=="juego") ms=Math.round(ms*RELOJ.fuera);
+  return Math.round(ms*RELOJ.factor);
+}
+var CONT={n:0, pack:null, rech:[], aplicado:false};
+var CONT_R={
+  sitfx:{nota:[-6,6],opp:[0.5,2],own:[0.5,2],ta:[0,2],roja:[0,2],mis:[-25,25],disc:[-20,20],ego:[-15,15],afin:[-15,15],lesion:[0,1],comp:[-6,6],lid:[-6,6],entra:[-20,99]},
+  inst:{gol:[0,1.5],golR:[0,1.5],asis:[0,1.5],parada:[0,1.5]},
+  tfx:{golR:[0.5,2],ta:[0.5,2],gol:[0.5,2],asis:[0.5,2],lider:[0.5,2],resil:[0.5,2]},
+  tforma:{recupera:[0.5,2],desgaste:[0.5,2],riesgo:[0.5,2]},
+  tent:{TEC:[1,2],FIS:[1,2],TAC:[1,2],MEN:[1,2],DEF:[1,2],POR:[1,2]},
+  sube:{TEC:[0,2],FIS:[0,2],TAC:[0,2],MEN:[0,2],POR:[0,2],DEF:[0,2]},
+  forma:[-30,30],
+  nodo:{row:[1,8],rank:[1,5],lvl:[1,99]},
+  cfx:{regen:[0,2],modLes:[-0.5,0],conf:[0,2],ego:[0,5],seg:[0,500],robo:[0,5],vicio:[0,1],seguro:[0,1],confYa:[-20,20],formaYa:[-20,20],segYa:[0,500],misterYa:[-20,20],afinYa:[-20,20],egoYa:[-10,10],misterSem:[0,3],amortMister:[0,1],vicioMod:[-3,0]},
+  cmult:[0,0.2], base:[10,5000000], precio:[1000,100000000],
+  reloj:{base:[1000,60000],letra:[0,300],min:[1000,60000],max:[1000,120000],fuera:[0.5,5],factor:[0.25,5],seg:[2,120]},
+  partido:{min:[2,6],max:[2,6],previa:[0,100],post:[0,100]},
+  pos:["POR","DFC","LAT","MCD","MC","MCO","EXT","DC"],
+  txt:{n:60,d:200,x:600,ok:400,l:80,t:80}
+};
+function contClon(v){ if(typeof v==="function") return v; if(Array.isArray(v)) return v.map(contClon); if(v && typeof v==="object"){ var o={}; Object.keys(v).forEach(function(k){ o[k]=contClon(v[k]); }); return o; } return v; }
+function contPlano(v){ if(typeof v==="function") return {"$fn":1}; if(Array.isArray(v)) return v.map(contPlano); if(v && typeof v==="object"){ var o={}; Object.keys(v).forEach(function(k){ o[k]=contPlano(v[k]); }); return o; } return v; }
+var CONT_ORIG={entrenos:contClon(ENTRENOS), talentos:contClon(TALENTOS), tienda:contClon(TIENDA), cats:contClon(TIENDA_CATS), sits:contClon(SITS), banq:contClon(SITS_BANQUILLO), reloj:contClon(RELOJ)};
+function contRestaurar(){
+  PANT_OFF={};
+  var arr=function(dst,src){ dst.length=0; contClon(src).forEach(function(x){ dst.push(x); }); };
+  var obj=function(dst,src){ Object.keys(dst).forEach(function(k){ delete dst[k]; }); var c=contClon(src); Object.keys(c).forEach(function(k){ dst[k]=c[k]; }); };
+  arr(ENTRENOS,CONT_ORIG.entrenos); obj(TALENTOS,CONT_ORIG.talentos); obj(TIENDA,CONT_ORIG.tienda); arr(TIENDA_CATS,CONT_ORIG.cats);
+  arr(SITS,CONT_ORIG.sits); arr(SITS_BANQUILLO,CONT_ORIG.banq); obj(RELOJ,CONT_ORIG.reloj); obj(PARTIDO,PARTIDO_FAB);
+  tiendaItems._c=null; _SIT_MAPA=null; CONT.rech=[]; CONT.aplicado=false;
+}
+function contExportarBase(){
+  return {v:1, ver:VERSION, entrenos:contPlano(CONT_ORIG.entrenos), talentos:contPlano(CONT_ORIG.talentos), tienda:contPlano(CONT_ORIG.tienda), cats:contPlano(CONT_ORIG.cats),
+    sits:contPlano(CONT_ORIG.sits), banq:contPlano(CONT_ORIG.banq), reloj:contClon(CONT_ORIG.reloj), partido:contClon(PARTIDO_FAB), orden:TALENTO_ORDEN.slice(), rangos:CONT_R};
+}
+/* «Cuándo sale» como lista: cada regla es {p, op, v}. Todas tienen que cumplirse, además de la condición del código. */
+var COND_PROPS={ min:"num", dif:"num", goles:"num", casa:"bool", marcador:"txt", azar:"pct" };
+var COND_OPS=[">=","<=",">","<","="];
+var COND_TXT=["ganas","empatas","pierdes"];
+function condListaErr(L){
+  if(!Array.isArray(L)) return "no es una lista";
+  for(var i=0;i<L.length;i++){ var r=L[i];
+    if(!r || typeof r!=="object" || !COND_PROPS.hasOwnProperty(r.p)) return "regla "+i+": propiedad no válida";
+    var t=COND_PROPS[r.p];
+    if(t==="num" && (COND_OPS.indexOf(r.op)<0 || typeof r.v!=="number")) return "regla "+i+": operador o número no válido";
+    if(t==="bool" && typeof r.v!=="boolean") return "regla "+i+": debe ser sí o no";
+    if(t==="txt" && COND_TXT.indexOf(r.v)<0) return "regla "+i+": valor no válido";
+    if(t==="pct" && (typeof r.v!=="number" || r.v<1 || r.v>100)) return "regla "+i+": porcentaje entre 1 y 100";
+  }
+  return null;
+}
+function condListaFn(L){
+  if(!L || !L.length) return null;
+  var get={ min:function(c){ return c.min; }, dif:function(c){ return c.sc[0]-c.sc[1]; }, goles:function(c){ return c.miGol||0; }, casa:function(c){ return !!c.casa; }, marcador:function(c,t){ return t.gano?"ganas":(t.empate?"empatas":"pierdes"); } };
+  function cmp(a,op,b){ return op===">="?a>=b: op==="<="?a<=b: op===">"?a>b: op==="<"?a<b: a===b; }
+  return function(c,t){ t=t||{}; return L.every(function(r){
+    if(r.p==="azar") return rnd()*100 < r.v;
+    var a=get[r.p](c,t);
+    if(COND_PROPS[r.p]==="num") return cmp(a,r.op,r.v);
+    return a===r.v; }); };
+}
+function contAplicar(P){
+  contRestaurar();
+  var rech=CONT.rech;
+  if(!P || typeof P!=="object" || P.v!==1){ if(P) rech.push("paquete: formato no reconocido"); return rech; }
+  var R=CONT_R, esObj=function(x){ return x && typeof x==="object" && !Array.isArray(x); };
+  function num(v,r,ruta){ if(typeof v!=="number" || !isFinite(v)){ rech.push(ruta+": no es un número"); return null; } if(v<r[0] || v>r[1]){ rech.push(ruta+": "+v+" fuera de ["+r[0]+", "+r[1]+"]"); return null; } return v; }
+  function txt(v,max,ruta,vacioOk){ if(typeof v!=="string"){ rech.push(ruta+": no es texto"); return null; } v=v.trim(); if((!v && !vacioOk) || v.length>max){ rech.push(ruta+": texto vacío o de más de "+max+" caracteres"); return null; } return v; }
+  function mapa(src,tabla,dst,ruta){ if(!esObj(src)){ rech.push(ruta+": no es un objeto"); return; }
+    Object.keys(src).forEach(function(k){ if(!tabla.hasOwnProperty(k)){ rech.push(ruta+"."+k+": clave que el motor no conoce"); return; }
+      if(src[k]===null){ delete dst[k]; return; } var v=num(src[k],tabla[k],ruta+"."+k); if(v!==null) dst[k]=v; }); }
+  function posOk(v,ruta){ if(v===null) return null; if(!Array.isArray(v) || !v.length || v.some(function(p){ return R.pos.indexOf(p)<0; })){ rech.push(ruta+": posiciones no válidas"); return undefined; } return v.slice(); }
+  function idOk(id){ return /^[a-z0-9][a-z0-9_-]{1,29}$/.test(id); }
+  function fxOpcion(src,dst,ruta){
+    if(!esObj(src)){ rech.push(ruta+": no es un objeto"); return; }
+    Object.keys(src).forEach(function(k){
+      if(k==="inst"){ dst.inst=dst.inst||{}; mapa(src.inst,R.inst,dst.inst,ruta+".inst"); return; }
+      if(!R.sitfx.hasOwnProperty(k)){ rech.push(ruta+"."+k+": clave que el motor no conoce"); return; }
+      if(src[k]===null){ delete dst[k]; return; } var v=num(src[k],R.sitfx[k],ruta+"."+k); if(v!==null) dst[k]=v; });
+  }
+  /* —— reloj de las decisiones —— */
+  if(P.reloj!==undefined){
+    if(!esObj(P.reloj)) rech.push("reloj: no es un objeto");
+    else { var nr=contClon(RELOJ), mal=false;
+      ["base","letra","min","max","fuera","factor"].forEach(function(k){ if(P.reloj[k]===undefined) return; var v=num(P.reloj[k],R.reloj[k],"reloj."+k); if(v===null) mal=true; else nr[k]=v; });
+      if(P.reloj.porSit!==undefined){ if(!esObj(P.reloj.porSit)){ rech.push("reloj.porSit: no es un objeto"); mal=true; } else { nr.porSit={}; Object.keys(P.reloj.porSit).forEach(function(id){ var v=num(P.reloj.porSit[id],R.reloj.seg,"reloj.porSit."+id); if(v!==null) nr.porSit[id]=v; }); } }
+      if(nr.max<nr.min){ rech.push("reloj: el máximo no puede ser menor que el mínimo"); mal=true; }
+      if(!mal) Object.keys(nr).forEach(function(k){ RELOJ[k]=nr[k]; }); }
+  }
+  /* —— pantallas: interruptores de «Activa en el juego» (subpestañas por id del juego) —— */
+  if(P.pantallas!==undefined){
+    if(!esObj(P.pantallas)) rech.push("pantallas: no es un objeto");
+    else { var npan={};
+      Object.keys(P.pantallas).forEach(function(id){
+        var e=P.pantallas[id];
+        if(!/^P\d\d$/.test(id) || !esObj(e)){ rech.push("pantallas."+id+": no válida"); return; }
+        var o={};
+        if(e.sub!==undefined){
+          if(!esObj(e.sub)) rech.push("pantallas."+id+".sub: no es un objeto");
+          else { o.sub={}; Object.keys(e.sub).forEach(function(k){ if(!/^[a-z]{3,12}$/.test(k) || typeof e.sub[k]!=="boolean"){ rech.push("pantallas."+id+".sub."+k+": no válida"); return; } o.sub[k]=e.sub[k]; }); }
+        }
+        npan[id]=o;
+      });
+      PANT_OFF=npan; }
+  }
+  /* —— partido: situaciones por partido y porcentajes de previa y resumen —— */
+  if(P.partido!==undefined){
+    if(!esObj(P.partido)) rech.push("partido: no es un objeto");
+    else { var np=contClon(PARTIDO), malp=false;
+      ["min","max","previa","post"].forEach(function(k){ if(P.partido[k]===undefined) return; var v=num(P.partido[k],R.partido[k],"partido."+k); if(v===null) malp=true; else np[k]=v; });
+      if(np.max<np.min){ rech.push("partido: el máximo no puede ser menor que el mínimo"); malp=true; }
+      if(!malp) Object.keys(np).forEach(function(k){ PARTIDO[k]=np[k]; }); }
+  }
+  /* —— entrenamientos —— */
+  if(esObj(P.entrenos)) Object.keys(P.entrenos).forEach(function(id){
+    var p=P.entrenos[id], e=ENTRENOS.filter(function(x){ return x.id===id; })[0], ruta="entrenos."+id;
+    if(!esObj(p)){ rech.push(ruta+": no es un objeto"); return; }
+    if(!e){ if(!idOk(id)){ rech.push(ruta+": identificador no válido"); return; }
+      if(p.n===undefined || p.forma===undefined || !esObj(p.sube)){ rech.push(ruta+": un entreno nuevo necesita n, forma y sube"); return; }
+      e={id:id, n:"", d:"", pos:null, sube:{}, forma:0}; var nuevo=true; }
+    var c=contClon(e);
+    if(p.off===true) c.off=true; if(p.off===false) delete c.off;
+    if(p.n!==undefined){ var n=txt(p.n,R.txt.n,ruta+".n"); if(n!==null) c.n=n; }
+    if(p.d!==undefined){ var d=txt(p.d,R.txt.d,ruta+".d",true); if(d!==null) c.d=d; }
+    if(p.pos!==undefined){ var ps=posOk(p.pos,ruta+".pos"); if(ps!==undefined) c.pos=ps; }
+    if(p.sube!==undefined) mapa(p.sube,R.sube,c.sube,ruta+".sube");
+    if(p.forma!==undefined){ var f=num(p.forma,R.forma,ruta+".forma"); if(f!==null) c.forma=f; }
+    if(nuevo){ if(!c.n){ rech.push(ruta+": entreno nuevo sin nombre válido"); return; } ENTRENOS.push(c); }
+    else { var i=ENTRENOS.indexOf(e); ENTRENOS[i]=c; }
+  });
+  /* —— talentos: se aplica sobre una copia de la rama y solo se confirma si la rama entera sigue siendo coherente —— */
+  if(esObj(P.talentos)) Object.keys(P.talentos).forEach(function(rama){
+    var T=TALENTOS[rama], pr=P.talentos[rama], ruta="talentos."+rama;
+    if(!T){ rech.push(ruta+": rama que no existe"); return; } if(!esObj(pr)){ rech.push(ruta+": no es un objeto"); return; }
+    var cand=contClon(T.nodes), avisos0=rech.length;
+    Object.keys(pr).forEach(function(id){
+      var p=pr[id], r2=ruta+"."+id, nd=cand.filter(function(x){ return x.id===id; })[0];
+      if(!esObj(p)){ rech.push(r2+": no es un objeto"); return; }
+      var nuevo=false;
+      if(!nd){ if(!idOk(id)){ rech.push(r2+": identificador no válido"); return; }
+        if(["n","d","row","rank","lvl"].some(function(k){ return p[k]===undefined; }) || !(esObj(p.fx)||esObj(p.fxForma)||esObj(p.fxEntreno))){ rech.push(r2+": un talento nuevo necesita n, d, row, rank, lvl y algún efecto"); return; }
+        nd={id:id, row:1, rank:1, lvl:8, req:null, n:"", d:"", fx:{}}; nuevo=true; }
+      if(p.off===true) nd.off=true; if(p.off===false) delete nd.off;
+      if(p.n!==undefined){ var n=txt(p.n,R.txt.n,r2+".n"); if(n!==null) nd.n=n; }
+      if(p.d!==undefined){ var d=txt(p.d,R.txt.d,r2+".d"); if(d!==null) nd.d=d; }
+      ["row","rank","lvl"].forEach(function(k){ if(p[k]===undefined) return; var v=num(p[k],R.nodo[k],r2+"."+k); if(v!==null){ if(Math.floor(v)!==v) rech.push(r2+"."+k+": tiene que ser entero"); else nd[k]=v; } });
+      if(p.req!==undefined){ if(p.req===null) nd.req=null; else if(typeof p.req==="string" || (Array.isArray(p.req) && p.req.length && p.req.every(function(q){ return typeof q==="string"; }))) nd.req=p.req; else rech.push(r2+".req: no válido"); }
+      if(p.cap!==undefined){ if(p.cap===true) nd.cap=true; else delete nd.cap; }
+      [["fx","tfx"],["fxForma","tforma"],["fxEntreno","tent"]].forEach(function(par){ if(p[par[0]]===undefined) return; nd[par[0]]=nd[par[0]]||{}; mapa(p[par[0]],R[par[1]],nd[par[0]],r2+"."+par[0]); if(!Object.keys(nd[par[0]]).length) delete nd[par[0]]; });
+      if(nuevo) cand.push(nd);
+    });
+    /* coherencia de la rama: ids únicos, requisitos que existen, sin ciclos y como mucho 3 por fila */
+    var ids={}, bien=true, filas={};
+    cand.forEach(function(x){ if(ids[x.id]){ bien=false; rech.push(ruta+": id repetido "+x.id); } ids[x.id]=x; filas[x.row]=(filas[x.row]||0)+1; });
+    Object.keys(filas).forEach(function(f){ if(filas[f]>3){ bien=false; rech.push(ruta+": la fila "+f+" tendría "+filas[f]+" talentos (máximo 3)"); } });
+    cand.forEach(function(x){ var rq=x.req? (Array.isArray(x.req)? x.req : [x.req]) : [];
+      rq.forEach(function(q){ if(!ids[q] || q===x.id){ bien=false; rech.push(ruta+"."+x.id+": requisito «"+q+"» no válido"); } }); });
+    if(bien){ var vis={}, enPila={};
+      var dfs=function(id){ if(!bien || vis[id]) return; if(enPila[id]){ bien=false; rech.push(ruta+": requisitos en círculo"); return; } enPila[id]=1; var x=ids[id], rq=x.req? (Array.isArray(x.req)? x.req : [x.req]) : []; rq.forEach(dfs); enPila[id]=0; vis[id]=1; };
+      Object.keys(ids).forEach(dfs); }
+    if(bien) T.nodes.length=0, cand.forEach(function(x){ T.nodes.push(x); });
+    else rech.push(ruta+": cambios de la rama descartados");
+  });
+  /* —— tienda —— */
+  if(esObj(P.tienda)){
+    if(esObj(P.tienda.fijos)) Object.keys(P.tienda.fijos).forEach(function(id){
+      var p=P.tienda.fijos[id], t=TIENDA[id], ruta="tienda.fijos."+id;
+      if(!t){ rech.push(ruta+": objeto que no existe"); return; } if(!esObj(p)){ rech.push(ruta+": no es un objeto"); return; }
+      if(p.n!==undefined){ var n=txt(p.n,R.txt.n,ruta+".n"); if(n!==null) t.n=n; }
+      if(p.d!==undefined){ var d=txt(p.d,R.txt.d,ruta+".d"); if(d!==null) t.d=d; }
+      if(p.precio!==undefined){ if(t.precio===undefined) rech.push(ruta+".precio: este objeto no tiene precio fijo"); else { var pr2=num(p.precio,R.precio,ruta+".precio"); if(pr2!==null) t.precio=Math.round(pr2); } }
+    });
+    if(esObj(P.tienda.cats)) Object.keys(P.tienda.cats).forEach(function(id){
+      var p=P.tienda.cats[id], c=TIENDA_CATS.filter(function(x){ return x.id===id; })[0], ruta="tienda.cats."+id;
+      if(!c){ rech.push(ruta+": categoría que no existe"); return; } if(!esObj(p)){ rech.push(ruta+": no es un objeto"); return; }
+      if(p.n!==undefined){ var n=txt(p.n,30,ruta+".n"); if(n!==null) c.n=n; }
+      if(p.ic!==undefined){ var ic=txt(p.ic,8,ruta+".ic"); if(ic!==null) c.ic=ic; }
+      if(p.base!==undefined){ var b=num(p.base,R.base,ruta+".base"); if(b!==null) c.base=Math.round(b); }
+      if(p.fx!==undefined){ if(!esObj(p.fx)) rech.push(ruta+".fx: no es un objeto"); else { c.fx=c.fx||{}; Object.keys(p.fx).forEach(function(k){
+        if(k==="mult"){ c.fx.mult=c.fx.mult||{}; if(esObj(p.fx.mult)) Object.keys(p.fx.mult).forEach(function(a){ if(!R.sube.hasOwnProperty(a)){ rech.push(ruta+".fx.mult."+a+": atributo que el motor no conoce"); return; } if(p.fx.mult[a]===null){ delete c.fx.mult[a]; return; } var v=num(p.fx.mult[a],R.cmult,ruta+".fx.mult."+a); if(v!==null) c.fx.mult[a]=v; }); return; }
+        if(!R.cfx.hasOwnProperty(k)){ rech.push(ruta+".fx."+k+": clave que el motor no conoce"); return; }
+        if(p.fx[k]===null){ delete c.fx[k]; return; } var v=num(p.fx[k],R.cfx[k],ruta+".fx."+k); if(v!==null) c.fx[k]=v; }); } }
+      if(p.modelos!==undefined){
+        var m=p.modelos, base=CONT_ORIG.cats.filter(function(x){ return x.id===id; })[0].modelos, bien=Array.isArray(m) && m.length===base.length;
+        if(bien) m.forEach(function(fila,t){ if(!Array.isArray(fila) || fila.length<base[t].length || fila.length>base[t].length+6 || fila.some(function(s){ return typeof s!=="string" || !s.trim() || s.length>40; })) bien=false; });
+        if(bien) c.modelos=m.map(function(fila){ return fila.map(function(s){ return s.trim(); }); });
+        else rech.push(ruta+".modelos: tiene que conservar los niveles y los modelos que ya hay (se pueden renombrar y añadir al final)");
+      }
+    });
+  }
+  /* —— situaciones —— */
+  var TODAS=SITS.concat(SITS_BANQUILLO);
+  if(esObj(P.sits)) Object.keys(P.sits).forEach(function(id){
+    var p=P.sits[id], s=TODAS.filter(function(x){ return x.id===id; })[0], ruta="sits."+id;
+    if(!s){ rech.push(ruta+": situación que no existe"); return; } if(!esObj(p)){ rech.push(ruta+": no es un objeto"); return; }
+    if(p.off===true){ s.off=true; s.cond=function(){ return false; }; }
+    if(p.cuando!==undefined){ var ce=condListaErr(p.cuando); if(ce) rech.push(ruta+".cuando: "+ce); else { var extra=condListaFn(p.cuando); if(extra){ var base=s.cond; s.cond=function(c,t){ return base(c,t) && extra(c,t); }; } } }
+    if(p.t!==undefined){ if(typeof s.t!=="string") rech.push(ruta+".t: el título de esta situación lo calcula el juego"); else { var t=txt(p.t,R.txt.t,ruta+".t"); if(t!==null) s.t=t; } }
+    if(p.x!==undefined){ if(typeof s.x!=="string") rech.push(ruta+".x: el texto de esta situación lo calcula el juego"); else { var x=txt(p.x,R.txt.x,ruta+".x"); if(x!==null) s.x=x; } }
+    if(p.pos!==undefined){ var ps=posOk(p.pos,ruta+".pos"); if(ps!==undefined) s.pos=ps; }
+    if(p.o!==undefined){ if(!esObj(p.o)) rech.push(ruta+".o: no es un objeto"); else Object.keys(p.o).forEach(function(i){
+      var op=s.o[+i], po=p.o[i], r3=ruta+".o."+i;
+      if(!op){ rech.push(r3+": esa opción no existe"); return; } if(!esObj(po)){ rech.push(r3+": no es un objeto"); return; }
+      if(po.l!==undefined){ if(typeof op.l!=="string") rech.push(r3+".l: el botón de esta opción lo calcula el juego"); else { var l=txt(po.l,R.txt.l,r3+".l"); if(l!==null) op.l=l; } }
+      ["ok","mid","ko"].forEach(function(k){ if(po[k]===undefined) return; if(typeof op[k]!=="string" && op[k]!==undefined) rech.push(r3+"."+k+": este desenlace lo calcula el juego"); else if(po[k]==="") op[k]=""; else { var v=txt(po[k],R.txt.ok,r3+"."+k); if(v!==null) op[k]=v; } });
+      if(po.fx!==undefined){ op.fx=op.fx||{inst:{}}; fxOpcion(po.fx,op.fx,r3+".fx"); } }); }
+  });
+  if(Array.isArray(P.nuevas)) P.nuevas.forEach(function(p,k){
+    var ruta="nuevas."+k; if(!esObj(p)){ rech.push(ruta+": no es un objeto"); return; }
+    if(typeof p.id!=="string" || !/^ct-[a-z0-9][a-z0-9_-]{0,26}$/.test(p.id) || SITS.concat(SITS_BANQUILLO).some(function(x){ return x.id===p.id; })){ rech.push(ruta+": id no válido o repetido (debe empezar por ct-)"); return; }
+    var t=txt(p.t,R.txt.t,ruta+".t"), x=txt(p.x,R.txt.x,ruta+".x"), ps=p.pos===undefined? null : posOk(p.pos,ruta+".pos");
+    if(t===null || x===null || ps===undefined) return;
+    if(!Array.isArray(p.o) || p.o.length<1 || p.o.length>10){ rech.push(ruta+".o: entre 1 y 10 opciones"); return; }
+    var os=[], bien=true;
+    p.o.forEach(function(po,i){ var r3=ruta+".o."+i; if(!esObj(po)){ bien=false; rech.push(r3+": no es un objeto"); return; }
+      var l=txt(po.l,R.txt.l,r3+".l"); if(l===null){ bien=false; return; }
+      var op={l:l, fx:{inst:{}}, ok:"", mid:"", ko:""};
+      ["ok","mid","ko"].forEach(function(q){ if(po[q]===undefined || po[q]==="") return; var v=txt(po[q],R.txt.ok,r3+"."+q); if(v!==null) op[q]=v; });
+      if(po.fx!==undefined) fxOpcion(po.fx,op.fx,r3+".fx"); os.push(op); });
+    if(!bien) return;
+    (p.banquillo===true? SITS_BANQUILLO : SITS).push({id:p.id, pos:ps, t:t, x:x, o:os, cond:function(){ return true; }, ct:true});
+  });
+  CONT.aplicado=true; tiendaItems._c=null; _SIT_MAPA=null;
+  return rech;
+}
+/* copia guardada en el dispositivo + sincronización con el servidor */
+function contLeerCache(){ try{ var c=JSON.parse(localStorage.getItem(NS+"cont")||"null"); return (c && typeof c.n==="number" && c.pack)? c : null; }catch(e){ return null; } }
+function contGuardarCache(n,pack){ try{ if(pack) localStorage.setItem(NS+"cont",JSON.stringify({n:n,pack:pack})); else localStorage.removeItem(NS+"cont"); }catch(e){} }
+function contAplicarCache(){ var c=contLeerCache(); if(!c) return; try{ contAplicar(c.pack); CONT.n=c.n; CONT.pack=c.pack; }catch(e){ contRestaurar(); CONT.n=0; CONT.pack=null; errShow("contenido: "+(e&&e.message||e)); } }
+function contSync(msMax){
+  return new Promise(function(res){
+    try{ if(localStorage.getItem(NS+"tele-off")==="1"){ res(); return; } }catch(e){}
+    var tarde=false; setTimeout(function(){ tarde=true; res(); },msMax);
+    try{
+      TELE.post({op:"contenido", have:CONT.n}).then(function(r){
+        try{
+          if(r && r.ok && r.j && r.j.ok && !r.j.same && typeof r.j.n==="number"){
+            if(!r.j.pack){ contGuardarCache(0,null); if(!tarde && CONT.n){ contRestaurar(); CONT.n=0; CONT.pack=null; } }
+            else { contGuardarCache(r.j.n,r.j.pack); if(!tarde){ contAplicar(r.j.pack); CONT.n=r.j.n; CONT.pack=r.j.pack; } }
+          }
+        }catch(e){ contRestaurar(); CONT.n=0; CONT.pack=null; }
+        res();
+      },function(){ res(); });
+    }catch(e){ res(); }
+  });
+}
+contAplicarCache();
+
+(async function init(){ try{ await contSync(1800); }catch(e){} try{ await conTimeout(cargar(),2000); }catch(e){ errShow("carga: "+(e&&e.message||e)); } try{ await conTimeout(cargarAjustes(),2000); }catch(e){} stBadge(); })();
+/* ===== ARNÉS · post.js — el piloto automático: toca los botones como lo haría una persona =====
+   Va DESPUÉS del script del juego y ANTES del test: cat stub.js lap.js post.js TEST.js > run.js
+   Reconstruido en v4.66.0 tras perder el original (el contenedor de /tmp no sobrevivió).          */
+var PTA_H=0, PLES_H=0;   /* tarjeta y lesión propias por tramo: a 0 salvo que un test las pida (determinismo) */
+(function(){ var _s=simTramo; simTramo=function(){ if(M){ M.pTA=(typeof PTA_H!=="undefined"?PTA_H:0); M.pLES=(typeof PLES_H!=="undefined"?PLES_H:0); } _s(); }; })();
+
+/* PEND: la situación que está esperando respuesta (la pone mostrarSituacion; la consume quien decide) */
+var PEND=null;
+(function(){ var _m=mostrarSituacion; mostrarSituacion=function(sit,fase){ _m(sit,fase); PEND=sit; }; })();
+(function(){ var _e=elegirOpcion; elegirOpcion=function(i){ PEND=null; return _e.apply(this,arguments); }; })();
+
+var __cierres=0;
+(function(){ var _c=cerrarJornada; cerrarJornada=function(){ __cierres++; return _c.apply(this,arguments); }; })();
+
+/* opciones que una persona podría pulsar ahora mismo (condición cumplida, skill propia si la exige) */
+function opcionesValidas(sit){
+  var v=[]; (sit.o||[]).forEach(function(o,i){
+    if(o.cond && !o.cond(M)) return;
+    if(o.skill && !tieneSkill(o.skill)) return;
+    v.push(i);
+  });
+  return v;
+}
+function opcionValida(sit){ var v=opcionesValidas(sit); return v.length? v[Math.floor(Math.random()*v.length)] : 0; }
+
+/* lo que haría el navegador pasado un rato: se acaban las decisiones de semana pendientes */
+function resolverOvsem(elige){
+  var g=0;
+  while(g++<80){
+    if(!OVSEM) drenarOvsem();
+    if(!OVSEM) break;
+    var n=(OVSEM.ops||[]).length||1;
+    elegirSemana(elige? elige(OVSEM) : Math.floor(Math.random()*n));
+  }
+}
+
+/* juega UNA jornada de principio a fin: decide(sit)→índice (−1 = dejar que expire el reloj) */
+function jugarJornada(j, decide){
+  decide=decide||opcionValida;
+  var cierres0=__cierres, hist0=S.hist.length;
+  M=null; PEND=null; S.avisoSaltado=true;
+  iniciarJornada();
+  var g=0;
+  while(g++<8000){
+    if(!M) break;
+    if(PEND){
+      var sit=PEND; PEND=null; var i=decide(sit);
+      if(i===-1){ pararReloj(); decisionExpirada(); continue; }
+      if(typeof i!=="number" || !sit.o[i]) i=opcionValida(sit);
+      elegirOpcion(i);
+      continue;
+    }
+    if(AUTOFN){ var f=AUTOFN; AUTOFN=null; clearTimeout(AUTOT); AUTOT=null; f(); continue; }
+    if(M.fase==="cierre"){ cerrarJornada(); continue; }
+    avanzarPartido();
+  }
+  if(g>=8000) throw new Error("jugarJornada("+j+"): el partido no termina (fase="+(M&&M.fase)+", tramo="+(M&&M.tramo)+")");
+  if(__cierres===cierres0 && S.hist.length>hist0) cerrarSinTi();   /* jornada desde la grada o sin minutos: el botón «Continuar» */
+  resolverOvsem();
+}
+function temporadaCompleta(decide){ var g=0; while(S && S.jornada<38 && g++<60) jugarJornada(S.jornada, decide); }
+
+PISTAS_ON=false; MERCADO_ON=false; TIENDA_ON=false; PARTIDA_ABIERTA=true;
+S=nuevoEstado("BET","LAT","B",7,"D",ROLES.LAT[0].id,22); S.contrato=S.contrato||{salario:900000,anos:3,exige:60};
+S.sitsRec=[];
+console.log("pool", sitsEntreno().length);
+for(var w=0; w<6; w++){ var L=elegirSitsEntreno(3); console.log("semana",w+1, L.map(function(x){return x.id;}).join(" | "), "rec=", S.sitsRec.length); }

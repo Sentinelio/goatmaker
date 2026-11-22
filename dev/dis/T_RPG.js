@@ -24,7 +24,6 @@ function RF(m){ RPG_FALLOS.push(m); }
                 ["gym",  function(B){return (B.mult.FIS||1)>1;}],
                 ["reloj",function(B){return B.seg>0 && B.robo>0;}],
                 ["mascota",function(B){return B.conf>0;}],
-                ["mente",function(B){return B.misterSem>0;}],
                 ["jprensa",function(B){return B.amortMister<1;}],
                 ["segur",function(B){return B.seguro===true;}],
                 ["escolta",function(B){return B.vicioMod<0;}],
@@ -43,7 +42,7 @@ function RF(m){ RPG_FALLOS.push(m); }
 var FIJOS=["nombre","dorsal","pos","lado","pierna","rol","edad","altura","equipo","division","temporada","potencial","mister","repsM",
   "attr","reps","skills","skl","car","vicios","publico","muro","prensa","entrenador","contrato","acuerdo",
   "dinero","dineroCarrera","custom","vidaLog","fama","esperas","conf","moral","debug","compis","mote",
-  "bienvenida","vida","mundo","fichajes","archivo","carrera","tienda","histLes","agente","fidelidad","modLesTemp","patros","misPosts","peso","posSec","tensiones","nemesis","nivel","xp","techos","techoPend","talentoPend","vitrina","talentos","ultimaJugada"];
+  "bienvenida","vida","mundo","fichajes","archivo","carrera","tienda","eq","histLes","agente","fidelidad","modLesTemp","patros","misPosts","peso","posSec","tensiones","nemesis","nivel","xp","techos","techoPend","talentoPend","vitrina","talentos","ultimaJugada"];
 var TEMPORALES=["ritmo","attrSem","attrTemp","jornada","hist","tabla","racha","yo","reto","forma","lesion","sancion","motivoBaja","crisisAvisada",
   "rumores","rumorLog","traspasos","ofertaInv","renovProc","azuzado","transferPed","agenteBoost","movClub",
   "capricho2","caprichoCd","maniobraSem","maniobraCd","redesSem","hatersSem","rehabSem","rehabPlan","rehabReforzada",

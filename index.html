@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.04.002";
+var VERSION="0.04.003";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -1339,7 +1339,7 @@ function miMedia(){
   /* la edad pesa: los años dan oficio hasta los 30 y luego restan chispa */
   var e=S.edad||22;
   var curva = e<20? -4+(e-16)*1.1 : e<=30? (e-20)*0.55 : -(e-30)*1.1;
-  return Math.round(clamp(base*0.92+curva+14, 40, 95));
+  return Math.round(clamp(base*0.92+curva+14-pesoPenalMedia(), 40, 95));
 }
 function atr(k){ return (S && S.attr && S.attr[k]!==undefined)? S.attr[k] : 50; }
 /* Los atributos entran en la MISMA tabla de probabilidades que lee el debug */
@@ -1348,7 +1348,7 @@ function mAsis(){ return clamp(0.45+atr("TEC")/105+atr("TAC")/420, 0.6, 1.7); }
 function mPar(){ return clamp(0.35+atr("POR")/95, 0.6, 1.7); }
 function mTarj(){ return clamp(1+(55-(atr("TAC")*0.6+atr("DEF")*0.4))/90, 0.6, 1.4); }
 function mEncaja(){ return clamp(1+(55-atr("DEF"))/80, 0.55, 1.45); }
-function mLesion(){ return clamp((1+(55-atr("FIS"))/80)*((S&&S.vida&&S.vida.fisio)?0.78:1), 0.5, 1.4); }
+function mLesion(){ return clamp((1+(55-atr("FIS"))/80)*eqModLes(), 0.35, 1.9); }
 /* el ánimo eres tú: con la cabeza en su sitio, tus momentos rinden más */
 function mAnimo(){ return clamp(1+(((S&&S.animo!==undefined)?S.animo:65)-65)/260, 0.85, 1.13); }
 /* ===== EL CICLO DE LAS COSAS: niveles, novedad que se apaga, caprichos =====
@@ -1812,6 +1812,7 @@ function techoAtributoDe(k){
     var d=e-28;
     techo -= d*d*0.12*tasaDeclive(k)*factorPos;
   }
+  if(k==="FIS") techo+=eqTechoFIS();   /* el preparador alarga tu cuerpo */
   return clamp(techo,30,96);
 }
 /* compatibilidad: código viejo que pedía "el techo" a secas recibe el de tu atributo más pesado en tu puesto */
@@ -1887,7 +1888,7 @@ function gananciaEntreno(e, k, extra){
   var v=atr(k), T=techoAtributoDe(k);
   if(v>=T) return 0;                          /* has llegado a tu techo */
   var techo=clamp((T-v)/52, 0.05, 1.10);
-  var mult=(extra?1.15:1) * (0.85+((S.conf||55)/300)) * (bonusTienda().mult[k]||1) * (bonusPatros().mult[k]||1)
+  var mult=(extra?1.15:1) * (0.85+((S.conf||55)/300)) * (bonusTienda().mult[k]||1) * eqMultEntreno(k) * (bonusPatros().mult[k]||1)
           * (1+((S.puntualBonus||0)*0.05)) * (e.id==="remate"? factorFisico():1) * bonusTalentosEntreno(k) * multForma();
   return Math.round(base*techo*mult*100)/100;
 }
@@ -1917,7 +1918,7 @@ function aplicarEntreno(idx, extra){
   });
   var coste=(e.forma||0)*(extra?1.4:1);
   S.forma=clamp((S.forma===undefined?70:S.forma)+coste, 20, 100);
-  var pRiesgo=0.09*bonusTienda().modLes*((S.modLesTemp&&S.modLesTemp.hasta>=jorAbs())? S.modLesTemp.f:1)
+  var pRiesgo=0.09*bonusTienda().modLes*eqModLes()*((S.modLesTemp&&S.modLesTemp.hasta>=jorAbs())? S.modLesTemp.f:1)
              *(1+clamp((S.rachaExtra||0)*0.22,0,0.9))*bonusTalentosForma("riesgo");   /* semanas seguidas a tope: el cuerpo pasa factura */
   if(extra){
     S.mister=clamp(S.mister+1.5,5,95);
@@ -5128,6 +5129,7 @@ function iniciarJornada(){
   try{
     mercadoSemanal();   /* el mercado vive toda la temporada: rumores, ventanas, decisiones */
     semanaTienda();     /* y el bazar cobra, regenera, tienta y a veces roba */
+    semanaEquipo();     /* tu equipo personal: peso, sintonía, informe y desacuerdos */
   } finally { SEMANA_CORRE=false; }
   /* arranca la jornada: el mercado de verano se cierra solo */
   if(S.libre){
@@ -5755,9 +5757,9 @@ function probDesenlaces(o){
    de lo razonable: se aplica sobre lo que falta, no sobre lo que ya hay. */
 function mult(pr, m){ if(!pr) return 0; if(m===1) return pr; return 1-Math.pow(1-pr, m); }
 var PROBS=[
- {k:"gol",    lb:"Gol tuyo",        f:function(o){ var v=(o.fx.inst||{}).gol||0; return mult(v,rf("gol")*mPierna("gol",o)*mTec()*sk("gol")*mAnimo())*((S&&S.pos==="POR")?0.05:1); }},
- {k:"asis",   lb:"Asistencia",      f:function(o){ return mult((o.fx.inst||{}).asis||0, rf("asis")*mPierna("asis",o)*mAsis()*mAfin()*sk("asis")*mComp()*mAnimo()); }},
- {k:"golR",   lb:"Gol en contra",   f:function(o){ return clamp(((o.fx.inst||{}).golR||0)*mEncaja()*sk("golR"),0,1); }, malo:true},
+ {k:"gol",    lb:"Gol tuyo",        f:function(o){ var v=(o.fx.inst||{}).gol||0; return mult(v,rf("gol")*mPierna("gol",o)*mTec()*sk("gol")*mAnimo()*mPesoOf())*((S&&S.pos==="POR")?0.05:1); }},
+ {k:"asis",   lb:"Asistencia",      f:function(o){ return mult((o.fx.inst||{}).asis||0, rf("asis")*mPierna("asis",o)*mAsis()*mAfin()*sk("asis")*mComp()*mAnimo()*mPesoOf()); }},
+ {k:"golR",   lb:"Gol en contra",   f:function(o){ return clamp(((o.fx.inst||{}).golR||0)*mEncaja()*sk("golR")*mPesoDef(),0,1); }, malo:true},
  {k:"parada", lb:"Parada decisiva", f:function(o){ return mult((o.fx.inst||{}).parada||0, rf("parada")*mPar()*sk("parada")*mAnimo()); }},
  {k:"ta",     lb:"Amarilla",        f:function(o){ var v=o.fx.ta? mult(o.fx.ta,rf("tarjeta")*mTarj()*sk("ta")*mTemp())*0.42:0; if(M&&M.miTA) v*=0.5; return v; }, malo:true},
  {k:"roja",   lb:"Roja directa",    f:function(o){ return clamp((o.fx.roja||0)*mTarj()*mTemp(),0,1); }, malo:true},
@@ -6883,7 +6885,7 @@ function cerrarJornada(){
   var esMVP = jugoAlgo && nota>=8.3 && _errCampo<=2 && (M.miGol>0||M.miAsis>0||M.paradas>0||(M.sc[1]===0&&defensivo));
   if(esMVP) Y.mvp++;
   var dConf=(nota-6.4)*3;
-  if(dConf<0) dConf*=mResil()*presionPrensa()*((S.vida&&S.vida.mentor)?0.85:1);   /* con la prensa encima, cuesta más levantarse; el mentor amortigua */
+  if(dConf<0) dConf*=mResil()*presionPrensa()*eqMentorFactor();   /* con la prensa encima, cuesta más levantarse; el mentor amortigua */
   S.conf=clamp(S.conf+dConf, 25, 95);
   if(M.miTR){ S.sancion=1; S.motivoBaja="expulsión"; }
   /* los compañeros también tienen temporada: minutos, tarjetas y lesiones */
@@ -6944,11 +6946,11 @@ function cerrarJornada(){
   oxidarSkills();
   oxidarTalentos();
   evaluarReto();
-  var desgaste=(M.minJugados>=88?9:M.minJugados>0?5:1)*bonusTalentosForma("desgaste");
+  var desgaste=(M.minJugados>=88?9:M.minJugados>0?5:1)*bonusTalentosForma("desgaste")*eqDesgaste();
   /* el cuerpo también descansa entre jornada y jornada */
   var recupera=(20-((S.edad||22)>=31?4:(S.edad||22)<=21?-1:0)-(faseVicio("noche")>=1?5:0)
     +(((S.animo===undefined?65:S.animo)-65)/12)
-    +((S.vida?(S.vida.casa||0):0)+((S.vida&&S.vida.fisio)?2:0))) * bonusTalentosForma("recupera");
+    +((S.vida?(S.vida.casa||0):0)+eqRegen())) * bonusTalentosForma("recupera");
   S.forma=clamp((S.forma===undefined?70:S.forma)-desgaste+recupera,20,100);
   /* cuántas sesiones hiciste ESTA semana, capturado ANTES de limpiar S.entreno —
      si no, la comprobación de "sin trabajo" de más abajo siempre vería 0 y penalizaría
@@ -7154,6 +7156,7 @@ function jornadaSinTi(){
         S.rehabReforzada=true;
       }
     }
+    if(S.lesion>0 && rnd()<Math.min(0.6, eqFx().rehab*0.45)) pasoRehab+=1;   /* fisio y chef: la baja se acorta */
     S.lesion=Math.max(0, S.lesion - pasoRehab);
     if(S.lesion===0){
       if(S.rehabReforzada){ S.forma=clamp((S.forma||70)+6,20,100); S.modLesTemp={f:0.8, hasta:jorAbs()+5}; S.rehabReforzada=false; S.avisoMercado="Vuelves reforzado: el trabajo invisible se nota."; }
@@ -7810,7 +7813,7 @@ function resetSub(){ SUB={jugador:"ficha", equipo:"tabla", mercado:"contrato", c
 var SUBS={
   jugador:[["ficha","Ficha"],["fisico","Físico"],["animo","Ánimo"],["caracter","Carácter"],["fama","Fama"],["stats","Números"],["hist","Carrera"]],
   equipo:[["tabla","Clasificación"],["plantilla","Vestuario"],["mister","El míster"],["entreno","Entreno"],["jornada","Resultados"]],
-  cuentas:[["dinero","Dinero"],["tienda","Tienda"]],
+  cuentas:[["dinero","Dinero"],["tienda","Tienda"],["staff","Mi equipo"]],
   mercado:[["contrato","Contrato"],["hilos","Mover los hilos"],["agente","Agente"],["patros","Patrocinios"],["rumores","Rumores"],["fichajes","Fichajes"],["prensa","Prensa"]],
   ajustes:[["info","Información"],["codigo","Código"],["reportar","Reportar"]]
 };
@@ -8224,7 +8227,7 @@ function guardarPerfil(){
 }
 function fichaFamilias(){
   var B=bonusTienda? bonusTienda():{modLes:1};
-  var riesgo=(S.lesion>0)? "de baja" : (B.modLes<=0.75? "riesgo bajo" : B.modLes<=0.92? "riesgo medio" : "riesgo alto");
+  var _rm2=B.modLes*eqModLes(), riesgo=(S.lesion>0)? "de baja" : (_rm2<=0.75? "riesgo bajo" : _rm2<=1.0? "riesgo medio" : "riesgo alto");
   var r=rumorYo? rumorYo():null;
   var cartel = r? ("tu nombre "+fuerzaTxt(r.fuerza)) : (S.transferPed? "has pedido salir" : "sin ruido ahí fuera");
   var ejesTop=RASGOS_ORDEN.slice().sort(function(a,b){ return Math.abs(eje(b))-Math.abs(eje(a)); }).slice(0,2)
@@ -8456,7 +8459,7 @@ function secJugador(){
     H+='<div class="card"><div class="statgrid2">'
       +celda((_sf>=1000? (Math.round(_sf/100)/10).toLocaleString("es")+" k" : _sf), "Seguidores")
       +celda((S.edad||"—")+(S.edad? " años" : ""), "Edad")
-      +celda(S.peso? S.peso+" kg" : "—", "Peso")
+      +celda(S.peso? (Math.round(S.peso*10)/10)+" kg" : "—", "Peso")
       +celda(S.altura? S.altura+" cm" : "—", "Altura")+'</div></div>';
     if(EDIT_PERFIL){
       H+='<div class="card" style="border-color:rgba(255,194,75,.35)"><div class="eyebrow">Editar perfil</div>'
@@ -8700,12 +8703,8 @@ function nombreEj(id){ var e=ENTRENOS.filter(function(x){return x.id===id;})[0];
 function celda(v,l){ return '<div class="cel"><div class="cv disp">'+v+'</div><div class="cl">'+esc(l)+'</div></div>'; }
 /* ---------- VIDA PERSONAL ---------- */
 /* ===== TU DINERO: lo que ganas, por fin, sirve para algo ===== */
-function costeFisio(c){ var s=(c||S.contrato||{}).salario||300000; return Math.max(60000, Math.round(s*0.04/1000)*1000); }
-function costeMentor(c){ var s=(c||S.contrato||{}).salario||300000; return Math.max(40000, Math.round(s*0.03/1000)*1000); }
 function vidaObj(){ if(!S.vida) S.vida={casa:0, coche:false, fisio:false, mentor:false, dona:0}; return S.vida; }
 var TIENDA={
-  fisio:{n:"Fisio personal (anual)", d:"Recuperas +2 entre jornadas y te lesionas un 22% menos. Se renueva cada verano."},
-  mentor:{n:"Preparador mental (anual)", d:"Los malos partidos golpean un 15% menos tu confianza. Se renueva cada verano."},
   grada:{n:"Donación a la grada", precio:300000, d:"Pagas el desplazamiento de la peña. Afición +10, y la grada empuja la producción del equipo cuando juegas. Una vez por temporada."}
 };
 function aplicarCompra(k){
@@ -8744,22 +8743,6 @@ function aplicarCompra(k){
     v.cd=jorAbs()+10;                                    /* diez jornadas de paz material */
     return null;
   }
-  if(k==="fisio"){
-    if(v.fisio) return "El fisio ya trabaja contigo.";
-    var cF=costeFisio();
-    if(D<cF) return "No te llega: son "+fmtDinero(cF)+" al año.";
-    S.dinero=D-cF; v.fisio=true;
-    (S.vidaLog=S.vidaLog||[]).push("Contratas un fisio personal: "+fmtDinero(cF)+" al año.");
-    return null;
-  }
-  if(k==="mentor"){
-    if(v.mentor) return "El preparador mental ya está en nómina.";
-    var cM=costeMentor();
-    if(D<cM) return "No te llega: son "+fmtDinero(cM)+" al año.";
-    S.dinero=D-cM; v.mentor=true;
-    (S.vidaLog=S.vidaLog||[]).push("Contratas un preparador mental: "+fmtDinero(cM)+" al año.");
-    return null;
-  }
   if(k==="grada"){
     if(v.dona) return "Este año ya has puesto tu parte.";
     if(D<TIENDA.grada.precio) return "No te llega: son "+fmtDinero(TIENDA.grada.precio)+".";
@@ -8776,12 +8759,6 @@ function aplicarCompra(k){
 function comprarVida(k){
   var err=aplicarCompra(k);
   if(err){ modal({ico:"💶", t:"No puede ser", x:esc(err), okTxt:"Entendido", cancelTxt:"Cerrar"}); return; }
-  guardar(); irSub("cuentas","dinero");
-}
-function cancelarServicio(k){
-  var v=vidaObj();
-  if(k==="fisio" && v.fisio){ v.fisio=false; (S.vidaLog=S.vidaLog||[]).push("Prescindes del fisio personal."); }
-  if(k==="mentor" && v.mentor){ v.mentor=false; (S.vidaLog=S.vidaLog||[]).push("Prescindes del preparador mental."); }
   guardar(); irSub("cuentas","dinero");
 }
 /* la vida te busca por donde flaqueas: menú semanal generado, efectos por fórmula sobre el estado real */
@@ -8975,18 +8952,15 @@ function bloqueVidaClasica(){
         +'<p style="margin:0;font-size:14px"><b>'+esc(CC.art[v.capricho.niv])+'</b> · '+fmtDinero(CC.precio[v.capricho.niv])
         +'. Hasta que caiga, tu equilibrio pierde <b>'+caprichoDrena().toFixed(1)+'</b>. Con tu ego y tu fama, así funcionas.</p></div>';
     }
-    H+='<div class="card"><div class="eyebrow">Tu equipo de trabajo</div>';
-    if(!v.fisio) H+='<button class="opt" onclick="comprarVida(\'fisio\')">'+esc(TIENDA.fisio.n)+' · <b>'+fmtDinero(costeFisio())+'/año</b><small>'+esc(TIENDA.fisio.d)+'</small></button>';
-    else H+='<p class="note" style="margin:4px 2px">🩹 Fisio personal activo ('+fmtDinero(costeFisio())+'/año). <a href="javascript:cancelarServicio(\'fisio\')" style="color:var(--bad)">Prescindir</a></p>';
-    if(!v.mentor) H+='<button class="opt" onclick="comprarVida(\'mentor\')">'+esc(TIENDA.mentor.n)+' · <b>'+fmtDinero(costeMentor())+'/año</b><small>'+esc(TIENDA.mentor.d)+'</small></button>';
-    else H+='<p class="note" style="margin:4px 2px">🧠 Preparador mental activo ('+fmtDinero(costeMentor())+'/año). <a href="javascript:cancelarServicio(\'mentor\')" style="color:var(--bad)">Prescindir</a></p>';
-    H+='</div>';
+    H+='<p class="note" style="margin:8px 2px 0">Tu preparador, fisio, chef y coach mental están en <b>Mi equipo</b>.</p>';
   return H;
 }
 function planRehab(p){ S.rehabPlan=p; guardar(); irSub("jugador","fisico"); }
 function secMedica(){
   var B=bonusTienda(), H="";
-  var riesgoTxt=(B.modLes<=0.75? "bajo — tu equipo de recuperación trabaja" : B.modLes<=0.92? "medio" : "alto — el cuerpo va solo");
+  var _rm=B.modLes*eqModLes(), riesgoTxt=(_rm<=0.75? "bajo — tu equipo de recuperación trabaja" : _rm<=1.0? "medio" : "alto — el cuerpo va solo");
+  var _pd=pesoDesv(), _tc=_pd.sobre>0? "sobrepeso de "+_pd.sobre.toFixed(1)+" kg: te frena y te lesiona más" : _pd.infra>0? "bajo de peso en "+_pd.infra.toFixed(1)+" kg: pierdes fuerza" : "en tu peso de juego";
+  H+='<div class="card"><div class="eyebrow">Composición corporal</div><div style="font-size:13.5px"><b>'+(Math.round(_pd.peso*10)/10)+' kg</b> · '+(S.altura||180)+' cm · ideal '+Math.round(_pd.ideal)+' kg ('+_tc+')</div><p class="note" style="margin:6px 2px 0">Cuentas › Mi equipo: el preparador y el chef lo trabajan.</p></div>';
   H+='<div class="card"><div class="eyebrow">Estado</div>';
   if(S.lesion>0){
     H+='<div style="font-size:13.5px"><b>De baja</b> · '+(S.motivoBaja||"lesión")+' · '+S.lesion+' semana'+(S.lesion>1?"s":"")+' restante'+(S.lesion>1?"s":"")+'</div>';
@@ -9143,12 +9117,12 @@ function secDinero(){
       +celda(fmtDinero(S.dineroCarrera||0),"Carrera")
       +celda(fmtDinero(S.contrato&&!sinClub()?Math.round(S.contrato.salario/38):0),"Nómina/jornada")
       +celda(fmtDinero(S.contrato&&!sinClub()?S.contrato.salario:0),"Ficha anual")+'</div></div>';
-    H+='<p class="note" style="margin:6px 2px 0">Coche, casa y tu equipo personal viven ahora en la <b>Tienda</b>.</p>';
+    H+='<p class="note" style="margin:6px 2px 0">Coche y casa viven en la <b>Tienda</b>; tu preparador, fisio, chef y coach mental, en <b>Mi equipo</b>.</p>';
     H+='<div class="card"><div class="eyebrow">La grada</div>';
     if(!v.dona) H+='<button class="opt" onclick="comprarVida(\'grada\')">'+esc(TIENDA.grada.n)+' · <b>'+fmtDinero(TIENDA.grada.precio)+'</b><small>'+esc(TIENDA.grada.d)+'</small></button>';
     else H+='<p class="note" style="margin:4px 2px">🎫 Este año la peña viaja gracias a ti.</p>';
     H+='</div>';
-    if(dbgOn()) H+='<div class="card"><div class="dbg"><span class="dneu">recupera +'+((v.casa||0)+(v.fisio?2:0))+'</span><span class="dneu">lesión ×'+(v.fisio?"0,78":"1")+'</span><span class="dneu">golpe de confianza ×'+(v.mentor?"0,85":"1")+'</span><span class="dneu">equilibrio '+animoBase().toFixed(1)+'</span><span class="dneu">novedad coche '+Math.round(novedadDe("coche"))+' · casa '+Math.round(novedadDe("casa"))+'</span><span class="dneu">capricho −'+caprichoDrena().toFixed(1)+'</span><span class="dneu">grada×vestuario ×'+(apoyoAficion()*mVestuario()).toFixed(2)+'</span></div></div>';
+    if(dbgOn()) H+='<div class="card"><div class="dbg"><span class="dneu">recupera +'+((v.casa||0)+eqRegen()).toFixed(1)+'</span><span class="dneu">lesión ×'+eqModLes().toFixed(2)+'</span><span class="dneu">golpe de confianza ×'+eqMentorFactor().toFixed(2)+'</span><span class="dneu">peso '+pesoDesv().peso+' / ideal '+pesoIdeal().toFixed(1)+'</span><span class="dneu">equilibrio '+animoBase().toFixed(1)+'</span><span class="dneu">novedad coche '+Math.round(novedadDe("coche"))+' · casa '+Math.round(novedadDe("casa"))+'</span><span class="dneu">capricho −'+caprichoDrena().toFixed(1)+'</span><span class="dneu">grada×vestuario ×'+(apoyoAficion()*mVestuario()).toFixed(2)+'</span></div></div>';
   
   return H;
 }
@@ -9363,6 +9337,7 @@ function secAtributos(){
 function secCuentas(){
   var H='<div class="eyebrow">Tu patrimonio</div><h2 class="disp">Cuentas</h2>'+subTabs("cuentas");
   if(SUB.cuentas==="tienda") return H+secTienda();
+  if(SUB.cuentas==="staff") return H+secStaff();
   var k="dinero";
   H+=secDinero();
   return H;
@@ -9654,15 +9629,6 @@ var TIENDA_CATS=[
   modelos:[["Donación al banco de alimentos","Equipaciones al fútbol base","Campus becado del barrio"],["Beca deportiva anual","Reforma del campo del barrio","Furgoneta para la cantera humilde"],
            ["Programa de comedores escolares","Torneo benéfico con tu nombre","Unidad móvil sanitaria"],["Fundación propia: arranque","Ala hospitalaria infantil","Pozos de agua: proyecto anual"],
            ["Fundación a pleno rendimiento","Residencia deportiva social","Cátedra de deporte inclusivo"],["Legado: escuela deportiva completa","Hospital de campaña financiado","Dotación permanente de la fundación"]]},
- {id:"fisio",   n:"Fisio personal",    tipo:"serv", base:1500,   ic:"🩺", fx:{modLes:-0.10, regen:0.2},
-  modelos:[["Fisio a domicilio 2 días","Recuperador colegiado","Quiromasajista deportivo"],["Fisio deportivo senior","Osteópata + fisio semanal","Readaptador funcional"],
-           ["Fisio ex-cantera profesional","Equipo fisio + podólogo","Recovery coach certificado"],["Fisio de élite dedicado","Ex-fisio de selección","Equipo médico privado ligero"]]},
- {id:"chef",    n:"Chef a domicilio",  tipo:"serv", base:1100,   ic:"👨‍🍳", fx:{regen:0.5},
-  modelos:[["Cocinera de diario","Batch cooking premium","Menús de rendimiento"],["Chef privado 4 días","Chef + nutricionista","Cocina de temporada diaria"],
-           ["Chef con estrella de baja","Equipo cocina + compra","Chef especializado en deporte"],["Chef de élite dedicado","Brigada privada","Chef ex-Bulli para diario"]]},
- {id:"mente",   n:"Coach mental",      tipo:"serv", base:1300,   ic:"🧠", fx:{misterSem:0.6, conf:0.3},
-  modelos:[["Psicólogo deportivo quincenal","Mindfulness guiado","Coach de hábitos"],["Psicólogo semanal","Preparador mental de club","Terapia de rendimiento"],
-           ["Mental coach de élite","Psicólogo + neurofeedback","Programa de presión y foco"],["Equipo mental dedicado","Ex-psicólogo de selección","Mental room a medida"]]},
  {id:"estilo",  n:"Estilista",         tipo:"serv", base:900,    ic:"💇", fx:{seg:90},
   modelos:[["Peluquero de confianza semanal","Asesor de imagen puntual","Barbería premium"],["Estilista de sesión","Personal shopper trimestral","Grooming completo"],
            ["Estilista dedicado","Equipo imagen para eventos","Colaborador de moda fijo"],["Imagen integral 24/7","Estilista de celebrities","Dirección creativa personal"]]},
@@ -9754,6 +9720,547 @@ function bonusTienda(){
   return B;
 }
 function misterHit(d){ S.mister=clamp(S.mister - d*bonusTienda().amortMister, 5, 95); }
+/* ===================================================================
+   MI EQUIPO PERSONAL (0.04.003)
+   Preparador físico · fisioterapeuta · chef y nutrición · coach mental · analista.
+   Sustituye al «fisio personal» y al «preparador mental» de Cuentas y a los servicios
+   fisio / chef / coach del Bazar. Todo cuelga de S.eq y se lee con eqFx().
+   =================================================================== */
+var EQ_NIVELES=["Sin experiencia","Júnior","Sólido","Referente","Élite"];
+var EQ_FUERZA=[0.18,0.38,0.62,0.86,1.14];
+var EQ_PUESTOS=["prep","fisio","chef","mente","analista"];
+var EQ_ACIERTO=[0.45,0.62,0.78,0.92,1];          /* con qué frecuencia el profesional elige el plan ideal por su cuenta */
+var EQ_MULT_SAL=[0.08,0.2,0.4,0.7,1];
+var EQ_PISO_SAL=[8000,20000,45000,90000,160000];
+var EQ_INFO={
+ prep:{n:"Preparador físico", ic:"🏋️", pct:0.065, d:"Trabaja tu cuerpo: sube tu Físico, te lleva a tu peso ideal y alarga tu carrera."},
+ fisio:{n:"Fisioterapeuta", ic:"🩺", pct:0.065, d:"Más frescura entre jornadas, menos lesiones y bajas más cortas."},
+ chef:{n:"Chef y nutrición", ic:"👨‍🍳", pct:0.05, d:"La dieta que hace falta en cada momento: peso, recuperación y salud."},
+ mente:{n:"Coach mental", ic:"🧠", pct:0.045, d:"Cabeza fría: los malos partidos pesan menos y el míster lo nota."},
+ analista:{n:"Analista de rendimiento", ic:"📊", pct:0.06, d:"Mide tu carga con datos, afina al resto del equipo y descubre promesas."}
+};
+/* t = tendencia: «carga» empuja, «cuidado» protege. Si chocan, el equipo rinde menos. */
+var EQ_ESTILOS={
+ prep:[
+  {id:"explosivo", n:"Explosivo", d:"Potencia y velocidad. Te pone rápido, pero exige mucho al cuerpo.", m:1.12, r:0.08, t:"carga"},
+  {id:"fondista", n:"De fondo", d:"Base aeróbica y aguante, sin sobresaltos.", m:1.0, r:0, t:"neutro"},
+  {id:"funcional", n:"Funcional", d:"Movilidad y prevención: gana despacio y protege mucho.", m:0.9, r:-0.12, t:"cuidado"},
+  {id:"longevo", n:"De longevidad", d:"Piensa en tus 35 años, no en este domingo.", m:0.9, r:-0.06, t:"cuidado", techo:1.5},
+  {id:"integral", n:"Integral", d:"Sin extremos: hace de todo bastante bien.", m:1.0, r:0, t:"neutro"}],
+ fisio:[
+  {id:"manual", n:"Manual", d:"Camilla y manos: te deja fresco como nadie.", reg:1.25, prev:0.9, rehab:0.9, t:"cuidado"},
+  {id:"preventivo", n:"Preventivo", d:"Evita la lesión antes de que llegue.", reg:0.9, prev:1.25, rehab:0.9, t:"cuidado"},
+  {id:"readaptador", n:"Readaptador", d:"Cuando ya estás roto, te devuelve antes al campo.", reg:0.9, prev:0.9, rehab:1.35, t:"neutro"},
+  {id:"integral", n:"Integral", d:"Un poco de todo, sin brillar en nada.", reg:1, prev:1, rehab:1, t:"neutro"}],
+ chef:[
+  {id:"mediterraneo", n:"Mediterráneo", d:"Cocina de siempre, equilibrada y antiinflamatoria.", fav:["equilibrada","antiinflam"], t:"neutro"},
+  {id:"rendimiento", n:"De alto rendimiento", d:"Carga y energía: para quien aprieta.", fav:["rendimiento","volumen"], t:"carga"},
+  {id:"vegetal", n:"Vegetal", d:"Ligera y reparadora: el cuerpo se recupera mejor.", fav:["antiinflam","recuperacion"], t:"cuidado"},
+  {id:"composicion", n:"De composición", d:"Maestro del peso: definición y longevidad.", fav:["definicion","longevidad"], t:"neutro"}],
+ mente:[
+  {id:"clinico", n:"Psicólogo clínico", d:"Escucha y ordena la cabeza: ánimo y confianza.", conf:1.25, pres:0.9, t:"cuidado"},
+  {id:"presion", n:"Coach de presión", d:"Te entrena para los minutos que queman.", conf:0.9, pres:1.2, t:"neutro"}],
+ analista:[
+  {id:"datos", n:"De datos", d:"Cifras, cargas y alertas: el equipo se coordina mejor.", sint:1.2, ojo:0.8, t:"neutro"},
+  {id:"campo", n:"De campo", d:"Ojo clínico: detecta promesas antes que nadie.", sint:1.0, ojo:1.4, t:"neutro"}]
+};
+/* planes: m = ganancia de Físico · r = riesgo · f = fatiga semanal · d = kg/sem fijos · ir = tirón hacia el peso ideal
+           rg = regeneración · p = protección · rh = rehabilitación */
+var EQ_PLANES={
+ prep:{
+  fuerza:{n:"Fuerza", d:"Masa útil y duelos. Sube algo de peso.", m:1.10, r:0.05, f:0.6, d:0.10, ir:0},
+  potencia:{n:"Potencia", d:"Explosividad. Mucho Físico, mucho desgaste.", m:1.20, r:0.12, f:0.9, d:0.05, ir:0},
+  resistencia:{n:"Resistencia", d:"Aguante y base aeróbica. Baja algo de peso.", m:1.0, r:0, f:0.5, d:-0.12, ir:0.2},
+  velocidad:{n:"Velocidad", d:"Arrancadas y cambios de ritmo.", m:1.15, r:0.08, f:0.8, d:-0.08, ir:0.1},
+  prevencion:{n:"Prevención", d:"Movilidad y descarga. Casi sin desgaste.", m:0.6, r:-0.18, f:0, d:0, ir:0.1},
+  longevidad:{n:"Longevidad", d:"Cuidar el cuerpo que tendrás a los 33.", m:0.6, r:-0.08, f:0.1, d:0, ir:0.1, techo:3},
+  composicion:{n:"Composición corporal", d:"Llevarte a tu peso ideal, sin prisas ni lesiones.", m:0.8, r:-0.02, f:0.5, d:0, ir:1}},
+ chef:{
+  equilibrada:{n:"Equilibrada", d:"Ni un exceso ni una carencia.", rg:0.7, p:0, rh:0.2, d:0, ir:0.3},
+  rendimiento:{n:"Rendimiento", d:"Energía para cargas altas.", rg:0.9, p:0, rh:0.1, d:0, ir:0.2, m:0.06},
+  recuperacion:{n:"Recuperación", d:"Reponer, descansar y volver a tope.", rg:1.25, p:0.04, rh:0.4, d:0, ir:0.1},
+  definicion:{n:"Definición", d:"Quitar grasa con cabeza. Baja de peso.", rg:0.45, p:0, rh:0.1, d:-0.35, ir:0.8},
+  volumen:{n:"Volumen", d:"Ganar masa. Sube de peso.", rg:0.65, p:0, rh:0.1, d:0.30, ir:0, m:0.05},
+  antiinflam:{n:"Antiinflamatoria", d:"Protege articulaciones y acelera las bajas.", rg:0.85, p:0.08, rh:0.8, d:0, ir:0.2},
+  longevidad:{n:"Longevidad", d:"La dieta de quien quiere jugar hasta los 36.", rg:0.75, p:0.04, rh:0.2, d:0, ir:0.2, techo:1.5}}
+};
+var EQ_PARES={pf:["prep","fisio"], fc:["fisio","chef"], pc:["prep","chef"]};
+var EQ_COMPAT_PERSONAL_BASE=0;   /* (reservado) */
+
+function eqInit(){
+  if(!S) return null;
+  if(!S.eq) S.eq={auto:true, rehire:true, st:{prep:null,fisio:null,chef:null,mente:null,analista:null},
+                  plan:{prep:"auto", chef:"auto"}, sint:{pf:40,fc:40,pc:40}, mercado:null, info:[], dilema:null, temp:null, log:[], pesoOk:null};
+  var E=S.eq;
+  if(!E.st) E.st={prep:null,fisio:null,chef:null,mente:null,analista:null};
+  if(!E.plan) E.plan={prep:"auto", chef:"auto"};
+  if(!E.sint) E.sint={pf:40,fc:40,pc:40};
+  if(!E.info) E.info=[];
+  if(!E.log) E.log=[];
+  return E;
+}
+function eqLog(t){ var E=eqInit(); if(!E) return; E.log.unshift({t:S.temporada, j:S.jornada, x:t}); if(E.log.length>14) E.log.length=14; }
+function eqSemilla(){ return (S&&(S.seed||S.ligaSeed))||1; }
+function eqSalarioBase(){ return (S&&S.contrato&&S.contrato.salario)||300000; }
+function eqSalario(p, nivel, salJug){
+  var s=salJug||eqSalarioBase();
+  return Math.round(Math.max(EQ_PISO_SAL[nivel-1], s*EQ_INFO[p].pct*EQ_MULT_SAL[nivel-1])/1000)*1000;
+}
+function eqEstilo(p){ var m=S&&S.eq&&S.eq.st[p]; if(!m) return null; return EQ_ESTILOS[p].filter(function(e){ return e.id===m.estilo; })[0]||EQ_ESTILOS[p][0]; }
+
+/* ---------- cuerpo: peso ideal por altura y puesto ---------- */
+var EQ_BMI={POR:23.2, DFC:23.5, DC:23.5, LAT:22.3, MCD:23.0, MC:22.6, MCO:22.0, EXT:22.0};
+function pesoIdeal(){ var a=((S&&S.altura)||180)/100; return (EQ_BMI[(S&&S.pos)||"MC"]||22.8)*a*a; }
+function pesoDesv(){
+  var id=pesoIdeal(), p=(S&&S.peso)||id;
+  return {peso:p, ideal:id, min:id-5, max:id+4, sobre:Math.max(0,p-(id+4)), infra:Math.max(0,(id-5)-p), dev:p-id};
+}
+function pesoPenalMedia(){ if(!S) return 0; var d=pesoDesv(); return Math.min(7, d.sobre*0.4+d.infra*0.25); }
+function pesoLesion(){ var d=pesoDesv(); return 1+Math.min(0.6, d.sobre*0.022+d.infra*0.01); }
+function pesoDesgaste(){ var d=pesoDesv(); return 1+Math.min(0.8, d.sobre*0.04); }
+function mPesoOf(){
+  var d=pesoDesv(), w={EXT:1,DC:1,LAT:1,MCO:1,MC:0.8,MCD:0.4,DFC:0.4,POR:0}[(S&&S.pos)||"MC"]||0;
+  return 1-Math.min(0.28, d.sobre*0.018*w);
+}
+function mPesoDef(){
+  var d=pesoDesv(), w={DFC:1,LAT:1,MCD:1,MC:0.3,MCO:0.2,EXT:0.2,DC:0.1,POR:0.4}[(S&&S.pos)||"MC"]||0;
+  return 1+Math.min(0.3, d.sobre*0.02*w)+Math.min(0.15, d.infra*0.01*w);
+}
+function eqPesoTxt(){
+  var d=pesoDesv(), r=Math.round;
+  if(d.sobre>0) return {k:"sobre", t:"Sobrepeso de "+(Math.round(d.sobre*10)/10)+" kg sobre tu rango ideal"};
+  if(d.infra>0) return {k:"infra", t:"Por debajo de tu peso ideal en "+(Math.round(d.infra*10)/10)+" kg"};
+  return {k:"ok", t:"En tu peso ideal"};
+}
+
+/* ---------- sintonía entre profesionales ---------- */
+function eqPar(par){ var a=EQ_PARES[par]; return S.eq.st[a[0]] && S.eq.st[a[1]]; }
+function eqSint(p){
+  var E=eqInit(); if(!E) return 1;
+  var pares=p==="prep"? ["pf","pc"] : p==="fisio"? ["pf","fc"] : p==="chef"? ["fc","pc"] : ["pf","fc","pc"];
+  var v=[]; pares.forEach(function(k){ if(eqPar(k)) v.push(E.sint[k]); });
+  if(!v.length) return 1;
+  var m=v.reduce(function(a,b){return a+b;},0)/v.length;
+  return 0.85+0.40*m/100;
+}
+function eqFuerza(p){
+  var m=S&&S.eq&&S.eq.st[p]; if(!m) return 0;
+  return EQ_FUERZA[m.nivel-1]*eqSint(p);
+}
+function eqNivel(p){ var m=S&&S.eq&&S.eq.st[p]; return m? m.nivel : 0; }
+
+/* ---------- qué plan conviene ahora, y qué plan se sigue ---------- */
+function eqPlanOptimo(p){
+  var d=pesoDesv(), ed=S.edad||22, forma=(S.forma===undefined?70:S.forma);
+  if(p==="chef"){
+    if(S.lesion>0) return "antiinflam";
+    if(d.sobre>0) return "definicion";
+    if(d.infra>0) return "volumen";
+    if(forma<55) return "recuperacion";
+    if(ed>=31) return "longevidad";
+    if((S.rachaExtra||0)>=1) return "rendimiento";
+    return "equilibrada";
+  }
+  /* prep */
+  if(S.lesion>0) return "prevencion";
+  if(d.sobre>0) return "composicion";
+  if(d.infra>0) return "fuerza";
+  if(forma<50 || (S.rachaExtra||0)>=2) return "prevencion";
+  if(ed>=31) return "longevidad";
+  var pos=S.pos;
+  if(pos==="DC"||pos==="EXT"||pos==="LAT") return "velocidad";
+  if(pos==="DFC"||pos==="MCD") return "fuerza";
+  if(pos==="POR") return "potencia";
+  return "resistencia";
+}
+function eqPlanAuto(p){
+  var m=S.eq.st[p]; if(!m) return null;
+  var acc=Math.min(1, EQ_ACIERTO[m.nivel-1]+0.03*eqNivel("analista"));
+  var r=lcgDe("eqplan-"+eqSemilla()+"-"+jorAbs()+"-"+p)();
+  return r<acc? eqPlanOptimo(p) : (p==="chef"? "equilibrada" : "resistencia");
+}
+function eqPlanElegido(p){
+  var E=eqInit(); if(!E || !E.st[p]) return null;
+  var man=E.plan[p];
+  if(!E.auto || !man || man==="auto" || !EQ_PLANES[p][man]) return eqPlanAuto(p);
+  return man;
+}
+function eqEsManual(p){ var E=eqInit(); return !!(E && E.st[p] && E.auto && E.plan[p] && E.plan[p]!=="auto" && EQ_PLANES[p][E.plan[p]]); }
+function eqFit(p){ return eqPlanElegido(p)===eqPlanOptimo(p)? 1 : 0.8; }
+
+/* ---------- efectos: todo lo que el equipo cambia, en un solo sitio ---------- */
+function eqFx(){
+  var F={regen:0, riesgoMenos:0, riesgoMas:0, mult:0, techo:0, rehab:0, conf:0, misterSem:0, mentor:1, fatiga:0};
+  var E=eqInit(); if(!E) return F;
+  var ed=S.edad||22, joven=(ed>=27?1:0.4);
+  if(E.st.prep){
+    var s=eqFuerza("prep"), pl=EQ_PLANES.prep[eqPlanElegido("prep")], es=eqEstilo("prep"), fit=eqFit("prep");
+    F.mult+=0.30*s*pl.m*es.m*fit;
+    var r=(pl.r+es.r)*s; if(r>0) F.riesgoMas+=r; else F.riesgoMenos-=r;
+    F.fatiga+=pl.f*s;
+    F.techo+=((pl.techo||0)*joven+(es.techo||0))*s;
+  }
+  if(E.st.fisio){
+    var s2=eqFuerza("fisio"), e2=eqEstilo("fisio");
+    F.regen+=3.2*s2*e2.reg; F.riesgoMenos+=0.40*s2*e2.prev; F.rehab+=0.9*s2*e2.rehab;
+  }
+  if(E.st.chef){
+    var s3=eqFuerza("chef"), pid=eqPlanElegido("chef"), pl3=EQ_PLANES.chef[pid], e3=eqEstilo("chef"), fit3=eqFit("chef");
+    var fav=(e3.fav.indexOf(pid)>=0)? 1.2 : 1;
+    F.regen+=1.9*s3*pl3.rg*fav*fit3; F.riesgoMenos+=(pl3.p||0)*s3*fav*fit3; F.rehab+=(pl3.rh||0)*s3*fit3;
+    F.mult+=(pl3.m||0)*s3*fit3; F.techo+=(pl3.techo||0)*s3*joven;
+  }
+  if(E.st.mente){
+    var s4=eqFuerza("mente"), e4=eqEstilo("mente");
+    F.conf+=0.5*s4*e4.conf; F.misterSem+=0.4*s4*e4.conf; F.mentor=clamp(1-0.30*s4*e4.pres, 0.55, 1);
+  }
+  if(E.st.analista){
+    var s5=eqFuerza("analista");
+    F.riesgoMenos+=0.12*s5; F.regen+=0.4*s5;
+  }
+  if(E.temp && E.temp.hasta>=jorAbs()){
+    F.mult+=E.temp.mult||0; F.riesgoMas+=E.temp.riesgoMas||0; F.riesgoMenos+=E.temp.riesgoMenos||0;
+  }
+  return F;
+}
+function eqRegen(){ var F=eqFx(); return F.regen-F.fatiga; }
+function eqModLes(){
+  var F=eqFx(), m=1-Math.min(0.6,F.riesgoMenos)+F.riesgoMas;
+  return clamp(m*pesoLesion(), 0.4, 1.9);
+}
+function eqMultEntreno(k){ return k==="FIS"? Math.min(1.45, 1+eqFx().mult) : 1; }
+function eqDesgaste(){ return pesoDesgaste(); }
+function eqTechoFIS(){ return Math.min(6, eqFx().techo); }
+function eqMentorFactor(){ return eqFx().mentor; }
+
+/* ---------- mercado: seis candidatos por puesto y temporada ---------- */
+function eqGenerar(p){
+  var rnd2=lcgDe("eqmerc-"+eqSemilla()+"-"+S.temporada+"-"+p), out=[], niveles=[1,1,2,3,4,5];
+  niveles.forEach(function(base,i){
+    var nivel=base, r=rnd2();
+    if(r<0.2) nivel=Math.max(1,base-1); else if(r>0.8) nivel=Math.min(5,base+1);
+    var ests=EQ_ESTILOS[p], est=ests[Math.floor(rnd2()*ests.length)];
+    var pot=nivel;
+    if(nivel<=2){ var q=rnd2(); pot=Math.min(4, nivel+(q<0.25?0:q<0.65?1:q<0.90?2:3)); }
+    var edad=nivel===1? 24+Math.floor(rnd2()*8) : 30+Math.floor(rnd2()*28);
+    var exp=nivel===1? Math.floor(rnd2()*3) : Math.max(3, edad-25-Math.floor(rnd2()*6));
+    out.push({id:p+"-"+S.temporada+"-"+i, p:p, n:genNombrePila(rnd2)+" "+genApellido(rnd2), edad:edad, exp:exp,
+              nivel:nivel, pot:pot, estilo:est.id, sem:0});
+  });
+  out.sort(function(a,b){ return a.nivel-b.nivel; });
+  return out;
+}
+function eqMercado(p){
+  var E=eqInit();
+  if(!E.mercado || E.mercado.t!==S.temporada) E.mercado={t:S.temporada, c:{}};
+  if(!E.mercado.c[p]) E.mercado.c[p]=eqGenerar(p);
+  return E.mercado.c[p];
+}
+function eqRequisito(c){
+  var fama=S.fama||30;
+  if(c.nivel>=5 && fama<55) return "Pide fama 55 (tienes "+fama+")";
+  if(c.nivel>=4 && fama<35) return "Pide fama 35 (tienes "+fama+")";
+  return null;
+}
+function eqReset(p){
+  var E=eqInit();
+  Object.keys(EQ_PARES).forEach(function(k){ if(EQ_PARES[k].indexOf(p)>=0) E.sint[k]=40; });
+  if(p==="prep"||p==="chef") E.plan[p]="auto";
+}
+function eqContratar(p, id){
+  var E=eqInit(), lista=eqMercado(p), c=lista.filter(function(x){return x.id===id;})[0];
+  if(!c) return "Ese candidato ya no está disponible.";
+  var req=eqRequisito(c); if(req) return req+".";
+  var sal=eqSalario(p, c.nivel);
+  if((S.dinero||0)<sal) return "No te llega: son "+fmtDinero(sal)+" al año.";
+  S.dinero-=sal;
+  var antes=E.st[p];
+  E.st[p]={id:c.id, p:p, n:c.n, edad:c.edad, exp:c.exp, nivel:c.nivel, pot:c.pot, estilo:c.estilo, sem:0, sal:sal};
+  E.mercado.c[p]=lista.filter(function(x){return x.id!==id;});
+  eqReset(p); E.tuvo=E.tuvo||{}; E.tuvo[p]=1;
+  eqLog("Fichas a "+c.n+" como "+EQ_INFO[p].n.toLowerCase()+" ("+EQ_NIVELES[c.nivel-1].toLowerCase()+", "+fmtDinero(sal)+"/año)"+(antes? ", en lugar de "+antes.n : "")+".");
+  return null;
+}
+function eqDespedir(p){
+  var E=eqInit(); if(!E.st[p]) return;
+  eqLog("Prescindes de "+E.st[p].n+" ("+EQ_INFO[p].n.toLowerCase()+").");
+  E.st[p]=null; eqReset(p); E.tuvo=E.tuvo||{}; E.tuvo[p]=0;
+}
+
+/* ---------- migración desde los sistemas viejos ---------- */
+function eqCrearMigrado(p, nivel){
+  var r=lcgDe("eqmig-"+eqSemilla()+"-"+p+nivel), ests=EQ_ESTILOS[p], est=ests[Math.floor(r()*ests.length)];
+  return {id:"mig-"+p, p:p, n:genNombrePila(r)+" "+genApellido(r), edad:34+Math.floor(r()*18), exp:8, nivel:nivel, pot:nivel, estilo:est.id, sem:30, sal:eqSalario(p,nivel)};
+}
+function eqMigrar(){
+  var E=eqInit(); if(!E || E.migrado) return;
+  E.migrado=1;
+  var v=S.vida||{};
+  E.tuvo=E.tuvo||{};
+  if(v.fisio && !E.st.fisio){ E.st.fisio=eqCrearMigrado("fisio",2); E.tuvo.fisio=1; }
+  if(v.mentor && !E.st.mente){ E.st.mente=eqCrearMigrado("mente",2); E.tuvo.mente=1; }
+  v.fisio=false; v.mentor=false;
+  var sv=(S.tienda&&S.tienda.serv)||{};
+  Object.keys(sv).forEach(function(id){
+    var m=/^(fisio|chef|mente)-(\d)-/.exec(id); if(!m) return;
+    var p=m[1], niv=Math.min(5,(+m[2])+2);
+    if(!E.st[p] || E.st[p].nivel<niv){ E.st[p]=eqCrearMigrado(p,niv); E.tuvo=E.tuvo||{}; E.tuvo[p]=1; }
+    delete sv[id];
+  });
+}
+
+/* ---------- el cierre de verano: sueldos, ofertas, aprendizaje ---------- */
+function eqRenovar(guarda){
+  var E=eqInit(), av=[]; if(!E) return av;
+  EQ_PUESTOS.forEach(function(p){
+    var m=E.st[p]; if(!m) return;
+    m.edad++; m.exp++;
+    if(m.pot>m.nivel && m.sem>=20 && lcgDe("eqgrow-"+eqSemilla()+"-"+S.temporada+"-"+p)()<0.8){
+      m.nivel++; av.push(m.n+" ha crecido contigo: ahora es "+EQ_NIVELES[m.nivel-1].toLowerCase()+".");
+    }
+    var cuesta=eqSalario(p, m.nivel);
+    var rl=lcgDe("eqfuga-"+eqSemilla()+"-"+S.temporada+"-"+p)();
+    var sePira=rl<(m.nivel>=4? 0.14 : 0.06);
+    if(sePira){ av.push(m.n+" ("+EQ_INFO[p].n.toLowerCase()+") ficha por otro club."); E.st[p]=null; eqReset(p); }
+    else if((guarda.dinero||0)>=cuesta){ guarda.dinero-=cuesta; m.sal=cuesta; }
+    else { av.push("No llegabas a pagar a "+m.n+" ("+fmtDinero(cuesta)+"): se marcha."); E.st[p]=null; eqReset(p); }
+  });
+  /* contratación automática: quien se va se sustituye por lo mejor que se pueda pagar */
+  if(E.rehire){
+    EQ_PUESTOS.forEach(function(p){
+      if(E.st[p]) return;
+      var lista=eqMercado(p).filter(function(c){ return !eqRequisito(c) && eqSalario(p,c.nivel)<=(guarda.dinero||0)*0.5; });
+      if(!lista.length) return;
+      lista.sort(function(a,b){ return b.nivel-a.nivel; });
+      /* solo se reponen los puestos que ya tenías: el resto es decisión tuya */
+      if(!E.tuvo || !E.tuvo[p]) return;
+      var c=lista[0], sal=eqSalario(p,c.nivel);
+      guarda.dinero-=sal;
+      E.st[p]={id:c.id,p:p,n:c.n,edad:c.edad,exp:c.exp,nivel:c.nivel,pot:c.pot,estilo:c.estilo,sem:0,sal:sal};
+      E.mercado.c[p]=E.mercado.c[p].filter(function(x){return x.id!==c.id;});
+      eqReset(p);
+      av.push("Tu equipo ficha a "+c.n+" como "+EQ_INFO[p].n.toLowerCase()+" ("+EQ_NIVELES[c.nivel-1].toLowerCase()+").");
+    });
+  }
+  av.forEach(eqLog);
+  return av;
+}
+
+/* ---------- la semana: peso, sintonía, informe, dilemas y burlas ---------- */
+function semanaEquipo(){
+  var E=eqInit(); if(!E) return;
+  /* tiempo juntos */
+  EQ_PUESTOS.forEach(function(p){ if(E.st[p]) E.st[p].sem=(E.st[p].sem||0)+1; });
+  /* sintonía: hacia donde empujan sus estilos y el tiempo que llevan juntos */
+  var bono=0, an=E.st.analista;
+  if(an){ var ea=eqEstilo("analista"); bono=4*an.nivel*(ea.sint||1); }
+  Object.keys(EQ_PARES).forEach(function(k){
+    var a=E.st[EQ_PARES[k][0]], b=E.st[EQ_PARES[k][1]];
+    if(!a || !b) return;
+    var ta=eqEstilo(EQ_PARES[k][0]).t, tb=eqEstilo(EQ_PARES[k][1]).t;
+    var base=(ta==="neutro"||tb==="neutro")? 68 : (ta===tb? 80 : 42);
+    var juntos=Math.min(a.sem||0, b.sem||0);
+    var meta=clamp(base+bono+Math.min(12, juntos*0.35), 0, 100);
+    var v=E.sint[k];
+    E.sint[k]=clamp(v+(meta>v? Math.min(3,meta-v) : -Math.min(4,v-meta)), 0, 100);
+  });
+  /* peso: lo que empuja cada profesional + lo poco que hace el club + los años */
+  var d=pesoDesv(), dp=0;
+  ["prep","chef"].forEach(function(p){
+    if(!E.st[p]) return;
+    var pl=EQ_PLANES[p][eqPlanElegido(p)], s=eqFuerza(p)*eqFit(p);
+    dp+=pl.d*s*1.6;
+    if(pl.ir) dp+=Math.max(-1,Math.min(1,(d.ideal-d.peso)))*pl.ir*0.45*s;
+  });
+  if(d.sobre>0 && dp>-0.1) dp-=0.10;                 /* el club cuida lo mínimo: a la larga, tu peso se corrige */
+  if(d.infra>0 && dp<0.1) dp+=0.08;
+  if((S.edad||22)>=30) dp+=0.03;
+  dp=clamp(dp,-1.2,1.0);
+  S.peso=Math.round(Math.max(45,(S.peso||75)+dp)*10)/10;
+  /* ánimo y míster */
+  var F=eqFx();
+  if(F.conf) S.conf=clamp(S.conf+F.conf,5,95);
+  if(F.misterSem) S.mister=clamp(S.mister+F.misterSem,5,95);
+  /* las consecuencias de un cuerpo fuera de rango */
+  var d2=pesoDesv();
+  if(d2.sobre>=5 && S.libre!==true){
+    var pB=clamp(0.05+d2.sobre*0.012, 0, 0.32);
+    if(rnd()<pB){
+      var burla=pick([
+        "La prensa se ceba con el peso de "+S.nombre+": «Llega al área cuando el balón ya salió».",
+        "Memes por todas partes: «"+S.nombre+" necesita dos pasillos para girar».",
+        "En el programa de la noche bromean con la báscula de "+S.nombre+".",
+        "Un rival le suelta en la banda: «¿Corres o ruedas?». El vídeo da la vuelta a las redes."]);
+      prensaPush(burla);
+      if(S.muro) S.muro.unshift({jor:S.jornada+1, u:pick(["CurvaSur","AbonadoDesde91","PeñaNorte"]), t:"Con ese peso no llega ni al córner. Que se ponga a dieta.", bien:false});
+      if(S.muro && S.muro.length>16) S.muro.pop();
+      S.conf=clamp(S.conf-(1.5+Math.min(2.5,d2.sobre*0.1)),5,95);
+      S.animo=clamp((S.animo||65)-3,20,100);
+    }
+    if(d2.sobre>=8 && rnd()<0.3){
+      S.mister=clamp(S.mister-0.8,5,95);
+      S.avisoMister="El míster te mira la báscula: «Así no llegas, y yo no puedo esperar».";
+    }
+  }
+  var okAhora=(d2.sobre===0 && d2.infra===0);
+  if(E.pesoOk===false && okAhora){
+    S.conf=clamp(S.conf+4,5,95); S.animo=clamp((S.animo||65)+4,20,100);
+    eqLog("Llegas a tu peso ideal ("+(Math.round(d2.peso*10)/10)+" kg). Se nota en las piernas.");
+    S.avisoVida="Llegas a tu peso ideal. Las piernas lo agradecen.";
+  }
+  E.pesoOk=okAhora;
+  /* dilema entre profesionales */
+  if(!E.dilema && E.st.prep && E.st.fisio && eqEstilo("prep").t==="carga" && E.sint.pf<62 && rnd()<0.14){
+    E.dilema={j:jorAbs(), txt:E.st.prep.n+" quiere apretar esta semana; "+E.st.fisio.n+" ve tu cuerpo justo. ¿A quién haces caso?",
+      o:["Al preparador: subir la carga","Al fisio: bajar el ritmo","Que lo hablen entre ellos"]};
+    if(E.auto){
+      var forma=(S.forma===undefined?70:S.forma);
+      var i=forma<62? 1 : (E.st.prep.nivel>E.st.fisio.nivel? 0 : 2);
+      eqResolverDilema(i, true);
+    }
+  }
+  if(E.dilema && jorAbs()-E.dilema.j>4) E.dilema=null;
+  eqInforme();
+}
+function eqResolverDilema(i, auto){
+  var E=eqInit(); if(!E.dilema) return;
+  var o=E.dilema.o[i];
+  if(i===0){ E.temp={hasta:jorAbs()+3, mult:0.10, riesgoMas:0.12}; }
+  else if(i===1){ E.temp={hasta:jorAbs()+3, mult:-0.04, riesgoMenos:0.15}; }
+  else { E.sint.pf=clamp(E.sint.pf+7,0,100); }
+  eqLog((auto? "El equipo lo decide solo: ":"Decides: ")+o.toLowerCase()+".");
+  E.dilema=null;
+}
+function eqInforme(){
+  var E=eqInit(), L=[], d=pesoDesv(), forma=(S.forma===undefined?70:S.forma);
+  var pesoTxt=(Math.round(d.peso*10)/10)+" kg (ideal "+Math.round(d.min)+"–"+Math.round(d.max)+")";
+  if(E.st.prep){
+    var pl=EQ_PLANES.prep[eqPlanElegido("prep")];
+    L.push("🏋️ "+E.st.prep.n+": plan de "+pl.n.toLowerCase()+". Peso "+pesoTxt+".");
+  }
+  if(E.st.fisio){
+    var rl=eqModLes(), tx=rl<=0.7? "bajo" : rl<=1.0? "medio" : "alto";
+    L.push("🩺 "+E.st.fisio.n+": riesgo de lesión "+tx+(forma<55? ", y vas justo de forma: conviene bajar el ritmo" : "")+".");
+  }
+  if(E.st.chef){
+    var pc=EQ_PLANES.chef[eqPlanElegido("chef")];
+    L.push("👨‍🍳 "+E.st.chef.n+": menú "+pc.n.toLowerCase()+(eqEsManual("chef") && eqPlanElegido("chef")!==eqPlanOptimo("chef") && E.st.chef.nivel>=3? " (él recomendaría "+EQ_PLANES.chef[eqPlanOptimo("chef")].n.toLowerCase()+")" : "")+".");
+  }
+  if(E.st.mente) L.push("🧠 "+E.st.mente.n+": "+(S.conf<45? "te ve con la cabeza baja y trabaja la confianza." : "tu cabeza está en su sitio."));
+  if(E.st.analista){
+    var s=E.sint, par=Object.keys(s).filter(function(k){ return eqPar(k); });
+    if(par.length){ var m=Math.round(par.reduce(function(a,k){return a+s[k];},0)/par.length); L.push("📊 "+E.st.analista.n+": sintonía del equipo "+m+"/100."); }
+  }
+  if(E.st.prep && eqEsManual("prep") && eqPlanElegido("prep")!==eqPlanOptimo("prep") && E.st.prep.nivel>=3)
+    L.push("⚠ "+E.st.prep.n+" desaconseja el plan actual: ahora recomendaría "+EQ_PLANES.prep[eqPlanOptimo("prep")].n.toLowerCase()+".");
+  E.info=L.slice(0,6);
+}
+
+/* ---------- pantalla: Cuentas › Mi equipo ---------- */
+function eqEstrellas(n){ var s=""; for(var i=1;i<=5;i++) s+=(i<=n? "★":"☆"); return s; }
+function eqRefrescar(){ guardar(); irSub("cuentas","staff"); }
+function eqToggleAuto(){ var E=eqInit(); E.auto=!E.auto; eqRefrescar(); }
+function eqToggleRehire(){ var E=eqInit(); E.rehire=!E.rehire; eqRefrescar(); }
+function eqPlanSet(p, id){ var E=eqInit(); E.plan[p]=id; eqRefrescar(); }
+function eqFichar(p, id){
+  var err=eqContratar(p,id);
+  if(err){ modal({ico:"🤝", t:"No puede ser", x:esc(err), okTxt:"Entendido", cancelTxt:"Cerrar"}); return; }
+  eqRefrescar();
+}
+function eqPrescindir(p){
+  var E=eqInit(), m=E.st[p]; if(!m) return;
+  modal({ico:"🚪", t:"Prescindir de "+esc(m.n), x:"Se va sin indemnización y el sueldo que pagaste no se recupera. ¿Seguro?",
+    okTxt:"Prescindir", cancelTxt:"Mejor no", onOk:function(){ eqDespedir(p); eqRefrescar(); }});
+}
+function eqDilemaElige(i){ eqResolverDilema(i,false); eqRefrescar(); }
+function eqChips(p){
+  var F=eqFx(), E=eqInit(), c=[];
+  if(p==="prep"){ if(F.mult) c.push("⚽ Físico en entreno +"+Math.round(F.mult*100)+"%"); if(F.techo>0.4) c.push("techo de Físico +"+F.techo.toFixed(1)); c.push("desgaste −"+F.fatiga.toFixed(1)+"/sem"); }
+  if(p==="fisio"){ var ef=eqEstilo("fisio"); c.push("⚽ forma +"+(2.6*eqFuerza("fisio")*ef.reg).toFixed(1)+"/sem"); c.push("lesión −"+Math.round(0.40*eqFuerza("fisio")*ef.prev*100)+"%"); c.push("bajas más cortas"); }
+  if(p==="chef"){ var pl=EQ_PLANES.chef[eqPlanElegido("chef")]; c.push("menú: "+pl.n.toLowerCase()); }
+  if(p==="mente"){ c.push("🧍 ánimo +"+F.conf.toFixed(1)+"/sem"); c.push("míster +"+F.misterSem.toFixed(1)+"/sem"); c.push("golpes de confianza ×"+F.mentor.toFixed(2)); }
+  if(p==="analista"){ c.push("riesgo −"+Math.round(0.12*eqFuerza("analista")*100)+"%"); c.push("sintonía +"+Math.round(4*E.st.analista.nivel)); }
+  return c;
+}
+function eqTarjetaPuesto(p){
+  var E=eqInit(), I=EQ_INFO[p], m=E.st[p], H='<div class="card"><div class="eyebrow">'+I.ic+' '+esc(I.n)+'</div>';
+  H+='<p class="note" style="margin:0 2px 8px">'+esc(I.d)+'</p>';
+  if(m){
+    var es=eqEstilo(p), pot=(eqNivel("analista")>=3 || m.sem>=20) && m.pot>m.nivel;
+    H+='<div style="font-size:14px"><b>'+esc(m.n)+'</b> · '+eqEstrellas(m.nivel)+' <b>'+EQ_NIVELES[m.nivel-1]+'</b></div>';
+    H+='<div class="note" style="margin:2px 0 4px">'+esc(es.n)+' — '+esc(es.d)+'</div>';
+    H+='<div class="note" style="margin:0 0 6px">'+m.exp+' años de experiencia · contigo '+(m.sem||0)+' semana'+((m.sem||0)===1?"":"s")+' · '+fmtDinero(m.sal||eqSalario(p,m.nivel))+'/año'+(pot? ' · <b>puede llegar a '+EQ_NIVELES[m.pot-1].toLowerCase()+'</b>':'')+'</div>';
+    var ch=eqChips(p); if(ch.length) H+='<div style="font-size:10.5px;color:var(--dim);margin-bottom:6px">'+ch.map(esc).join(" · ")+'</div>';
+    if(p==="prep"||p==="chef"){
+      var opt=eqPlanOptimo(p), cur=E.plan[p]||"auto", pl=EQ_PLANES[p];
+      H+='<div class="note" style="margin:6px 2px 4px"><b>Plan</b> — '+(E.auto? "el profesional elige o tú lo fijas:" : "automático desactivado: el equipo sigue un plan estándar.")+'</div>';
+      H+='<div class="chips full" style="grid-template-columns:repeat(2,1fr)">';
+      H+='<button class="chip'+((cur==="auto"||!E.auto)?' on':'')+'" onclick="eqPlanSet(\''+p+'\',\'auto\')">🤖 Automático</button>';
+      Object.keys(pl).forEach(function(id){
+        H+='<button class="chip'+((E.auto && cur===id)?' on':'')+'" onclick="eqPlanSet(\''+p+'\',\''+id+'\')" title="'+esc(pl[id].d)+'">'+esc(pl[id].n)+(id===opt && m.nivel>=3? ' ✓':'')+'</button>';
+      });
+      H+='</div>';
+      var act=eqPlanElegido(p);
+      H+='<p class="note" style="margin:6px 2px 0">Ahora: <b>'+esc(pl[act].n)+'</b> — '+esc(pl[act].d)+(m.nivel>=3? ' <span style="opacity:.8">(ideal hoy: '+esc(pl[opt].n.toLowerCase())+')</span>':'')+'</p>';
+    }
+    H+='<p class="note" style="margin:8px 2px 0"><a href="javascript:eqPrescindir(\''+p+'\')" style="color:var(--bad)">Prescindir</a></p>';
+  } else {
+    H+='<p class="note" style="margin:0 2px 6px">Puesto vacante.</p>';
+  }
+  /* candidatos */
+  H+='<div class="note" style="margin:8px 2px 4px"><b>'+(m? "Cambiar por…":"Candidatos")+'</b></div>';
+  eqMercado(p).forEach(function(c){
+    var sal=eqSalario(p,c.nivel), req=eqRequisito(c), es=EQ_ESTILOS[p].filter(function(e){return e.id===c.estilo;})[0];
+    var pot=(eqNivel("analista")>=3) && c.pot>c.nivel;
+    H+='<button class="opt" onclick="'+(req? "modal({ico:'🔒',t:'Todavía no',x:'"+esc(req).replace(/'/g,"")+"',okTxt:'Entendido',cancelTxt:'Cerrar'})" : "eqFichar('"+p+"','"+c.id+"')")+'">'
+      +esc(c.n)+' · '+eqEstrellas(c.nivel)+' <b>'+EQ_NIVELES[c.nivel-1]+'</b> · <b>'+fmtDinero(sal)+'/año</b>'
+      +'<small>'+esc(es.n)+' · '+c.exp+' años de experiencia'+(pot? ' · promesa: puede llegar a '+EQ_NIVELES[c.pot-1].toLowerCase():'')+(req? ' · 🔒 '+esc(req):'')+'</small></button>';
+  });
+  return H+'</div>';
+}
+function secStaff(){
+  var E=eqInit(), H="", d=pesoDesv(), pt=eqPesoTxt();
+  /* cuerpo */
+  var col=pt.k==="ok"? "var(--ok)" : "var(--bad)";
+  H+='<div class="card"><div class="eyebrow">Tu cuerpo</div>'
+    +'<div class="statgrid2">'+celda((S.altura||180)+" cm","Altura")+celda((Math.round(d.peso*10)/10)+" kg","Peso")
+    +celda(Math.round(d.min)+"–"+Math.round(d.max)+" kg","Peso ideal ("+(S.pos||"")+")")+celda(fmtDinero(S.dinero||0),"En el banco")+'</div>'
+    +'<p class="note" style="margin:8px 2px 0;color:'+col+'"><b>'+esc(pt.t)+'.</b></p>';
+  if(d.sobre>0) H+='<p class="note" style="margin:4px 2px 0">Con este peso: media −'+pesoPenalMedia().toFixed(1)+' · riesgo de lesión +'+Math.round((pesoLesion()-1)*100)+'% · te cansas un '+Math.round((pesoDesgaste()-1)*100)+'% más · te superan en velocidad. Y la prensa y la grada lo notan.</p>';
+  else if(d.infra>0) H+='<p class="note" style="margin:4px 2px 0">Con este peso pierdes fuerza en los duelos y te lesionas algo más.</p>';
+  else H+='<p class="note" style="margin:4px 2px 0">Tu cuerpo está donde tiene que estar para tu puesto.</p>';
+  H+='</div>';
+  /* modo */
+  H+='<div class="card"><div class="eyebrow">Cómo trabaja tu equipo</div>'
+    +'<button class="opt'+(E.auto?' opt-sk':'')+'" onclick="eqToggleAuto()"><b>🤖 Modo automático: '+(E.auto?"activado":"desactivado")+'</b><small>'+(E.auto? "Los profesionales eligen los planes y resuelven los desacuerdos. Cuanto mejores son, mejor aciertan: los de élite casi nunca fallan." : "Sin automático, el equipo sigue un plan estándar y los dilemas te los consultan a ti.")+'</small></button>'
+    +'<button class="opt'+(E.rehire?' opt-sk':'')+'" onclick="eqToggleRehire()"><b>🔁 Reposición automática: '+(E.rehire?"activada":"desactivada")+'</b><small>Si alguien se marcha en verano, se ficha a lo mejor que puedas pagar para ese puesto.</small></button></div>';
+  /* informe */
+  if(E.info && E.info.length){
+    H+='<div class="card"><div class="eyebrow">Informe semanal</div>';
+    E.info.forEach(function(l){ H+='<p style="margin:0 0 6px;font-size:13px">'+esc(l)+'</p>'; });
+    H+='</div>';
+  }
+  if(E.dilema){
+    H+='<div class="card" style="border-color:rgba(255,194,75,.45)"><div class="eyebrow" style="color:var(--gold)">Desacuerdo en el equipo</div><p style="margin:0 0 8px;font-size:13.5px">'+esc(E.dilema.txt)+'</p>';
+    E.dilema.o.forEach(function(o,i){ H+='<button class="opt" onclick="eqDilemaElige('+i+')">'+esc(o)+'</button>'; });
+    H+='</div>';
+  }
+  /* sintonía */
+  var pares=[["pf","Preparador ↔ Fisio"],["fc","Fisio ↔ Chef"],["pc","Preparador ↔ Chef"]].filter(function(x){ return eqPar(x[0]); });
+  if(pares.length){
+    H+='<div class="card"><div class="eyebrow">Sintonía</div>';
+    pares.forEach(function(x){ var v=Math.round(E.sint[x[0]]); H+='<div class="row2" style="font-size:12.5px"><span>'+x[1]+'</span><b>'+v+'/100</b></div><div style="height:5px;border-radius:3px;background:rgba(255,255,255,.08);margin:2px 0 8px"><div style="height:5px;border-radius:3px;width:'+v+'%;background:var(--ok)"></div></div>'; });
+    H+='<p class="note" style="margin:2px 2px 0">Cuanto mejor se entienden, más rinde cada uno (×0,85 a ×1,25). Estilos opuestos —uno que carga y otro que protege— chocan; el tiempo juntos y un buen analista lo arreglan.</p></div>';
+  }
+  EQ_PUESTOS.forEach(function(p){ H+=eqTarjetaPuesto(p); });
+  if(E.log && E.log.length){
+    H+='<div class="card"><div class="eyebrow">Novedades</div>';
+    E.log.slice(0,6).forEach(function(l){ H+='<p class="note" style="margin:0 2px 4px">T'+l.t+' · J'+l.j+' — '+esc(l.x)+'</p>'; });
+    H+='</div>';
+  }
+  return H;
+}
+
 /* ===== EL MÍSTER TAMBIÉN HABLA ENTRE SEMANA: no solo cifras, también un despacho ===== */
 /* por qué no juegas, en palabras del míster: el factor que más pesa en la convocatoria */
 function motivoBanquillo(){
@@ -11410,7 +11917,7 @@ function chSimular(n, conmigo){
   if(!CHEATS_ON||!S) return;
   var hechas=0;
   while(hechas<n && S.jornada<38){
-    mercadoSemanal(); semanaTienda();
+    mercadoSemanal(); semanaTienda(); semanaEquipo();
     var sl=S.lesion, ss=S.sancion; S.lesion=0; S.sancion=0;
     jornadaSinTi();
     S.lesion=sl; S.sancion=ss;
@@ -12066,7 +12573,7 @@ function nuevaTemporada(){
   var LLEVAR=["attr","reps","skills","skl","car","vicios","publico","muro","prensa","entrenador",
               "contrato","acuerdo","dinero","dineroCarrera","custom","vidaLog","fama","esperas",
               "conf","moral","debug","compis","mote","bienvenida","vida","mundo","division","altura","fichajes","archivo","lado",
-              "tienda","histLes","vitrina","agente","fidelidad","modLesTemp",
+              "tienda","eq","histLes","vitrina","agente","fidelidad","modLesTemp",
               "potencial","mister","repsM","patros","misPosts","peso","posSec","tensiones","nemesis","nivel","xp","techos","techoPend","talentoPend","talentos","ultimaJugada"];   /* los contratos de patrocinio son de CARRERA */   /* tu techo es tu destino, y la relación con el míster (y lo sudado con él) no se borra en verano */   /* lo que es de CARRERA viaja: tu bazar, tu expediente, tu agente, tus años de «me quedo» y el escudo médico */
   var guarda={};
   LLEVAR.forEach(function(k){ guarda[k]=S[k]; });
@@ -12091,17 +12598,7 @@ function nuevaTemporada(){
   }
   montarLiga();
   /* --- tus servicios anuales se cobran del cierre de caja --- */
-  var avisosVida=[];
-  if(S.vida.fisio){
-    var cF=costeFisio(guarda.contrato);
-    if((guarda.dinero||0)>=cF){ guarda.dinero-=cF; avisosVida.push("Fisio personal renovado ("+fmtDinero(cF)+"/año)."); }
-    else { S.vida.fisio=false; avisosVida.push("No llegabas al fisio personal ("+fmtDinero(cF)+"): servicio cancelado."); }
-  }
-  if(S.vida.mentor){
-    var cM=costeMentor(guarda.contrato);
-    if((guarda.dinero||0)>=cM){ guarda.dinero-=cM; avisosVida.push("Preparador mental renovado ("+fmtDinero(cM)+"/año)."); }
-    else { S.vida.mentor=false; avisosVida.push("No llegabas al preparador mental ("+fmtDinero(cM)+"): servicio cancelado."); }
-  }
+  var avisosVida=eqRenovar(guarda);
   if(avisosVida.length) S.avisoVida=avisosVida.join(" ");
   /* el dinero de la temporada se archiva y el contador vuelve a cero */
   /* el cuerpo pasa factura: a partir de los 30 se pierde por arriba */
@@ -12872,6 +13369,7 @@ function normalizarPartida(){
     if(!S.vicios) S.vicios={noche:0};
     if(!S.division) S.division="1";
     if(!S.vida) S.vida={casa:0, casaJor:0, cocheNiv:0, cocheJor:0, fisio:false, mentor:false, dona:0, capricho:null, cd:0};
+    eqMigrar();
     if(S.vida.cocheNiv===undefined){ S.vida.cocheNiv=S.vida.coche?2:0; S.vida.cocheJor=-999; delete S.vida.coche; }
     if(S.vida.casaJor===undefined) S.vida.casaJor=S.vida.casa? -999 : 0;   /* lo viejo ya no huele a nuevo */
     if(S.vida.capricho===undefined) S.vida.capricho=null;
