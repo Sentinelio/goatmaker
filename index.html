@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.065";
+var VERSION="0.03.066";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -5006,7 +5006,7 @@ function iniciarJornada(){
     dec:[], modOwn:1, modOpp:1, goles:[], log:null, fase:"pre",
     conPrevia:rnd()*100<PARTIDO.previa, conPost:rnd()*100<PARTIDO.post, morDelta:0,
     rojaPropia:false,
-    nota:6.2, miGol:0, miAsis:0, paradas:0, miTA:0, miTR:0, miLesion:0,
+    nota:6.3, miGol:0, miAsis:0, paradas:0, miTA:0, miTR:0, miLesion:0,
     finAnticipado:false, eventos:[], flash:[], golesTramo:[],
     enCampo:true, yaJugado:false, entraEn:null, salidaMin:null, minJugados:90
   };
@@ -5525,8 +5525,9 @@ function opcionesMostradas(sit){
 var NOTA_K_OK=0.5, NOTA_GOL=0.55, NOTA_ASIS=0.4;
 function deltaNota(o, cls, real){
   var n=(o.fx&&o.fx.nota)||0;
-  if(cls==="ok") return (Math.abs(n)*0.26+0.12+(real?0.55:0))*NOTA_K_OK;
-  if(cls==="ko") return -(Math.abs(n)*0.20+0.20);
+  /* el gol/asistencia ya puntúa aparte (NOTA_GOL/NOTA_ASIS): no se cuenta dos veces */
+  if(cls==="ok") return (Math.abs(n)*0.26+0.12+(real?0.15:0))*NOTA_K_OK;
+  if(cls==="ko") return -(Math.abs(n)*0.30+0.30);
   return n*0.08;
 }
 /* Probabilidad de cada desenlace, replicando el orden del motor. */
@@ -6675,7 +6676,8 @@ function cerrarJornada(){
     Y.pj++; Y.g+=M.miGol; Y.a+=M.miAsis; Y.ta+=M.miTA; Y.tr+=M.miTR; Y.paradas+=M.paradas;
     Y.notaSum+=nota; Y.notaN++;
   }
-  var esMVP = jugoAlgo && nota>=8.3 && (M.miGol>0||M.miAsis>0||M.paradas>0||(M.sc[1]===0&&defensivo));
+  var _errCampo=(M.dec||[]).map(decObj).filter(function(d){ return d.r==="ko" && d.k!=="x" && d.z; }).length;   /* errores en el campo (el banquillo no puntúa) */
+  var esMVP = jugoAlgo && nota>=8.3 && _errCampo<=2 && (M.miGol>0||M.miAsis>0||M.paradas>0||(M.sc[1]===0&&defensivo));
   if(esMVP) Y.mvp++;
   var dConf=(nota-6.4)*3;
   if(dConf<0) dConf*=mResil()*presionPrensa()*((S.vida&&S.vida.mentor)?0.85:1);   /* con la prensa encima, cuesta más levantarse; el mentor amortigua */
