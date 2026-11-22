@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.062";
+var VERSION="0.03.064";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -1551,7 +1551,7 @@ function usoSkillsPartido(d){
     if(u.s && !u.s.test(d.s||"")) return;
     if(u.min && (d.m||0)<u.min) return;
     /* misma matriz que el atributo: 2 pts por la subida completa, y lo que toque de ella según decisión y ejecución */
-    var _p=Math.floor(2*facDecision(d.juicio, d.r)+rnd());
+    var _p=Math.floor(2*facDecision(d.juicio, d.r)*multGanancia()+rnd());
     if(!_p) return;
     var dd=sklData(k.id);
     dd.u=jA;
@@ -1828,7 +1828,7 @@ function xpPartido(){
   if(!(M.yaJugado||M.enCampo)) return 0;
   var nota=notaDelPartido();
   if(nota==null) return 0;
-  return Math.round(15 + nota*4 + (M.miGol||0)*10 + (M.miAsis||0)*6 + (S.pos==="POR"?(M.paradas||0)*3:0) + (M.esMVP?25:0));
+  return Math.round((15 + nota*4 + (M.miGol||0)*10 + (M.miAsis||0)*6 + (S.pos==="POR"?(M.paradas||0)*3:0) + (M.esMVP?25:0) + (nota>=8.5?20:0))*multForma());
 }
 function ganarXP(cant){
   if(!S || !cant || cant<=0 || (S.nivel||1)>=99) return 0;
@@ -1888,7 +1888,7 @@ function gananciaEntreno(e, k, extra){
   if(v>=T) return 0;                          /* has llegado a tu techo */
   var techo=clamp((T-v)/52, 0.05, 1.10);
   var mult=(extra?1.15:1) * (0.85+((S.conf||55)/300)) * (bonusTienda().mult[k]||1) * (bonusPatros().mult[k]||1)
-          * (1+((S.puntualBonus||0)*0.05)) * (e.id==="remate"? factorFisico():1) * bonusTalentosEntreno(k);
+          * (1+((S.puntualBonus||0)*0.05)) * (e.id==="remate"? factorFisico():1) * bonusTalentosEntreno(k) * multForma();
   return Math.round(base*techo*mult*100)/100;
 }
 function aplicarEntreno(idx, extra){
@@ -2390,11 +2390,14 @@ function entMisterElige(j){
   var amb=Math.abs((o.fx&&o.fx.nota)||0);
   var sc= cls==="ok"? 1+amb*0.6 : cls==="mid"? 0.25 : -(0.4+amb*0.4);
   var gan="";
+  usoSkillsPartido({m:0, s:sit.id, z:ZCODE[zonaDeSit(sit)]||"M", k:claseDecision(o, sit, false), r:cls, juicio:o.juicio, enPartido:false});   /* las mismas habilidades que en el partido */
+  ritmo().ult=null;
   gan=ganaAtrDecision(o, cls);   /* la misma regla que en el partido */
-  usoSkillsPartido({m:0, s:sit.id, z:ZCODE[zonaDeSit(sit)]||"M", k:claseDecision(o, sit, false), r:cls, juicio:o.juicio, enPartido:false});   /* y las mismas habilidades */
+  var _ru=ritmo().ult;
   S.forma=clamp((S.forma===undefined?70:S.forma)-2,20,100);
   D.pts+=sc;
-  var entrada={n:txtSit(sit.t), op:txtSit(o.l), cls:cls, ok:cls==="ok", txt:txtSit(o[cls]), gan:gan, juicio:o.juicio||"", por:o.por||"", mejora:(cls!=="ok"? atrMejoraEntreno(o) : null)};
+  var entrada={n:txtSit(sit.t), op:txtSit(o.l), cls:cls, ok:cls==="ok", txt:txtSit(o[cls]), gan:gan, juicio:o.juicio||"", por:o.por||"", mejora:(cls!=="ok"? atrMejoraEntreno(o) : null),
+               racha:_ru? {sube:_ru.a>_ru.de, t:(_ru.a>_ru.de? "🔥 Racha ":"Racha ")+fmtMult(1+0.1*_ru.a)} : null};
   D.log.push(entrada);
   D.ultimo=entrada;          /* solo se ve este resultado; el siguiente paso lo da el botón */
   D.ronda++;
@@ -2508,15 +2511,55 @@ function ganTexto(gan){
    (el que nombra el míster), completa si sale bien, la mitad si sale regular con buena decisión, nada en el resto */
 /* cuánto de la subida base te llevas según DECISIÓN (buena/discreta/mala) y EJECUCIÓN (bien/regular/mal):
    solo decisión mala + ejecución mala se va sin nada; acertar en una de las dos siempre deja algo */
+/* ===== RACHA (corto plazo) y FORMA DE JUEGO (medio plazo): lo que haces bien multiplica lo que subes =====
+   Racha: cada acierto doble (decisión buena + ejecución buena) suma 1 paso (+0,1, hasta ×1,5); un fallo resta 2; baja 1 por partido.
+   Forma de juego: media de tus últimos 5 partidos frente a la normal de tu puesto (×1,1 / ×1,2 / ×1,3).
+   Solo multiplican lo que SUBES (atributos, habilidades, XP); nunca las probabilidades del partido. Tope conjunto ×1,6. */
+var NOTA_BASE_POS={DC:7.3, MCO:7.35, POR:7.0, MC:6.95, LAT:6.9, EXT:6.75, MCD:6.75, DFC:6.65};
+function ritmo(){ if(!S.ritmo) S.ritmo={paso:0, notas:[], tT:-1, tN:0}; return S.ritmo; }
+function multRacha(){ return 1+0.1*Math.min(5, ritmo().paso); }
+function mediaForma(){ var n=ritmo().notas.slice(-5); if(n.length<3) return null; return n.reduce(function(a,b){ return a+b; },0)/n.length; }
+function multForma(){
+  var m=mediaForma(); if(m===null) return 1;
+  var d=m-(NOTA_BASE_POS[S.pos]||6.95);
+  return d>=0.85? 1.3 : d>=0.55? 1.2 : d>=0.25? 1.1 : 1;
+}
+function multGanancia(){ return Math.min(1.6, multRacha()*multForma()); }
+function rachaDecision(o, cls){
+  var R=ritmo(), a=R.paso, j=o.juicio||"discreta";
+  if(cls==="ok" && j==="buena") R.paso=Math.min(5, a+1);
+  else if(cls==="ko" || (j==="mala" && cls!=="ok")) R.paso=Math.max(0, a-2);
+  R.ult= (a===R.paso)? null : {de:a, a:R.paso};
+}
+function fmtMult(x){ return "×"+x.toFixed(1).replace(".",","); }
+/* al cerrar un partido en el que has jugado: alimenta la forma, la racha y el techo por rendimiento sostenido */
+function registrarNotaRitmo(nota){
+  var R=ritmo(), msg=[];
+  R.paso=Math.max(0, R.paso-1);
+  R.notas.push(nota); if(R.notas.length>10) R.notas.shift();
+  if(nota>=8.5){ R.paso=Math.min(5, R.paso+1); msg.push("★ Partido de 8,5 o más: +1 de racha y XP extra."); }
+  var base=NOTA_BASE_POS[S.pos]||6.95;
+  if(R.tT!==S.temporada){ R.tT=S.temporada; R.tN=0; }
+  if(R.notas.length>=10 && R.tN<2 && R.notas.reduce(function(a,b){ return a+b; },0)/10>=base+0.85){
+    S.techoPend=(S.techoPend||0)+1; R.tN++; R.notas=[];
+    msg.push("★ Diez partidos a gran nivel: ganas 1 punto de techo gratis (en Atributos).");
+  }
+  if(M) M.ritmoMsg=msg.join(" ");
+}
 var FAC_DEC={buena:{ok:1, mid:0.6, ko:0.3}, discreta:{ok:0.7, mid:0.35, ko:0.1}, mala:{ok:0.4, mid:0.15, ko:0}};
 function facDecision(juicio, cls){ var f=(FAC_DEC[juicio]||FAC_DEC.discreta)[cls]; return f||0; }
 function ganaAtrDecision(o, cls){
+  var out=ganaAtr_(o, cls);
+  rachaDecision(o, cls);   /* la racha se actualiza DESPUÉS: esta decisión cobra con la racha que traías */
+  return out;
+}
+function ganaAtr_(o, cls){
   var fac=facDecision(o.juicio, cls);
   if(!fac) return "";
   var amb=Math.abs((o.fx&&o.fx.nota)||0);
   var a=atrMejoraEntreno(o), T=techoAtributoDe(a), v=atr(a);
   if(v>=T) return "";
-  var g=Math.round(clamp((T-v)/52,0.05,1.1)*(0.25+amb*0.08)*fac*100)/100;
+  var g=Math.round(clamp((T-v)/52,0.05,1.1)*(0.25+amb*0.08)*fac*multGanancia()*100)/100;
   if(g<=0) return "";
   S.attr[a]=Math.min(T, v+g);
   return a+" +"+g.toFixed(2);
@@ -2534,6 +2577,7 @@ function veredictoEntreno(u, conEjecucion){
     h+=linea('<b style="color:'+colE+'">Tu ejecución fue '+nomE+'.</b>', "margin-top:8px");
     if(u.txt) h+=linea(esc(u.txt), "color:#AAB2C5;font-size:13px");
     if(u.gan) h+=linea('<b style="color:var(--ok)">▲ '+esc(ganTexto(u.gan))+'</b>', "margin-top:6px");
+    if(u.racha) h+=linea('<b style="color:'+(u.racha.sube?"var(--gold)":"var(--bad)")+'">'+esc(u.racha.t)+'</b>', "margin-top:4px");
     if(cu!=="ok" && u.mejora) h+=linea('Para hacerlo mejor, trabaja tu <b style="color:#E8C547">'+esc(ATTR[u.mejora].n.toLowerCase())+'</b>.', "margin-top:6px");
   }
   return h;
@@ -5475,9 +5519,11 @@ function opcionesMostradas(sit){
 }
 /* Puntos de valoración que aporta una opción según cómo acabe.
    Lo usan el motor y el panel de debug: no pueden discrepar. */
+/* escala de la nota: un 8,5 tiene que ser excepcional (≈5 % de los partidos), no uno de cada cuatro */
+var NOTA_K_OK=0.5, NOTA_GOL=0.55, NOTA_ASIS=0.4;
 function deltaNota(o, cls, real){
   var n=(o.fx&&o.fx.nota)||0;
-  if(cls==="ok") return Math.abs(n)*0.26+0.12+(real?0.55:0);
+  if(cls==="ok") return (Math.abs(n)*0.26+0.12+(real?0.55:0))*NOTA_K_OK;
   if(cls==="ko") return -(Math.abs(n)*0.20+0.20);
   return n*0.08;
 }
@@ -6256,6 +6302,7 @@ function elegirOpcion(i){
   tocaNotaMax();
   regDec(o, sit, cls, _dn, fueraDelCampo, i, logroReal);
   /* la misma regla de atributos que en el entreno, solo cuando estás en el campo */
+  ritmo().ult=null;
   var _ganAtr= fueraDelCampo? "" : ganaAtrDecision(o, cls);
   if(_ganAtr){
     M.ganAtr=(M.ganAtr||[]).concat([_ganAtr]);
@@ -6355,6 +6402,7 @@ function elegirOpcion(i){
     if(fx.opp && fx.opp!==1) efe.push({t:"rival "+(fx.opp>1?"+":"")+Math.round((fx.opp-1)*100)+"%", b:fx.opp<1});
   }
   if(_ganAtr) efe.push({t:ganTexto(_ganAtr), b:true});   /* lo que sube tu juego, a la vista como lo demás */
+  if(!fueraDelCampo){ var _ru=ritmo().ult; if(_ru) efe.push({t:(_ru.a>_ru.de? "🔥 racha ":"racha ")+fmtMult(1+0.1*_ru.a), b:_ru.a>_ru.de}); }
   if(fx.mis) efe.push({t:"míster "+sgn(fx.mis), b:fx.mis>0});
   if(fx.afin) efe.push({t:"vestuario "+sgn(fx.afin), b:fx.afin>0});
   if(fx.entra!==undefined && fx.entra<90 && !M.enCampo) efe.push({t:(fx.entra<0? "entras "+Math.abs(fx.entra)+"′ antes":"entras "+fx.entra+"′ después"), b:fx.entra<0});
@@ -6442,17 +6490,17 @@ function trozosNota(){   /* los mismos sumandos de la fórmula, desde la fuente 
 function notaComponentes(){
   var _def=(S.pos==="POR"||S.pos==="DFC"||S.pos==="LAT"||S.pos==="MCD"), _bd=0;
   if(_def){
-    if(M.sc[1]===0) _bd+=(S.pos==="POR"?1.5:0.85);
-    else if(M.sc[1]===1) _bd+=(S.pos==="POR"?0.45:0.25);
+    if(M.sc[1]===0) _bd+=(S.pos==="POR"?1.1:0.7);
+    else if(M.sc[1]===1) _bd+=(S.pos==="POR"?0.35:0.2);
     else if(M.sc[1]>=4) _bd-=(S.pos==="POR"?0.6:0.45);
-    if(S.pos==="POR") _bd+=M.paradas*0.7;
+    if(S.pos==="POR") _bd+=M.paradas*0.5;
   }
   var _r=M.sc[0]-M.sc[1];
   /* términos CRUDOS: la única fuente no redondea; redondear es cosa de quien pinta */
   var C={ interior:M.nota,
           resultado:(_r>0?0.3:_r<0?-0.2:0),
-          goles:M.miGol*0.80,
-          asistencias:M.miAsis*0.55,
+          goles:M.miGol*NOTA_GOL,
+          asistencias:M.miAsis*NOTA_ASIS,
           paradas:_def?0:M.paradas*0.45,
           bonusDef:_bd,
           expulsion:-(M.miTR*1.1),
@@ -6561,6 +6609,7 @@ function renderCierre(){
   if(M.miTR) linea.push("🟥 expulsado");
   if(linea.length) cuerpo+='<p class="note" style="text-align:center;margin-top:10px">'+esc(linea.join(" · "))+'</p>';
   if(jugo) cuerpo+='<p style="text-align:center;margin:10px 8px 0;font-size:13px;line-height:1.45">'+esc(resumenActuacion(n))+'</p>';
+  if(jugo && M.ritmoMsg) cuerpo+='<p class="note" style="text-align:center;margin:8px 8px 0;color:var(--gold)"><b>'+esc(M.ritmoMsg)+'</b></p>';
   if(jugo){   /* lo que tus decisiones han hecho por tu juego hoy */
     var _agg={}; (M.ganAtr||[]).forEach(function(g){ var pt=g.split(" "); _agg[pt[0]]=(_agg[pt[0]]||0)+parseFloat(pt[1]); });
     var _txtAg=Object.keys(_agg).map(function(k){ return (ATTR[k]?ATTR[k].n:k)+" +"+_agg[k].toFixed(2).replace(".",","); }).join(" · ");
@@ -6775,6 +6824,7 @@ function cerrarJornada(){
     sinTi: jugoAlgo? null : "sin minutos"});
   M.notaFinal=jugoAlgo? Math.round(nota*10)/10 : null; M.esMVP=esMVP;
   var _subidas=ganarXP(xpPartido());
+  if(jugoAlgo && S.hist[S.hist.length-1].yo) registrarNotaRitmo(Math.round(nota*10)/10);
   if(_subidas) M.subioNivel={de:S.nivel-_subidas, a:S.nivel};
   vitrinaRegistrar(S.hist[S.hist.length-1]);
   (function(){ var h=S.hist[S.hist.length-1]; if(!h || !h.otros || !h.otros.length) return;
@@ -9095,6 +9145,9 @@ function secAtributos(){
     H+='<p class="note" style="margin:0 0 8px;color:var(--ok)"><b>✔ '+esc(ATTR[TECHO_OK.k].n)+'</b>: techo '+TECHO_OK.de.toFixed(1)+' → '+TECHO_OK.a.toFixed(1)+' (+'+(TECHO_OK.a-TECHO_OK.de).toFixed(2)+')</p>';
     TECHO_OK=null;
   }
+  (function(){ var mf=mediaForma();
+    H+='<p class="note" style="margin:0 0 8px">🔥 Racha <b style="color:var(--gold)">'+fmtMult(multRacha())+'</b> · Forma de juego <b style="color:var(--gold)">'+fmtMult(multForma())+'</b>'
+      +(mf!==null? ' (media de tus últimos '+Math.min(5,ritmo().notas.length)+' partidos: '+mf.toFixed(1).replace(".",",")+')' : ' (aún sin partidos suficientes)')+'</p>'; })();
   if(pend>0) H+='<p class="note" style="margin:0 0 4px">Puntos de techo sin asignar: <b style="color:var(--gold)">'+pend+'</b>. Pulsa <b>+ 1</b> en el atributo que quieras; cada punto sube su techo '+TECHO_INC.toFixed(2)+'. Solo el entreno lo rellena de verdad.</p>';
   POSA.forEach(function(a){ H+=filaAtributo(a,pend); });
   H+='<p class="note" style="margin:10px 0 0">Se entrenan en Vida → Entrenamiento, tres sesiones por semana.</p></div>';
