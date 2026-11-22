@@ -823,7 +823,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.048";
+var VERSION="0.03.049";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -2373,7 +2373,7 @@ function entMisterElige(j){
   }
   S.forma=clamp((S.forma===undefined?70:S.forma)-2,20,100);
   D.pts+=sc;
-  var entrada={n:txtSit(sit.t), op:txtSit(o.l), cls:cls, ok:cls==="ok", txt:txtSit(o[cls]), gan:gan, juicio:o.juicio||"", por:o.por||""};
+  var entrada={n:txtSit(sit.t), op:txtSit(o.l), cls:cls, ok:cls==="ok", txt:txtSit(o[cls]), gan:gan, juicio:o.juicio||"", por:o.por||"", mejora:(cls!=="ok"? atrMejoraEntreno(o) : null)};
   D.log.push(entrada);
   D.ultimo=entrada;          /* solo se ve este resultado; el siguiente paso lo da el botón */
   D.ronda++;
@@ -2450,10 +2450,40 @@ function diaFilas(lista, ico){
 }
 /* etiqueta del juicio de una opción de entreno y su porqué (siempre visible en el registro) */
 var JUICIO_ETQ={buena:"Buena decisión", discreta:"Decisión discreta", mala:"Mala decisión"};
+/* qué atributo trabajar cuando la ejecución sale mal: el que pide la propia jugada; si no hay pista, el más bajo de los que cuentan */
+function atrMejoraEntreno(o){
+  var fx=o.fx||{}, ins=fx.inst||{};
+  if(ins.parada) return "POR";
+  if(ins.gol||ins.asis) return "TEC";
+  if(ins.golR) return "DEF";
+  if(fx.ta||fx.roja) return "MEN";
+  var cand=["TEC","TAC","DEF","MEN"], best=cand[0];
+  cand.forEach(function(k){ if(atr(k)<atr(best)) best=k; });
+  return best;
+}
+/* veredicto en el orden que pide el míster: primero si la decisión fue buena, después si la ejecución, y qué trabajar */
+function veredictoEntreno(u, conEjecucion){
+  var colJ=u.juicio==="buena"?"var(--ok)":u.juicio==="mala"?"var(--bad)":"#AAB2C5";
+  var h='';
+  if(u.juicio){
+    h+='<span style="display:block;font-weight:700;color:'+colJ+'">Tu decisión fue '+(u.juicio==="buena"?"buena":u.juicio==="mala"?"mala":"discreta")+'.</span>'
+      +(u.por?'<span style="display:block;font-weight:400;color:#AAB2C5">'+esc(u.por)+'</span>':'');
+  }
+  if(conEjecucion){
+    var cu=u.cls, colE=cu==="ok"?"var(--ok)":cu==="ko"?"var(--bad)":"#AAB2C5";
+    var nomE=cu==="ok"?"buena":cu==="ko"?"mala":"regular";
+    h+='<span style="display:block;margin-top:6px;font-weight:700;color:'+colE+'">Tu ejecución fue '+nomE+'.</span>'
+      +(u.txt?'<span style="display:block;font-weight:400;color:#AAB2C5">'+esc(u.txt)+(u.gan?' · '+esc(u.gan):'')+'</span>':'');
+    if(cu!=="ok" && u.mejora){
+      h+='<span style="display:block;margin-top:6px;font-weight:400;color:#AAB2C5">Para hacerlo mejor, trabaja tu '+esc(ATTR[u.mejora].n.toLowerCase())+'. Sigue trabajando para mejorar.</span>';
+    }
+  }
+  return h;
+}
 function diaMisterFilas(D, conTexto){
   return D.log.map(function(l){ var c=l.cls||(l.ok?"ok":"ko"), ic=c==="ok"?"✓ ":c==="ko"?"✗ ":"· ", col=c==="ok"?"var(--ok)":c==="ko"?"var(--bad)":"#8891AA";
     var juicio=l.juicio? '<br><span style="font-weight:700;color:'+(l.juicio==="buena"?"var(--ok)":l.juicio==="mala"?"var(--bad)":"#AAB2C5")+'">'+esc(JUICIO_ETQ[l.juicio]||"")+'</span>'+(l.por?'<br><span style="font-weight:400;color:#AAB2C5">'+esc(l.por)+'</span>':'') : '';
-    return '<div class="row2" style="align-items:flex-start"><span style="max-width:45%">'+ic+esc(l.n)+'</span><b class="note" style="text-align:right;max-width:55%;color:'+col+'">'+esc(l.op)+(conTexto&&l.txt?'<br><span style="font-weight:400;color:#AAB2C5">'+esc(l.txt)+'</span>':'')+(l.gan?" · "+esc(l.gan):"")+juicio+'</b></div>'; }).join("");
+    return '<div class="row2" style="align-items:flex-start"><span style="max-width:45%">'+ic+esc(l.n)+'</span><b class="note" style="text-align:right;max-width:55%;color:'+col+'">'+esc(l.op)+'<br>'+veredictoEntreno(l, !!conTexto)+'</b></div>'; }).join("");
 }
 function entMisterHTML(){
   var D=S.dia, V=citaVentana(), H='<div class="card" style="border-color:var(--gold)">';
@@ -2486,8 +2516,7 @@ function entMisterHTML(){
       var u=D.ultimo, cu=u.cls, colU=cu==="ok"?"var(--ok)":cu==="ko"?"var(--bad)":"#AAB2C5";
       H+='<div class="card" style="border-color:'+colU+'"><div class="eyebrow">'+esc(u.n)+'</div>'
         +'<p style="margin:4px 0"><b>'+esc(u.op)+'</b></p>'
-        +'<p style="margin:0 0 6px;color:'+colU+'">'+(cu==="ok"?"✓ Bien: ":cu==="ko"?"✗ Mal: ":"· Regular: ")+esc(u.txt)+(u.gan?' · '+esc(u.gan):'')+'</p>'
-        +(u.juicio?'<p style="margin:0"><b style="color:'+(u.juicio==="buena"?"var(--ok)":u.juicio==="mala"?"var(--bad)":"#AAB2C5")+'">'+esc(JUICIO_ETQ[u.juicio]||"")+'</b>'+(u.por?' · <span class="note">'+esc(u.por)+'</span>':'')+'</p>':'')
+        +'<div style="margin:0 0 6px">'+veredictoEntreno(u, true)+'</div>'
         +'</div>';
       H+= D.ronda>=D.rondas.length
         ? '<button class="gold-btn" onclick="diaCerrarMister()">Ver el resumen</button>'
