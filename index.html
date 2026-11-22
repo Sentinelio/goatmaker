@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.04.004";
+var VERSION="0.04.005";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -9784,7 +9784,7 @@ var EQ_PLANES={
   antiinflam:{n:"Antiinflamatoria", d:"Protege articulaciones y acelera las bajas.", rg:0.85, p:0.08, rh:0.8, d:0, ir:0.2},
   longevidad:{n:"Longevidad", d:"La dieta de quien quiere jugar hasta los 36.", rg:0.75, p:0.04, rh:0.2, d:0, ir:0.2, techo:1.5}}
 };
-var EQ_PARES={pf:["prep","fisio"], fc:["fisio","chef"], pc:["prep","chef"]};
+var EQ_PARES={pf:["prep","fisio"], fc:["fisio","chef"], pc:["prep","chef"], pm:["prep","mente"], fm:["fisio","mente"], cm:["chef","mente"], pa:["prep","analista"], fa:["fisio","analista"], ca:["chef","analista"], ma:["mente","analista"]};
 var EQ_COMPAT_PERSONAL_BASE=0;   /* (reservado) */
 
 function eqInit(){
@@ -9837,8 +9837,7 @@ function eqPesoTxt(){
 function eqPar(par){ var a=EQ_PARES[par]; return S.eq.st[a[0]] && S.eq.st[a[1]]; }
 function eqSint(p){
   var E=eqInit(); if(!E) return 1;
-  var pares=p==="prep"? ["pf","pc"] : p==="fisio"? ["pf","fc"] : p==="chef"? ["fc","pc"] : ["pf","fc","pc"];
-  var v=[]; pares.forEach(function(k){ if(eqPar(k)) v.push(E.sint[k]); });
+  var v=[]; Object.keys(EQ_PARES).forEach(function(k){ if(EQ_PARES[k].indexOf(p)>=0 && eqPar(k)) v.push(E.sint[k]===undefined? 40 : E.sint[k]); });
   if(!v.length) return 1;
   var m=v.reduce(function(a,b){return a+b;},0)/v.length;
   return 0.85+0.40*m/100;
@@ -10112,8 +10111,8 @@ function semanaEquipo(){
     var ta=eqEstilo(EQ_PARES[k][0]).t, tb=eqEstilo(EQ_PARES[k][1]).t;
     var base=(ta==="neutro"||tb==="neutro")? 68 : (ta===tb? 80 : 42);
     var juntos=Math.min(a.sem||0, b.sem||0);
-    var meta=clamp(base+bono+Math.min(12, juntos*0.35), 0, 100);
-    var v=E.sint[k];
+    var meta=clamp(base+(EQ_PARES[k].indexOf("analista")>=0? 0 : bono)+Math.min(12, juntos*0.35), 0, 100);
+    var v=E.sint[k]===undefined? 40 : E.sint[k];
     E.sint[k]=clamp(v+(meta>v? Math.min(3,meta-v) : -Math.min(4,v-meta)), 0, 100);
   });
   /* peso: lo que empuja cada profesional + lo poco que hace el club + los años */
@@ -10215,9 +10214,17 @@ function eqToggleAuto(){ var E=eqInit(); E.auto=!E.auto; eqRefrescar(); }
 function eqToggleRehire(){ var E=eqInit(); E.rehire=!E.rehire; eqRefrescar(); }
 function eqPlanSet(p, id){ var E=eqInit(); E.plan[p]=id; eqRefrescar(); }
 function eqFichar(p, id){
-  var err=eqContratar(p,id);
-  if(err){ modal({ico:"🤝", t:"No puede ser", x:esc(err), okTxt:"Entendido", cancelTxt:"Cerrar"}); return; }
-  eqRefrescar();
+  var E=eqInit(), c=eqMercado(p).filter(function(x){return x.id===id;})[0];
+  if(!c){ eqRefrescar(); return; }
+  var err=eqRequisito(c), sal=eqSalario(p,c.nivel), ant=E.st[p], es=EQ_ESTILOS[p].filter(function(e){return e.id===c.estilo;})[0], X='';
+  if(err){ modal({ico:"🤝", t:"No puede ser", x:esc(err)+".", okTxt:"Entendido", cancelTxt:"Cerrar"}); return; }
+  X+='<b>'+esc(c.n)+'</b> · '+eqEstrellas(c.nivel)+' '+EQ_NIVELES[c.nivel-1]+'<br>'+esc(es.n)+' — '+esc(es.d)+'<br>'+c.exp+' años de experiencia · pide <b>'+fmtDinero(sal)+'/año</b>, que pagas ahora.';
+  if(ant) X+='<br><br>⚠ Sustituye a <b>'+esc(ant.n)+'</b> ('+EQ_NIVELES[ant.nivel-1].toLowerCase()+'): se va sin indemnización y lo ya pagado no se recupera'+(ant.curso? ', y pierde el curso que está haciendo':'')+'. La sintonía con el resto empieza de cero.';
+  var ch=[]; EQ_PUESTOS.forEach(function(q){ var o=E.st[q]; if(!o||q===p) return; var a=es.t, b=eqEstilo(q).t; if((a==="carga"&&b==="cuidado")||(a==="cuidado"&&b==="carga")) ch.push(o.n+" ("+EQ_INFO[q].n.toLowerCase()+")"); });
+  if(ch.length) X+='<br><br>⚠ Su estilo choca con el de '+esc(ch.join(", "))+': rendirán menos juntos.';
+  if((S.dinero||0)<sal){ modal({ico:"🤝", t:"No puede ser", x:"No te llega: son "+fmtDinero(sal)+" al año.", okTxt:"Entendido", cancelTxt:"Cerrar"}); return; }
+  modal({ico:"🤝", t:ant? "¿Cambiar de "+EQ_INFO[p].n.toLowerCase()+"?" : "¿Contratar?", x:X, okTxt:ant? "Sí, sustituir" : "Contratar", cancelTxt:"Mejor no",
+    onOk:function(){ var e2=eqContratar(p,id); if(e2) modal({ico:"🤝", t:"No puede ser", x:esc(e2), okTxt:"Entendido", cancelTxt:"Cerrar"}); else eqRefrescar(); }});
 }
 function eqPrescindir(p){
   var E=eqInit(), m=E.st[p]; if(!m) return;
@@ -10260,7 +10267,7 @@ function eqTarjetaPuesto(p){
     H+='<p class="note" style="margin:0 2px 6px">Puesto vacante.</p>';
   }
   /* candidatos */
-  H+='<div class="note" style="margin:8px 2px 4px"><b>'+(m? "Cambiar por…":"Candidatos")+'</b></div>';
+  H+='<details class="eqcand"'+(m? '' : ' open')+' style="margin-top:8px"><summary class="note" style="cursor:pointer;margin:0 2px 4px"><b>'+(m? "Cambiar por… ("+eqMercado(p).length+" candidatos)":"Candidatos")+'</b></summary>';
   eqMercado(p).forEach(function(c){
     var sal=eqSalario(p,c.nivel), req=eqRequisito(c), es=EQ_ESTILOS[p].filter(function(e){return e.id===c.estilo;})[0];
     var pot=(eqNivel("analista")>=3) && c.pot>c.nivel;
@@ -10268,6 +10275,7 @@ function eqTarjetaPuesto(p){
       +esc(c.n)+' · '+eqEstrellas(c.nivel)+' <b>'+EQ_NIVELES[c.nivel-1]+'</b> · <b>'+fmtDinero(sal)+'/año</b>'
       +'<small>'+esc(es.n)+' · '+c.exp+' años de experiencia'+(pot? ' · promesa: puede llegar a '+EQ_NIVELES[c.pot-1].toLowerCase():'')+(req? ' · 🔒 '+esc(req):'')+'</small></button>';
   });
+  H+='</details>';
   return H+'</div>';
 }
 function secStaff(){
@@ -10298,10 +10306,10 @@ function secStaff(){
     H+='</div>';
   }
   /* sintonía */
-  var pares=[["pf","Preparador ↔ Fisio"],["fc","Fisio ↔ Chef"],["pc","Preparador ↔ Chef"]].filter(function(x){ return eqPar(x[0]); });
+  var pares=Object.keys(EQ_PARES).map(function(k){ return [k, EQ_INFO[EQ_PARES[k][0]].n+" ↔ "+EQ_INFO[EQ_PARES[k][1]].n]; }).filter(function(x){ return eqPar(x[0]); });
   if(pares.length){
     H+='<div class="card"><div class="eyebrow">Sintonía</div>';
-    pares.forEach(function(x){ var v=Math.round(E.sint[x[0]]); H+='<div class="row2" style="font-size:12.5px"><span>'+x[1]+'</span><b>'+v+'/100</b></div><div style="height:5px;border-radius:3px;background:rgba(255,255,255,.08);margin:2px 0 8px"><div style="height:5px;border-radius:3px;width:'+v+'%;background:var(--ok)"></div></div>'; });
+    pares.forEach(function(x){ var v=Math.round(E.sint[x[0]]===undefined? 40 : E.sint[x[0]]); H+='<div class="row2" style="font-size:12.5px"><span>'+x[1]+'</span><b>'+v+'/100</b></div><div style="height:5px;border-radius:3px;background:rgba(255,255,255,.08);margin:2px 0 8px"><div style="height:5px;border-radius:3px;width:'+v+'%;background:var(--ok)"></div></div>'; });
     H+='<p class="note" style="margin:2px 2px 0">Cuanto mejor se entienden, más rinde cada uno (×0,85 a ×1,25). Estilos opuestos —uno que carga y otro que protege— chocan; el tiempo juntos y un buen analista lo arreglan.</p></div>';
   }
   EQ_PUESTOS.forEach(function(p){ H+=eqTarjetaPuesto(p); });
