@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.04.001";
+var VERSION="0.04.002";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -3254,62 +3254,56 @@ var SITS_BANQUILLO=[
   ]},
 /* "el segundo se acerca" — tres variantes por línea: la lectura táctica cambia según
    dónde jugarías tú (Manu: "las opciones siempre son las mismas, sin adaptarse a la posición") */
- {id:"bq-segundo-def", pos:["DFC","LAT","MCD"], cond:function(c){ return c.min>=25 && c.min<70; },
+ {id:"bq-segundo-def", pos:["DFC","LAT","MCD"], cond:function(c){ return c.min>=50 && c.min<75 && !c.lesionCompi; },
   t:"El segundo entrenador se te acerca",
-  x:function(c){ return "Se agacha a tu lado, sin quitar ojo a la defensa: «¿Cómo lo ves desde aquí?». No es charla: te está midiendo."; },
+  x:function(c){ return "Se agacha a tu lado, sin quitar ojo a la defensa: «¿Cómo lo ves desde aquí?». Ya hay partido para opinar, y te está midiendo."; },
   o:[
-   {l:"«Arriba nos superan la primera línea de presión»", fx:{entra:-8, mis:2, nota:1},
+   {l:"«Arriba nos superan la primera línea de presión»", fx:{entra:-6, mis:2, nota:1},
     ok:"Asiente y va directo al míster a decirle algo. Miras al banquillo y ya hay movimiento.",
     ko:"«Cada uno a lo suyo.» Se levanta sin más y te deja con la frase a medias.",
     mid:"Te escucha, asiente y vuelve a su sitio. Algo queda."},
-   {l:"Decir lo que ves, sin pedir nada", fx:{mis:3, nota:1},
+   {l:"Decir lo que ves, sin pedir nada", fx:{entra:-2, mis:3, nota:1},
     ok:"Tu lectura es exactamente la suya. «Este chaval ve el partido», le dice al míster.",
-    ko:"",
+    ko:"«Eso lo vemos todos.» Tono seco y vuelta a la banda.",
     mid:"Charla breve de fútbol. Buen tono."},
-   {l:"«Llevo cuatro partidos sin jugar»", fx:{entra:-4, mis:-5, nota:-1},
+   {l:"«Llevo semanas esperando mi oportunidad»", fx:{entra:-4, mis:-3, nota:-1},
     ok:"Se lo lleva al míster tal cual. A veces la queja sirve, y hoy sirve.",
     ko:"«Y así vas a seguir si esa es tu cara.» Mal momento, peor tono.",
-    mid:"Te escucha, aprieta los labios y no dice nada."},
-   {l:"Encogerte de hombros", fx:{mis:-2},
-    ok:"", ko:"", mid:"Se levanta y vuelve a la banda. Ocasión perdida de existir."}
+    mid:"Te escucha, aprieta los labios y no dice nada."}
   ]},
- {id:"bq-segundo-med", pos:["MC","MCO"], cond:function(c){ return c.min>=25 && c.min<70; },
+ {id:"bq-segundo-med", pos:["MC","MCO"], cond:function(c){ return c.min>=50 && c.min<75 && !c.lesionCompi; },
   t:"El segundo entrenador se te acerca",
-  x:function(c){ return "Se agacha a tu lado, sin quitar ojo al centro del campo: «¿Cómo lo ves desde aquí?». No es charla: te está midiendo."; },
+  x:function(c){ return "Se agacha a tu lado, sin quitar ojo al centro del campo: «¿Cómo lo ves desde aquí?». Ya hay partido para opinar, y te está midiendo."; },
   o:[
-   {l:"«El ritmo nos lo marcan ellos. Yo puedo darle otra velocidad»", fx:{entra:-8, mis:2, nota:1},
+   {l:"«El ritmo nos lo marcan ellos. Yo puedo darle otra velocidad»", fx:{entra:-6, mis:2, nota:1},
     ok:"Asiente y va directo al míster a decirle algo. Miras al banquillo y ya hay movimiento.",
     ko:"«Cada uno a lo suyo.» Se levanta sin más y te deja con la frase a medias.",
     mid:"Te escucha, asiente y vuelve a su sitio. Algo queda."},
-   {l:"Decir lo que ves, sin pedir nada", fx:{mis:3, nota:1},
+   {l:"Decir lo que ves, sin pedir nada", fx:{entra:-2, mis:3, nota:1},
     ok:"Tu lectura es exactamente la suya. «Este chaval ve el partido», le dice al míster.",
-    ko:"",
+    ko:"«Eso lo vemos todos.» Tono seco y vuelta a la banda.",
     mid:"Charla breve de fútbol. Buen tono."},
-   {l:"«Llevo cuatro partidos sin jugar»", fx:{entra:-4, mis:-5, nota:-1},
+   {l:"«Llevo semanas esperando mi oportunidad»", fx:{entra:-4, mis:-3, nota:-1},
     ok:"Se lo lleva al míster tal cual. A veces la queja sirve, y hoy sirve.",
     ko:"«Y así vas a seguir si esa es tu cara.» Mal momento, peor tono.",
-    mid:"Te escucha, aprieta los labios y no dice nada."},
-   {l:"Encogerte de hombros", fx:{mis:-2},
-    ok:"", ko:"", mid:"Se levanta y vuelve a la banda. Ocasión perdida de existir."}
+    mid:"Te escucha, aprieta los labios y no dice nada."}
   ]},
- {id:"bq-segundo-att", pos:["EXT","DC"], cond:function(c){ return c.min>=25 && c.min<70; },
+ {id:"bq-segundo-att", pos:["EXT","DC"], cond:function(c){ return c.min>=50 && c.min<75 && !c.lesionCompi; },
   t:"El segundo entrenador se te acerca",
-  x:function(c){ return "Se agacha a tu lado, sin quitar ojo a la defensa rival: «¿Cómo lo ves desde aquí?». No es charla: te está midiendo."; },
+  x:function(c){ return "Se agacha a tu lado, sin quitar ojo a la defensa rival: «¿Cómo lo ves desde aquí?». Ya hay partido para opinar, y te está midiendo."; },
   o:[
-   {l:"«Sus centrales están reventados. Yo les puedo hacer daño a la espalda»", fx:{entra:-8, mis:2, nota:1},
+   {l:"«Sus centrales están reventados. Yo les puedo hacer daño a la espalda»", fx:{entra:-6, mis:2, nota:1},
     ok:"Asiente y va directo al míster a decirle algo. Miras al banquillo y ya hay movimiento.",
     ko:"«Cada uno a lo suyo.» Se levanta sin más y te deja con la frase a medias.",
     mid:"Te escucha, asiente y vuelve a su sitio. Algo queda."},
-   {l:"Decir lo que ves, sin pedir nada", fx:{mis:3, nota:1},
+   {l:"Decir lo que ves, sin pedir nada", fx:{entra:-2, mis:3, nota:1},
     ok:"Tu lectura es exactamente la suya. «Este chaval ve el partido», le dice al míster.",
-    ko:"",
+    ko:"«Eso lo vemos todos.» Tono seco y vuelta a la banda.",
     mid:"Charla breve de fútbol. Buen tono."},
-   {l:"«Llevo cuatro partidos sin jugar»", fx:{entra:-4, mis:-5, nota:-1},
+   {l:"«Llevo semanas esperando mi oportunidad»", fx:{entra:-4, mis:-3, nota:-1},
     ok:"Se lo lleva al míster tal cual. A veces la queja sirve, y hoy sirve.",
     ko:"«Y así vas a seguir si esa es tu cara.» Mal momento, peor tono.",
-    mid:"Te escucha, aprieta los labios y no dice nada."},
-   {l:"Encogerte de hombros", fx:{mis:-2},
-    ok:"", ko:"", mid:"Se levanta y vuelve a la banda. Ocasión perdida de existir."}
+    mid:"Te escucha, aprieta los labios y no dice nada."}
   ]},
 /* la iniciativa de PREGUNTAR viene antes que la orden del míster: si nunca preguntas,
    te toca esperar a que él decida solo (bq-calentar, más abajo, sigue existiendo igual) */
@@ -3336,11 +3330,11 @@ var SITS_BANQUILLO=[
     ok:"Sin teatro, listo cuando toque. El míster lo prefiere así.",
     ko:"",
     mid:"Estiras, corres, vuelves. Normalidad."},
-   {l:"Quedarte sentado: «Que llame a otro»", fx:{entra:99, mis:-12, nota:-2},
-    ok:"", ko:"",
-    mid:"No te mueves del banquillo. El míster tampoco vuelve a mirarte. Hoy no juegas, y quizá tampoco el domingo."}
+    {l:"Calentar sin ganas, mirando el reloj", fx:{entra:5, mis:-5, nota:-1},
+    ok:"", ko:"El preparador te ve trotar sin convicción y se lo dice al míster. Nadie te cuenta lo que contesta.",
+    mid:"Cumples el trámite. El míster mira a otro lado."}
   ]},
- {id:"bq-golcontra", pos:["DFC","LAT","MCD","MC","MCO","EXT","DC"], cond:function(c){ return c.sc[0]<c.sc[1] && c.min>=35; },
+ {id:"bq-golcontra", pos:["DFC","LAT","MCD","MC","MCO","EXT","DC"], cond:function(c){ return c.sc[0]<c.sc[1] && c.min>=25; },
   t:"Vais perdiendo y el míster busca soluciones",
   x:"Se gira hacia el banquillo y recorre la fila con la mirada. Dura dos segundos y pasa por ti.",
   o:[
@@ -3353,6 +3347,177 @@ var SITS_BANQUILLO=[
     mid:"Corres por la banda sin que nadie te lo pida. Se nota quién quiere jugar."},
    {l:"Mirar al suelo", fx:{entra:6, mis:-3},
     ok:"", ko:"", mid:"Cuando levantas la cabeza, ya está hablando con otro."}
+  ]},
+/* ---- 0.04.002: más momentos de banquillo. Las ventanas (cond.min) respetan que la decisión llega ANTES de entrar (≈16′–58′). ---- */
+ {id:"bq-lesion", pos:null, cond:function(c){ return false; },   /* solo la dispara la lesión de un compañero (M.lesionCompi) */
+  t:"Se queda tendido tu compañero",
+  x:function(c){ var n=(c.lesionCompi&&c.lesionCompi.n)||"Tu compañero"; return n+" se lleva la mano al muslo y se queda en el suelo. El fisio salta al césped y el míster se gira hacia el banquillo."; },
+  o:[
+   {l:"Ir ya a calentar, sin esperar a que te llamen", fx:{mis:2, disc:1},
+    ok:"Cuando el míster se gira, ya estás trotando por la banda. Ni una palabra: le basta.",
+    ko:"Te adelantas tanto que el preparador te frena: «Espera la orden.» Sin drama, pero se nota.",
+    mid:"Calientas con ganas. El míster asiente al pasar."},
+   {l:"Esperar la orden con la cabeza fría", fx:{res:1, mis:1},
+    ok:"Respiras, te estiras y esperas. Cuando el míster te llama, estás perfecto.",
+    ko:"Esperas tanto que el cambio se hace con prisas y sales sin haber soltado las piernas.",
+    mid:"Esperas sentado, atento. Cuando llega la palmada, estás listo."},
+   {l:"Acercarte a tu compañero cuando se retire", fx:{comp:3, afin:3, lid:1},
+    ok:"Le das la mano al salir y le dices algo al oído. El banquillo lo ve.",
+    ko:"Se va sin mirar a nadie y tu gesto se queda en el aire.",
+    mid:"Le tocas el hombro al pasar. Poco más se puede hacer."}
+  ]},
+ {id:"bq-rival-estrella", pos:["POR","DFC","LAT","MCD","MC","MCO","EXT","DC"], cond:function(c){ return c.min>=20 && c.min<60 && c.sc[0]<=c.sc[1] && !c.lesionCompi; },
+  t:"Su mejor hombre os está llevando de cabeza",
+  x:"Desde el banquillo se ve lo que desde dentro no: el mismo movimiento una y otra vez, y nadie lo corta.",
+  o:[
+   {l:"Apuntar lo que repite y pasárselo al segundo", fx:{entra:-4, mis:2, nota:1},
+    ok:"Cuando se lo cuentas, el segundo saca la libreta. A los dos minutos el míster ya lo sabe.",
+    ko:"«Eso ya lo sabemos.» Sin mala cara, pero te quedas con ganas de más.",
+    mid:"Se lo cuentas, asiente y se lo guarda."},
+   {l:"Decírselo a tu compañero en la banda", fx:{comp:3, afin:3},
+    ok:"Se lo sueltas en la banda y él lo agradece con un pulgar. Equipo.",
+    ko:"Está concentrado y ni te oye. Mejor otro día.",
+    mid:"Le dices algo cuando pasa. Lo recoge sin más."},
+   {l:"Guardártelo para cuando salgas tú", fx:{disc:2, lid:1},
+    ok:"Te lo apuntas. Si hoy entras, ya sabes por dónde le vas a ir.",
+    ko:"", mid:"Lo memorizas. Nada se pierde."}
+  ]},
+ {id:"bq-grada", pos:["POR","DFC","LAT","MCD","MC","MCO","EXT","DC"], cond:function(c){ return (S.fama||30)>=40 && c.min>=20 && c.min<60 && !c.lesionCompi; },
+  t:"La grada pide tu nombre",
+  x:"Un rincón del estadio te corea y las cámaras te buscan. Con el partido como está, todo el mundo mira al banquillo.",
+  o:[
+   {l:"Saludar a la grada y seguir calentando", fx:{ego:2, entra:-2},
+    ok:"Un aplauso, una mano al aire y a seguir trabajando. A la grada le sobra.",
+    ko:"El gesto parece un numerito y el míster frunce el ceño.",
+    mid:"Saludas, sonríes y vuelves a lo tuyo."},
+   {l:"Hacer un gesto de calma: hoy no toca", fx:{disc:2, mis:1},
+    ok:"Pones la mano en el pecho y a callar. El míster lo agradece sin decir nada.",
+    ko:"Parece que les riñes a tus propios aficionados. Mala foto.",
+    mid:"Les pides calma con un gesto. Se oye más ruido que antes."},
+   {l:"Ignorarlo y no quitarle ojo al partido", fx:{disc:1, lid:1},
+    ok:"Ni te mueves. Concentración total: el segundo se fija en eso.",
+    ko:"", mid:"Sigues mirando el césped. Los cánticos se pierden en el aire."}
+  ]},
+ {id:"bq-titular-mal-dia", pos:["DFC","LAT","MCD","MC","MCO","EXT","DC"], cond:function(c){ return c.min>=25 && c.min<60 && !c.lesionCompi; },
+  t:"El titular de tu puesto no está fino",
+  x:"Pierde dos balones seguidos y mira al banquillo sin querer. El míster lo ha visto igual que tú.",
+  o:[
+   {l:"Ponerte a calentar discretamente, por si acaso", fx:{entra:-5, mis:1},
+    ok:"Nadie dice nada, pero el preparador te mira y te hace un gesto: sigue.",
+    ko:"«¿Quién te ha dicho que calientes?» A veces la discreción no basta.",
+    mid:"Estiras en la banda. Si hace falta, estás."},
+   {l:"Animarle cuando se acerque a la banda", fx:{comp:3, afin:2},
+    ok:"Le gritas que sigue bien. Levanta la cabeza y el banquillo entero lo nota.",
+    ko:"Está tan enfadado que ni te oye. Palabras al viento.",
+    mid:"Le dices algo al pasar. Gesto de agradecimiento sin más."},
+   {l:"Esperar sin dar señales", fx:{disc:1},
+    ok:"", ko:"", mid:"Miras el partido con cara de póker. Que decida el míster."}
+  ]},
+ {id:"bq-veterano", pos:["POR","DFC","LAT","MCD","MC","MCO","EXT","DC"], cond:function(c){ return c.min>=15 && c.min<45 && !c.lesionCompi; },
+  t:"El veterano del banquillo te hace sitio",
+  x:"Lleva quince años en esto y ya no se pone nervioso por no jugar. Se mueve unos centímetros en el asiento y te mira de reojo.",
+  o:[
+   {l:"Preguntarle cómo lee el partido", fx:{lid:1, disc:2, mis:1},
+    ok:"Te suelta dos cosas que no habías visto. El resto del partido lo ves distinto.",
+    ko:"Sonríe sin contestar: «Cuando juegues, te lo cuento.»",
+    mid:"Charla de fútbol sin prisa. Algo te llevas."},
+   {l:"Bromear con él para soltar tensión", fx:{comp:2, afin:2},
+    ok:"Se ríe de verdad. Dos filas más allá, otros dos se apuntan a la broma.",
+    ko:"La broma cae en mal momento y el ambiente se enfría.",
+    mid:"Cruzáis un par de bromas. Buen rollo."},
+   {l:"Quedarte a lo tuyo, concentrado", fx:{ego:1, disc:1},
+    ok:"", ko:"", mid:"Asientes sin más y sigues mirando. Cada uno en su mundo."}
+  ]},
+ {id:"bq-amarilla-compi", pos:["DFC","LAT","MCD","MC","MCO","EXT","DC"], cond:function(c){ return c.min>=22 && c.min<60 && !c.lesionCompi; },
+  t:"Amarilla para tu compañero de puesto",
+  x:"Llega tarde a la entrada y el árbitro saca la cartulina. El míster duda: un segundo error y se complica el partido.",
+  o:[
+   {l:"Ofrecerte al míster por si decide cambiarlo", fx:{entra:-7, mis:1},
+    ok:"El míster lo piensa dos segundos y asiente: «Tú, listo.»",
+    ko:"«Ya lo veo yo.» Te toca esperar.",
+    mid:"Te escucha, no dice nada. La puerta no se cierra."},
+   {l:"Calentar sin decir nada", fx:{entra:-4},
+    ok:"Te ve calentar y entiende el mensaje. No hacen falta palabras.",
+    ko:"", mid:"Trotas por la banda. Nadie te dice nada, pero te ven."},
+   {l:"Esperar a que decida el míster", fx:{disc:1},
+    ok:"", ko:"", mid:"Te quedas sentado, atento. Tampoco sobra insistir."}
+  ]},
+ {id:"bq-ventaja", pos:["DFC","LAT","MCD","MC","MCO","EXT","DC"], cond:function(c){ return c.sc[0]>c.sc[1] && c.min>=25 && c.min<60 && !c.lesionCompi; },
+  t:"Vais ganando y el míster piensa en cerrar",
+  x:"Mira el reloj, mira al banquillo y vuelve a mirar el reloj. Quiere piernas frescas y alguien que sujete el resultado.",
+  o:[
+   {l:"Mostrarte listo para sujetar la ventaja", fx:{entra:-6, mis:2},
+    ok:"«Tú, preparado.» Se lo dice al segundo sin mirarte y ya tienes cartel.",
+    ko:"«Ya tengo claro a quién meto.» Y no eres tú.",
+    mid:"Asiente. Anota tu nombre en la lista mental."},
+   {l:"Calentar y esperar la orden", fx:{entra:-3},
+    ok:"El preparador te hace un gesto: sigue así.",
+    ko:"", mid:"Estiras y trotas. Cuando haga falta, estás."},
+   {l:"Decir que quieres entrar a matar el partido", fx:{entra:-4, mis:-1, ego:2},
+    ok:"«Eso me gusta.» Le caes bien por la ambición.",
+    ko:"«Aquí se viene a hacer lo que se pide.» Tono seco.",
+    mid:"Te mira un segundo. No contesta."}
+  ]},
+ {id:"bq-analista", pos:["POR","DFC","LAT","MCD","MC","MCO","EXT","DC"], cond:function(c){ return c.min>=20 && c.min<50 && !c.lesionCompi; },
+  t:"El analista te enseña la tablet",
+  x:"Tiene las jugadas del rival cortadas y ordenadas. Te las pone delante sin que se lo pidas y espera.",
+  o:[
+   {l:"Mirarlo con atención y preguntar", fx:{disc:3, lid:1},
+    ok:"Le haces dos preguntas buenas. «Hoy sí se aprovecha», dice.",
+    ko:"Preguntas lo que ya sabía todo el mundo. Mala cara del analista.",
+    mid:"Miras, preguntas, asientes. Tiempo bien empleado."},
+   {l:"Pedirle que te enseñe a tu par directo", fx:{entra:-2, disc:2},
+    ok:"Te marca cómo se mueve, qué pierna usa y cuándo se cansa. Oro.",
+    ko:"", mid:"Te enseña tres jugadas suyas. Algo queda."},
+   {l:"Mirarlo por encima, sin enterarte", fx:{disc:-1},
+    ok:"", ko:"El analista recoge la tablet sin decir nada. El segundo lo ha visto.",
+    mid:"Cabeceas. Vídeos, vídeos y más vídeos."}
+  ]},
+ {id:"bq-capitan", pos:["POR","DFC","LAT","MCD","MC","MCO","EXT","DC"], cond:function(c){ return c.sc[0]<=c.sc[1] && c.min>=20 && c.min<60 && !c.lesionCompi; },
+  t:"El capitán grita hacia el banquillo",
+  x:"Se ha pasado un rato protestando al árbitro y, al llegar a la banda, vuelve la cabeza: «¡Menos mirar y más ayudar!»",
+  o:[
+   {l:"Levantar la mano: «Estoy aquí»", fx:{lid:2, mis:1},
+    ok:"Le devuelves el gesto con una sonrisa. El banquillo entero se ríe.",
+    ko:"Se queda mirándote un segundo de más. Tono tenso.",
+    mid:"Le haces un gesto y sigue a lo suyo."},
+   {l:"Contestar con calma", fx:{res:1, disc:1},
+    ok:"Una frase tranquila desde la banda. El capitán baja el tono.",
+    ko:"", mid:"Le dices que sí con la cabeza y no se habla más."},
+   {l:"Devolverle el grito", fx:{temp:3, mis:-3},
+    ok:"", ko:"El grito se oye en todo el campo. El míster te mira de reojo.",
+    mid:"Le contestas medio en broma. Se hace un silencio incómodo."}
+  ]},
+ {id:"bq-descanso", pos:["POR","DFC","LAT","MCD","MC","MCO","EXT","DC"], cond:function(c){ return c.min>=40 && c.min<60 && !c.lesionCompi; },
+  t:"El míster arenga al grupo en el descanso",
+  x:"Camino del túnel os reúne en corro. Habla rápido, con las manos, y al acabar pregunta si alguien quiere añadir algo.",
+  o:[
+   {l:"Callar y escuchar con atención", fx:{disc:2, mis:1},
+    ok:"Asientes en el momento justo y el míster te mira una vez más de lo normal.",
+    ko:"", mid:"Escuchas sin interrumpir. Cada uno a su sitio."},
+   {l:"Aportar una frase al grupo", fx:{lid:3, mis:1},
+    ok:"Una frase corta y todo el corro asiente. El míster te señala con la cabeza.",
+    ko:"«Nadie te ha pedido opinión.» El corro se queda frío.",
+    mid:"Dices lo tuyo, nadie contesta. Se sigue."},
+   {l:"Pedirle minutos al míster al salir", fx:{entra:-5, mis:-1},
+    ok:"«Ya lo sé.» Y esa vez no suena a bronca.",
+    ko:"«No es el momento.» Se gira y se acabó.",
+    mid:"Te escucha caminando. Sin respuesta."}
+  ]},
+ {id:"bq-cambios-sin-ti", pos:["POR","DFC","LAT","MCD","MC","MCO","EXT","DC"], cond:function(c){ return c.min>=45 && c.min<60 && c.entraEn!==null && c.entraEn!==undefined && c.entraEn>c.min+8 && !c.lesionCompi; },
+  t:"El míster hace cambios y ninguno eres tú",
+  x:"Dos compañeros del banquillo se quitan el peto y salen a la banda. Tú sigues sentado, con el chándal puesto y la camiseta por estrenar.",
+  o:[
+   {l:"Seguir calentando, por si hay un tercero", fx:{entra:-3, mis:1},
+    ok:"El preparador te mira, mira al míster, y te hace un gesto: sigue, sigue.",
+    ko:"El míster ni se gira. Parece que el cupo está cerrado.",
+    mid:"Trotas, estiras y esperas. Nadie dice nada."},
+   {l:"Sentarte y recomponerte", fx:{res:1},
+    ok:"Respiras hondo y lo dejas pasar. Dentro de poco te tocará a ti.",
+    ko:"", mid:"Te quitas el peto con calma. Hoy no pasa nada."},
+   {l:"Hacer un gesto de fastidio", fx:{temp:2, mis:-2},
+    ok:"", ko:"El gesto se ve desde el banquillo contrario. El míster también lo ve.",
+    mid:"Resoplas. Alguien te mira de reojo."}
   ]}
 ];
 /* el descuento no perdona: quien pide el balón puede ser héroe o villano */
@@ -4753,7 +4918,7 @@ function renderFlashSiguiente(){
       +'<div class="arrow up">▲</div>'
       +'<div class="fbig disp" style="font-size:28px">SALTAS AL CAMPO</div>'
       +'<div class="fdor mono">'+S.dorsal+' · '+esc(S.nombre)+'</div>'
-      +'<p class="ftxt">'+esc(pick(["Palmada del míster, camiseta por dentro y a correr. Tienes "+(90-f.min)+" minutos para cambiar el partido.","El cuarto árbitro levanta tu número. La grada te recibe con un aplauso.","Entras con el partido en juego y las piernas frescas: ahora te toca a ti."]))+'</p>'+marcador+'</div>';
+      +'<p class="ftxt">'+esc(f.txt || pick(["Palmada del míster, camiseta por dentro y a correr. Tienes "+(90-f.min)+" minutos para cambiar el partido.","El cuarto árbitro levanta tu número. La grada te recibe con un aplauso.","Entras con el partido en juego y las piernas frescas: ahora te toca a ti."]))+'</p>'+marcador+'</div>';
   } else if(f.tipo==="sub-out"){
     H='<div class="flash fl-out">'
       +'<div class="fmin">'+f.min+"′</div>"
@@ -5041,6 +5206,15 @@ function iniciarJornada(){
   if(conv.rol==="titular"){ M.entraEn=null; M.yaJugado=true; M.minJugados=90; M.minEntrada=0; }
   else if(conv.rol==="suplente"){ M.entraEn=45+Math.floor(rnd()*30); M.yaJugado=false; M.minJugados=0; }
   else { M.entraEn=null; M.yaJugado=false; M.minJugados=0; M.sinMinutos=true; }
+  /* a veces el cambio no es táctico: se lesiona un compañero de tu puesto y te toca (≈3 veces por temporada) */
+  if(conv.rol==="suplente" && M.entraEn!==null){
+    var _hayTit=compis().some(function(c){ return c.n!==S.nombre && c.pos===S.pos && c.lesion<=0 && c.sancion<=0; });
+    if(_hayTit && rnd()<(S.pos==="POR"?0.04:0.08)){
+      var _tL=1+Math.floor(rnd()*4);               /* la decisión cae en este tramo y entras en el siguiente */
+      M.lesionCompi={t:_tL, n:null};
+      M.entraEn=(_tL+1)*15;
+    }
+  }
   /* las decisiones solo llegan mientras estés en el campo */
   if(!M.enCampo){
     /* el banquillo también decide: un par de momentos antes de entrar */
@@ -5048,6 +5222,7 @@ function iniciarJornada(){
     var antes=[]; for(var t=1;t<Math.min(trEntra,6);t++) antes.push(t);
     var bqT=[];
     for(var b=0;b<2 && antes.length;b++){ bqT.push(antes.splice(Math.floor(rnd()*antes.length),1)[0]); }
+    if(M.lesionCompi) bqT=[M.lesionCompi.t];
     var desp=M.tramosDec.filter(function(t){ return t>=trEntra; });
     if(!desp.length && trEntra<6) desp=[Math.min(5,trEntra), Math.min(5,trEntra+1)];
     M.tramosDec=bqT.concat(desp).sort(function(a,b){ return a-b; });
@@ -5335,15 +5510,25 @@ function avanzarPartido(){
     asegurarOnce();
     var oc3=onceVivo().filter(function(c){return c.pos!=="POR";});
     var mEntra=M.min;   /* el minuto del cambio es el mismo para la salida y tu entrada: un solo evento */
-    var sale=null;
-    if(oc3.length){ sale=oc3[oc3.length-1]; (M.fuera=M.fuera||[]).push(sale.n);
+    var sale=null, _porLesion=false;
+    if(M.lesionCompi && M.lesionCompi.n){
+      sale=compis().filter(function(c){ return c.n===M.lesionCompi.n; })[0]||null;
+      if(sale){
+        _porLesion=true; (M.fuera=M.fuera||[]).push(sale.n);
+        sale.lesionPartido=true; sale.lesion=1+Math.floor(rnd()*3); sale._castJor=jorAbs();
+        regEvento("lesion", sale.n, true);
+        (M.golesTramo=M.golesTramo||[]).push("🚑 "+sale.n+" se retira lesionado. Entras tú en su sitio.");
+      }
+    }
+    if(!sale && oc3.length){ sale=oc3[oc3.length-1]; (M.fuera=M.fuera||[]).push(sale.n);
       (M.golesTramo=M.golesTramo||[]).push("🔄 Cambio: se marcha "+sale.n+" tocándose el gemelo. Entras tú. A por ellos."); }
     M.crono=M.crono||[];
     M.crono.push({m:mEntra, tipo:"cambio", n:S.nombre, n2:sale? sale.n : "", mio:true, x:"entras"});
     M.enCampo=true; M.yaJugado=true; M.min=Math.max(M.min, M.entraEn, M.minNarrado||0);
     M.minEntrada=M.min;
     M.minJugados=Math.max(5, 92-M.min);
-    pushFlash({tipo:"sub-in"});
+    pushFlash({tipo:"sub-in", txt:_porLesion? (sale.n+" no puede seguir y el míster te llama: «Tú, ya.» Te toca a ti, en su puesto, con "+(90-M.min)+" minutos por delante.") : undefined});
+    if(_porLesion) M.eventos.push("🚑 Entras por la lesión de "+sale.n+" en el "+M.min+"′.");
     renderFlashSiguiente(); return;
   }
   /* al salir sustituido, el gesto también se elige — y se paga o se cobra */
@@ -5454,12 +5639,30 @@ function elegirSituacion(){
   }
   /* si estás en el banquillo, las decisiones son otras: convencer, calentar, esperar */
   if(!M.enCampo && !M.yaJugado){
+    if(M.lesionCompi && !M.usadas["bq-lesion"]){
+      asegurarOnce();
+      var _tit=onceVivo().filter(function(c){ return c.pos===S.pos && c.n!==S.nombre; });
+      if(_tit.length){
+        M.lesionCompi.n=pick(_tit).n;
+        var _sl=SITS_BANQUILLO.filter(function(x){ return x.id==="bq-lesion"; })[0];
+        if(_sl){ M.usadas[_sl.id]=1; return _sl; }
+      }
+      M.lesionCompi=null;   /* nadie de tu puesto en el campo: cambio normal */
+    }
     var bq=SITS_BANQUILLO.filter(function(x){
       if(M.usadas[x.id]) return false;
       if(x.pos && x.pos.indexOf(S.pos)<0) return false;
       return x.cond(M);
     });
-    if(bq.length){ var b=pick(bq); M.usadas[b.id]=1; return b; }
+    /* rotación: lo que ya viviste hace poco se aparta, para que el banquillo no sea siempre lo mismo */
+    var bqFresco=bq.filter(function(x){ return !(S.sitGlobal && S.sitGlobal[x.id]!==undefined && S.jornada-S.sitGlobal[x.id]<3); });
+    if(bqFresco.length) bq=bqFresco;
+    if(bq.length){
+      var b=pick(bq); M.usadas[b.id]=1;
+      if(!S.sitGlobal) S.sitGlobal={};
+      S.sitGlobal[b.id]=S.jornada;
+      return b;
+    }
     return null;
   }
   var _estR=estiloDe(M.rival);
