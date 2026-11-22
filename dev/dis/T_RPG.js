@@ -44,7 +44,7 @@ var FIJOS=["nombre","dorsal","pos","lado","pierna","rol","edad","altura","equipo
   "dinero","dineroCarrera","custom","vidaLog","fama","esperas","conf","moral","debug","compis","mote",
   "bienvenida","vida","mundo","fichajes","archivo","carrera","tienda","eq","histLes","agente","fidelidad","modLesTemp","patros","misPosts","peso","posSec","tensiones","nemesis","nivel","xp","techos","techoPend","talentoPend","vitrina","talentos","ultimaJugada"];
 var TEMPORALES=["ritmo","attrSem","attrTemp","jornada","hist","tabla","racha","yo","reto","forma","lesion","sancion","motivoBaja","crisisAvisada",
-  "rumores","rumorLog","traspasos","ofertaInv","renovProc","azuzado","transferPed","agenteBoost","movClub",
+  "rumores","rumorLog","traspasos","ofertaInv","renovProc","azuzado","transferPed","agenteBoost","agProp","agenteOfJor","movClub",
   "capricho2","caprichoCd","maniobraSem","maniobraCd","redesSem","hatersSem","rehabSem","rehabPlan","rehabReforzada",
   "avisoMercado","avisoVida","ascendido","escandalo","calendario","golDif",
   "animo","misterNuevo","entreno","skillNueva","desafios","castigo","ciclo","objetivo","objPers","evaluacion",

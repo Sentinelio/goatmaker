@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.04.017";
+var VERSION="0.04.018";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -11124,7 +11124,7 @@ function candidatosAgente(){
   var out=[], niv=nivelCarrera();
   for(var i=0;i<3;i++){
     var r=lcgDe("agente-"+S.temporada+"-"+i);
-    out.push({n:genPersona(r), estilo:ESTILOS_AG[i].id, nivel:niv});
+    out.push({n:genPersona(r), estilo:ESTILOS_AG[i].id, nivel:Math.max(1,niv-i)});
   }
   return out;
 }
@@ -11192,28 +11192,125 @@ function comisionSemanal(){
     okTxt:"Entendido", cancelTxt:"Cerrar"});
 }
 /* el agente te trae cosas: revisar la ficha, un club que pregunta. Una propuesta por semana como mucho */
-function agenteTrae(){
+function agenteTrae(){ agenteBusca(); }
+/* ===== 0.04.018 AGENTE CON ESTRELLAS: mejora solo, busca por su cuenta y siempre pregunta antes de cerrar nada ===== */
+var AG_ESTR=[1,1.5,2,2.5,3,3.5,4.5,5];
+function agEstrellas(n){ var l=(n===undefined? agNivel() : n); return AG_ESTR[clamp(l,1,8)-1]; }
+function agPoder(){
+  var s=S.agente? agEstrellas() : 0;
+  return {s:s, freq:clamp(0.03+0.03*s,0.06,0.18), maxAb:Math.floor(s/2)+1, val:1+0.03*s, sq:0.30+0.10*s,
+          eloExtra:s>=4.5? 120 : s>=3.5? 40 : 0, patro:0.02*s};
+}
+function agInit(){ if(!S.agProp) S.agProp=[]; return S.agProp; }
+function agNota(msg){ S.avisoMercado=msg; }
+function agPropById(id){ return agInit().filter(function(x){ return x.id===id; })[0]; }
+function agQuitar(id){ S.agProp=agInit().filter(function(x){ return x.id!==id; }); }
+/* el agente da su opinión con una fiabilidad que depende de sus estrellas */
+function agConsejo(p){
+  var fiab=clamp(0.5+0.1*agEstrellas(),0.55,0.95), r=lcgDe("agcons-"+p.id)();
+  var buena=p.q>=0.45, dice=(r<fiab)? buena : !buena;
+  if(p.tipo==="ficha") return dice? "Es buena subida: yo la cogería." : "Se queda corta: aprieta un poco más.";
+  return dice? "Es una buena oferta: yo la cogería." : "Hay margen: yo apretaría antes de cerrar.";
+}
+function agenteBusca(){
   if(!S.agente || sinClub() || OVSEM || NEG || S.ofertaInv || S.agenteFin) return;
-  if(S.agenteOfJor===jorAbs()) return;
-  var r=rnd();
-  var agN=S.agente.n.split(" ")[0];
-  if(r<0.06 && S.contrato && S.contrato.anos>=2 && (S.contrato.salario||0)>0){
-    S.agenteOfJor=jorAbs();
-    var sube=Math.round(S.contrato.salario*0.06/1000)*1000;
-    ovSemana({t:"📞 "+agN+" quiere revisar tu ficha",
-      x:"«Tu rendimiento da para más. Puedo pedir una subida de ficha al club. ¿Lo intento?»",
-      ops:[{l:"Pídela (+"+fmtDinero(sube)+" al año)", fx:function(){ S.contrato.salario+=sube; S.avisoMercado=agN+" consigue subirte la ficha."; guardar(); }},
-           {l:"Ahora no", fx:function(){}}]});
-  } else if(r<0.12){
-    var pool=clubsAjenos().filter(function(c){ return eloDe(c)>=eloDe(S.equipo)-40; });
+  var A=agInit(), po=agPoder();
+  S.agProp=A.filter(function(x){ if(x.hasta>=jorAbs()) return true; agNota("«"+(x.tipo==="ficha"? "La subida de ficha":"El "+EQ[x.club].c)+"» se enfría: no contestaste a tiempo."); return false; });
+  if(S.agProp.length>=po.maxAb || S.agenteOfJor===jorAbs() || rnd()>po.freq) return;
+  var agN=S.agente.n.split(" ")[0], r=rnd(), base=(S.contrato? S.contrato.salario:500000), id=jorAbs()+"-"+Math.floor(rnd()*1e6);
+  var tieneFicha=S.agProp.some(function(x){ return x.tipo==="ficha"; });
+  if(r<0.30 && !tieneFicha && S.contrato && S.contrato.anos>=1 && (S.contrato.salario||0)>0){
+    var q=rnd(), sube=Math.round(S.contrato.salario*(0.04+0.10*q)*po.val/1000)*1000;
+    S.agProp.push({id:id, tipo:"ficha", sube:sube, q:q, exp:0, hasta:jorAbs()+4});
+    avisoAgente(agN, "Tu rendimiento da para pedir más: "+fmtDinero(sube)+" al año.");
+  } else if(r<0.78){
+    var elo0=eloDe(S.equipo), elite=po.eloExtra>0 && rnd()<0.40;
+    var pool=clubsAjenos().filter(function(c){ var e=eloDe(c); return elite? (e>=elo0+20 && e<=elo0+po.eloExtra) : (e>=elo0-40 && e<=elo0+10); });
     if(!pool.length) return;
-    S.agenteOfJor=jorAbs();
-    var club=pick(pool), sal=Math.round((S.contrato? S.contrato.salario:500000)*(1.10+rnd()*0.2)/1000)*1000;
-    ovSemana({t:"📞 "+agN+" tiene un club en la línea",
-      x:"«El "+esc(EQ[club].c)+" pregunta por ti. Te ofrecen "+fmtDinero(sal)+" al año. ¿Quieres escucharlo?»",
-      ops:[{l:"Escúchalo", fx:function(){ S.ofertaInv={club:club, salario:sal, prima:Math.round(sal*0.3), anos:3}; alMenu(sitOferta); }},
-           {l:"Ahora no", fx:function(){}}]});
+    var club=pick(pool), q2=rnd(), sal=Math.round(base*(1.08+0.22*q2)*po.val*(elite? 1.20:1)/1000)*1000;
+    S.agProp.push({id:id, tipo:"club", club:club, salario:sal, prima:Math.round(sal*0.3/1000)*1000, anos:3, elite:elite, q:q2, exp:0, hasta:jorAbs()+4});
+    avisoAgente(agN, "El "+EQ[club].c+(elite? " — un grande —":"")+" pregunta por ti.");
+  } else if(!S.patroOferta && typeof genOfertaPatro==="function"){
+    genOfertaPatro(false,false,true);
+    if(S.patroOferta) avisoAgente(agN, S.patroOferta.marca+" quiere hablar contigo.");
   }
+  S.agenteOfJor=jorAbs();
+}
+function avisoAgente(agN, txt){
+  agNota(agN+": "+txt);
+  ovSemana({t:"📞 "+agN+" ha encontrado algo", x:"«"+txt+" No cierro nada sin ti.»",
+    ops:[{l:"Verlo ahora", fx:function(){ irSub("mercado","agente"); }}, {l:"Luego", fx:function(){}}]});
+}
+function agAceptar(id){
+  var p=agPropById(id); if(!p) return;
+  if(p.tipo==="ficha"){
+    if(!S.contrato) return; S.contrato.salario+=p.sube; agQuitar(id);
+    agNota(S.agente.n.split(" ")[0]+" cierra la subida: "+fmtDinero(S.contrato.salario)+" al año.");
+  } else {
+    S.ofertaInv={club:p.club, salario:p.salario, prima:p.prima, anos:p.anos}; agQuitar(id);
+    alMenu(sitOferta);
+  }
+  if(S.agente) S.agente.hechos=(S.agente.hechos||0)+1;
+  guardar(); if(SEC==="mercado") irSec("mercado");
+}
+function agRechazar(id){
+  var p=agPropById(id); if(!p) return; agQuitar(id);
+  agNota(S.agente.n.split(" ")[0]+" lo rechaza en tu nombre."); guardar(); if(SEC==="mercado") irSec("mercado");
+}
+function agProbExprimir(p){ return clamp(agPoder().sq-0.15*(p.exp||0),0.10,0.90); }
+function agExprimir(id){
+  var p=agPropById(id); if(!p || (p.exp||0)>=2) return;
+  var ok=rnd()<agProbExprimir(p), agN=S.agente.n.split(" ")[0]; p.exp=(p.exp||0)+1;
+  if(ok){
+    if(p.tipo==="ficha") p.sube=Math.round(p.sube*1.18/1000)*1000;
+    else { p.salario=Math.round(p.salario*1.08/1000)*1000; p.prima=Math.round(p.prima*1.15/1000)*1000; }
+    p.q=Math.min(1,p.q+0.2); p.hasta=Math.max(p.hasta,jorAbs()+2);
+    agNota(agN+" aprieta y lo consigue: la oferta mejora.");
+  } else if(rnd()<0.35){
+    agQuitar(id); agNota(agN+" se pasa de frenada: "+(p.tipo==="ficha"? "el club retira la subida." : "el "+EQ[p.club].c+" se levanta de la mesa."));
+  } else {
+    agNota(agN+": «No cede más».");
+  }
+  guardar(); if(SEC==="mercado") irSec("mercado");
+}
+function agPatroAceptar(){
+  var o=S.patroOferta; if(!o) return;
+  cerrarPatroConAcuerdo({cat:o.cat, catN:o.catN, marca:o.marca, tipo:o.tipo, tipoN:o.tipoN, fijo:o.fijo, dur:o.dur, inc:o.inc, pct:o.pct, perk:o.perk, counter:o.counter});
+  if(S.agente) S.agente.hechos=(S.agente.hechos||0)+1;
+  guardar(); if(SEC==="mercado") irSec("mercado");
+}
+function agPatroRechazar(){ if(!S.patroOferta) return; S.avisoMercado=S.patroOferta.marca+": tu agente les dice que no."; S.patroOferta=null; NEGP=null; guardar(); if(SEC==="mercado") irSec("mercado"); }
+/* en verano el agente mejora solo: cuantos más tratos cierra para ti, más sube — y más cobra */
+function agenteCrece(){
+  if(!S.agente) return;
+  var A=S.agente, tope=Math.min(8,nivelCarrera()+2);
+  var pr=clamp(0.15+0.08*Math.min(6,A.hechos||0),0.15,0.65);
+  if(A.nivel<tope && lcgDe("agcrece-"+S.temporada+"-"+A.n)()<pr){
+    A.nivel++; A.pct=pctAgente(A.estilo,A.nivel); A.hechos=Math.max(0,(A.hechos||0)-2);
+    S.avisoMercado=A.n.split(" ")[0]+" ha subido de categoría: ahora es "+NIVELES_AG[A.nivel-1].nom.toLowerCase()+" ("+agEstrellas()+"★). Su comisión sube al "+Math.round(A.pct*100)+"%.";
+  }
+}
+function agBandeja(){
+  var A=agInit(), po=agPoder(), H='';
+  var hay=A.length || S.patroOferta;
+  H+='<div class="card"><div class="eyebrow">Lo que ha encontrado</div>';
+  if(!hay) H+='<p class="note" style="margin:4px 2px">Nada por ahora. Cuanto más alto es, más busca: con '+eqEstrellas(po.s)+' mira cada semana ~'+Math.round(po.freq*100)+'%.</p>';
+  A.forEach(function(p){
+    var t=p.tipo==="ficha"? "📈 Subida de ficha: <b>+"+fmtDinero(p.sube)+"/año</b>" : "🏟 <b>"+esc(EQ[p.club].c)+"</b>"+(p.elite? " <span style=\"color:var(--gold)\">★ grande</span>":"")+" · "+fmtDinero(p.salario)+"/año · prima "+fmtDinero(p.prima)+" · "+p.anos+" temp.";
+    H+='<div style="border-top:1px solid var(--hair);padding:8px 0"><div style="font-size:13.5px">'+t+'</div>'
+      +'<p class="note" style="margin:2px 0 6px">🧠 '+esc(agConsejo(p))+' · caduca en '+Math.max(1,p.hasta-jorAbs())+' sem</p>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="chip on" onclick="agAceptar(\''+p.id+'\')">Aceptar</button>'
+      +((p.exp||0)<2? '<button class="chip" onclick="agExprimir(\''+p.id+'\')">Exprimir (~'+Math.round(agProbExprimir(p)*100)+'%)</button>' : '')
+      +'<button class="chip" onclick="agRechazar(\''+p.id+'\')">Rechazar</button></div></div>';
+  });
+  if(S.patroOferta){
+    var o=S.patroOferta;
+    H+='<div style="border-top:1px solid var(--hair);padding:8px 0"><div style="font-size:13.5px">📣 <b>'+esc(o.marca)+'</b> · '+esc(o.catN)+' · '+fmtDinero(o.fijo)+'/sem · '+esc(o.tipoN)+'</div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><button class="chip on" onclick="agPatroAceptar()">Aceptar</button>'
+      +'<button class="chip" onclick="abrirNegPatro()">Exprimir</button><button class="chip" onclick="agPatroRechazar()">Rechazar</button></div></div>';
+  }
+  H+='</div>';
+  return H;
 }
 /* el contrato del agente se acaba: renuevas con él dos temporadas o le dejas ir */
 function agenteRenueva(){
@@ -11245,12 +11342,14 @@ function secAgente(){
   if(S.agente){
     var e=ESTILOS_AG.filter(function(x){return x.id===S.agente.estilo;})[0];
     H+='<div class="card"><div class="eyebrow">Tu agente</div>'
-      +'<div style="font-size:13.5px"><b>'+esc(S.agente.n)+'</b> · '+e.n+' · nivel '+agNivel()+' ('+NIVELES_AG[agNivel()-1].nom+')</div>'
+      +'<div style="font-size:13.5px"><b>'+esc(S.agente.n)+'</b> · '+e.n+'</div>'
+      +'<div style="font-size:18px;letter-spacing:2px;margin:2px 0">'+eqEstrellas(agEstrellas())+' <span style="font-size:12px;letter-spacing:0">'+NIVELES_AG[agNivel()-1].nom+'</span></div>'
       +'<p class="note" style="margin:6px 2px">'+esc(e.d)+'</p>'
       +'<div class="row2" style="font-size:12px"><span>Contrato de representación: '+(S.agente.anos||0)+' temporada'+((S.agente.anos||0)===1?'':'s')+'</span></div>'
       +'<div class="row2" style="font-size:12px"><span>Comisión: '+Math.round(S.agente.pct*100)+'% de tu ficha ('+(sinClub()? 'sin contrato, sin comisión' : fmtDinero(Math.round(S.contrato.salario*S.agente.pct/38))+'/sem')+')</span>'
       +'<button class="chip" onclick="despedirAgente()">despedir</button></div></div>';
-    H+='<div class="card"><button class="gold-btn" onclick="buscarPatro()">Buscar patrocinio esta semana</button></div>';
+    H+=agBandeja();
+    H+='<div class="card"><button class="gold-btn" onclick="buscarPatro()">Buscar patrocinio esta semana</button><p class="note" style="margin:8px 2px 0">Un agente no se forma en cursos: mejora solo, según los tratos que cierra para ti. Cuanto mejor es, más cobra.</p></div>';
     if(S.propAg) H+='<div class="card" style="border-color:var(--gold)"><p class="note" style="margin:2px">📞 '+esc(S.propAg.n.split(" ")[0])+' ('+esc(NIVELES_AG[S.propAg.nivel-1].nom)+') sigue llamando. '+(S.propAg.coste? 'Rescisión: '+fmtDinero(S.propAg.coste)+'.' : 'Sin rescisión.')+'</p><button class="opt" onclick="aceptarPropAg()">Escuchar y cambiar</button> <button class="chip" onclick="S.propAg=null;guardar();irSec(\'mercado\')">Descartar</button></div>';
     if(S.jornada>=16 && S.jornada<18) H+='<div class="card"><p class="note" style="margin:2px">📞 «'+esc(S.agente.n.split(" ")[0])+' al aparato: la ventana abre en '+(18-S.jornada)+' semana'+(18-S.jornada>1?"s":"")+'. Dime cómo quieres llegar.»</p></div>';
     if(S.contrato && S.contrato.anos===1) H+='<div class="card"><p class="note" style="margin:2px">⚠ Último año de contrato. '+(S.renovProc? "La renovación ya se habló.":"El club moverá ficha antes de primavera.")+'</p></div>';
@@ -11260,7 +11359,7 @@ function secAgente(){
       var e=ESTILOS_AG.filter(function(x){return x.id===c.estilo;})[0];
       H+='<div class="card"><div style="font-size:13px"><b>'+esc(c.n)+'</b> · '+e.n+'</div>'
         +'<p class="note" style="margin:6px 2px">'+esc(e.d)+'</p>'
-        +'<button class="opt" onclick="ficharAgente('+i+')">Ficharlo · nivel '+c.nivel+' · '+Math.round(pctAgente(c.estilo,c.nivel)*100)+'% de tu ficha</button></div>';
+        +'<button class="opt" onclick="ficharAgente('+i+')">Ficharlo · '+eqEstrellas(agEstrellas(c.nivel))+' '+NIVELES_AG[c.nivel-1].nom.toLowerCase()+' · '+Math.round(pctAgente(c.estilo,c.nivel)*100)+'% de tu ficha</button></div>';
     });
   }
   H+=tablaNiveles();
@@ -12739,6 +12838,7 @@ function nuevaTemporada(){
     S.agente.anos=Math.max(0,S.agente.anos-1);
     if(S.agente.anos===0) S.agenteFin=true;
   }
+  agenteCrece();
   /* el contrato corre: una temporada menos */
   if(S.contrato){
     S.contrato.anos=Math.max(0,(S.contrato.anos||1)-1);
