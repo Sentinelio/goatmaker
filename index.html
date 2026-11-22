@@ -731,11 +731,9 @@ body.conmenu:has(#ov-match:not(.hidden)) #topbar{display:none}
   <div id="scr-title">
     <div class="disp big"><span class="mk">Goat</span>maker</div>
     <div class="note" id="ver-portada" style="margin-top:8px;font-size:11px;letter-spacing:3px;color:var(--gold);font-weight:700">—</div>
-    <p class="note" style="margin:22px 0 14px">Eliges puesto y perfil; los clubes eligen si te quieren. Treinta y ocho jornadas sobre el césped, decididas en un puñado de momentos.</p>
     <button class="gold-btn" onclick="irElegir()">Empezar carrera</button>
     <button id="btn-continuar" class="ghost hidden" style="margin-top:8px" onclick="continuar()">Continuar temporada</button>
     <button class="ghost" style="margin-top:8px" onclick="irSec('ajustes')">Opciones</button>
-    <p class="note" style="margin-top:16px;font-size:11px">Fuerza de los equipos según Elo real (elofootball.com, agosto 2026). Ventaja de campo: 74 puntos.</p>
   </div>
 
   <!-- ELEGIR EQUIPO -->
@@ -823,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.056";
+var VERSION="0.03.057";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
