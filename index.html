@@ -823,7 +823,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.052";
+var VERSION="0.03.053";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -2367,9 +2367,11 @@ function entMisterElige(j){
   var amb=Math.abs((o.fx&&o.fx.nota)||0);
   var sc= cls==="ok"? 1+amb*0.6 : cls==="mid"? 0.25 : -(0.4+amb*0.4);
   var gan="";
-  if(cls==="ok"){   /* decidir bien en el partidillo te hace mejor leyendo el juego */
+  /* decidir bien en el partidillo te hace mejor leyendo el juego. Con buena decisión y ejecución regular, sube siempre la mitad */
+  if(cls==="ok" || (cls==="mid" && o.juicio==="buena")){
+    var fac= cls==="ok"? 1 : 0.5;
     var a=atr("TAC")<=atr("MEN")? "TAC":"MEN", T=techoAtributoDe(a), v=atr(a);
-    if(v<T){ var g=Math.round(clamp((T-v)/52,0.05,1.1)*(0.25+amb*0.08)*100)/100; S.attr[a]=Math.min(T, v+g); gan=a+" +"+g.toFixed(2); }
+    if(v<T){ var g=Math.round(clamp((T-v)/52,0.05,1.1)*(0.25+amb*0.08)*fac*100)/100; S.attr[a]=Math.min(T, v+g); gan=a+" +"+g.toFixed(2); }
   }
   S.forma=clamp((S.forma===undefined?70:S.forma)-2,20,100);
   D.pts+=sc;
