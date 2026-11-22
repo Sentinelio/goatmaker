@@ -272,4 +272,27 @@ var _m3=modal, cf=null; modal=function(c){ cf=c; }; S.dinero=9e6; eqCursoElige("
 t(cf && /Apuntar/.test(cf.okTxt) && (cf.x.match(/type="range"/g)||[]).length===3 && /max="6"/.test(cf.x),"el diálogo trae tiempo (1-6), calidad y sustituto");
 t(/id="cu-st"/.test(cf.x) && !/class="note"/.test(cf.x),"el diálogo lleva las estrellas y ningún texto gris debajo");
 S.dinero=9e6; eqCursoApuntar("prep",4,3,1); t(/En un curso/.test(secStaff()),"y la ficha muestra cuándo vuelve");
+
+/* ---- 13. medias estrellas ---- */
+base("MC",180,75); ficha("fisio",3); var mf=S.eq.st.fisio;
+var f30=eqFuerza("fisio"); mf.med=1; var f35=eqFuerza("fisio"); mf.nivel=4; mf.med=0; var f40=eqFuerza("fisio");
+t(f30<f35 && f35<f40 && Math.abs(f35-(f30+f40)/2)<f30*0.02,"3,5 estrellas rinde justo entre 3 y 4: "+f30.toFixed(2)+" < "+f35.toFixed(2)+" < "+f40.toFixed(2));
+var s3=eqSalario("fisio",3), s35=eqSalario("fisio",3.5), s4=eqSalario("fisio",4);
+t(s3<s35 && s35<s4,"y cobra entre uno y otro: "+s3+" < "+s35+" < "+s4);
+var medias=0, tot=0; for(var q=1;q<=40;q++){ S.temporada=q; S.eq.mercado=null; eqMercado("prep").forEach(function(c){ tot++; if(c.med) medias++; t(!(c.nivel===5&&c.med),"nadie pasa de 5 estrellas"); }); }
+t(medias/tot>0.2 && medias/tot<0.4,"entre los candidatos, ~30% traen media estrella: "+Math.round(medias/tot*100)+"%");
+base("MC",180,75); S.dinero=9e6; var cm=null; for(var q=1;q<60 && !cm;q++){ S.temporada=q; S.eq.mercado=null; cm=eqMercado("fisio").filter(function(c){return c.med && c.nivel<=3;})[0]; }
+t(eqContratar("fisio",cm.id)===null && S.eq.st.fisio.med===1 && S.eq.st.fisio.sal===eqSalario("fisio",cm.nivel+0.5),"se contrata con media estrella y su sueldo intermedio");
+EQ_SEL="fisio"; t(/width:50%/.test(secStaff()),"la ficha dibuja la media estrella"); EQ_SEL=null;
+/* los cursos suben de media en media */
+base("MC",180,75); ficha("fisio",2); S.eq.st.fisio.pot=4; S.dinero=9e6; S.jornada=0; var ms=S.eq.st.fisio;
+ms.prog=0; eqCursoApuntar("fisio",6,3,0); pasan(6); var a1=eqLv(ms);
+t(a1===2.5 || a1===2,"un curso medio da como mucho media estrella: nivel "+a1);
+var medio=0; for(var q=0;q<40;q++){ base("MC",180,75); S.temporada=q+1; ficha("fisio",2); S.eq.st.fisio.pot=4; S.dinero=9e6; S.jornada=0; eqCursoApuntar("fisio",6,4,0); pasan(6); if(eqLv(S.eq.st.fisio)===2.5) medio++; }
+t(medio>=25,"un buen curso de 6 semanas suele dar media estrella: "+medio+"/40");
+base("MC",180,75); ficha("fisio",1); S.eq.st.fisio.med=1; S.eq.st.fisio.pot=1; S.dinero=9e6; S.jornada=0; S.eq.st.fisio.prog=0.45; eqCursoApuntar("fisio",6,3,0); pasan(6);
+t(S.eq.st.fisio.nivel===2 && S.eq.st.fisio.med===0,"1,5 + media estrella = 2 (pasa de nivel)");
+/* estrellas del diálogo: sólidas, fantasma uniforme */
+base("DC",191,105); ficha("prep",2); S.eq.st.prep.med=1; S.eq.st.prep.pot=4; var h5=eqEstrellasVis(2.5,3.5);
+t((h5.match(/opacity:\.45/g)||[]).length===2 && (h5.match(/width:100%;overflow:hidden;color:var\(--gold,#ffc24b\)">/g)||[]).length===2 && (h5.match(/width:50%;overflow:hidden;color:var\(--gold,#ffc24b\)">/g)||[]).length===1,"estrellas: 2 llenas y media sólida; la expectativa, con una sola transparencia (media más hasta 3,5)");
 console.log("EQUIPO: "+OK+" ok · "+KO+" fallos");

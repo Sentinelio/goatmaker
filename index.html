@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.04.010";
+var VERSION="0.04.011";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -9801,10 +9801,14 @@ function eqInit(){
 }
 function eqLog(t){ var E=eqInit(); if(!E) return; E.log.unshift({t:S.temporada, j:S.jornada, x:t}); if(E.log.length>14) E.log.length=14; }
 function eqSemilla(){ return (S&&(S.seed||S.ligaSeed))||1; }
+/* niveles con medias estrellas: nivel entero + med (0 o 1 = +½) */
+function eqLv(m){ return (m.nivel||1)+0.5*(m.med||0); }
+function eqInterp(arr, lv){ var a=Math.max(1,Math.min(5,lv)), f=Math.floor(a), fr=a-f; return fr? arr[f-1]+(arr[Math.min(4,f)]-arr[f-1])*fr : arr[f-1]; }
+function eqNivelTxt(m){ return EQ_NIVELES[m.nivel-1]+(m.med? " +":""); }
 function eqSalarioBase(){ return (S&&S.contrato&&S.contrato.salario)||300000; }
 function eqSalario(p, nivel, salJug){
   var s=salJug||eqSalarioBase();
-  return Math.round(Math.max(EQ_PISO_SAL[nivel-1], s*EQ_INFO[p].pct*EQ_MULT_SAL[nivel-1])/1000)*1000;
+  return Math.round(Math.max(eqInterp(EQ_PISO_SAL,nivel), s*EQ_INFO[p].pct*eqInterp(EQ_MULT_SAL,nivel))/1000)*1000;
 }
 function eqEstilo(p){ var m=S&&S.eq&&S.eq.st[p]; if(!m) return null; return EQ_ESTILOS[p].filter(function(e){ return e.id===m.estilo; })[0]||EQ_ESTILOS[p][0]; }
 
@@ -9844,9 +9848,9 @@ function eqSint(p){
 }
 function eqFuerza(p){
   var m=S&&S.eq&&S.eq.st[p]; if(!m) return 0;
-  return EQ_FUERZA[m.nivel-1]*eqSint(p)*(m.curso? EQ_SUST[m.curso.sust||0].cob : 1);
+  return eqInterp(EQ_FUERZA,eqLv(m))*eqSint(p)*(m.curso? EQ_SUST[m.curso.sust||0].cob : 1);
 }
-function eqNivel(p){ var m=S&&S.eq&&S.eq.st[p]; return m? m.nivel : 0; }
+function eqNivel(p){ var m=S&&S.eq&&S.eq.st[p]; return m? eqLv(m) : 0; }
 
 /* ---------- qué plan conviene ahora, y qué plan se sigue ---------- */
 function eqPlanOptimo(p){
@@ -9874,7 +9878,7 @@ function eqPlanOptimo(p){
 }
 function eqPlanAuto(p){
   var m=S.eq.st[p]; if(!m) return null;
-  var acc=Math.min(1, EQ_ACIERTO[m.nivel-1]+0.03*eqNivel("analista"));
+  var acc=Math.min(1, eqInterp(EQ_ACIERTO,eqLv(m))+0.03*eqNivel("analista"));
   var r=lcgDe("eqplan-"+eqSemilla()+"-"+jorAbs()+"-"+p)();
   return r<acc? eqPlanOptimo(p) : (p==="chef"? "equilibrada" : "resistencia");
 }
@@ -9944,9 +9948,9 @@ function eqGenerar(p){
     var edad=nivel===1? 24+Math.floor(rnd2()*8) : 30+Math.floor(rnd2()*28);
     var exp=nivel===1? Math.floor(rnd2()*3) : Math.max(3, edad-25-Math.floor(rnd2()*6));
     out.push({id:p+"-"+S.temporada+"-"+i, p:p, n:genNombrePila(rnd2)+" "+genApellido(rnd2), edad:edad, exp:exp,
-              nivel:nivel, pot:pot, estilo:est.id, sem:0});
+              nivel:nivel, med:(nivel<5 && rnd2()<0.3? 1:0), pot:pot, estilo:est.id, sem:0});
   });
-  out.sort(function(a,b){ return a.nivel-b.nivel; });
+  out.sort(function(a,b){ return eqLv(a)-eqLv(b); });
   return out;
 }
 function eqMercado(p){
@@ -9957,8 +9961,8 @@ function eqMercado(p){
 }
 function eqRequisito(c){
   var fama=S.fama||30;
-  if(c.nivel>=5 && fama<55) return "Pide fama 55 (tienes "+fama+")";
-  if(c.nivel>=4 && fama<35) return "Pide fama 35 (tienes "+fama+")";
+  if(eqLv(c)>=5 && fama<55) return "Pide fama 55 (tienes "+fama+")";
+  if(eqLv(c)>=4 && fama<35) return "Pide fama 35 (tienes "+fama+")";
   return null;
 }
 function eqReset(p){
@@ -9970,14 +9974,14 @@ function eqContratar(p, id){
   var E=eqInit(), lista=eqMercado(p), c=lista.filter(function(x){return x.id===id;})[0];
   if(!c) return "Ese candidato ya no está disponible.";
   var req=eqRequisito(c); if(req) return req+".";
-  var sal=eqSalario(p, c.nivel);
+  var sal=eqSalario(p, eqLv(c));
   if((S.dinero||0)<sal) return "No te llega: son "+fmtDinero(sal)+" al año.";
   S.dinero-=sal;
   var antes=E.st[p];
-  E.st[p]={id:c.id, p:p, n:c.n, edad:c.edad, exp:c.exp, nivel:c.nivel, pot:c.pot, estilo:c.estilo, sem:0, sal:sal};
+  E.st[p]={id:c.id, p:p, n:c.n, edad:c.edad, exp:c.exp, nivel:c.nivel, med:c.med||0, pot:c.pot, estilo:c.estilo, sem:0, sal:sal};
   E.mercado.c[p]=lista.filter(function(x){return x.id!==id;});
   eqReset(p); E.tuvo=E.tuvo||{}; E.tuvo[p]=1;
-  eqLog("Fichas a "+c.n+" como "+EQ_INFO[p].n.toLowerCase()+" ("+EQ_NIVELES[c.nivel-1].toLowerCase()+", "+fmtDinero(sal)+"/año)"+(antes? ", en lugar de "+antes.n : "")+".");
+  eqLog("Fichas a "+c.n+" como "+EQ_INFO[p].n.toLowerCase()+" ("+eqNivelTxt(c).toLowerCase()+", "+fmtDinero(sal)+"/año)"+(antes? ", en lugar de "+antes.n : "")+".");
   return null;
 }
 function eqDespedir(p){
@@ -10017,9 +10021,9 @@ function eqRenovar(guarda){
     if(m.pot>m.nivel && m.sem>=20 && lcgDe("eqgrow-"+eqSemilla()+"-"+S.temporada+"-"+p)()<0.8){
       m.nivel++; av.push(m.n+" ha crecido contigo: ahora es "+EQ_NIVELES[m.nivel-1].toLowerCase()+".");
     }
-    var cuesta=eqSalario(p, m.nivel);
+    var cuesta=eqSalario(p, eqLv(m));
     var rl=lcgDe("eqfuga-"+eqSemilla()+"-"+S.temporada+"-"+p)();
-    var sePira=rl<(m.nivel>=4? 0.14 : 0.06);
+    var sePira=rl<(eqLv(m)>=4? 0.14 : 0.06);
     if(sePira){ av.push(m.n+" ("+EQ_INFO[p].n.toLowerCase()+") ficha por otro club."); E.st[p]=null; eqReset(p); }
     else if((guarda.dinero||0)>=cuesta){ guarda.dinero-=cuesta; m.sal=cuesta; }
     else { av.push("No llegabas a pagar a "+m.n+" ("+fmtDinero(cuesta)+"): se marcha."); E.st[p]=null; eqReset(p); }
@@ -10028,17 +10032,17 @@ function eqRenovar(guarda){
   if(E.rehire){
     EQ_PUESTOS.forEach(function(p){
       if(E.st[p]) return;
-      var lista=eqMercado(p).filter(function(c){ return !eqRequisito(c) && eqSalario(p,c.nivel)<=(guarda.dinero||0)*0.5; });
+      var lista=eqMercado(p).filter(function(c){ return !eqRequisito(c) && eqSalario(p,eqLv(c))<=(guarda.dinero||0)*0.5; });
       if(!lista.length) return;
-      lista.sort(function(a,b){ return b.nivel-a.nivel; });
+      lista.sort(function(a,b){ return eqLv(b)-eqLv(a); });
       /* solo se reponen los puestos que ya tenías: el resto es decisión tuya */
       if(!E.tuvo || !E.tuvo[p]) return;
-      var c=lista[0], sal=eqSalario(p,c.nivel);
+      var c=lista[0], sal=eqSalario(p,eqLv(c));
       guarda.dinero-=sal;
-      E.st[p]={id:c.id,p:p,n:c.n,edad:c.edad,exp:c.exp,nivel:c.nivel,pot:c.pot,estilo:c.estilo,sem:0,sal:sal};
+      E.st[p]={id:c.id,p:p,n:c.n,edad:c.edad,exp:c.exp,nivel:c.nivel,med:c.med||0,pot:c.pot,estilo:c.estilo,sem:0,sal:sal};
       E.mercado.c[p]=E.mercado.c[p].filter(function(x){return x.id!==c.id;});
       eqReset(p);
-      av.push("Tu equipo ficha a "+c.n+" como "+EQ_INFO[p].n.toLowerCase()+" ("+EQ_NIVELES[c.nivel-1].toLowerCase()+").");
+      av.push("Tu equipo ficha a "+c.n+" como "+EQ_INFO[p].n.toLowerCase()+" ("+eqNivelTxt(c).toLowerCase()+").");
     });
   }
   av.forEach(eqLog);
@@ -10056,15 +10060,15 @@ function eqTopeCurso(m){ return Math.max(4, m.pot||0); }
 function eqCalUtil(m, cal){ return Math.min(cal, m.nivel+2); }
 function eqCursoProg(m, sem, cal){ return 0.5*(1-Math.exp(-sem/3))*EQ_CAL[eqCalUtil(m,cal)-1].q; }
 function eqCursoCoste(p, sem, cal){
-  var m=S.eq.st[p]; return Math.round(eqSalario(p, Math.min(5,m.nivel+1))*(0.025*sem+0.03)*EQ_CAL[cal-1].f/1000)*1000;
+  var m=S.eq.st[p]; return Math.round(eqSalario(p, Math.min(5,eqLv(m)+1))*(0.025*sem+0.03)*EQ_CAL[cal-1].f/1000)*1000;
 }
-function eqSustCoste(p, sem, sust){ var m=S.eq.st[p]; return Math.round(eqSalario(p,m.nivel)*EQ_SUST[sust].fr*sem/38/1000)*1000; }
+function eqSustCoste(p, sem, sust){ var m=S.eq.st[p]; return Math.round(eqSalario(p,eqLv(m))*EQ_SUST[sust].fr*sem/38/1000)*1000; }
 function eqCursoApuntar(p, sem, cal, sust){
   var E=eqInit(), m=E.st[p];
   if(!m) return "No se puede.";
   sem=clamp(Math.round(sem||0),1,6); cal=clamp(Math.round(cal||1),1,5); sust=clamp(Math.round(sust||0),0,2);
   if(m.curso) return m.n+" ya está en un curso.";
-  if(m.nivel>=eqTopeCurso(m)) return "Ya no puede aprender más en un curso: ha llegado a su techo.";
+  if(eqLv(m)>=eqTopeCurso(m)) return "Ya no puede aprender más en un curso: ha llegado a su techo.";
   var coste=eqCursoCoste(p,sem,cal)+eqSustCoste(p,sem,sust);
   if((S.dinero||0)<coste) return "No te llega: son "+fmtDinero(coste)+".";
   S.dinero-=coste;
@@ -10079,10 +10083,14 @@ function eqCursosSemana(){
     if(jorAbs()<m.curso.fin) return;
     var c=m.curso; m.curso=null;
     m.prog=(m.prog||0)+eqCursoProg(m,c.sem,c.cal)*(0.85+0.3*lcgDe("eqcurso-"+eqSemilla()+"-"+jorAbs()+p)());
-    if(m.prog>=1 && m.nivel<eqTopeCurso(m)){
-      m.prog-=1; m.nivel++; if(m.pot<m.nivel) m.pot=m.nivel;
-      eqLog(m.n+" vuelve del curso un escalón por encima: ahora es "+EQ_NIVELES[m.nivel-1].toLowerCase()+". Su sueldo se revisará en verano.");
-    } else eqLog(m.n+" vuelve del curso con más oficio ("+Math.round(m.prog*100)+"% del siguiente escalón).");
+    var sube=0;
+    while(m.prog>=0.5 && eqLv(m)<eqTopeCurso(m)){
+      m.prog-=0.5; sube+=0.5;
+      if(m.med){ m.med=0; m.nivel++; } else m.med=1;
+      if(m.pot<m.nivel) m.pot=m.nivel;
+    }
+    if(sube) eqLog(m.n+" vuelve del curso con "+(sube===0.5? "media estrella":(sube===1? "una estrella":sube+" estrellas"))+" más: ahora es "+eqNivelTxt(m).toLowerCase()+". Su sueldo se revisará en verano.");
+    else eqLog(m.n+" vuelve del curso con más oficio ("+Math.round(m.prog/0.5*100)+"% de la próxima media estrella).");
   });
 }
 var EQ_CUR={p:null};
@@ -10091,12 +10099,8 @@ function eqCursoVista(){
   var p=EQ_CUR.p, m=S.eq.st[p]; if(!m) return;
   var sem=clamp(eqSl("cu-sem",3),1,6), cal=clamp(eqSl("cu-cal",3),1,5), sust=clamp(eqSl("cu-sust",1),0,2), util=eqCalUtil(m,cal);
   var c1=eqCursoCoste(p,sem,cal), c2=eqSustCoste(p,sem,sust), pr=eqCursoProg(m,sem,cal), tope=eqTopeCurso(m);
-  var tot=(m.prog||0)+pr, sube=tot>=1 && m.nivel<tope, ST='';
-  for(var i=1;i<=5;i++){
-    if(i<=m.nivel) ST+='<span style="color:var(--gold,#ffc24b)">★</span>';
-    else if(i===m.nivel+1 && m.nivel<tope) ST+='<span style="color:var(--gold,#ffc24b);opacity:'+(sube? 0.6 : (0.12+0.45*Math.min(1,tot))).toFixed(2)+'">★</span>';
-    else ST+='<span style="opacity:.25">☆</span>';
-  }
+  var tot=(m.prog||0)+pr, g=Math.min(Math.floor(tot/0.5)*0.5, Math.max(0,tope-eqLv(m)));
+  var ST=eqEstrellasVis(eqLv(m), eqLv(m)+g);
   var set=function(id,v,html){ var e=$(id); if(e){ if(html) e.innerHTML=v; else e.textContent=v; } };
   set("cu-st",ST,1);
   set("cu-sv",sem+(sem===1?" semana":" semanas"));
@@ -10230,7 +10234,17 @@ function eqInforme(){
 }
 
 /* ---------- pantalla: Cuentas › Mi equipo ---------- */
-function eqEstrellas(n){ var s=""; for(var i=1;i<=5;i++) s+=(i<=n? "★":"☆"); return s; }
+function eqEstrellasVis(solido, fantasma){
+  var s='';
+  for(var i=1;i<=5;i++){
+    var fs=Math.max(0,Math.min(1,solido-(i-1))), fg=Math.max(fs,Math.min(1,(fantasma||0)-(i-1)));
+    s+='<span style="position:relative;display:inline-block;color:rgba(255,255,255,.22)">★'
+      +(fg>fs? '<span style="position:absolute;left:0;top:0;width:'+fg*100+'%;overflow:hidden;color:var(--gold,#ffc24b);opacity:.45">★</span>':'')
+      +(fs>0? '<span style="position:absolute;left:0;top:0;width:'+fs*100+'%;overflow:hidden;color:var(--gold,#ffc24b)">★</span>':'')+'</span>';
+  }
+  return s;
+}
+function eqEstrellas(n){ return eqEstrellasVis(n,0); }
 function eqRefrescar(){ guardar(); irSub("cuentas","staff"); }
 var EQ_SEL=null;
 function eqSel(p){ EQ_SEL=p; eqRefrescar(); }
@@ -10239,10 +10253,10 @@ function eqPlanSet(p, id){ var E=eqInit(); E.plan[p]=id; eqRefrescar(); }
 function eqFichar(p, id){
   var E=eqInit(), c=eqMercado(p).filter(function(x){return x.id===id;})[0];
   if(!c){ eqRefrescar(); return; }
-  var err=eqRequisito(c), sal=eqSalario(p,c.nivel), ant=E.st[p], es=EQ_ESTILOS[p].filter(function(e){return e.id===c.estilo;})[0], X='';
+  var err=eqRequisito(c), sal=eqSalario(p,eqLv(c)), ant=E.st[p], es=EQ_ESTILOS[p].filter(function(e){return e.id===c.estilo;})[0], X='';
   if(err){ modal({ico:"🤝", t:"No puede ser", x:esc(err)+".", okTxt:"Entendido", cancelTxt:"Cerrar"}); return; }
-  X+='<b>'+esc(c.n)+'</b> · '+eqEstrellas(c.nivel)+' '+EQ_NIVELES[c.nivel-1]+'<br>'+esc(es.n)+' — '+esc(es.d)+'<br>'+c.exp+' años de experiencia · pide <b>'+fmtDinero(sal)+'/año</b>, que pagas ahora.';
-  if(ant) X+='<br><br>⚠ Sustituye a <b>'+esc(ant.n)+'</b> ('+EQ_NIVELES[ant.nivel-1].toLowerCase()+'): se va sin indemnización y lo ya pagado no se recupera'+(ant.curso? ', y pierde el curso que está haciendo':'')+'. La sintonía con el resto empieza de cero.';
+  X+='<b>'+esc(c.n)+'</b> · '+eqEstrellas(c.nivel)+' '+eqNivelTxt(c)+'<br>'+esc(es.n)+' — '+esc(es.d)+'<br>'+c.exp+' años de experiencia · pide <b>'+fmtDinero(sal)+'/año</b>, que pagas ahora.';
+  if(ant) X+='<br><br>⚠ Sustituye a <b>'+esc(ant.n)+'</b> ('+eqNivelTxt(ant).toLowerCase()+'): se va sin indemnización y lo ya pagado no se recupera'+(ant.curso? ', y pierde el curso que está haciendo':'')+'. La sintonía con el resto empieza de cero.';
   var ch=[]; EQ_PUESTOS.forEach(function(q){ var o=E.st[q]; if(!o||q===p) return; var a=es.t, b=eqEstilo(q).t; if((a==="carga"&&b==="cuidado")||(a==="cuidado"&&b==="carga")) ch.push(o.n+" ("+EQ_INFO[q].n.toLowerCase()+")"); });
   if(ch.length) X+='<br><br>⚠ Su estilo choca con el de '+esc(ch.join(", "))+': rendirán menos juntos.';
   if((S.dinero||0)<sal){ modal({ico:"🤝", t:"No puede ser", x:"No te llega: son "+fmtDinero(sal)+" al año.", okTxt:"Entendido", cancelTxt:"Cerrar"}); return; }
@@ -10269,9 +10283,9 @@ function eqTarjetaPuesto(p){
   H+='<p class="note" style="margin:0 2px 8px">'+esc(I.d)+'</p>';
   if(m){
     var es=eqEstilo(p), pot=(eqNivel("analista")>=3 || m.sem>=20) && m.pot>m.nivel;
-    H+='<div style="font-size:14px"><b>'+esc(m.n)+'</b> · '+eqEstrellas(m.nivel)+' <b>'+EQ_NIVELES[m.nivel-1]+'</b></div>';
+    H+='<div style="font-size:14px"><b>'+esc(m.n)+'</b> · '+eqEstrellas(eqLv(m))+' <b>'+eqNivelTxt(m)+'</b></div>';
     H+='<div class="note" style="margin:2px 0 4px">'+esc(es.n)+' — '+esc(es.d)+'</div>';
-    H+='<div class="note" style="margin:0 0 6px">'+m.exp+' años de experiencia · contigo '+(m.sem||0)+' semana'+((m.sem||0)===1?"":"s")+' · '+fmtDinero(m.sal||eqSalario(p,m.nivel))+'/año'+(pot? ' · <b>puede llegar a '+EQ_NIVELES[m.pot-1].toLowerCase()+'</b>':'')+'</div>';
+    H+='<div class="note" style="margin:0 0 6px">'+m.exp+' años de experiencia · contigo '+(m.sem||0)+' semana'+((m.sem||0)===1?"":"s")+' · '+fmtDinero(m.sal||eqSalario(p,eqLv(m)))+'/año'+(pot? ' · <b>puede llegar a '+EQ_NIVELES[m.pot-1].toLowerCase()+'</b>':'')+'</div>';
     var ch=eqChips(p); if(ch.length) H+='<div style="font-size:10.5px;color:var(--dim);margin-bottom:6px">'+ch.map(esc).join(" · ")+'</div>';
     if(p==="prep"||p==="chef"){
       var opt=eqPlanOptimo(p), cur=E.plan[p]||"auto", pl=EQ_PLANES[p];
@@ -10285,17 +10299,17 @@ function eqTarjetaPuesto(p){
       var act=eqPlanElegido(p);
       H+='<p class="note" style="margin:6px 2px 0">Ahora: <b>'+esc(pl[act].n)+'</b> — '+esc(pl[act].d)+(m.nivel>=3? ' <span style="opacity:.8">(ideal hoy: '+esc(pl[opt].n.toLowerCase())+')</span>':'')+'</p>';
     }
-    H+='<p class="note" style="margin:8px 2px 0">'+(m.curso? '🎓 En un curso: vuelve en '+Math.max(1,m.curso.fin-jorAbs())+' sem · ' : (m.nivel<eqTopeCurso(m)? '<a href="javascript:eqCursoElige(\''+p+'\')">🎓 Mandar a un curso</a> · ' : '')+'')+'<a href="javascript:eqPrescindir(\''+p+'\')" style="color:var(--bad)">Prescindir</a></p>';
+    H+='<p class="note" style="margin:8px 2px 0">'+(m.curso? '🎓 En un curso: vuelve en '+Math.max(1,m.curso.fin-jorAbs())+' sem · ' : (eqLv(m)<eqTopeCurso(m)? '<a href="javascript:eqCursoElige(\''+p+'\')">🎓 Mandar a un curso</a> · ' : '')+'')+'<a href="javascript:eqPrescindir(\''+p+'\')" style="color:var(--bad)">Prescindir</a></p>';
   } else {
     H+='<p class="note" style="margin:0 2px 6px">Puesto vacante.</p>';
   }
   /* candidatos */
   H+='<details class="eqcand"'+(m? '' : ' open')+' style="margin-top:8px"><summary class="note" style="cursor:pointer;margin:0 2px 4px"><b>'+(m? "Cambiar por… ("+eqMercado(p).length+" candidatos)":"Candidatos")+'</b></summary>';
   eqMercado(p).forEach(function(c){
-    var sal=eqSalario(p,c.nivel), req=eqRequisito(c), es=EQ_ESTILOS[p].filter(function(e){return e.id===c.estilo;})[0];
+    var sal=eqSalario(p,eqLv(c)), req=eqRequisito(c), es=EQ_ESTILOS[p].filter(function(e){return e.id===c.estilo;})[0];
     var pot=(eqNivel("analista")>=3) && c.pot>c.nivel;
     H+='<button class="opt" onclick="'+(req? "modal({ico:'🔒',t:'Todavía no',x:'"+esc(req).replace(/'/g,"")+"',okTxt:'Entendido',cancelTxt:'Cerrar'})" : "eqFichar('"+p+"','"+c.id+"')")+'">'
-      +esc(c.n)+' · '+eqEstrellas(c.nivel)+' <b>'+EQ_NIVELES[c.nivel-1]+'</b> · <b>'+fmtDinero(sal)+'/año</b>'
+      +esc(c.n)+' · '+eqEstrellas(eqLv(c))+' <b>'+eqNivelTxt(c)+'</b> · <b>'+fmtDinero(sal)+'/año</b>'
       +'<small>'+esc(es.n)+' · '+c.exp+' años de experiencia'+(pot? ' · promesa: puede llegar a '+EQ_NIVELES[c.pot-1].toLowerCase():'')+(req? ' · 🔒 '+esc(req):'')+'</small></button>';
   });
   H+='</details>';
