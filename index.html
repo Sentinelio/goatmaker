@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.060";
+var VERSION="0.03.061";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -1785,6 +1785,19 @@ function sk(campo){
    Cada nivel da un punto que TÚ inviertes en un atributo concreto; el declive
    por edad pesa distinto según cuánto dependa tu puesto de ese atributo
    (un extremo pierde el techo de FIS mucho antes que un portero). ===== */
+/* lo que has subido: instantánea al empezar la semana y la temporada, para ver el avance aunque las cifras vayan con decimales */
+function snapAtr(){ var o={}; ATTR_ORDEN.concat(["POR"]).forEach(function(k){ o[k]=atr(k); }); return o; }
+function snapAtrSemana(){
+  if(!S) return;
+  S.attrSem={t:S.temporada, j:S.jornada, v:snapAtr()};
+  if(!S.attrTemp || S.attrTemp.t!==S.temporada) S.attrTemp={t:S.temporada, v:snapAtr()};
+}
+function progAtr(k){
+  if(!S.attrSem || !S.attrTemp) snapAtrSemana();
+  var v=atr(k), s0=S.attrSem.v[k], t0=S.attrTemp.v[k];
+  return {sem:v-(s0===undefined?v:s0), temp:v-(t0===undefined?v:t0)};
+}
+function sgnDec(x){ var r=Math.round(x*10)/10; return (r>0?"+":r<0?"−":"")+Math.abs(r).toFixed(1).replace(".",","); }
 function tasaDeclive(k){ return {TEC:0.35, FIS:1.0, TAC:0.30, DEF:0.55, MEN:0.20, POR:0.40}[k]||0.5; }
 var TECHO_BASE=68, TECHO_INC=1.0;   /* techo de partida y lo que sube por cada punto de nivel que asignas */
 function techoAtributoDe(k){
@@ -2317,7 +2330,7 @@ function empezarDia(){
   if(S.dia && S.dia.jor===S.jornada) return;
   var V=citaVentana(), st=citaEstado(), c=citaCuenta(st.ll, st.sa), noche=faseVicio("noche");
   var D={jor:S.jornada, fase:(st.ll>0?"antes":"mister"), ronda:0, rondas:elegirSitsEntreno(V.doble?4:3), pts:0, log:[],
-         antes:[], despues:[], ll:st.ll, sa:st.sa, mis0:S.mister, conf0:S.conf, forma0:S.forma};
+         antes:[], despues:[], ll:st.ll, sa:st.sa, mis0:S.mister, conf0:S.conf, forma0:S.forma, attr0:snapAtr()};
   if(noche>=1 && st.ll>0){
     D.noche=true;
     S.forma=clamp((S.forma===undefined?70:S.forma)-3*st.ll,20,100);
@@ -2412,7 +2425,8 @@ function diaSeguir(){
 }
 function notaEntreno(D){
   var N=Math.max(1, D.rondas.length);
-  return Math.round(clamp(3.2+(D.pts/N)*2.0, 3, 10)*10)/10;
+  /* misma vara que el partido: todo regular ≈ 5,5 · jornada normal ≈ 6,2 · jugar seguro ≈ 7,7 · todo mal ≈ 3,7 */
+  return Math.round(clamp(5.0+(D.pts/N)*1.8, 3, 10)*10)/10;
 }
 /* la nota del entreno del míster: se decide al acabar sus ejercicios */
 function cerrarMister(D, aMedias){
@@ -2585,6 +2599,8 @@ function entMisterHTML(){
       var _hechos=D.antes.concat(D.despues).filter(function(h){ return !h.libre; }).map(function(h){ return esc(h.n); });
       H+='<p style="margin:0 0 6px">Míster: <b style="color:var(--ok)">'+_n.ok+' bien</b> · <b style="color:#AAB2C5">'+_n.mid+' regular</b> · <b style="color:var(--bad)">'+_n.ko+' mal</b></p>';
       if(_hechos.length) H+='<p class="note" style="margin:0 0 8px">'+_hechos.join(" · ")+'</p>';
+      var _sube=D.attr0? Object.keys(D.attr0).map(function(k){ var d=atr(k)-D.attr0[k]; return d>=0.005? '<span style="color:var(--ok)">'+esc(ATTR[k].n)+' +'+d.toFixed(2).replace(".",",")+'</span>' : ''; }).filter(function(x){ return x; }) : [];
+      H+='<p style="margin:0 0 6px"><b>Hoy subes:</b> '+(_sube.length? _sube.join(" · ") : '<span class="note">nada que se note</span>')+'</p>';
       H+='<p style="margin:0">'+pensMister(D)+'</p>'
         +'<p class="note" style="margin:4px 0 0">Míster '+citaSigno(S.mister-(D.mis0||S.mister))+' · Confianza '+citaSigno((S.conf||0)-(D.conf0||S.conf||0))+'</p>';
     }
@@ -6540,6 +6556,12 @@ function renderCierre(){
   if(M.miTR) linea.push("🟥 expulsado");
   if(linea.length) cuerpo+='<p class="note" style="text-align:center;margin-top:10px">'+esc(linea.join(" · "))+'</p>';
   if(jugo) cuerpo+='<p style="text-align:center;margin:10px 8px 0;font-size:13px;line-height:1.45">'+esc(resumenActuacion(n))+'</p>';
+  if(jugo){   /* lo que tus decisiones han hecho por tu juego hoy */
+    var _agg={}; (M.ganAtr||[]).forEach(function(g){ var pt=g.split(" "); _agg[pt[0]]=(_agg[pt[0]]||0)+parseFloat(pt[1]); });
+    var _txtAg=Object.keys(_agg).map(function(k){ return (ATTR[k]?ATTR[k].n:k)+" +"+_agg[k].toFixed(2).replace(".",","); }).join(" · ");
+    cuerpo+= _txtAg? '<p class="note" style="text-align:center;margin:8px 8px 0;color:var(--ok)"><b>▲ Tu juego sube hoy:</b> '+esc(_txtAg)+'</p>'
+                   : '<p class="note" style="text-align:center;margin:8px 8px 0">Hoy ninguna decisión te hizo mejorar: salieron mal o regular sin una buena lectura.</p>';
+  }
   if(jugo && _caida>=0.5) cuerpo+='<p class="note" style="text-align:center;margin:8px 8px 0">Llegaste a estar en <b>'+M.notaMax.v.toFixed(1)+'</b> ('+M.notaMax.min+'′): el tramo final te costó <b style="color:var(--bad)">−'+_caida.toFixed(1)+'</b>. El detalle, jugada a jugada, en la pestaña Mi Perfil.</p>';
   if(M.cicloCumplido) cuerpo+='<p class="note" style="text-align:center;margin-top:8px;padding:9px 11px;border-radius:12px;background:rgba(255,194,75,.12);color:var(--ink)">🟨 Quinta amarilla del ciclo: te pierdes la próxima jornada por sanción.</p>';
   else if(M.miTR) cuerpo+='<p class="note" style="text-align:center;margin-top:8px;padding:9px 11px;border-radius:12px;background:rgba(255,84,112,.12);color:var(--ink)">🟥 Expulsado: sanción de un partido.</p>';
@@ -6767,7 +6789,7 @@ function cerrarJornada(){
     S.prensa=(S.prensa||[]).concat([{jor:S.jornada+1, t:t}]);
     if(S.prensa.length>12) S.prensa.shift();
   })();
-  S.jornada++;
+  S.jornada++; snapAtrSemana();
   S.conv=null;
   resetSub();
   guardar();
@@ -6810,7 +6832,7 @@ function partidoSinMinutos(){
     S.prensa=(S.prensa||[]).concat([{jor:S.jornada+1, t:t}]);
     if(S.prensa.length>12) S.prensa.shift();
   })();
-  S.jornada++;
+  S.jornada++; snapAtrSemana();
   S.conv=null;
   resetSub();
   guardar();
@@ -6894,7 +6916,7 @@ function jornadaSinTi(){
     S.prensa=(S.prensa||[]).concat([{jor:S.jornada+1, t:t}]);
     if(S.prensa.length>12) S.prensa.shift();
   })();
-  S.jornada++;
+  S.jornada++; snapAtrSemana();
   S.conv=null;
   resetSub();
   guardar();
@@ -9048,11 +9070,16 @@ function sumarTecho(k){
   TECHO_OK={k:k, de:antes, a:techoAtributoDe(k)};
   chRefreshUI_();
 }
+function progAtrHTML(a){
+  var g=progAtr(a);
+  var c=function(x){ return x>=0.05? "var(--ok)" : x<=-0.05? "var(--bad)" : "var(--muted)"; };
+  return '<div class="note" style="margin:2px 0 0;font-size:12px">Esta semana <b style="color:'+c(g.sem)+'">'+sgnDec(g.sem)+'</b> · esta temporada <b style="color:'+c(g.temp)+'">'+sgnDec(g.temp)+'</b></div>';
+}
 function filaAtributo(a,pend){
   var t=techoAtributoDe(a);
   var btn = pend>0 ? '<button class="opt" style="width:auto;min-width:44px;padding:6px 12px;margin:4px 0 0" onclick="sumarTecho(\''+a+'\')" aria-label="Sumar un punto de techo a '+esc(ATTR[a].n)+'">+ 1</button>' : '';
   return '<div style="display:flex;gap:12px;align-items:center;margin:10px 0">'
-    +'<div style="flex:1;min-width:0">'+barraAttr(a)+'<div class="note" style="margin:2px 0 0">'+esc(ATTR[a].d)+'</div></div>'
+    +'<div style="flex:1;min-width:0">'+barraAttr(a)+progAtrHTML(a)+'<div class="note" style="margin:2px 0 0">'+esc(ATTR[a].d)+'</div></div>'
     +'<div style="text-align:right;flex:0 0 auto"><div class="note" style="font-size:12px;margin:0">Techo</div>'
     +'<b class="mono" style="font-size:18px">'+t.toFixed(1)+'</b>'+(btn?'<div>'+btn+'</div>':'')+'</div></div>';
 }
