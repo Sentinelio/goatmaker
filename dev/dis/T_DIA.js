@@ -39,23 +39,21 @@ function nuevo(pos){
   __ok(hr.indexOf("diaSiguienteJugada()")>0 && hr.indexOf("entMisterElige(")<0 && S.dia.log.length===1, "tras cada decisión solo se ve su resultado y el botón de seguir");
   u0=S.convU.u;
   while(S.dia.fase==="mister") avanzaMister(0);
-  __ok(S.dia.fase==="notaMister" && entMisterHTML().indexOf("diaSeguir()")>0, "tras la última jugada se ve la nota del míster antes de seguir");
+  __ok(S.dia.fase==="despues" && entMisterHTML().indexOf("Lo que piensa")<0 && entMisterHTML().indexOf("terminado")<0, "tras la última jugada no hay resumen intermedio: pasa directo a después");
   __ok(S.dia.log.every(function(l){ return l.txt && l.n; }), "cada jugada muestra su resultado con el texto del partido");
-  diaSesion("tecnica"); __ok(S.dia.despues.length===0, "no se puede saltar la pantalla de la nota");
-  diaSeguir();
-  __ok(S.dia.fase==="despues" && S.dia.nota>=3 && S.dia.nota<=10, "tras el míster (nota "+S.dia.nota+") toca después");
+  __ok(S.dia.nota>=3 && S.dia.nota<=10, "tras el míster (nota "+S.dia.nota+") toca después");
   __ok(!entMisterHecho(), "el día no está hecho hasta acabar lo de después");
   var f0=S.forma; diaSesion("recupera");
   __ok(S.dia.fase==="fin" && S.forma>f0, "Recuperación después del entreno sube la forma y termina el día");
+  __ok(entMisterHTML().indexOf("Míster ")>0 && entMisterHTML().replace(/<[^>]+>/g,"").length<420, "el resumen final sale una sola vez y corto");
   __ok(entMisterHecho() && S.entMister.nota===S.dia.nota, "el entreno queda hecho y guardado");
   var cv2=convocatoria();
   __ok(!cv2.prov && S.convU.u===u0, "tras el día se confirma la convocatoria con la misma tirada ("+cv2.txt+")");
   __ok(pendientesSemana().every(function(p){ return !/míster/.test(p.t); }), "ya no sale como pendiente");
   var f=S.forma; empezarDia(); diaSesion("tecnica"); __ok(S.forma===f, "no se puede empezar el día dos veces ni sumar sesiones");
-  __ok(entMisterHTML().indexOf("Lo que piensa el míster")>0, "la tarjeta final resume el día");
   /* 4ª sesión = extra */
   nuevo("LAT"); var V2=citaVentana(); citaMueve("llegada", String(V2.llamada-2)); citaMueve("salida", String(V2.fin+2)); empezarDia();
-  diaSesion("tecnica"); diaSesion("mental"); while(S.dia.fase==="mister") avanzaMister(0); diaSeguir(); diaSesion("tactica"); diaSesion("tecnica");
+  diaSesion("tecnica"); diaSesion("mental"); while(S.dia.fase==="mister") avanzaMister(0); diaSesion("tactica"); diaSesion("tecnica");
   __ok(S.dia.despues.length===2 && S.dia.despues[1].extra===true && S.dia.despues[0].extra===false, "la cuarta sesión del día cuenta como extra");
 })();
 (function(){
