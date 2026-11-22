@@ -635,7 +635,7 @@ input{background:var(--raise);border:1px solid var(--hair);color:var(--ink);
   border-radius:var(--r-sm);padding:11px;font:inherit;width:100%;margin-top:5px}
 input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(255,194,75,.16)}
 /* ---------- ventana de confirmación ---------- */
-#ov-modal{justify-content:center;align-items:center;background:rgba(4,5,10,.88);
+#ov-modal{z-index:90;justify-content:center;align-items:center;background:rgba(4,5,10,.88);
   backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 #ov-modal .inner{max-width:400px;margin:0;flex:none}
 .modal{background:linear-gradient(180deg,#1A1F2E,#0E1019);border:1px solid var(--hair);
@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.04.015";
+var VERSION="0.04.016";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
