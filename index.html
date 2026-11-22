@@ -823,7 +823,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.03.050";
+var VERSION="0.03.051";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -2487,7 +2487,7 @@ function veredictoEntreno(u, conEjecucion){
     h+='<span style="display:block;margin-top:6px;font-weight:700;color:'+colE+'">Tu ejecución fue '+nomE+'.</span>'
       +(u.txt?'<span style="display:block;font-weight:400;color:#AAB2C5">'+esc(u.txt)+(u.gan?' · '+esc(u.gan):'')+'</span>':'');
     if(cu!=="ok" && u.mejora){
-      h+='<span style="display:block;margin-top:6px;font-weight:400;color:#AAB2C5">Para hacerlo mejor, trabaja tu '+esc(ATTR[u.mejora].n.toLowerCase())+'. Sigue trabajando para mejorar.</span>';
+      h+='<span style="display:block;margin-top:6px;font-weight:400;color:#AAB2C5">Para hacerlo mejor, trabaja tu <b style="color:#E8C547">'+esc(ATTR[u.mejora].n.toLowerCase())+'</b>.</span>';
     }
   }
   return h;
