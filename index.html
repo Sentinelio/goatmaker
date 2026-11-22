@@ -821,7 +821,7 @@ function rnd(){ return Math.random(); }
 function pick(a){ if(!a || !a.length) return ""; return a[Math.floor(rnd()*a.length)]; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 /* ================= STORAGE (patrón sGet/sSet) ================= */
-var VERSION="0.04.009";
+var VERSION="0.04.010";
 var NS="lap1-", ST_BACKEND="—";
 async function sSet(k,v){
   if(window.BAJA_ON) return;
@@ -10089,23 +10089,30 @@ var EQ_CUR={p:null};
 function eqSl(id,def){ var e=$(id), v=e? parseFloat(e.value) : NaN; return isNaN(v)? def : v; }
 function eqCursoVista(){
   var p=EQ_CUR.p, m=S.eq.st[p]; if(!m) return;
-  var sem=eqSl("cu-sem",3), cal=clamp(eqSl("cu-cal",3),1,5), sust=clamp(eqSl("cu-sust",1),0,2), util=eqCalUtil(m,cal);
-  var c1=eqCursoCoste(p,sem,cal), c2=eqSustCoste(p,sem,sust), pr=eqCursoProg(m,sem,cal);
-  var fin=jorAbs()+sem, pasa=(S.jornada||0)+sem>38;
-  var T='<b>'+sem+' semanas</b> · calidad <b>'+EQ_CAL[cal-1].n+'</b> · '+esc(EQ_SUST[sust].n)+'<br>Curso: <b>'+fmtDinero(c1)+'</b>'+(c2? ' + sustituto <b>'+fmtDinero(c2)+'</b>':'')+' = <b>'+fmtDinero(c1+c2)+'</b><br>Aprendizaje: ≈<b>'+Math.round(pr*100)+'%</b> de un escalón'+(pr*1.15>=1? ' (casi seguro sube)':' — con varios cursos, un escalón');
-  if(util<cal) T+='<br>⚠ Con su nivel solo aprovecha calidad «'+EQ_CAL[util-1].n.toLowerCase()+'»: lo demás es dinero perdido.';
-  T+='<br>'+esc(EQ_SUST[sust].d)+(pasa? '<br>⚠ Acaba después de esta temporada: en verano se renueva igualmente (pagas su sueldo) y vuelve en la jornada '+((fin%38)||38)+' de la siguiente.':'');
-  [["cu-res",T,1],["cu-sv",sem+" sem"],["cu-cv",EQ_CAL[cal-1].n],["cu-ssv",EQ_SUST[sust].n]].forEach(function(a){ var e=$(a[0]); if(e){ if(a[2]) e.innerHTML=a[1]; else e.textContent=a[1]; } });
+  var sem=clamp(eqSl("cu-sem",3),1,6), cal=clamp(eqSl("cu-cal",3),1,5), sust=clamp(eqSl("cu-sust",1),0,2), util=eqCalUtil(m,cal);
+  var c1=eqCursoCoste(p,sem,cal), c2=eqSustCoste(p,sem,sust), pr=eqCursoProg(m,sem,cal), tope=eqTopeCurso(m);
+  var tot=(m.prog||0)+pr, sube=tot>=1 && m.nivel<tope, ST='';
+  for(var i=1;i<=5;i++){
+    if(i<=m.nivel) ST+='<span style="color:var(--gold,#ffc24b)">★</span>';
+    else if(i===m.nivel+1 && m.nivel<tope) ST+='<span style="color:var(--gold,#ffc24b);opacity:'+(sube? 0.6 : (0.12+0.45*Math.min(1,tot))).toFixed(2)+'">★</span>';
+    else ST+='<span style="opacity:.25">☆</span>';
+  }
+  var set=function(id,v,html){ var e=$(id); if(e){ if(html) e.innerHTML=v; else e.textContent=v; } };
+  set("cu-st",ST,1);
+  set("cu-sv",sem+(sem===1?" semana":" semanas"));
+  set("cu-cv",EQ_CAL[cal-1].n+(util<cal? " ⚠ solo aprovecha «"+EQ_CAL[util-1].n.toLowerCase()+"»":"")+" · "+fmtDinero(c1));
+  set("cu-ssv",EQ_SUST[sust].n+(c2? " · "+fmtDinero(c2):" · rinde el 40%"));
+  var b=document.querySelector("#ov-modal-inner .gold-btn"); if(b) b.textContent="Apuntar · "+fmtDinero(c1+c2);
 }
 function eqCursoElige(p){
   var m=S.eq.st[p]; if(!m) return;
   if(m.curso){ modal({ico:"🎓", t:"En el curso", x:esc(m.n)+" vuelve en "+Math.max(1,m.curso.fin-jorAbs())+" semanas.", okTxt:"Vale", cancelTxt:"Cerrar"}); return; }
   EQ_CUR.p=p;
   var H='<div style="text-align:left;font-size:13px">'
+   +'<div id="cu-st" style="font-size:26px;letter-spacing:4px;text-align:center;margin:2px 0 8px"></div>'
    +'<div class="row2"><span>Tiempo</span><b id="cu-sv"></b></div><input id="cu-sem" type="range" min="1" max="6" value="3" style="width:100%" oninput="eqCursoVista()">'
    +'<div class="row2" style="margin-top:6px"><span>Calidad</span><b id="cu-cv"></b></div><input id="cu-cal" type="range" min="1" max="5" value="3" style="width:100%" oninput="eqCursoVista()">'
-   +'<div class="row2" style="margin-top:6px"><span>Mientras tanto</span><b id="cu-ssv"></b></div><input id="cu-sust" type="range" min="0" max="2" value="1" style="width:100%" oninput="eqCursoVista()">'
-   +'<p id="cu-res" class="note" style="margin:10px 0 0"></p></div>';
+   +'<div class="row2" style="margin-top:6px"><span>Mientras tanto</span><b id="cu-ssv"></b></div><input id="cu-sust" type="range" min="0" max="2" value="1" style="width:100%" oninput="eqCursoVista()"></div>';
   modal({ico:"🎓", t:"Formar a "+esc(m.n), x:H, okTxt:"Apuntar", cancelTxt:"Cancelar",
     onOk:function(){ var e=eqCursoApuntar(p,eqSl("cu-sem",3),eqSl("cu-cal",3),eqSl("cu-sust",1)); if(e) modal({ico:"🎓", t:"No puede ser", x:esc(e), okTxt:"Entendido", cancelTxt:"Cerrar"}); else eqRefrescar(); }});
   eqCursoVista();

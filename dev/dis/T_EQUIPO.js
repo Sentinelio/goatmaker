@@ -270,5 +270,6 @@ var g={dinero:9e6}; eqRenovar(g); t(S.eq.st.fisio && S.eq.st.fisio.curso,"y el v
 base("DC",191,105); ficha("prep",2); t(/Mandar a un curso/.test(secStaff()),"la ficha ofrece mandarlo a un curso");
 var _m3=modal, cf=null; modal=function(c){ cf=c; }; S.dinero=9e6; eqCursoElige("prep"); modal=_m3;
 t(cf && /Apuntar/.test(cf.okTxt) && (cf.x.match(/type="range"/g)||[]).length===3 && /max="6"/.test(cf.x),"el diálogo trae tiempo (1-6), calidad y sustituto");
+t(/id="cu-st"/.test(cf.x) && !/class="note"/.test(cf.x),"el diálogo lleva las estrellas y ningún texto gris debajo");
 S.dinero=9e6; eqCursoApuntar("prep",4,3,1); t(/En un curso/.test(secStaff()),"y la ficha muestra cuándo vuelve");
 console.log("EQUIPO: "+OK+" ok · "+KO+" fallos");
